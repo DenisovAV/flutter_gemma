@@ -19,6 +19,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_gemma/core/di/service_registry.dart';
 import 'package:flutter_gemma/core/domain/model_source.dart';
 import 'package:flutter_gemma/core/model_management/managers/web_model_manager.dart';
+import 'package:flutter_gemma/core/model_management/model_specs.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 
 void main() {
@@ -65,5 +66,29 @@ void main() {
     await manager.ensureInitialized();
 
     expect(manager.activeInferenceModel, isNull);
+  });
+
+  test('downloadModelWithProgress treats a builtIn spec as a fileless identity '
+      'install (no SourceHandler fetch of a nonexistent resource)', () async {
+    await ServiceRegistry.initialize();
+    final manager = WebModelManager();
+    await manager.ensureInitialized();
+
+    final spec = InferenceModelSpec(
+      name: 'gemini-nano',
+      modelSource: BundledSource('gemini-nano'),
+      modelType: ModelType.general,
+      fileType: ModelFileType.builtIn,
+    );
+
+    // Before the fix a builtIn spec fell into the per-file handler loop and the
+    // bundled handler tried to fetch '/gemini-nano'; now it short-circuits to
+    // setActiveModel + a single 100% progress event, like ONNX.
+    final progress = await manager.downloadModelWithProgress(spec).toList();
+    expect(progress, isNotEmpty);
+    expect(progress.last.currentFileProgress, 100);
+    final active = manager.activeInferenceModel as InferenceModelSpec;
+    expect(active.fileType, ModelFileType.builtIn);
+    expect(active.name, 'gemini-nano');
   });
 }

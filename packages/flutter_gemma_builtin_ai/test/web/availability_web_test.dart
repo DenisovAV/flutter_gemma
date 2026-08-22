@@ -43,6 +43,13 @@ void main() {
     expect(status, BuiltInAiAvailability.unavailableOther);
   });
 
+  test('availability() maps a REJECTED probe promise to unavailableOther '
+      '(no raw JS error escapes)', () async {
+    FakeLanguageModel(rejectAvailability: true).install();
+    final status = await BuiltInAi.availability();
+    expect(status, BuiltInAiAvailability.unavailableOther);
+  });
+
   test(
     'ensureReady completes immediately when available (no download)',
     () async {

@@ -19,6 +19,10 @@ extension type ReadableStreamDefaultReader._(JSObject _) implements JSObject {
   /// Resolves to `{value: string|undefined, done: boolean}`.
   external JSPromise<JSObject> read();
   external JSPromise<JSAny?> cancel([JSAny? reason]);
+
+  /// Releases the reader's lock on the stream so it can be GC'd. Synchronous
+  /// per the Web Streams spec.
+  external void releaseLock();
 }
 
 /// Pumps a Prompt API `ReadableStream<string>` into a Dart `Stream<String>`,
@@ -43,8 +47,10 @@ Stream<String> pumpText(JSObject readableStream) {
   // the spec'd shape is DELTA (only the new text). We can't tell from the
   // first chunk, so decide ONCE on the second: if it starts with the first
   // chunk it's cumulative, else delta — then hold that mode for the whole
-  // stream. Deciding per-chunk (the naive guard) would misclassify a delta
-  // chunk that happens to repeat the accumulated prefix and silently drop it.
+  // stream. This NARROWS but does not eliminate misclassification: a genuine
+  // delta whose 2nd chunk happens to start with the whole 1st chunk would still
+  // be read as cumulative. Deciding per-chunk would widen that window to every
+  // chunk, so chunk-2-only is the better tradeoff for real (subword) streams.
   bool? cumulative; // null until decided
 
   Future<void> pumpLoop() async {
@@ -82,6 +88,14 @@ Stream<String> pumpText(JSObject readableStream) {
         controller.addError(e, st);
         await controller.close();
       }
+    } finally {
+      // Release the reader lock so the JS ReadableStream can be GC'd
+      // deterministically on normal completion / error. The onCancel path calls
+      // reader.cancel(), which per the Streams spec ALSO releases the lock, so
+      // guard against a double-release throw here.
+      try {
+        reader.releaseLock();
+      } catch (_) {}
     }
   }
 

@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:js_interop';
 
+import 'package:flutter_gemma/core/utils/gemma_log.dart';
+
 import '../availability_types.dart';
 import 'language_model_interop.dart';
 
@@ -33,6 +35,14 @@ abstract final class BuiltInAi {
       );
       return _mapStatus(statusJs.toDart);
     } on TimeoutException {
+      return BuiltInAiAvailability.unavailableOther;
+    } catch (e) {
+      // A REJECTED availability() promise (transient API / permission /
+      // internal browser failure) must not escape as a raw JS error — the
+      // probe's contract is "always resolves to a BuiltInAiAvailability, never
+      // throws". Map it to the unclassified bucket (and don't let it break
+      // ensureReady() before its own _download() error wrapping runs).
+      gemmaLog('[BuiltInAI/web] LanguageModel.availability() rejected: $e');
       return BuiltInAiAvailability.unavailableOther;
     }
   }

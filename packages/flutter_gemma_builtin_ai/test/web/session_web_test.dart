@@ -272,6 +272,66 @@ void main() {
         'hello'.length,
       ); // fake measureContextUsage returns input length
     });
+
+    test(
+      'propagates a PRESENT-but-rejecting measureContextUsage (no masking)',
+      () async {
+        // A real tokenizer failure must NOT be swallowed into a fabricated count
+        // that silently corrupts context budgeting.
+        FakeLanguageModel(
+          availability: ([o]) => 'available',
+          create: ([o]) => FakeSession(measureThrows: true),
+        ).install();
+        final model = BuiltInAiModelWeb(
+          modelType: ModelType.general,
+          onClose: () {},
+        );
+        final session = await _createSession(model);
+        await expectLater(session.sizeInTokens('hello'), throwsA(anything));
+      },
+    );
+
+    test(
+      'falls back to the char heuristic only when measure* is truly absent',
+      () async {
+        FakeLanguageModel(
+          availability: ([o]) => 'available',
+          create: ([o]) => FakeSession(omitMeasure: true),
+        ).install();
+        final model = BuiltInAiModelWeb(
+          modelType: ModelType.general,
+          onClose: () {},
+        );
+        final session = await _createSession(model);
+        // 8 chars → ceil(8 / 4) == 2.
+        expect(await session.sizeInTokens('abcdefgh'), 2);
+      },
+    );
+  });
+
+  group('single in-flight guard', () {
+    test('a second generation while one is in flight throws', () async {
+      FakeLanguageModel(
+        availability: ([o]) => 'available',
+        create: ([o]) => FakeSession(streamChunks: (_) => ['a', 'b']),
+      ).install();
+      final model = BuiltInAiModelWeb(
+        modelType: ModelType.general,
+        onClose: () {},
+      );
+      final session = await _createSession(model);
+      await session.addQueryChunk(const Message(text: 'hi', isUser: true));
+
+      // getResponseAsync reserves the single in-flight slot at call time.
+      final stream = session.getResponseAsync();
+      // A concurrent turn must be rejected loudly, not run overlapping.
+      expect(session.getResponseAsync, throwsStateError);
+      await expectLater(session.getResponse(), throwsA(isA<StateError>()));
+      // Draining releases the slot; a subsequent turn then works.
+      await stream.drain<void>();
+      await session.addQueryChunk(const Message(text: 'again', isUser: true));
+      expect(await session.getResponseAsync().toList(), ['a', 'b']);
+    });
   });
 
   group('close/destroy idempotence', () {

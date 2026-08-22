@@ -85,6 +85,16 @@ class FakeSession {
     this.onPrompt,
     this.streamChunks,
     this.cumulativeStream = false,
+
+    /// When true, `measureContextUsage` is PRESENT but its promise REJECTS —
+    /// simulates a real tokenizer failure (session destroyed, quota, …) that
+    /// `sizeInTokens` must propagate rather than mask behind the char heuristic.
+    this.measureThrows = false,
+
+    /// When true, NEITHER `measureContextUsage` nor `measureInputUsage` is
+    /// defined on the session — the genuinely-absent case that legitimately
+    /// falls back to the char heuristic.
+    this.omitMeasure = false,
   }) {
     jsObject = JSObject();
     var destroyed = false;
@@ -124,19 +134,29 @@ class FakeSession {
         );
       }).toJS,
     );
-    jsObject.setProperty(
-      'measureContextUsage'.toJS,
-      ((JSString input) {
-        return jsPromiseOf<JSNumber>((resolve, reject) {
-          resolve(input.toDart.length.toDouble().toJS);
-        });
-      }).toJS,
-    );
+    if (!omitMeasure) {
+      jsObject.setProperty(
+        'measureContextUsage'.toJS,
+        ((JSString input) {
+          return jsPromiseOf<JSNumber>((resolve, reject) {
+            if (measureThrows) {
+              reject(
+                fakeDomException('InvalidStateError', 'session destroyed'),
+              );
+              return;
+            }
+            resolve(input.toDart.length.toDouble().toJS);
+          });
+        }).toJS,
+      );
+    }
   }
 
   final String Function(String input)? onPrompt;
   final List<String> Function(String input)? streamChunks;
   final bool cumulativeStream;
+  final bool measureThrows;
+  final bool omitMeasure;
 
   late final JSObject jsObject;
   final List<String> promptCalls = [];
@@ -217,6 +237,11 @@ class FakeLanguageModel {
     /// When true, `create()` returns a Promise that never settles —
     /// simulates a download that never completes for the timeout test.
     bool neverResolveCreate = false,
+
+    /// When true, `availability()` returns a Promise that REJECTS — simulates a
+    /// transient browser/API failure the probe must map to `unavailableOther`
+    /// rather than letting the raw JS error escape.
+    bool rejectAvailability = false,
   }) {
     _jsObject = JSObject();
     _jsObject.setProperty(
@@ -225,6 +250,12 @@ class FakeLanguageModel {
         availabilityCalls++;
         if (neverResolveAvailability) {
           return jsPromiseOf<JSString>((resolve, reject) {});
+        }
+        if (rejectAvailability) {
+          return jsPromiseOf<JSString>(
+            (resolve, reject) =>
+                reject(fakeDomException('UnknownError', 'boom')),
+          );
         }
         final status = _availability?.call(options) ?? 'unavailable';
         return jsPromiseOf<JSString>((resolve, reject) => resolve(status.toJS));

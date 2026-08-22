@@ -55,14 +55,27 @@ class BuiltInAiSessionWeb extends InferenceModelSession {
   bool _isClosed = false;
 
   /// The `AbortController` backing the generation currently in flight (if
-  /// any) — [stopGeneration] aborts it. Only one generation is ever in
-  /// flight per session (buffered-chunk sessions are single-turn-at-a-time
-  /// by construction), so a single field suffices.
+  /// any) — [stopGeneration] aborts it. A non-null value also RESERVES the
+  /// single in-flight slot (set at call time, cleared on the terminal path),
+  /// so [_assertNoGenerationInFlight] can reject an overlapping turn instead of
+  /// letting a second generation clobber this field and leave the first
+  /// unstoppable / its output committed out of order.
   AbortController? _activeAbort;
 
   void _assertNotClosed() {
     if (_isClosed) {
       throw StateError('Session is closed');
+    }
+  }
+
+  void _assertNoGenerationInFlight() {
+    if (_activeAbort != null) {
+      throw StateError(
+        'A generation is already in progress on this session. The Chrome '
+        'Prompt API session is single-turn-at-a-time — await the current '
+        'response (or call stopGeneration/close) before starting another. '
+        '(Core InferenceChat serializes turns; this guards direct misuse.)',
+      );
     }
   }
 
@@ -92,6 +105,7 @@ class BuiltInAiSessionWeb extends InferenceModelSession {
   @override
   Future<String> getResponse() async {
     _assertNotClosed();
+    _assertNoGenerationInFlight();
     final text = _drainBuffer();
     final abort = AbortController();
     _activeAbort = abort;
@@ -113,8 +127,12 @@ class BuiltInAiSessionWeb extends InferenceModelSession {
   @override
   Stream<String> getResponseAsync() {
     _assertNotClosed();
+    _assertNoGenerationInFlight();
     final text = _drainBuffer();
     final abort = AbortController();
+    // Reserve the single in-flight slot immediately (not in onListen), so a
+    // getResponse/getResponseAsync started before this stream is listened is
+    // rejected by _assertNoGenerationInFlight rather than running concurrently.
     _activeAbort = abort;
 
     final controller = StreamController<String>();
@@ -136,6 +154,14 @@ class BuiltInAiSessionWeb extends InferenceModelSession {
     }
 
     controller.onListen = () {
+      // A close() (or a superseding turn) between this stream's creation and
+      // its first listen already aborted+cleared `abort`; don't start a
+      // generation against a closed session or a slot we no longer own.
+      if (_isClosed || !identical(_activeAbort, abort)) {
+        cleanup();
+        if (!controller.isClosed) controller.close();
+        return;
+      }
       final JSObject readableStream;
       try {
         final options = buildPromptOptions(signal: abort.signal);
@@ -179,32 +205,35 @@ class BuiltInAiSessionWeb extends InferenceModelSession {
   @override
   Future<int> sizeInTokens(String text) async {
     _assertNotClosed();
-    try {
+    // Feature-detect which measure* method this Chrome build exposes BEFORE
+    // calling it, so a method that is PRESENT but REJECTS (session destroyed,
+    // quota, a real Prompt-API error) propagates instead of being masked as an
+    // approximate count that would silently corrupt context budgeting. Mirrors
+    // the native session's discipline (rethrow infra failures; fall back only
+    // when the host genuinely can't tokenize). Only a genuinely ABSENT method
+    // falls through to the char heuristic.
+    final js = session as JSObject;
+    if (js.has('measureContextUsage')) {
       final usage = await session.measureContextUsage(text.toJS).toDart;
       return usage.toDartInt;
-    } catch (_) {
-      // `measureContextUsage` is the current name; some earlier builds only
-      // exposed the legacy `measureInputUsage`. Try it before falling back
-      // to the char heuristic.
-      try {
-        final legacy = session.callMethod<JSPromise<JSNumber>>(
-          'measureInputUsage'.toJS,
-          text.toJS,
-        );
-        final usage = await legacy.toDart;
-        return usage.toDartInt;
-      } catch (e) {
-        if (!_tokenFallbackWarnedWeb) {
-          _tokenFallbackWarnedWeb = true;
-          gemmaLog(
-            '[BuiltInAI/web] measureContextUsage is unavailable on this '
-            'host ($e); falling back to a (text.length / 4) estimate. '
-            'Counts are approximate.',
-          );
-        }
-        return (text.length / 4).ceil();
-      }
     }
+    // `measureContextUsage` is the current name; some earlier builds only
+    // exposed the legacy `measureInputUsage`.
+    if (js.has('measureInputUsage')) {
+      final usage = await session
+          .callMethod<JSPromise<JSNumber>>('measureInputUsage'.toJS, text.toJS)
+          .toDart;
+      return usage.toDartInt;
+    }
+    if (!_tokenFallbackWarnedWeb) {
+      _tokenFallbackWarnedWeb = true;
+      gemmaLog(
+        '[BuiltInAI/web] neither measureContextUsage nor measureInputUsage is '
+        'available on this host; falling back to a (text.length / 4) estimate. '
+        'Counts are approximate.',
+      );
+    }
+    return (text.length / 4).ceil();
   }
 
   @override
@@ -213,9 +242,13 @@ class BuiltInAiSessionWeb extends InferenceModelSession {
     if (abort == null) return;
     try {
       abort.abort();
-    } catch (_) {
+    } catch (e) {
       // abort() on an already-settled controller is a no-op per spec; guard
-      // defensively in case a host throws instead.
+      // defensively in case a host throws instead. A throw here means the stop
+      // request may not have taken effect — surface it in debug.
+      if (kDebugMode) {
+        gemmaLog('[BuiltInAI/web] abort() threw in stopGeneration: $e');
+      }
     }
   }
 
@@ -236,29 +269,34 @@ class BuiltInAiSessionWeb extends InferenceModelSession {
     onClose();
     try {
       session.destroy();
-    } catch (_) {
+    } catch (e) {
       // destroy() is documented sync-void; guard so a double-release (e.g.
-      // a racing close() call) can't throw out of this method.
+      // a racing close() call) can't throw out of this method. A throw for any
+      // OTHER reason would leak the JS session — surface it in debug.
+      if (kDebugMode) {
+        gemmaLog('[BuiltInAI/web] session.destroy() threw on close: $e');
+      }
     }
   }
 }
 
-/// Best-effort detection of a JS `AbortError` surfaced through
-/// `dart:js_interop`'s promise-rejection conversion. Checked defensively —
-/// both against a JS `DOMException`-shaped object's `.name` and against the
-/// stringified error — because Chrome versions differ in exactly what shape
-/// a rejected `AbortController` signal surfaces as.
+/// Detection of a JS `AbortError` surfaced through `dart:js_interop`'s
+/// promise-rejection conversion. Trusts ONLY the structured DOMException
+/// `.name`: a substring match on the stringified error would misclassify a
+/// real generation failure as a clean stop (see the body).
 bool _isAbortError(Object error) {
-  // No `is`/`as` runtime check against the JSObject interop type (unreliable
-  // across compile modes) — just attempt the property read and fall through
-  // to the string check if `error` isn't JS-interop-shaped at all.
+  // Trust ONLY the structured DOMException `name`. A substring match on the
+  // stringified error would misclassify a real generation failure whose message
+  // merely contains "AbortError" as a clean user-initiated stop — surfacing a
+  // failure as an empty, successful-looking response. No `is`/`as` runtime check
+  // against the JSObject interop type (unreliable across compile modes); attempt
+  // the property read and treat a non-JS-shaped error as "not an abort".
   try {
     final name = (error as JSObject)
         .getProperty<JSString?>('name'.toJS)
         ?.toDart;
-    if (name == 'AbortError') return true;
+    return name == 'AbortError';
   } catch (_) {
-    // Not a DOMException-shaped object — fall through to the string check.
+    return false;
   }
-  return error.toString().contains('AbortError');
 }

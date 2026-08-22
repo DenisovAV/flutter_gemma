@@ -50,8 +50,16 @@ class InferenceChat {
   /// engine's explicit override wins; absent one it derives from the model's
   /// [FunctionCallFormat] (true for SDK-passthrough models like Gemma 4). This
   /// replaces the former hardcoded `modelType == ModelType.gemma4` check, so an
-  /// engine that injects tools natively (e.g. the web Prompt API) can opt in for
-  /// any model type.
+  /// engine that injects tools natively could opt in for any model type. No
+  /// shipping engine sets the override yet (Gemma 4 gets `true` via its format).
+  ///
+  /// NOTE: this governs the INPUT side only (skipping declaration injection).
+  /// Reading tool calls BACK is still keyed off
+  /// [FunctionCallParser.usesSdkPassthrough] (see [generateChatResponse] /
+  /// [generateChatResponseAsync]), which is model-format-derived and not
+  /// per-chat overridable — so an engine that sets this `true` on a
+  /// non-passthrough model gets calls parsed from the text stream, not from a
+  /// structured SDK response.
   late final bool runtimeInjectsToolDeclarations =
       _runtimeInjectsToolDeclarationsOverride ??
       FunctionCallParser.runtimeInjectsToolDeclarations(modelType);
@@ -120,10 +128,10 @@ class InferenceChat {
     // Only add tools prompt for the first user text message (not a tool response)
     // and only if the model supports function calls.
     // Runtime-injected declarations are exempt: when the runtime/SDK renders the
-    // tools itself (Gemma 4's `tools_json` at conversation creation; the web
-    // Prompt API's native `tools`), a Dart-side prompt injection would
-    // double-wrap them. Gated on [runtimeInjectsToolDeclarations], not a
-    // hardcoded model type.
+    // tools itself (today only Gemma 4's `tools_json` at conversation creation;
+    // in future, e.g. a web Prompt API arm passing native `tools`), a Dart-side
+    // prompt injection would double-wrap them. Gated on
+    // [runtimeInjectsToolDeclarations], not a hardcoded model type.
     if (message.isUser &&
         message.type == MessageType.text &&
         !_toolsInstructionSent &&

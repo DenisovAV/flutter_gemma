@@ -65,7 +65,7 @@ extension type LanguageModelSession._(JSObject _) implements JSObject {
 extension type AbortController._(JSObject _) implements JSObject {
   external factory AbortController();
 
-  external JSObject get signal;
+  external AbortSignal get signal;
   external void abort([JSAny? reason]);
 }
 

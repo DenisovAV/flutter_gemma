@@ -10,7 +10,7 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'flutter_gemma_builtin_ai'
-  s.version          = '0.1.1'
+  s.version          = '0.2.0'
   s.summary          = 'Apple Foundation Models backend for flutter_gemma (iOS/macOS).'
   s.description      = <<-DESC
 Built-in OS AI engine for flutter_gemma: Apple Foundation Models on

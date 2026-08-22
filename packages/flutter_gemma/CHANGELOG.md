@@ -1,3 +1,6 @@
+## 1.6.5
+- Tool-declaration injection is a declarative `InferenceChat` flag, not a hardcoded gemma4 check (no behavior change).
+
 ## 1.6.4
 - Android plugin no longer applies KGP — Flutter's Gradle plugin does (#440).
 - iOS floor is 15.0; only `flutter_gemma_mediapipe` still needs 16.0 (#441).

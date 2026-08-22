@@ -3,6 +3,9 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 
 import '../pigeon.g.dart';
+import 'availability_types.dart';
+
+export 'availability_types.dart';
 
 /// Shared pigeon client for the built-in AI host. Library-level (non-private)
 /// so the availability facade, the engine and the sessions all drive the SAME
@@ -15,18 +18,6 @@ final builtInAiService = BuiltInAiService();
 /// - error: `{code: 'ERROR', message: String, sessionId: int}`
 /// - download: `{code: 'DOWNLOAD_PROGRESS', bytesDownloaded: int, bytesTotal: int}`
 const builtInAiEventChannel = EventChannel('flutter_gemma_builtin_ai_stream');
-
-/// Availability of the OS built-in model, surfaced to app code. Mirrors the
-/// frozen wire enum [AvailabilityStatus] one-to-one.
-enum BuiltInAiAvailability {
-  available,
-  downloadable,
-  downloading,
-  unavailableDeviceUnsupported,
-  unavailableOsTooOld,
-  unavailableDisabled,
-  unavailableOther,
-}
 
 /// Maps the frozen pigeon wire enum onto the public [BuiltInAiAvailability].
 BuiltInAiAvailability mapAvailability(AvailabilityStatus status) =>
@@ -43,19 +34,6 @@ BuiltInAiAvailability mapAvailability(AvailabilityStatus status) =>
       AvailabilityStatus.unavailableOther =>
         BuiltInAiAvailability.unavailableOther,
     };
-
-/// Thrown by [BuiltInAi.ensureReady] when the OS model can't be made ready
-/// (device unsupported, OS too old, feature disabled, or an unclassified
-/// failure). [status] is the terminal availability that caused the failure.
-class BuiltInAiUnavailableException implements Exception {
-  BuiltInAiUnavailableException(this.status, this.message);
-
-  final BuiltInAiAvailability status;
-  final String message;
-
-  @override
-  String toString() => 'BuiltInAiUnavailableException($status): $message';
-}
 
 /// App-facing entry point for probing and preparing the OS built-in model.
 abstract final class BuiltInAi {

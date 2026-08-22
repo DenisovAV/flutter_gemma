@@ -6,6 +6,14 @@ import 'package:flutter_gemma/core/model_response.dart';
 /// Implementations handle detection, completion checking, and parsing
 /// for their specific format.
 abstract class FunctionCallFormat {
+  /// Whether the runtime/SDK injects the tool declarations itself, so
+  /// [InferenceChat] must NOT weave its own tools prompt into the text (that
+  /// would double-wrap the declarations). Defaults to `false` (text-stream
+  /// formats rely on the Dart-side prompt); the SDK-passthrough format overrides
+  /// it to `true`. Independent of [parseAll]/[parse]: a format can have its
+  /// declarations runtime-injected yet still surface calls in the text stream.
+  bool get runtimeInjectsToolDeclarations => false;
+
   /// Check if buffer starts with a function call indicator.
   bool isFunctionCallStart(String buffer);
 

@@ -18,7 +18,7 @@ dependencies:
   # Inference engines — add at least one:
   flutter_gemma_litertlm: latest_version     # .litertlm models (FFI; mobile + desktop + web) + LiteRtEmbeddingBackend
   flutter_gemma_mediapipe: latest_version    # .task / .bin models (MediaPipe; mobile + web)
-  flutter_gemma_builtin_ai: latest_version   # OS system models — Gemini Nano (Android) / Apple FM (iOS 26+/macOS)
+  flutter_gemma_builtin_ai: latest_version   # OS system models — Gemini Nano (Android) / Apple FM (iOS 26+/macOS) / Chrome Prompt API (Web)
   flutter_gemma_onnx: latest_version         # ONNX models — ORT-GenAI (FFI, native) / Transformers.js (web) + OnnxEmbeddingBackend
 
   # Optional — text embeddings + on-device RAG:

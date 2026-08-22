@@ -19,6 +19,16 @@ class FunctionCallParser {
       FunctionCallFormatFactory.create(modelType)
           is SdkPassthroughFunctionCallFormat;
 
+  /// Whether [modelType]'s format has its tool declarations injected by the
+  /// runtime/SDK, so [InferenceChat] must not weave its own tools prompt. The
+  /// model-derived default for `InferenceChat.runtimeInjectsToolDeclarations`;
+  /// an engine that injects tools natively (e.g. the web Prompt API) overrides
+  /// it per-chat. Keyed off the format, not a hardcoded model.
+  static bool runtimeInjectsToolDeclarations(ModelType? modelType) =>
+      FunctionCallFormatFactory.create(
+        modelType,
+      ).runtimeInjectsToolDeclarations;
+
   /// Check if buffer starts with function call indicators
   static bool isFunctionCallStart(String buffer, {ModelType? modelType}) {
     return FunctionCallFormatFactory.create(

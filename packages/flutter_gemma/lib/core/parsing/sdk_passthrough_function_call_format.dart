@@ -11,6 +11,12 @@ import 'package:flutter_gemma/core/model_response.dart';
 /// out of the session's last raw JSON via `SdkResponseParser.extractToolCalls`
 /// in [InferenceChat.generateChatResponse].
 class SdkPassthroughFunctionCallFormat extends FunctionCallFormat {
+  /// The backend (e.g. LiteRT-LM Gemma 4) renders the tool declarations from
+  /// `tools_json` at conversation creation, so the Dart-side tools prompt must
+  /// be skipped to avoid double-wrapping them.
+  @override
+  bool get runtimeInjectsToolDeclarations => true;
+
   @override
   bool isFunctionCallStart(String buffer) => false;
 

@@ -20,6 +20,21 @@ model (Gemma 4 E2B/E4B recommended). See <a href="/docs/function-calling">Functi
 Calling</a> for the model support matrix.
 </Info>
 
+## Install
+
+Add the core and the agent package. The agent builds on flutter_gemma's
+function-calling loop, so you also register an inference engine from an engine
+package (e.g. `flutter_gemma_litertlm`, which provides the `LiteRtLmEngine()`
+used below).
+
+```
+dependencies:
+  flutter_gemma: ^1.6.5
+  flutter_gemma_agent: ^0.2.5
+```
+
+The agent is **not supported on Web** yet — see the note below.
+
 ## The four skill mechanisms
 
 A skill is a Markdown file (`SKILL.md`) with YAML frontmatter and one of four

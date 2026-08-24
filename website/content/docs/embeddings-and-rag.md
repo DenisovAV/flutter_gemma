@@ -4,7 +4,8 @@ description: Generate text embeddings and run on-device retrieval-augmented gene
 image: https://fluttergemma.dev/images/og-image.png
 ---
 
-flutter_gemma can generate vector embeddings from text (EmbeddingGemma / Gecko)
+flutter_gemma can generate vector embeddings from text (EmbeddingGemma / Gecko on
+LiteRT, or BERT / MiniLM / WordPiece models via the ONNX backend)
 and run on-device RAG with a vector store. Two stores are available, both with
 the same Dart API: **qdrant-edge** — the fastest store on native (HNSW
 approximate nearest-neighbour) — and **sqlite-vec** — a portable, exact store
@@ -33,10 +34,12 @@ See [Installation](/docs/installation) for the full registration reference.
 
 ## Text embeddings
 
-All embedding models generate **768-dimensional vectors**. The number in a model
-name (64/256/512/1024/2048) is the max input sequence length in tokens, not the
-embedding dimension. See [Models](/docs/models#text-embedding-models) for the full
-list.
+The embedding **dimension depends on the model and backend**. The LiteRT models
+(EmbeddingGemma / Gecko) generate **768-dimensional vectors**; with
+`OnnxEmbeddingBackend` the dimension is model-dependent (e.g. all-MiniLM-L6-v2 is
+384-dim). The number in a model name (64/256/512/1024/2048) is the max input
+sequence length in tokens, not the embedding dimension. See
+[Models](/docs/models#text-embedding-models) for the full list.
 
 ### Install an embedding model
 
@@ -64,10 +67,11 @@ final embeddings = await embedder.generateEmbeddings(
 ```
 
 <Info>
-Embedding currently runs on **CPU only**. EmbeddingGemma is an int4 `.tflite`
-model, and the TFLite GPU delegate cannot run int4 — so GPU embedding is not
-possible for this model format. Embedding runs on a background isolate so it
-doesn't block the UI thread.
+The LiteRT `LiteRtEmbeddingBackend` runs embedding on **CPU only**: EmbeddingGemma
+is an int4 `.tflite` model, and the TFLite GPU delegate cannot run int4 — so GPU
+embedding is not possible for that model format. The `OnnxEmbeddingBackend` is not
+bound by this — it runs embeddings on **WebGPU** on Web (onnxruntime-web). Either
+way, embedding runs on a background isolate so it doesn't block the UI thread.
 </Info>
 
 ## On-device RAG / vector store
@@ -209,6 +213,13 @@ qdrant promotes at write time.
 
 Both stores expose the identical Dart API, so you can swap one for the other by
 changing only the `vectorStore:` you register.
+
+| | qdrant-edge | sqlite-vec (`vec0`) |
+|---|---|---|
+| **Platforms** | Native only (Android, iOS, macOS, Linux, Windows) | All six — native **+ Web** |
+| **KNN** | Exact below ~20k points, HNSW above | Exact (brute-force inside SQLite) |
+| **Speed** | Fastest native (~5–11× faster search at 1k–10k docs) | Portable, identical results everywhere |
+| **When to use** | Native throughput at scale | Web reach, or exact results across every platform |
 
 **Which store?** `qdrant-edge` is the fastest **native** option — benchmarked
 ~5–11× faster search than the `sqlite-vec` store at 1k–10k documents — using HNSW

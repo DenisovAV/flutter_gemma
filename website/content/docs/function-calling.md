@@ -37,6 +37,55 @@ ignores the tools — the model still works normally for text generation. Check 
 `supportsFunctionCalls` property in your model configuration.
 </Info>
 
+### Built-in AI (OS models)
+
+[Built-in AI](/docs/builtin-ai) models — Gemini Nano (Android), Apple Foundation
+Models (iOS/macOS), and the Chrome Prompt API (Web) — also support function
+calling, but it is **prompt-based**: these OS models don't expose a usable
+structured tool API, so core `InferenceChat` weaves the tool definitions into
+the prompt and parses the calls back out of the model's text. You declare tools
+the same way (see below). Gemini Nano handles single-turn tool calls; multi-turn
+agent chaining is **not** supported on Web.
+
+## Declaring tools
+
+Describe each function as a `Tool` — a `name`, a `description`, and a
+JSON-Schema `parameters` map — then pass the list to `createChat` (or
+`createSession`) together with `supportsFunctionCalls: true`:
+
+```dart
+final tools = [
+  const Tool(
+    name: 'change_background_color',
+    description: 'Change the app background color.',
+    parameters: {
+      'type': 'object',
+      'properties': {
+        'color': {'type': 'string', 'description': 'A CSS color name.'},
+      },
+      'required': ['color'],
+    },
+  ),
+];
+
+final chat = await model.createChat(
+  tools: tools,
+  supportsFunctionCalls: true,
+  toolChoice: ToolChoice.auto,
+);
+```
+
+`ToolChoice` controls whether the model may call a tool:
+
+- `ToolChoice.auto` (default) — the model decides.
+- `ToolChoice.required` — the model must respond with a function call.
+- `ToolChoice.none` — the model must not call any tool, even when tools are passed.
+
+<Info>
+`ToolChoice.required` is not supported by FunctionGemma — its prompt format has
+no way to express the constraint, so it degrades to `auto` and logs a warning.
+</Info>
+
 ## Handling function calls
 
 When the model wants to call a function, the response stream emits a
@@ -56,6 +105,21 @@ chat.generateChatResponseAsync().listen((response) {
   }
 });
 ```
+
+<Info>
+A model can also request **several** calls at once — the stream then emits a
+`ParallelFunctionCallResponse` carrying a `calls` list of `FunctionCallResponse`s.
+`generateChatResponseWithTools` (below) handles this internally; a manual
+listener must handle it too:
+
+```dart
+} else if (response is ParallelFunctionCallResponse) {
+  for (final call in response.calls) {
+    _handleFunctionCall(call);
+  }
+}
+```
+</Info>
 
 Send the function result back to the model so it can continue:
 
@@ -103,6 +167,11 @@ runs function calls inside a spoken turn through it (see
 Function calling is supported on **Android, iOS, Web, and Desktop**. For Gemma 4,
 the native function-call tokens are routed through the LiteRT-LM SDK chat-template
 path (use `ModelType.gemma4`).
+
+With the [Built-in AI](/docs/builtin-ai) engine (`flutter_gemma_builtin_ai`)
+function calling is prompt-based rather than a native tool API — Gemini Nano
+(Android) and Apple Foundation Models (iOS/macOS) handle single-turn tool calls;
+on Web (Chrome Prompt API) multi-turn agent chaining is not supported.
 
 <Warning>
 Function calling / tool calls are **not** supported on the web `.litertlm` path

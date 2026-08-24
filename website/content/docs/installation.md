@@ -28,6 +28,9 @@ dependencies:
 
   # Optional — on-device speech (STT + TTS):
   flutter_gemma_speech: latest_version       # transcribe audio + synthesize speech (on-device STT + TTS; native only) + voice loop
+
+  # Optional — on-device agent skills:
+  flutter_gemma_agent: latest_version        # agent skills the model runs itself (text / JS / native-intent / MCP)
 ```
 
 **Pick by need:**
@@ -43,6 +46,7 @@ dependencies:
 | On-device RAG on native, fastest (Android/iOS/desktop) | `flutter_gemma_rag_qdrant` |
 | On-device RAG on web, or a portable/exact store on any platform | `flutter_gemma_rag_sqlite` |
 | Transcribe audio, synthesize speech, or run a voice loop on-device (STT + TTS + voice) | `flutter_gemma_speech` |
+| Run on-device agent skills the model executes itself (text / JS / native-intent / MCP) | `flutter_gemma_agent` |
 
 Core registers **no** engine by itself — you wire the packages you added in
 `await FlutterGemma.initialize(...)` (below). Run `flutter pub get` to install.
@@ -367,11 +371,15 @@ repo for web-compatible builds.
 
 ### Desktop (macOS, Windows, Linux)
 
-Desktop is served exclusively by **`flutter_gemma_litertlm`** and uses
-**LiteRT-LM format only** (`.litertlm` files). There is no MediaPipe engine on
-desktop — `.task` / `.bin` models are **NOT compatible** with desktop. The native
-library is fetched at build time by the package's Native-Assets hook — no manual
-download/bundling.
+Desktop is served **primarily** by **`flutter_gemma_litertlm`** (`.litertlm`
+files) — the default engine, whose native library is fetched at build time by the
+package's Native-Assets hook (no manual download/bundling). **`flutter_gemma_onnx`**
+([ONNX Runtime](/docs/onnx)) also runs on all three desktop OSes
+(macOS/Windows/Linux), and on **macOS** the OS built-in model is available via
+**`flutter_gemma_builtin_ai`** ([Apple Foundation Models](/docs/builtin-ai),
+macOS only — not Windows/Linux). What holds across all of desktop: there is no
+MediaPipe engine on desktop — `.task` / `.bin` models are **NOT compatible** with
+desktop.
 
 See [Desktop Support](/docs/desktop) for the full per-platform reference (macOS
 `Podfile` `post_install`, entitlements, Windows VC++ runtime, Linux Vulkan

@@ -31,7 +31,8 @@ ships only the native weight it actually uses. All packages live in one monorepo
   See [Installation](/docs/installation).
 - **Probe-chain registry.** Engines and backends are pure factories that declare
   `canHandle(spec)` + a priority. The registry selects a provider per model by
-  file type — `.task` / `.bin` / `.tflite` → MediaPipe, `.litertlm` → LiteRT-LM.
+  file type — `.task` / `.bin` / `.tflite` → MediaPipe, `.litertlm` → LiteRT-LM,
+  `.onnx` → Onnx, `builtIn` → BuiltInAi.
 - **One app can run both formats.** Register both `LiteRtLmEngine()` and
   `MediaPipeEngine()`, and the registry routes each model to the engine that
   handles its extension.
@@ -57,8 +58,11 @@ ships only the native weight it actually uses. All packages live in one monorepo
 | Transcribe audio, synthesize speech, or run a voice loop on-device (STT + TTS + voice) | `flutter_gemma_speech` |
 
 <Info>
-Desktop is served exclusively by `flutter_gemma_litertlm` and uses LiteRT-LM
-format only. There is no MediaPipe engine on desktop. See
+Desktop is served **primarily** by [`flutter_gemma_litertlm`](/docs/litertlm)
+(`.litertlm`) — the default engine. [`flutter_gemma_onnx`](/docs/onnx) also runs
+on all three desktop OSes (macOS/Windows/Linux), and on **macOS** the OS built-in
+model is available via [`flutter_gemma_builtin_ai`](/docs/builtin-ai) (Apple
+Foundation Models, macOS only). There is no MediaPipe engine on desktop. See
 [Desktop Support](/docs/desktop).
 </Info>
 

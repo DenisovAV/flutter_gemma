@@ -12,8 +12,10 @@ devices with 8GB+ RAM.
 
 Vision is supported by **Gemma 4 E2B/E4B**, **Gemma3n E2B/E4B**, **FastVLM 0.5B**
 (desktop), and the community models **Qwen2-VL 2B**, **SmolVLM2 500M**, and
-**LLaVA-OneVision 0.5B** (Android, iOS, Desktop). Gemma 4 / Gemma3n vision runs on
-all four platforms (Android, iOS, Web, Desktop). On the `.litertlm` engine the
+**LLaVA-OneVision 0.5B** (Android, iOS, Desktop). **Gemma 4** vision runs on all
+four platforms (Android, iOS, Web, Desktop); **Gemma3n** vision runs on Android,
+iOS, and Desktop only — its web build is `.litertlm`, which is text-only. On the
+`.litertlm` engine the
 text decoder runs on your chosen backend (Metal / Vulkan / DX12 on GPU), while
 the **vision encoder always runs on CPU by default** — the Metal/WebGPU delegates
 can't prepare its ops — so image input works on a GPU text backend with no extra

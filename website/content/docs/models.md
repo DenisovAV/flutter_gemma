@@ -34,16 +34,18 @@ Both formats require **manual chat template formatting** in your code.
 
 ### Type 3: System OS models (no file)
 
-- **Gemini Nano** (Android, via AICore / ML Kit GenAI), **Apple Foundation
-  Models** (iOS 26+/macOS), and **Gemini Nano via the Chrome Prompt API** (Web —
-  desktop Chrome/Edge) are **built into the OS/browser** — there is no model file
-  to bundle or download; the platform owns the weights.
-- Add [`flutter_gemma_builtin_ai`](/docs/packages) and register `BuiltInAiEngine()`.
-  Use `ModelFileType.builtIn` (the engine's `BuiltInAiModels.geminiNano` /
-  `.appleFoundationModels` specs set it for you). Chat templates are handled by
-  the OS runtime. Availability is device-gated — probe with `BuiltInAi.availability()`
-  / `BuiltInAi.ensureReady()` before use (Gemini Nano needs Pixel 9+/Galaxy S25+;
-  Apple FM needs Apple Intelligence enabled on iPhone 15 Pro+/M-series).
+**Gemini Nano** (Android, via AICore / ML Kit GenAI), **Apple Foundation Models**
+(iOS 26+/macOS), and **Gemini Nano via the Chrome Prompt API** (Web — desktop
+Chrome/Edge) are **built into the OS/browser** — there is no model file to bundle
+or download; the platform owns the weights. Add
+[`flutter_gemma_builtin_ai`](/docs/packages), register `BuiltInAiEngine()`, and use
+`ModelFileType.builtIn`. Availability is device-gated — Gemini Nano needs Pixel
+9+/Galaxy S25+, and Apple FM needs Apple Intelligence enabled on iPhone
+15 Pro+/M-series. On Android the package requires **`minSdk 26`**.
+
+👉 See **[Built-in AI](/docs/builtin-ai)** for the full setup, the availability
+probe (`BuiltInAi.availability()` / `BuiltInAi.ensureReady()`), and fallback
+guidance.
 
 <Info>
 `ModelFileType` is what selects the engine — it is **not** inferred from the file
@@ -77,8 +79,8 @@ MediaPipe `.task` build.
 
 | Model Family | Best For | Function Calling | Thinking Mode | Vision | Languages | Size |
 |---|---|:---:|:---:|:---:|---|---|
-| **Gemma 4 E2B** | Next-gen multimodal chat — text, image, audio | ✅ | ✅ | ✅ | Multilingual | 2.4GB |
-| **Gemma 4 E4B** | Next-gen multimodal chat — text, image, audio | ✅ | ✅ | ✅ | Multilingual | 4.3GB |
+| **Gemma 4 E2B** | Next-gen multimodal chat — text, image, audio | ✅ | ✅ ¹ | ✅ | Multilingual | 2.4GB |
+| **Gemma 4 E4B** | Next-gen multimodal chat — text, image, audio | ✅ | ✅ ¹ | ✅ | Multilingual | 4.3GB |
 | **Gemma3n** | On-device multimodal chat and image analysis | ✅ | ❌ | ✅ | Multilingual | 3-6GB |
 | **FastVLM 0.5B** | Fast vision-language inference | ❌ | ❌ | ✅ | Multilingual | 0.5GB |
 | **Qwen2-VL 2B** | Vision-language chat (image + text) | ❌ | ❌ | ✅ | Multilingual | 1.8GB |
@@ -95,6 +97,9 @@ MediaPipe `.task` build.
 | **SmolLM 135M** | Ultra-compact, resource-constrained devices | ❌ | ❌ | ❌ | English | 135MB |
 | **SmolLM3 3B** | Multilingual small LLM with reasoning mode | ❌ | ✅ | ❌ | Multilingual | 2.0GB |
 | **TranslateGemma 4B** † | Single-shot 55-language translation | ❌ | ❌ | ❌ | 55 languages | 2-4GB |
+
+¹ Gemma 4 **Thinking Mode** works on Android, iOS, and Desktop only — **not on
+Web** (the MediaPipe web engine does not support the `extraContext` thinking path).
 
 <Warning>
 † **TranslateGemma is CPU-only for now.** Google hasn't released a
@@ -121,7 +126,7 @@ When installing models, specify the correct `ModelType`:
 | **Qwen 2.5** | `ModelType.qwen` | Qwen 2.5 1.5B, Qwen 2.5 0.5B |
 | **Qwen 3** | `ModelType.qwen3` | Qwen3 0.6B |
 | **FunctionGemma** | `ModelType.functionGemma` | FunctionGemma 270M IT |
-| **Phi** | `ModelType.phi` | Phi-4 Mini |
+| **Phi** | `ModelType.general` | Phi-4 Mini |
 | **General** | `ModelType.general` | FastVLM 0.5B, SmolLM 135M, SmolLM3 3B, Phi-4 Mini Reasoning, Qwen2-VL 2B, SmolVLM2 500M, LLaVA-OneVision 0.5B |
 
 <Info>
@@ -160,7 +165,7 @@ await FlutterGemma.installModel(modelType: ModelType.general)
 | [LLaVA-OneVision 0.5B](https://huggingface.co/litert-community/LLaVA-OneVision-0.5B) | 0.83GB | ✅ | ✅ | ❌ |
 | [Gemma-3 1B](https://huggingface.co/litert-community/Gemma3-1B-IT) | 0.5GB | ✅ | ✅ | ✅ |
 | [Gemma 3 270M](https://huggingface.co/litert-community/gemma-3-270m-it) | 0.3GB | ✅ | ✅ | ✅ |
-| [FunctionGemma 270M](https://huggingface.co/sasha-denisov/function-gemma-270M-it) | 284MB | ✅ | ✅ | ❌ |
+| [FunctionGemma 270M](https://huggingface.co/sasha-denisov/function-gemma-270M-it) | 284MB | ✅ | ✅ | ✅ |
 | [Qwen3 0.6B](https://huggingface.co/litert-community/Qwen3-0.6B) | 586MB | ✅ | ✅ | ✅ |
 | [Qwen 2.5 1.5B](https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct) | 1.6GB | ✅ | ✅ | ❌ |
 | [Qwen 2.5 0.5B](https://huggingface.co/litert-community/Qwen2.5-0.5B-Instruct) | 0.5GB | ❌ | ✅ | ❌ |

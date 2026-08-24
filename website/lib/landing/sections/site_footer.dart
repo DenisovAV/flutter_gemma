@@ -53,6 +53,14 @@ class SiteFooter extends StatelessComponent {
                 ]),
                 li([
                   a(
+                    href: 'https://pub.dev/packages/flutter_gemma_onnx',
+                    classes: 'footer-link',
+                    attributes: {'target': '_blank', 'rel': 'noopener'},
+                    [Component.text('flutter_gemma_onnx')],
+                  ),
+                ]),
+                li([
+                  a(
                     href: 'https://pub.dev/packages/flutter_gemma_embeddings',
                     classes: 'footer-link',
                     attributes: {'target': '_blank', 'rel': 'noopener'},

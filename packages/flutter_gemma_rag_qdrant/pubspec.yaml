@@ -32,7 +32,7 @@ dependencies:
   # Official Qdrant Edge Dart SDK (UniFFI binding of the shared qdrant-edge-ffi
   # crate). Exact pin (no caret): a caret on a `-dev` prerelease could resolve
   # to a later prerelease with a different API/native archive.
-  qdrant_edge: 0.8.0-dev.1
+  qdrant_edge: 0.8.0-dev.2
 
 dev_dependencies:
   flutter_test:

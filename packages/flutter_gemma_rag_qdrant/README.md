@@ -57,6 +57,30 @@ refuses; if a schema must work on both, keep it inside sqlite's narrower set.
   filtering by metadata fields requires valid JSON.
 - Distance defaults to cosine.
 
+
+## Upgrading from 1.x
+
+**2.0 cannot read a store written by 1.x.** The shard format changed with the
+move to crate 0.8.0, and this release keeps its data in an owned
+`qdrant_edge_v1/` subdirectory rather than directly at the path you pass to
+`initialize()`.
+
+Opening a 1.x store throws a `VectorStoreException` naming the situation. The
+remedy is one call, and it removes the old on-disk layout for you:
+
+```dart
+await store.initialize(path);
+await store.clear();   // deletes the 1.x shard as well as the 2.x one
+// ...then re-index your documents.
+```
+
+`clear()` only removes the entries a qdrant shard owns (`edge_config.json`,
+`wal/`, `segments/`) — unrelated files you keep alongside the store are left
+alone.
+
+If you skip this, nothing silently degrades: the store refuses to open rather
+than coming up empty.
+
 ## Platforms
 
 | Platform | Support |
@@ -69,8 +93,16 @@ refuses; if a schema must work on both, keep it inside sqlite's narrower set.
 | Web | ❌ — use `flutter_gemma_rag_sqlite` (`WebSqliteVectorStore`) |
 
 An unsupported native target (e.g. Intel macOS, Windows arm64, 32-bit Android)
-has no prebuilt archive for the SDK's hook to fetch, so it fails at build/
-provision time with a clear error rather than at runtime.
+has no prebuilt archive for the SDK's hook to fetch. The hook prints a warning
+naming the slice and skips it, so the build still produces the supported ABIs —
+**armeabi-v7a is in `flutter build apk`/`appbundle`'s default set**, and failing
+there would break the standard Android release build of every consuming app.
+Code that reaches the engine on a skipped ABI fails to load the library at
+runtime; restrict the ABI set if you want that to be impossible:
+
+```
+flutter build apk --target-platform android-arm64,android-x64
+```
 
 The native binary is provisioned by the `qdrant_edge` SDK's own Native Assets
 build hook (SHA256-verified per-platform archive) — this package has no

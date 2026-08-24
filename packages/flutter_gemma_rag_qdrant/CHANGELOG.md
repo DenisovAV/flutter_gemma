@@ -1,7 +1,10 @@
 ## 2.0.0
-- **Breaking:** move from the hand-rolled C-ABI shim (`native/qdrant_edge/`, ffigen bindings, Native Assets `hook/build.dart`) onto the official `qdrant_edge` UniFFI Dart SDK (pinned `0.8.0-dev.1`). The native binary is now provisioned by the `qdrant_edge` SDK's own Native Assets hook; the supported-platform set changed accordingly.
-- **Breaking:** an on-disk store written by 1.x (crate 0.7.x) may not reopen under this release — clear it and re-index.
-- `VectorStoreRepository` contract and on-disk payload keys are unchanged; `Filter`/`FilterSchema` behavior is unchanged.
+- **Breaking:** moved onto the official `qdrant_edge` UniFFI SDK.
+- **Breaking:** a 1.x store is not readable — `clear()` removes it, then re-index.
+- **Breaking:** Android arm32 (armeabi-v7a) gets no engine; target arm64/x64.
+- A re-opened store now reports its contents without waiting for a write.
+- Concurrent `addDocument` calls no longer race each other's shard open.
+- `configure()` rejects a field name that collides with a stored payload key.
 
 ## 1.2.0
 - Encode filters by the declared field type, so both backends answer alike.

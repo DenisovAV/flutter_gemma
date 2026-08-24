@@ -108,6 +108,35 @@ class QdrantEdgeClient {
     }
   }
 
+  /// Opens a shard that ALREADY exists on disk, without being told its vector
+  /// dimension, and reports the dimension it was created with.
+  ///
+  /// [open] has to be handed a `dim` because it may be creating the shard. A
+  /// store being re-opened after an app restart has no embedding in hand yet —
+  /// and without this it stayed closed, so `searchSimilar` answered "no hits"
+  /// and `getStats` "0 documents" over a fully populated index until something
+  /// happened to write to it.
+  ///
+  /// Returns `null` when [path] holds no shard.
+  static Future<({QdrantEdgeClient client, int dim})?> openExisting({
+    required String path,
+  }) async {
+    if (!Directory(path).existsSync()) return null;
+    try {
+      final shard = qe.EdgeShard.load(path: path, config: null);
+      final cfg = shard.config();
+      final size = cfg.vectorData['']?.size;
+      if (size == null) {
+        // A shard we did not write (no unnamed vector field). Leave it alone.
+        shard.unload();
+        return null;
+      }
+      return (client: QdrantEdgeClient._(shard), dim: size);
+    } on qe.EdgeException catch (e) {
+      throw QdrantException(_flatten(e));
+    }
+  }
+
   /// Upsert one point. `payload` may be omitted (`null`) or any JSON-encodable
   /// Map — it is stored as a JSON string in the point payload.
   Future<void> upsert({

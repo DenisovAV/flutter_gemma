@@ -59,6 +59,21 @@ class QdrantVectorStore implements VectorStoreRepository {
   /// path directly — only the owned subdirectory under it (see [_storeDirFor]).
   String? _databasePath;
 
+  /// In-flight [QdrantEdgeClient.open]. Two concurrent `addDocument` calls on a
+  /// cold store both saw `_client == null` and both opened the same directory;
+  /// qdrant holds the WAL exclusively, so the loser failed with
+  /// `Can't init WAL: Kind(WouldBlock)` and its document was lost.
+  /// `Future.wait(docs.map(store.addDocument))` is the obvious way to index a
+  /// corpus, so this was reachable from ordinary use.
+  Future<QdrantEdgeClient>? _opening;
+
+  /// Bumped by [initialize], [clear] and [close]. An open that started before
+  /// the bump must not install its client afterwards: it would resurrect a
+  /// closed store (holding the WAL lock for the process lifetime) or, worse,
+  /// point `_client` at the PREVIOUS path while `_databasePath` names the new
+  /// one — sending every later write into the wrong store.
+  int _generation = 0;
+
   /// `enableHnsw` is part of the contract but a no-op for qdrant.
   bool _enableHnsw = true;
 
@@ -75,6 +90,14 @@ class QdrantVectorStore implements VectorStoreRepository {
   static const _userIdKey = '__flutter_gemma_id';
   static const _contentKey = '__flutter_gemma_content';
   static const _metadataKey = '__flutter_gemma_metadata';
+
+  /// The three keys above, as a set — [configure] refuses a filter field that
+  /// would collide with one.
+  static const _reservedPayloadKeys = <String>{
+    _userIdKey,
+    _contentKey,
+    _metadataKey,
+  };
 
   /// The package's on-disk format namespace. A new location for the 0.8.0
   /// SDK / crate-0.8.0 shard format — a pre-existing shard written by an
@@ -116,6 +139,20 @@ class QdrantVectorStore implements VectorStoreRepository {
     FilterField.validateSchema(schema);
     for (final field in schema.fields) {
       FilterCodec.validateFieldName(field.name);
+      // Declared fields are promoted to TOP-LEVEL payload keys, the same map
+      // that carries the document's id, content and metadata. A field named
+      // like one of those overwrites it: a String value silently swaps the id
+      // or the body of every hit, and a non-String value escapes searchSimilar
+      // as a raw _TypeError rather than a VectorStoreException. Reject it here,
+      // where the error points at the schema the developer wrote.
+      if (_reservedPayloadKeys.contains(field.name)) {
+        throw ArgumentError.value(
+          field.name,
+          'schema.fields',
+          'is reserved by flutter_gemma_rag_qdrant for the stored document '
+              'id/content/metadata — choose another field name',
+        );
+      }
     }
     _filterSchema = schema;
   }
@@ -136,7 +173,35 @@ class QdrantVectorStore implements VectorStoreRepository {
     }
     _client = null;
     _dim = null;
+    _generation++;
     _databasePath = databasePath;
+
+    // Adopt an existing shard NOW rather than on the first write. Opening
+    // lazily meant a store re-opened after an app restart reported zero
+    // documents and no search hits until something happened to write to it —
+    // and a removeDocument() issued before that first write was dropped with
+    // only a log line. The dimension comes from the shard itself, so we do not
+    // need an embedding in hand to do this.
+    final gen = _generation;
+    final storeDir = _storeDirFor(databasePath);
+    try {
+      final opened = await QdrantEdgeClient.openExisting(path: storeDir);
+      if (opened == null) return;
+      if (_generation != gen) {
+        // initialize()/clear()/close() ran while we were opening.
+        try {
+          await opened.client.close();
+        } catch (_) {}
+        return;
+      }
+      _client = opened.client;
+      _dim = opened.dim;
+    } on QdrantException catch (e) {
+      // Best-effort: a shard we cannot adopt here is not fatal — the first
+      // addDocument will try again through _ensureClient and surface the real
+      // error there, with the dimension the caller actually intends.
+      gemmaLog('[QdrantVectorStore] could not adopt existing shard: $e');
+    }
   }
 
   /// The owned, format-scoped shard directory for [databasePath] — the only
@@ -144,6 +209,41 @@ class QdrantVectorStore implements VectorStoreRepository {
   /// itself.
   static String _storeDirFor(String databasePath) =>
       p.join(databasePath, _storeDirName);
+
+  /// Entries a 1.x store (crate 0.7.x) wrote DIRECTLY at [_databasePath],
+  /// before this package owned a format-scoped subdirectory. `edge_config.json`
+  /// is the marker; `wal` and `segments` are the payload.
+  static const _legacyEntries = ['edge_config.json', 'wal', 'segments'];
+
+  /// True when [databasePath] holds a shard written by 1.x. Such a store is
+  /// invisible to this release — 2.0 only ever opens the owned subdir — so
+  /// without this check the app comes up with an empty index, no error, and
+  /// the old corpus still occupying disk.
+  static bool _hasLegacyStoreAt(String databasePath) =>
+      File(p.join(databasePath, _legacyEntries.first)).existsSync();
+
+  /// Deletes ONLY the three entries a 1.x shard owns. Deliberately not a
+  /// recursive wipe of [databasePath]: callers are allowed to keep unrelated
+  /// files alongside the store, and this release must not touch them.
+  static void _clearLegacyStoreAt(String databasePath) {
+    if (!_hasLegacyStoreAt(databasePath)) return;
+    for (final name in _legacyEntries) {
+      final path = p.join(databasePath, name);
+      final dir = Directory(path);
+      final file = File(path);
+      try {
+        if (dir.existsSync()) {
+          dir.deleteSync(recursive: true);
+        } else if (file.existsSync()) {
+          file.deleteSync();
+        }
+      } on FileSystemException catch (e) {
+        gemmaLog(
+          '[QdrantVectorStore] could not remove 1.x store entry $path: $e',
+        );
+      }
+    }
+  }
 
   Future<QdrantEdgeClient> _ensureClient({required int dim}) async {
     final databasePath = _databasePath;
@@ -162,11 +262,37 @@ class QdrantVectorStore implements VectorStoreRepository {
       }
       return existing;
     }
+
+    // Someone else is already opening this store — join them instead of racing
+    // for the WAL lock.
+    final inFlight = _opening;
+    if (inFlight != null) {
+      final c = await inFlight;
+      if (_dim != dim) {
+        throw ArgumentError(
+          'Embedding dimension mismatch: shard was opened with dim=$_dim, '
+          'got vector of length $dim',
+        );
+      }
+      return c;
+    }
     // First open. The store owns `<databasePath>/qdrant_edge_v1` — created
     // recursively — and never opens the bare databasePath itself, so a
     // pre-existing (e.g. legacy) directory or file sitting directly at
     // databasePath is left untouched.
     final storeDir = _storeDirFor(databasePath);
+    // A 1.x store sits directly at databasePath and this release never opens
+    // it. Left undetected the app starts with an empty index, reports no
+    // error, and answers without context while the old corpus still occupies
+    // disk — so refuse loudly instead, and say what actually clears it.
+    if (!Directory(storeDir).existsSync() && _hasLegacyStoreAt(databasePath)) {
+      throw VectorStoreException(
+        'Found a store written by flutter_gemma_rag_qdrant 1.x at '
+        '$databasePath. Its on-disk format is not readable by 2.0. '
+        'Call clear() to remove it (that now deletes the 1.x layout too), '
+        'then re-index.',
+      );
+    }
     try {
       Directory(storeDir).createSync(recursive: true);
     } on FileSystemException catch (e) {
@@ -174,12 +300,36 @@ class QdrantVectorStore implements VectorStoreRepository {
         'Failed to create qdrant shard directory at $storeDir: $e',
       );
     }
+    final gen = _generation;
     try {
-      final c = await QdrantEdgeClient.open(
+      final future = QdrantEdgeClient.open(
         path: storeDir,
         dim: dim,
         distance: _distance,
       );
+      _opening = future;
+      final QdrantEdgeClient c;
+      try {
+        c = await future;
+      } finally {
+        if (identical(_opening, future)) _opening = null;
+      }
+      if (_generation != gen) {
+        // initialize()/clear()/close() ran while we were opening. Installing
+        // this client now would either resurrect a store the caller closed —
+        // keeping its WAL lock until the process exits — or bind `_client` to
+        // the old path under a new `_databasePath`. Hand the shard back
+        // instead, and let the caller retry against the current state.
+        try {
+          await c.close();
+        } catch (_) {
+          // Best-effort: we are already unwinding.
+        }
+        throw const VectorStoreException(
+          'Vector store was re-initialized, cleared or closed while opening — '
+          'retry the operation.',
+        );
+      }
       _client = c;
       _dim = dim;
       return c;
@@ -188,9 +338,13 @@ class QdrantVectorStore implements VectorStoreRepository {
       // failure is transient (permissions, lock, missing native lib, I/O) or
       // a real format incompatibility, it surfaces the same safe way: thrown,
       // data untouched.
+      // Say what failed, not what to delete. Most causes here are transient
+      // or a plain caller error — a concurrent open, a lock still held by a
+      // client that was not closed, a changed embedding dimension — and only
+      // the last is corruption. Blanket "clear and re-index" advice told users
+      // to destroy a working index to fix a lock.
       throw VectorStoreException(
-        'Failed to open qdrant shard at $storeDir — this may be an older '
-        'store; clear and re-index if the problem persists',
+        'Failed to open qdrant shard at $storeDir',
         e,
       );
     }
@@ -351,19 +505,24 @@ class QdrantVectorStore implements VectorStoreRepository {
         );
       }
     }
-    // The client (if any) is now closed. Drop the in-memory handle
-    // immediately — before the guard/delete below, which can themselves
-    // throw — so a failure never leaves a stale, already-closed client
-    // sitting in `_client` for the next _ensureClient() call to hand back.
-    // Fail-closed: the next op always re-opens cleanly rather than reusing a
-    // dead handle.
-    _client = null;
-    _dim = null;
+    // Invalidate any in-flight open now — it must not install its client on
+    // top of a store we are clearing. But do NOT drop `_client`/`_dim` yet:
+    // the guard and the delete below can throw, and nulling them first makes
+    // getStats()/searchSimilar() answer "empty" over data that is still on
+    // disk, then resurrect it on the next write. 1.x deliberately dropped the
+    // handles only after close + delete both succeeded; that ordering is the
+    // property, not an accident.
+    _generation++;
 
     final storeDir = _storeDirFor(databasePath);
     final dir = Directory(storeDir);
     if (!dir.existsSync()) {
-      // Nothing was ever written under the owned subdir — nothing to clear.
+      // Nothing under the owned subdir. There may still be a 1.x store at the
+      // bare path — clear() is the remedy the CHANGELOG points at, so it has
+      // to be able to remove one.
+      _clearLegacyStoreAt(databasePath);
+      _client = null;
+      _dim = null;
       return;
     }
 
@@ -376,6 +535,10 @@ class QdrantVectorStore implements VectorStoreRepository {
       } else {
         dir.deleteSync(recursive: true);
       }
+      _clearLegacyStoreAt(databasePath);
+      // Close + delete both succeeded: only now is it safe to report empty.
+      _client = null;
+      _dim = null;
     } on FileSystemException catch (e) {
       // Delete failed partway — the on-disk subdir may be left in a mixed
       // state. Fail-closed: mark the whole store uninitialized (rather than
@@ -424,6 +587,7 @@ class QdrantVectorStore implements VectorStoreRepository {
     final c = _client;
     _client = null;
     _dim = null;
+    _generation++;
     _databasePath = null;
     if (c != null) {
       try {

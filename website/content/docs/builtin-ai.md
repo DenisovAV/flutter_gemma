@@ -159,7 +159,7 @@ There is **no CDN `<script>` tag** — the Chrome Prompt API is a browser global
 - **Production:** register your origin for the [Prompt API origin
   trial](https://developer.chrome.com/origintrials) and add the token to
   `web/index.html`:
-  ```html
+  ```
   <meta http-equiv="origin-trial" content="YOUR_TOKEN_HERE">
   ```
 - **Local dev:** enable `chrome://flags/#prompt-api-for-gemini-nano` and restart

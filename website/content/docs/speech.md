@@ -1,6 +1,6 @@
 ---
 title: Speech
-description: On-device speech for flutter_gemma — transcribe audio and synthesize speech fully offline: moonshine / Whisper / Parakeet STT + Matcha / Qwen3 / Inflect TTS, plus a voice loop, via the LiteRT C API and dart:ffi.
+description: On-device speech for flutter_gemma — transcribe audio and synthesize speech fully offline. moonshine / Whisper / Parakeet STT + Matcha / Qwen3 / Inflect TTS, plus a voice loop, via the LiteRT C API and dart:ffi.
 image: https://fluttergemma.dev/images/og-image.png
 ---
 

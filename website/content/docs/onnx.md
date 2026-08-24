@@ -65,9 +65,9 @@ await FlutterGemma.initialize(
 ONNX models install with `fileType: ModelFileType.onnx`. What that means differs
 by platform.
 
-**Native — a directory, not a file.** An ORT-GenAI model is a **directory**
-(`genai_config.json` + `model.onnx` [+ `model.onnx_data` for external weights] +
-tokenizer files). `OnnxEngine` takes the tracked file's **parent directory** as
+**Native — a directory, not a file.** An ORT-GenAI model is a **directory**:
+`genai_config.json`, `model.onnx` (plus `model.onnx_data` for external weights),
+and tokenizer files. `OnnxEngine` takes the tracked file's **parent directory** as
 the model directory, so the whole bundle must already live on disk together
 (e.g. shipped as an asset or pre-populated yourself):
 

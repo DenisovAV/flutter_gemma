@@ -16,7 +16,7 @@ want, and the platform owns the weights.
 | Platform | Built-in model | Runtime | Minimum devices |
 |----------|----------------|---------|-----------------|
 | Android | **Gemini Nano** | ML Kit GenAI / AICore | Pixel 9+, Galaxy S25+ (`minSdk 26`) |
-| iOS / macOS | **Apple Foundation Models** (Apple Intelligence) | FoundationModels framework | iPhone 15 Pro+, Apple Silicon Macs — Apple Intelligence enabled |
+| iOS / macOS | **Apple Foundation Models** (Apple Intelligence) | FoundationModels framework | iOS 26+ / macOS 26+ on iPhone 15 Pro+, Apple Silicon Macs — Apple Intelligence enabled |
 | Web | **Gemini Nano** | Chrome **Prompt API** (`self.LanguageModel`) | Desktop Chrome / Chromium-Edge only |
 
 > **Note:** the Chrome Prompt API *is* Gemini Nano — the browser runs the same

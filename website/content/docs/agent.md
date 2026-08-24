@@ -31,6 +31,7 @@ used below).
 dependencies:
   flutter_gemma: ^1.6.5
   flutter_gemma_agent: ^0.2.5
+  flutter_gemma_litertlm: ^1.5.2   # an inference engine (LiteRtLmEngine)
 ```
 
 The agent is **not supported on Web** yet — see the note below.

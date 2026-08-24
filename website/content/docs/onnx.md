@@ -75,7 +75,7 @@ the model directory, so the whole bundle must already live on disk together
 await FlutterGemma.installModel(
   modelType: ModelType.general,
   fileType: ModelFileType.onnx,
-).fromFile(File('/path/to/my-model/genai_config.json')).install();
+).fromFile('/path/to/my-model/genai_config.json').install();
 ```
 
 **Web — fileless.** The model identity is a **Hugging Face repo id**;
@@ -117,7 +117,9 @@ model-dependent** (not a fixed 768):
 - **WordPiece / BERT-style** models (e.g. all-MiniLM-L6-v2, 384-dim) —
   mean-pooled + normalized client-side.
 - **SentencePiece** models (e.g. EmbeddingGemma-300M-ONNX) — the model's own
-  pooled `sentence_embedding` output.
+  pooled `sentence_embedding` output. **Native only** — on Web, embeddings are
+  WordPiece/BERT-style only in this release (a pure-Dart SentencePiece parser is
+  pending).
 
 The output contract and mask requirements are discovered from the session's
 actual graph once it opens — no per-model configuration. It registers at

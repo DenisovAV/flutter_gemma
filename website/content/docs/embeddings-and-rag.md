@@ -217,7 +217,7 @@ changing only the `vectorStore:` you register.
 | | qdrant-edge | sqlite-vec (`vec0`) |
 |---|---|---|
 | **Platforms** | Native only (Android, iOS, macOS, Linux, Windows) | All six — native **+ Web** |
-| **KNN** | Exact below ~20k points, HNSW above | Exact (brute-force inside SQLite) |
+| **KNN** | HNSW approximate | Exact (brute-force inside SQLite) |
 | **Speed** | Fastest native (~5–11× faster search at 1k–10k docs) | Portable, identical results everywhere |
 | **When to use** | Native throughput at scale | Web reach, or exact results across every platform |
 

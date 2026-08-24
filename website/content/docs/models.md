@@ -307,9 +307,11 @@ see [Speech](/docs/speech).
 
 ## Text embedding models
 
-All embedding models generate **768-dimensional vectors**. The numbers in names
-(64/256/512/1024/2048) indicate **maximum input sequence length in tokens**, not
-embedding dimension. See [Embeddings & RAG](/docs/embeddings-and-rag) for usage.
+The LiteRT embedding models below generate **768-dimensional vectors**. The
+numbers in names (64/256/512/1024/2048) indicate **maximum input sequence length
+in tokens**, not embedding dimension. (With the ONNX backend the dimension is
+model-dependent — e.g. all-MiniLM-L6-v2 is 384-dim.) See
+[Embeddings & RAG](/docs/embeddings-and-rag) for usage.
 
 | Model | Parameters | Dimensions | Max Seq Length | Size | Auth Required |
 |---|---|---|---|---|---|

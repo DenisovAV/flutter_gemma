@@ -1,8 +1,9 @@
 # flutter_gemma_rag_qdrant
 
 qdrant-edge on-device RAG vector store for [flutter_gemma](https://pub.dev/packages/flutter_gemma).
-Opt-in package implementing `VectorStoreRepository` via a Rust FFI shim
-(`qdrant-edge`). qdrant's HNSW index makes it the fastest **native** RAG store —
+Opt-in package implementing `VectorStoreRepository` on top of the official
+[`qdrant_edge`](https://pub.dev/packages/qdrant_edge) UniFFI Dart SDK
+(a binding over the `qdrant-edge` Rust crate). qdrant's HNSW index makes it the fastest **native** RAG store —
 roughly **5–11× faster search** than the in-SQLite `sqlite-vec`/`vec0` store at
 1k–10k docs, and further ahead as the corpus grows (see
 [benchmark](https://github.com/DenisovAV/flutter_gemma/blob/main/docs/benchmarks/rag_sqlite_vec_vs_qdrant.md)).
@@ -60,9 +61,17 @@ refuses; if a schema must work on both, keep it inside sqlite's narrower set.
 
 | Platform | Support |
 |----------|---------|
-| Android / iOS | ✅ FFI (qdrant-edge) |
-| macOS / Linux / Windows | ✅ FFI (qdrant-edge) |
+| Android (arm64, x64) | ✅ |
+| iOS (arm64, simulator) | ✅ |
+| macOS (arm64) | ✅ |
+| Linux | ✅ |
+| Windows (x64) | ✅ |
 | Web | ❌ — use `flutter_gemma_rag_sqlite` (`WebSqliteVectorStore`) |
 
-The native library is fetched at build time by the package's Native-Assets hook
-(SHA256-verified) — no manual setup.
+An unsupported native target (e.g. Intel macOS, Windows arm64, 32-bit Android)
+has no prebuilt archive for the SDK's hook to fetch, so it fails at build/
+provision time with a clear error rather than at runtime.
+
+The native binary is provisioned by the `qdrant_edge` SDK's own Native Assets
+build hook (SHA256-verified per-platform archive) — this package has no
+native code, build script, or download logic of its own.

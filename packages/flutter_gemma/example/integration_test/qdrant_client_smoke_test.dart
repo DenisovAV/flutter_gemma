@@ -32,12 +32,10 @@ void main() {
     }
   });
 
-  test('open + version', () async {
+  test('open + empty count', () async {
     final client = await QdrantEdgeClient.open(path: shardDir.path, dim: 4);
     addTearDown(client.close);
 
-    final v = client.version();
-    expect(v, contains('qdrant-edge-ffi'));
     expect(await client.count(), equals(0));
   });
 

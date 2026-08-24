@@ -9,7 +9,7 @@
 ///
 /// await FlutterGemma.initialize(vectorStore: QdrantVectorStore());
 /// ```
-library flutter_gemma_rag_qdrant;
+library;
 
 export 'src/qdrant_vector_store_stub.dart'
     if (dart.library.ffi) 'src/qdrant_vector_store.dart';

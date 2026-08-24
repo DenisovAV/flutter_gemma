@@ -1,3 +1,8 @@
+## 2.0.0
+- **Breaking:** move from the hand-rolled C-ABI shim (`native/qdrant_edge/`, ffigen bindings, Native Assets `hook/build.dart`) onto the official `qdrant_edge` UniFFI Dart SDK (pinned `0.8.0-dev.1`). The native binary is now provisioned by the `qdrant_edge` SDK's own Native Assets hook; the supported-platform set changed accordingly.
+- **Breaking:** an on-disk store written by 1.x (crate 0.7.x) may not reopen under this release — clear it and re-index.
+- `VectorStoreRepository` contract and on-disk payload keys are unchanged; `Filter`/`FilterSchema` behavior is unchanged.
+
 ## 1.2.0
 - Encode filters by the declared field type, so both backends answer alike.
 - **Breaking:** reject a field name containing `.` — qdrant reads it as a nested path.

@@ -2,8 +2,9 @@ import 'dart:convert';
 
 import 'package:flutter_gemma/flutter_gemma.dart';
 
-/// Serializes [Filter] DSL into the JSON envelope accepted by
-/// `qe_shard_search_with_filter`.
+/// Serializes [Filter] DSL into the JSON envelope consumed by
+/// `QdrantEdgeClient.search`'s `_filterFromJson` adapter, which rebuilds it
+/// into the official `qdrant_edge` SDK's typed `Filter`.
 ///
 /// Output shape mirrors the qdrant `Filter` REST schema:
 ///
@@ -20,8 +21,8 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 /// distinguishes "no constraint" from "match nothing".
 ///
 /// Returns `null` for an [Filter.isEmpty] input, signalling to the caller
-/// to use the no-filter codepath (`qe_shard_search` without the JSON
-/// envelope) instead of passing an empty `{}` string.
+/// to use the no-filter codepath (`QdrantEdgeClient.search` with a null
+/// `filterJson`) instead of passing an empty `{}` string.
 class FilterCodec {
   const FilterCodec._();
 

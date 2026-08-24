@@ -20,14 +20,12 @@
 //
 // HOW BOTH BACKENDS GET HERE
 //
-// qdrant-edge needs no local Rust build and no environment variable. Its dylib
-// arrives exactly the way LiteRT's does: flutter_gemma_rag_qdrant's
-// `hook/build.dart` downloads the release archive, verifies its SHA256 and
-// caches it, and Native Assets links it into whichever package is under test —
-// this package dev-depends on rag_qdrant, so `flutter test` here resolves it
-// like any other native asset. An earlier draft of this file reached for
-// $QDRANT_DYLIB and a cargo target path; that was solving a problem the hook
-// had already solved.
+// qdrant-edge needs no local Rust build and no environment variable. Its
+// native library arrives via the official `qdrant_edge` SDK's own Native
+// Assets build hook — this package dev-depends on rag_qdrant, so `flutter
+// test` here resolves it like any other native asset, exactly like LiteRT's.
+// There is no override to set: QdrantVectorStore opens straight from the
+// asset the hook registered.
 //
 // vec0 is the one that still needs $VEC0_DYLIB, because SqliteVectorStore
 // resolves it as `vec0.framework/vec0` — a path that exists only inside a built
@@ -43,11 +41,9 @@ import 'dart:io';
 
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_rag_qdrant/flutter_gemma_rag_qdrant.dart';
-import 'package:flutter_gemma_rag_qdrant/src/qdrant_edge_client.dart';
 import 'package:flutter_gemma_rag_sqlite/flutter_gemma_rag_sqlite.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'qdrant_locator.dart';
 import 'vec0_locator.dart';
 
 /// One document: an id and the metadata JSON it carries.
@@ -266,20 +262,17 @@ void main() {
     setUp(() async {
       tmp = await Directory.systemTemp.createTemp('parity_');
 
-      // Both stores are pointed at their library the same way, from the same
-      // shared locator — see core's host_native_library.dart. Neither needs an
-      // environment variable.
+      // vec0 is pointed at its library explicitly — see core's
+      // host_native_library.dart / vec0_locator.dart. It has no automatic
+      // resolution outside a built app.
       // ignore: invalid_use_of_visible_for_testing_member
       SqliteVectorStore.debugOverrideDylibPath = vec0Path;
       sqlite = SqliteVectorStore();
       sqlite.configure(schema);
       await sqlite.initialize('${tmp.path}/vec.db');
 
-      // Pointed at the file the HOOK downloaded — see qdrant_locator.dart.
-      // Outside a built app the client cannot resolve its own bundled name,
-      // the same gap vec0 has.
-      // ignore: invalid_use_of_visible_for_testing_member
-      QdrantEdgeClient.debugOverrideDylibPath = qdrantPath;
+      // qdrant needs no override: the official qdrant_edge SDK's own Native
+      // Assets build hook resolves its native library automatically.
       final q = QdrantVectorStore();
       q.configure(schema);
       await q.initialize('${tmp.path}/shard');
@@ -338,9 +331,12 @@ void main() {
   // actually executed.
   //
   // The qdrant half needs no guard of its own: setUp initializes the store
-  // unconditionally, so a missing native asset fails every case above. This
-  // covers the other half — vec0, which really can be absent, and whose absence
-  // would otherwise skip the group and leave the file looking green.
+  // unconditionally with no locator/override step of its own (the SDK's
+  // Native Assets hook resolves its library automatically), so a missing
+  // native asset fails every case above with a loud error rather than a
+  // silent skip. This test covers the other half — vec0, which really can be
+  // absent, and whose absence would otherwise skip the group and leave the
+  // file looking green.
   test('both backends were actually exercised', () {
     expect(
       vec0SkipReason,
@@ -348,13 +344,6 @@ void main() {
       reason:
           'the sqlite-vec half did not run, so nothing in this file was '
           'compared across backends: $vec0SkipReason',
-    );
-    expect(
-      qdrantSkipReason,
-      isNull,
-      reason:
-          'the qdrant half did not run, so nothing in this file was compared '
-          'across backends: $qdrantSkipReason',
     );
   });
 }

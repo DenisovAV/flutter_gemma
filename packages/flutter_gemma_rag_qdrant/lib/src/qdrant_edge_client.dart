@@ -1,11 +1,7 @@
 import 'dart:convert';
-import 'dart:ffi';
 import 'dart:io';
-import 'dart:typed_data';
 
-import 'package:ffi/ffi.dart';
-import 'package:flutter/foundation.dart' show visibleForTesting;
-import 'package:flutter_gemma_rag_qdrant/src/qdrant_edge_bindings.dart';
+import 'package:qdrant_edge/qdrant_edge.dart' as qe;
 
 /// Distance metric used by a qdrant-edge shard. Set at open time and fixed
 /// for the shard's lifetime.
@@ -25,6 +21,13 @@ enum Distance {
 
   final String wireName;
   const Distance(this.wireName);
+
+  qe.Distance get _native => switch (this) {
+    Distance.cosine => qe.Distance.cosine,
+    Distance.dot => qe.Distance.dot,
+    Distance.euclid => qe.Distance.euclid,
+    Distance.manhattan => qe.Distance.manhattan,
+  };
 }
 
 /// One search hit returned by [QdrantEdgeClient.search].
@@ -45,9 +48,9 @@ class SearchHit {
   const SearchHit({required this.id, required this.score, this.payload});
 }
 
-/// Typed wrapper around any failure surfaced by the qdrant-edge FFI shim.
-/// The native side writes a human-readable C string into the `error_out`
-/// pointer; we lift that into [message] and free the native allocation.
+/// Typed wrapper around any failure surfaced by the qdrant-edge engine. The
+/// UniFFI layer raises typed [qe.EdgeException]s; we flatten them into a single
+/// [message] so the rest of the package keeps catching one exception type.
 class QdrantException implements Exception {
   final String message;
   const QdrantException(this.message);
@@ -56,214 +59,96 @@ class QdrantException implements Exception {
   String toString() => 'QdrantException: $message';
 }
 
-/// High-level Dart wrapper over [QdrantEdgeBindings].
+/// High-level Dart wrapper over the official Qdrant Edge SDK ([qe.EdgeShard]).
 ///
-/// Manages:
-///   - One-time native library load (cross-platform).
-///   - One opaque `*mut EdgeShard` handle per client instance, with a
-///     [Finalizer] safety net in case the caller forgets [close].
-///   - Marshalling Dart values to/from the C-FFI surface, including JSON
-///     payloads and the `Pointer<Pointer<Char>> error_out` convention.
+/// This backs [QdrantVectorStore]; it is not meant for direct use by
+/// application code. It owns exactly one [qe.EdgeShard] (the on-disk shard) and
+/// adapts the typed SDK API to the JSON-payload / JSON-filter surface the rest
+/// of flutter_gemma's RAG layer expects.
 ///
-/// Not intended for direct use by application code — sits behind
-/// [QdrantVectorStoreRepository], which adapts to the
-/// [VectorStoreRepository] interface used by the rest of flutter_gemma.
+/// The native engine is delivered by the `qdrant_edge` package's Native Assets
+/// build hook — there is no manual `DynamicLibrary.open`; the SDK's generated
+/// binding resolves its symbols through the registered code asset, and
+/// [qe.EdgeShard] carries its own finalizer, so a dropped client is still
+/// released even without an explicit [close].
 class QdrantEdgeClient {
-  /// Bindings are cheap to look up but the underlying [DynamicLibrary]
-  /// should only be opened once per process. Cache it.
-  static QdrantEdgeBindings? _bindings;
-
-  /// **Test-only**: override the dylib path that [_ensureBindings] uses on
-  /// the first call. Set this from unit tests that run in a plain Dart VM
-  /// (no Native Assets framework bundle); leave null in production.
-  ///
-  /// Setting after the first FFI call has no effect — the bindings are
-  /// cached. Reset to null + null out [_bindings] if a test really needs
-  /// to swap the dylib mid-process.
-  @visibleForTesting
-  static String? debugOverrideDylibPath;
-
-  static QdrantEdgeBindings _ensureBindings() {
-    final cached = _bindings;
-    if (cached != null) return cached;
-
-    final override = debugOverrideDylibPath;
-    if (override != null) {
-      return _bindings = QdrantEdgeBindings(DynamicLibrary.open(override));
-    }
-
-    final String libPath;
-    if (Platform.isIOS) {
-      // Native Assets puts dylibs in Frameworks/ inside Runner.app on iOS.
-      libPath =
-          '@executable_path/Frameworks/qdrant_edge_ffi.framework/qdrant_edge_ffi';
-    } else if (Platform.isMacOS) {
-      libPath = 'qdrant_edge_ffi.framework/qdrant_edge_ffi';
-    } else if (Platform.isAndroid || Platform.isLinux) {
-      libPath = 'libqdrant_edge_ffi.so';
-    } else if (Platform.isWindows) {
-      libPath = 'qdrant_edge_ffi.dll';
-    } else {
-      throw UnsupportedError(
-        'qdrant-edge is not available on ${Platform.operatingSystem}',
-      );
-    }
-
-    final DynamicLibrary lib;
-    try {
-      lib = DynamicLibrary.open(libPath);
-    } on ArgumentError catch (e) {
-      // Native Assets did not bundle the dylib for this host. The most common
-      // cause on Apple targets is an Intel Mac / x86_64 simulator — the
-      // prebuilt only ships arm64 today.
-      final hint = (Platform.isMacOS || Platform.isIOS)
-          ? ' (Apple Intel hosts are not supported — Apple Silicon arm64 only)'
-          : '';
-      throw QdrantException(
-        'qdrant-edge native library not found for ${Platform.operatingSystem}$hint. '
-        'Did `flutter pub get` complete? Underlying error: $e',
-      );
-    }
-    return _bindings = QdrantEdgeBindings(lib);
-  }
-
-  /// Finalizer attached to each [QdrantEdgeClient] instance: if the caller
-  /// drops their reference without calling [close], the GC eventually runs
-  /// this and releases the shard handle. Belt-and-suspenders — proper
-  /// applications always call [close] explicitly.
-  static final Finalizer<Pointer<Void>> _finalizer = Finalizer((handle) {
-    if (handle != nullptr) {
-      _ensureBindings().qe_shard_close(handle);
-    }
-  });
-
-  final QdrantEdgeBindings _b;
-  Pointer<Void> _shard = nullptr;
+  final qe.EdgeShard _shard;
   bool _closed = false;
 
-  QdrantEdgeClient._() : _b = _ensureBindings();
+  QdrantEdgeClient._(this._shard);
 
   /// Open (or create) a shard on disk.
   ///
-  /// `path` is a directory — qdrant-edge stores its WAL + segment files
-  /// under it. The directory is created if it doesn't exist.
-  ///
-  /// `dim` is the vector dimension. Once a shard is created with a given
-  /// dim, subsequent opens **must** pass the same value (the C shim's
-  /// build_edge_config will fail compatibility check otherwise).
+  /// `path` is a directory — qdrant-edge stores its WAL + segment files under
+  /// it (created if absent). `dim` is the vector dimension; once a shard is
+  /// created with a given dim, subsequent opens must pass the same value or the
+  /// engine rejects the reopen.
   static Future<QdrantEdgeClient> open({
     required String path,
     required int dim,
     Distance distance = Distance.cosine,
   }) async {
-    final client = QdrantEdgeClient._();
-    final pathPtr = path.toNativeUtf8();
-    final distPtr = distance.wireName.toNativeUtf8();
-    final errorOut = calloc<Pointer<Utf8>>();
     try {
-      final handle = client._b.qe_shard_open(
-        pathPtr.cast(),
-        dim,
-        distPtr.cast(),
-        errorOut.cast(),
+      // The engine creates its WAL/segment subdirs UNDER `path` but does not
+      // create `path` itself (non-recursive), so ensure the shard directory
+      // exists first — matching the historical shim, which mkdir-p'd it.
+      Directory(path).createSync(recursive: true);
+      // Single unnamed vector field, mirroring the historical shim contract
+      // (one vector per point, addressed by the empty name).
+      final config = qe.EdgeConfig(
+        vectorData: {
+          '': qe.VectorDataConfig(size: dim, distance: distance._native),
+        },
       );
-      if (handle == nullptr) {
-        throw QdrantException(
-          _consumeString(client._b, errorOut) ?? 'qe_shard_open returned null',
-        );
-      }
-      client._shard = handle;
-      _finalizer.attach(client, handle, detach: client);
-      return client;
-    } finally {
-      malloc.free(pathPtr);
-      malloc.free(distPtr);
-      calloc.free(errorOut);
+      return QdrantEdgeClient._(qe.EdgeShard.load(path: path, config: config));
+    } on qe.EdgeException catch (e) {
+      throw QdrantException(_flatten(e));
+    } on FileSystemException catch (e) {
+      throw QdrantException('Failed to create shard directory at $path: $e');
     }
   }
 
-  /// Library version string. Reads from the shim's compiled-in constant.
-  String version() {
-    final ptr = _b.qe_version();
-    if (ptr == nullptr) return '';
-    final s = ptr.cast<Utf8>().toDartString();
-    _b.qe_string_free(ptr);
-    return s;
-  }
-
-  /// Upsert one point. `payload` may be omitted (`null`) or any
-  /// JSON-encodable Map.
+  /// Upsert one point. `payload` may be omitted (`null`) or any JSON-encodable
+  /// Map — it is stored as a JSON string in the point payload.
   Future<void> upsert({
     required String id,
     required List<double> vector,
     Map<String, dynamic>? payload,
   }) async {
     _checkOpen();
-    final idPtr = id.toNativeUtf8();
-    final vecPtr = _allocFloatVec(vector);
-    final payloadPtr = payload == null
-        ? nullptr
-        : jsonEncode(payload).toNativeUtf8();
-    final errorOut = calloc<Pointer<Utf8>>();
     try {
-      final rc = _b.qe_shard_upsert(
-        _shard,
-        idPtr.cast(),
-        vecPtr,
-        vector.length,
-        (payloadPtr == nullptr ? nullptr : payloadPtr.cast()),
-        errorOut.cast(),
+      _shard.update(
+        operation: qe.UpdateOperation.upsertPoints(
+          points: [_point(id, vector, payload)],
+        ),
       );
-      if (rc != 0) {
-        throw QdrantException(
-          _consumeString(_b, errorOut) ?? 'qe_shard_upsert rc=$rc',
-        );
-      }
-    } finally {
-      malloc.free(idPtr);
-      malloc.free(vecPtr);
-      if (payloadPtr != nullptr) malloc.free(payloadPtr);
-      calloc.free(errorOut);
+    } on qe.EdgeException catch (e) {
+      throw QdrantException(_flatten(e));
     }
   }
 
-  /// Bulk upsert. The shim accepts a JSON array of point objects; this
-  /// method composes that JSON internally so callers stay in Dart-land.
+  /// Bulk upsert — one shard update carrying every point.
   Future<void> upsertBatch(
     List<({String id, List<double> vector, Map<String, dynamic>? payload})>
     points,
   ) async {
     _checkOpen();
     if (points.isEmpty) return;
-    final json = jsonEncode([
-      for (final p in points)
-        {
-          'id': p.id,
-          'vector': p.vector,
-          if (p.payload != null) 'payload': p.payload,
-        },
-    ]);
-    final jsonPtr = json.toNativeUtf8();
-    final errorOut = calloc<Pointer<Utf8>>();
     try {
-      final rc = _b.qe_shard_upsert_batch(
-        _shard,
-        jsonPtr.cast(),
-        errorOut.cast(),
+      _shard.update(
+        operation: qe.UpdateOperation.upsertPoints(
+          points: [
+            for (final p in points) _point(p.id, p.vector, p.payload),
+          ],
+        ),
       );
-      if (rc != 0) {
-        throw QdrantException(
-          _consumeString(_b, errorOut) ?? 'qe_shard_upsert_batch rc=$rc',
-        );
-      }
-    } finally {
-      malloc.free(jsonPtr);
-      calloc.free(errorOut);
+    } on qe.EdgeException catch (e) {
+      throw QdrantException(_flatten(e));
     }
   }
 
-  /// Top-K nearest-neighbour search. Pass [filterJson] (encoded via
-  /// [FilterCodec.encode]) to constrain results by payload; pass null to
+  /// Top-K nearest-neighbour search. Pass [filterJson] (the JSON envelope
+  /// produced by `FilterCodec.encode`) to constrain by payload; pass null to
   /// run unfiltered.
   Future<List<SearchHit>> search({
     required List<double> queryVector,
@@ -271,45 +156,28 @@ class QdrantEdgeClient {
     String? filterJson,
   }) async {
     _checkOpen();
-    final vecPtr = _allocFloatVec(queryVector);
-    final filterPtr = filterJson == null ? nullptr : filterJson.toNativeUtf8();
-    final responseOut = calloc<Pointer<Utf8>>();
-    final errorOut = calloc<Pointer<Utf8>>();
     try {
-      final int rc;
-      if (filterPtr == nullptr) {
-        rc = _b.qe_shard_search(
-          _shard,
-          vecPtr,
-          queryVector.length,
-          topK,
-          responseOut.cast(),
-          errorOut.cast(),
-        );
-      } else {
-        rc = _b.qe_shard_search_with_filter(
-          _shard,
-          vecPtr,
-          queryVector.length,
-          topK,
-          filterPtr.cast(),
-          responseOut.cast(),
-          errorOut.cast(),
-        );
-      }
-      if (rc != 0) {
-        throw QdrantException(
-          _consumeString(_b, errorOut) ?? 'qe_shard_search rc=$rc',
-        );
-      }
-      final responseJson = _consumeString(_b, responseOut);
-      if (responseJson == null) return const [];
-      return _decodeSearchResponse(responseJson);
-    } finally {
-      malloc.free(vecPtr);
-      if (filterPtr != nullptr) malloc.free(filterPtr);
-      calloc.free(responseOut);
-      calloc.free(errorOut);
+      final results = _shard.search(
+        request: qe.SearchRequest(
+          query: qe.NearestQuery(
+            vector: qe.DenseNamedVector(queryVector),
+            using: null,
+          ),
+          limit: topK,
+          filter: _filterFromJson(filterJson),
+          withPayload: qe.BoolWithPayload(true),
+        ),
+      );
+      return [
+        for (final sp in results)
+          SearchHit(
+            id: _idString(sp.id),
+            score: sp.score,
+            payload: _decodePayload(sp.payload),
+          ),
+      ];
+    } on qe.EdgeException catch (e) {
+      throw QdrantException(_flatten(e));
     }
   }
 
@@ -317,36 +185,24 @@ class QdrantEdgeClient {
   Future<void> delete(List<String> ids) async {
     _checkOpen();
     if (ids.isEmpty) return;
-    final json = jsonEncode(ids);
-    final jsonPtr = json.toNativeUtf8();
-    final errorOut = calloc<Pointer<Utf8>>();
     try {
-      final rc = _b.qe_shard_delete(_shard, jsonPtr.cast(), errorOut.cast());
-      if (rc != 0) {
-        throw QdrantException(
-          _consumeString(_b, errorOut) ?? 'qe_shard_delete rc=$rc',
-        );
-      }
-    } finally {
-      malloc.free(jsonPtr);
-      calloc.free(errorOut);
+      _shard.update(
+        operation: qe.UpdateOperation.deletePoints(
+          pointIds: [for (final id in ids) qe.UuidPointId(id)],
+        ),
+      );
+    } on qe.EdgeException catch (e) {
+      throw QdrantException(_flatten(e));
     }
   }
 
   /// Exact total number of points currently in the shard.
   Future<int> count() async {
     _checkOpen();
-    final errorOut = calloc<Pointer<Utf8>>();
     try {
-      final n = _b.qe_shard_count(_shard, errorOut.cast());
-      if (n < 0) {
-        throw QdrantException(
-          _consumeString(_b, errorOut) ?? 'qe_shard_count returned -1',
-        );
-      }
-      return n;
-    } finally {
-      calloc.free(errorOut);
+      return _shard.count(request: qe.CountRequest());
+    } on qe.EdgeException catch (e) {
+      throw QdrantException(_flatten(e));
     }
   }
 
@@ -354,61 +210,130 @@ class QdrantEdgeClient {
   Future<void> close() async {
     if (_closed) return;
     _closed = true;
-    final h = _shard;
-    _shard = nullptr;
-    if (h != nullptr) {
-      _b.qe_shard_close(h);
+    try {
+      _shard.unload();
+    } on qe.EdgeException {
+      // Best-effort: an already-unloaded shard is fine to ignore on close.
     }
-    _finalizer.detach(this);
   }
 
   void _checkOpen() {
-    if (_closed || _shard == nullptr) {
+    if (_closed) {
       throw const QdrantException('QdrantEdgeClient is closed');
     }
   }
 
-  static Pointer<Float> _allocFloatVec(List<double> v) {
-    final ptr = malloc<Float>(v.length);
-    final f32 = Float32List.fromList(v);
-    ptr.asTypedList(v.length).setAll(0, f32);
-    return ptr;
+  qe.Point _point(String id, List<double> vector, Map<String, dynamic>? payload) {
+    return qe.Point(
+      id: qe.UuidPointId(id),
+      vector: qe.SingleVector(vector),
+      payload: payload == null ? null : jsonEncode(payload),
+    );
   }
 
-  /// Reads a C string from a slot (used for both error_out and response_json_out),
-  /// frees it via `qe_string_free`, and returns the Dart copy. Returns null when
-  /// the native side didn't write anything into the slot.
-  static String? _consumeString(
-    QdrantEdgeBindings b,
-    Pointer<Pointer<Utf8>> slot,
-  ) {
-    final p = slot.value;
-    if (p == nullptr) return null;
-    final s = p.toDartString();
-    b.qe_string_free(p.cast());
-    slot.value = nullptr;
-    return s;
+  static String _idString(qe.PointId id) => switch (id) {
+    qe.UuidPointId(:final value) => value,
+    qe.NumIdPointId(:final value) => value.toString(),
+    _ => id.toString(),
+  };
+
+  static Map<String, dynamic>? _decodePayload(String? payload) {
+    if (payload == null) return null;
+    final decoded = jsonDecode(payload);
+    return decoded is Map<String, dynamic> ? decoded : null;
   }
 
-  static List<SearchHit> _decodeSearchResponse(String json) {
-    try {
-      final list = (jsonDecode(json) as List).cast<Map<String, dynamic>>();
+  static String _flatten(qe.EdgeException e) => e.toString();
+
+  // ---- Filter bridge: qdrant JSON envelope → typed qe.Filter ----------------
+
+  /// Translates the JSON filter envelope emitted by `FilterCodec.encode`
+  /// (`{"must":[...],"should":[...],"must_not":[...]}`, each condition one of
+  /// `{"key","match":{"value"|"any"}}`, `{"key","range":{...}}`, or itself a
+  /// nested bucket `{"should":[...]}` — see [_conditionFromJson]) into the
+  /// SDK's typed [qe.Filter]. Returns null for a null/empty envelope so the
+  /// caller runs an unfiltered search.
+  static qe.Filter? _filterFromJson(String? filterJson) {
+    if (filterJson == null) return null;
+    final map = jsonDecode(filterJson);
+    if (map is! Map<String, dynamic>) return null;
+    return _filterFromBucketMap(map);
+  }
+
+  /// Shared by the top-level envelope and by a condition that is itself a
+  /// nested bucket (see [_conditionFromJson]) — both have the same
+  /// `{"must"/"should"/"must_not": [...]}` shape.
+  static qe.Filter? _filterFromBucketMap(Map<String, dynamic> map) {
+    List<qe.Condition>? bucket(String key) {
+      final raw = map[key];
+      if (raw is! List || raw.isEmpty) return null;
       return [
-        for (final m in list)
-          SearchHit(
-            id: m['id'].toString(),
-            score: (m['score'] as num).toDouble(),
-            payload: m['payload'] is Map<String, dynamic>
-                ? m['payload'] as Map<String, dynamic>
-                : null,
-          ),
+        for (final c in raw)
+          if (c is Map<String, dynamic>) _conditionFromJson(c),
       ];
-    } on FormatException catch (e) {
-      throw QdrantException('Malformed search response from native shim: $e');
-    } on TypeError catch (e) {
-      throw QdrantException(
-        'Unexpected search response shape from native shim: $e',
+    }
+
+    final must = bucket('must');
+    final should = bucket('should');
+    final mustNot = bucket('must_not');
+    if (must == null && should == null && mustNot == null) return null;
+    return qe.Filter(must: must, should: should, mustNot: mustNot);
+  }
+
+  static qe.Condition _conditionFromJson(Map<String, dynamic> c) {
+    // FilterCodec encodes some single logical conditions as a NESTED bucket
+    // rather than a flat `{"key", "match"|"range"}` clause — e.g. a bool
+    // FieldEquals expands to `{"should": [{"key","match"...}, {"key",
+    // "range"...}]}` (both JSON spellings of the same boolean), and a
+    // non-string FieldMatchAny expands the same way. The SDK's `Condition`
+    // sealed class has no bare "wraps a Filter" case matching the server's
+    // untagged `Condition::Filter(Filter)`; [qe.FilterCondition] is that case.
+    if (c.containsKey('must') ||
+        c.containsKey('should') ||
+        c.containsKey('must_not')) {
+      final nested = _filterFromBucketMap(c);
+      if (nested != null) return qe.FilterCondition(nested);
+    }
+
+    final key = c['key'] as String;
+    qe.Match? match;
+    qe.RangeFloat? range;
+
+    final m = c['match'];
+    if (m is Map<String, dynamic>) {
+      if (m.containsKey('value')) {
+        match = qe.ValueMatch(_valueVariants(m['value']));
+      } else if (m['any'] is List) {
+        match = qe.AnyMatch(_anyVariants(m['any'] as List));
+      }
+    }
+
+    final r = c['range'];
+    if (r is Map<String, dynamic>) {
+      double? n(Object? v) => (v as num?)?.toDouble();
+      range = qe.RangeFloat(
+        gte: n(r['gte']),
+        gt: n(r['gt']),
+        lte: n(r['lte']),
+        lt: n(r['lt']),
       );
     }
+
+    return qe.FieldConditionVariant(
+      qe.FieldCondition(key: key, match: match, range: range),
+    );
+  }
+
+  static qe.ValueVariants _valueVariants(Object? v) {
+    if (v is bool) return qe.BoolValueVariants(v);
+    if (v is int) return qe.IntegerValueVariants(v);
+    return qe.StringValueVariants(v.toString());
+  }
+
+  static qe.AnyVariants _anyVariants(List values) {
+    if (values.isNotEmpty && values.every((e) => e is int)) {
+      return qe.IntegersAnyVariants(values.cast<int>());
+    }
+    return qe.StringsAnyVariants([for (final e in values) e.toString()]);
   }
 }

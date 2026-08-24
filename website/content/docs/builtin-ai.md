@@ -35,7 +35,7 @@ build time; always probe with `BuiltInAi.availability()` /
 Add the package and register `BuiltInAiEngine()` at startup, alongside any other
 engines your app uses:
 
-```yaml
+```
 dependencies:
   flutter_gemma: latest_version
   flutter_gemma_builtin_ai: latest_version   # OS/browser built-in AI

@@ -44,7 +44,7 @@ Native support is **arm64/x64-gated** — each host is device-verified end-to-en
 
 Add the package and register whichever arm(s) you use at startup:
 
-```yaml
+```
 dependencies:
   flutter_gemma: latest_version
   flutter_gemma_onnx: latest_version   # ONNX Runtime engines
@@ -133,7 +133,7 @@ Web needs a small `web/index.html` shim before `FlutterGemma.initialize()` runs
 (the same readiness-handshake pattern the other web arms use). Add the shim for
 whichever arm(s) you register, in `<head>`, ahead of `flutter_bootstrap.js`:
 
-```html
+```
 <!-- Transformers.js v4 — OnnxEngine web generation. -->
 <script type="module">
 window.transformersReady = (async () => {

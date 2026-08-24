@@ -30,7 +30,7 @@ internally**, so you feed plain messages and it handles the formatting.
 Add the package and register `MediaPipeEngine()` at startup, alongside any other
 engines your app uses:
 
-```yaml
+```
 dependencies:
   flutter_gemma: latest_version
   flutter_gemma_mediapipe: latest_version   # MediaPipe .task engine
@@ -80,7 +80,7 @@ On Web the MediaPipe runtime is loaded from a CDN. Add this to your app's
 `web/index.html` inside a `<script type="module">` (before the Flutter
 bootstrap), exposing the symbols on `window`:
 
-```html
+```
 <script type="module">
 import { FilesetResolver, LlmInference } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.27';
 window.FilesetResolver = FilesetResolver;

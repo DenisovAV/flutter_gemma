@@ -36,7 +36,7 @@ embedding backend — see [Embeddings & RAG](/docs/embeddings-and-rag).
 Add the package and register `LiteRtLmEngine()` at startup, alongside any other
 engines your app uses:
 
-```yaml
+```
 dependencies:
   flutter_gemma: latest_version
   flutter_gemma_litertlm: latest_version   # .litertlm inference engine
@@ -120,7 +120,7 @@ final session = await model.createSession(maxOutputTokens: 100);  // reply cap
 window globals, so add this handshake to your `web/index.html` `<head>` — Dart
 awaits `window.litertLmReady` (which resolves to the `Engine` constructor):
 
-```html
+```
 <script type="module">
 window.litertLmReady = (async () => {
   const m = await import('https://cdn.jsdelivr.net/npm/@litert-lm/core@0.14.0/+esm');

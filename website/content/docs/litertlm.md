@@ -1,14 +1,17 @@
 ---
 title: LiteRT-LM
-description: The default flutter_gemma engine — .litertlm on-device inference over dart:ffi (LiteRT-LM C API) on all five native platforms plus a text-only web preview, with CPU / GPU / NPU acceleration and a LiteRT embedding backend.
+description: The primary .litertlm engine — on-device inference over dart:ffi (LiteRT-LM C API) on all five native platforms plus a text-only web preview, with CPU / GPU / NPU acceleration and a LiteRT embedding backend.
 image: https://fluttergemma.dev/images/og-image.png
 ---
 
-`flutter_gemma_litertlm` is flutter_gemma's **default inference engine**. It runs
+`flutter_gemma_litertlm` is the **primary `.litertlm` engine**. (Core registers
+no engine by default — you opt in by registering `LiteRtLmEngine()`.) It runs
 `.litertlm` models through `dart:ffi` straight onto the **LiteRT-LM C API** — no
-JVM, no gRPC — and it is the **only engine for desktop** (macOS, Windows, Linux).
-The native library is fetched at build time via **Native Assets** (SHA256-verified,
-from the `native-v0.16.0` GitHub release), so there's no manual native setup.
+JVM, no gRPC — and it is the **primary desktop engine** (macOS, Windows, Linux);
+[ONNX Runtime](/docs/onnx) also runs on desktop, and macOS can additionally use
+[Built-in AI](/docs/builtin-ai). The native library is fetched at build time via
+**Native Assets** (SHA256-verified, from the `native-v0.16.0` GitHub release), so
+there's no manual native setup.
 
 The same package also ships **`LiteRtEmbeddingBackend`**, the LiteRT C API
 embedding backend — see [Embeddings & RAG](/docs/embeddings-and-rag).

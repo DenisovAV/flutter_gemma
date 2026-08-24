@@ -94,7 +94,13 @@ The point of a pluggable engine: **use the built-in model when the device
 supports it (zero download, private, fast); otherwise fall back to a downloaded
 open model** — through the same API, without rewriting the app.
 
+The fallback below registers a second engine, so add its package too — e.g.
+`flutter_gemma_litertlm` (for `LiteRtLmEngine`), or `flutter_gemma_mediapipe` /
+`flutter_gemma_onnx`:
+
 ```dart
+import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
+
 await FlutterGemma.initialize(
   inferenceEngines: const [
     BuiltInAiEngine(),   // flutter_gemma_builtin_ai

@@ -76,6 +76,7 @@ runs in a sandboxed `<iframe>`.
 ```dart
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_agent/flutter_gemma_agent.dart';
+import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 
 // 1. Register the inference engine (and, optionally, the skill executors).
 await FlutterGemma.initialize(

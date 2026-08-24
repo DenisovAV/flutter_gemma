@@ -60,14 +60,26 @@ const _features = [
     accent: Brand.orange,
   ),
   _FeatureData(
+    icon: '📱',
+    title: 'Built-in AI',
+    desc: 'Run Gemini Nano & Apple Intelligence — an OS-owned model, zero download',
+    accent: Brand.blue,
+  ),
+  _FeatureData(
     icon: '🔌',
-    title: 'Modular',
-    desc: 'Core + 8 opt-in packages — ship only what you use',
+    title: 'Pluggable Engines',
+    desc: 'LiteRT-LM, MediaPipe, ONNX Runtime & built-in OS AI — register the engine you need',
+    accent: Brand.orange,
+  ),
+  _FeatureData(
+    icon: '📦',
+    title: 'Opt-in Packages',
+    desc: 'Core + 11 opt-in packages — agent skills, speech, RAG & more; ship only what you use',
     accent: Brand.green,
   ),
 ];
 
-/// 8-card feature grid.
+/// Feature grid.
 class Features extends StatelessComponent {
   const Features({super.key});
 

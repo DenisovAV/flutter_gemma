@@ -106,6 +106,15 @@ void main() {
                   ],
                 ),
                 SidebarGroup(
+                  title: 'Engines',
+                  links: [
+                    SidebarLink(text: 'LiteRT-LM', href: '/docs/litertlm'),
+                    SidebarLink(text: 'MediaPipe', href: '/docs/mediapipe'),
+                    SidebarLink(text: 'ONNX Runtime', href: '/docs/onnx'),
+                    SidebarLink(text: 'Built-in AI', href: '/docs/builtin-ai'),
+                  ],
+                ),
+                SidebarGroup(
                   title: 'Features',
                   links: [
                     SidebarLink(text: 'Multimodal', href: '/docs/multimodal'),

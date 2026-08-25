@@ -161,6 +161,44 @@ void main() {
       );
     });
 
+    test(
+      'a failed initialize() does not leave the store reading as empty',
+      () async {
+        // The hole the first version of this fix left open. initialize() arms
+        // `_databasePath` BEFORE it throws, so that clear() stays reachable —
+        // but it set no latch, so `_assertUsable` saw a perfectly healthy store.
+        // A caller that logged the exception and carried on, or any other code
+        // path that read, got 0 documents and no hits over an intact 1.x corpus:
+        // the exact defect this release removes, in the one case it is about.
+        writeLegacyStore(tmp.path);
+        final store = QdrantVectorStore();
+        await expectLater(
+          store.initialize(tmp.path),
+          throwsA(isA<VectorStoreException>()),
+        );
+
+        expect(
+          store.isInitialized,
+          isFalse,
+          reason: 'a store whose initialize() threw reported itself ready',
+        );
+        await expectLater(
+          store.getStats(),
+          throwsA(isA<VectorStoreException>()),
+          reason: 'reported 0 documents over a 1.x corpus still on disk',
+        );
+        await expectLater(
+          store.searchSimilar(queryEmbedding: vec(4, 1), topK: 5),
+          throwsA(isA<VectorStoreException>()),
+          reason: 'answered with no hits over a 1.x corpus still on disk',
+        );
+        await expectLater(
+          store.removeDocument(id: 'x'),
+          throwsA(isA<VectorStoreException>()),
+        );
+      },
+    );
+
     test('the refusal still leaves clear() reachable', () async {
       // The error tells the caller to call clear(). If initialize() threw
       // before arming `_databasePath`, clear() would return early and the

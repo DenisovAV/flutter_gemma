@@ -79,7 +79,8 @@ class QdrantVectorStore implements VectorStoreRepository {
   /// one — sending every later write into the wrong store.
   int _generation = 0;
 
-  /// Set when a shard EXISTS on disk but could not be opened.
+  /// Set when the store is armed but must NOT be read: the full message
+  /// explaining why.
   ///
   /// `_client == null` collapsed three different facts into one value: never
   /// initialized (a caller error), initialized-but-cold (genuinely empty), and
@@ -89,8 +90,20 @@ class QdrantVectorStore implements VectorStoreRepository {
   /// nothing about it. That is the defect this release exists to fix; leaving
   /// it on the read path would be shipping it under a new version number.
   ///
+  /// Two things set it, and both used to be invisible to a reader:
+  ///   * adoption failed — a shard is on disk and would not open;
+  ///   * a 1.x store was found, which initialize() also throws for.
+  ///
+  /// The second is why this is a latch and not just a return value.
+  /// initialize() arms `_databasePath` BEFORE it throws, so that clear() — the
+  /// remedy its own message prescribes — stays reachable. Without a latch that
+  /// left the object looking healthy: a caller that logged the exception and
+  /// carried on got `getStats() == 0` and no search hits over an intact 1.x
+  /// corpus. That is the exact defect this release exists to remove, in the one
+  /// case the release is about. Measured, not reasoned about.
+  ///
   /// Cleared once an open succeeds, and on initialize/clear/close.
-  String? _adoptionFailure;
+  String? _unusableReason;
 
   /// `enableHnsw` is part of the contract but a no-op for qdrant.
   bool _enableHnsw = true;
@@ -133,7 +146,11 @@ class QdrantVectorStore implements VectorStoreRepository {
   void Function(Directory dir)? debugDeleteDirOverride;
 
   @override
-  bool get isInitialized => _databasePath != null;
+  /// The contract is "true if [initialize] was called successfully" — so a
+  /// store whose initialize() threw must answer false, even though the path is
+  /// still armed so clear() can reach it. Answering true told a caller it was
+  /// ready when every operation on it refuses.
+  bool get isInitialized => _databasePath != null && _unusableReason == null;
 
   @override
   bool get enableHnsw => _enableHnsw;
@@ -191,7 +208,7 @@ class QdrantVectorStore implements VectorStoreRepository {
     }
     _client = null;
     _dim = null;
-    _adoptionFailure = null;
+    _unusableReason = null;
     _generation++;
     _databasePath = databasePath;
 
@@ -214,7 +231,10 @@ class QdrantVectorStore implements VectorStoreRepository {
     // this message prescribes is reachable. Throwing before that would leave
     // the caller holding a store that refuses the remedy it just recommended.
     if (!Directory(storeDir).existsSync() && _hasLegacyStoreAt(databasePath)) {
-      throw VectorStoreException(_legacyStoreMessage(databasePath));
+      // Latch BEFORE throwing. A caller that catches this and carries on, or
+      // any other code path that reads, must not be told the store is empty.
+      _unusableReason = _legacyStoreMessage(databasePath);
+      throw VectorStoreException(_unusableReason!);
     }
 
     try {
@@ -229,7 +249,7 @@ class QdrantVectorStore implements VectorStoreRepository {
       }
       _client = opened.client;
       _dim = opened.dim;
-      _adoptionFailure = null;
+      _unusableReason = null;
     } on QdrantException catch (e) {
       // Not fatal HERE: a write goes through _ensureClient, which retries the
       // open with the dimension the caller actually intends — and only that
@@ -237,7 +257,10 @@ class QdrantVectorStore implements VectorStoreRepository {
       // between now and then must not answer "empty" for a shard that is
       // sitting right there, so latch it. gemmaLog alone would not do: it is
       // `if (!kDebugMode) return;`, so in a release build nobody is told at all.
-      _adoptionFailure = '$e';
+      _unusableReason =
+          'A qdrant shard exists at $storeDir but could not be opened, so this '
+          'store cannot tell you whether it is empty — reporting no results '
+          'would hide an intact corpus. Underlying error: $e';
       gemmaLog('[QdrantVectorStore] could not adopt existing shard: $e');
     }
   }
@@ -326,15 +349,9 @@ class QdrantVectorStore implements VectorStoreRepository {
     if (databasePath == null) {
       throw StateError('VectorStore not initialized. Call initialize() first.');
     }
-    final failure = _adoptionFailure;
-    if (failure != null) {
-      throw VectorStoreException(
-        '$operation refused: a qdrant shard exists at '
-        '${_storeDirFor(databasePath)} but could not be opened, so this store '
-        'cannot tell you whether it is empty. Reporting no results would hide '
-        'an intact corpus. Underlying error: $failure',
-      );
-    }
+    final reason = _unusableReason;
+    if (reason != null)
+      throw VectorStoreException('$operation refused. $reason');
   }
 
   Future<QdrantEdgeClient> _ensureClient({required int dim}) async {
@@ -419,7 +436,7 @@ class QdrantVectorStore implements VectorStoreRepository {
       }
       _client = c;
       _dim = dim;
-      _adoptionFailure = null;
+      _unusableReason = null;
       return c;
     } on QdrantException catch (e) {
       // Wrap and rethrow — never auto-rename/delete/rebuild. Whether the
@@ -609,7 +626,7 @@ class QdrantVectorStore implements VectorStoreRepository {
       final failed = _clearLegacyStoreAt(databasePath);
       _client = null;
       _dim = null;
-      _adoptionFailure = null;
+      _unusableReason = null;
       if (failed.isNotEmpty) _throwLegacySweepFailure(databasePath, failed);
       return;
     }
@@ -628,7 +645,7 @@ class QdrantVectorStore implements VectorStoreRepository {
       // Close + delete both succeeded: only now is it safe to report empty.
       _client = null;
       _dim = null;
-      _adoptionFailure = null;
+      _unusableReason = null;
     } on FileSystemException catch (e) {
       // Delete failed partway — the on-disk subdir may be left in a mixed
       // state. Fail-closed: mark the whole store uninitialized (rather than
@@ -699,7 +716,7 @@ class QdrantVectorStore implements VectorStoreRepository {
     final c = _client;
     _client = null;
     _dim = null;
-    _adoptionFailure = null;
+    _unusableReason = null;
     _generation++;
     _databasePath = null;
     if (c != null) {

@@ -1,3 +1,8 @@
+## 1.2.1
+- Fix `isInitialized` reporting true after an `initialize()` that threw.
+- Fix bundled iOS `vec0` declaring the wrong minimum OS (App Store ITMS-90208).
+- Document the 1.0.x index break and how to move the old rows.
+
 ## 1.2.0
 - **Breaking:** reject schema names vec0 cannot represent, including `distance` and `k`.
 - Fix `mustNot` and unpushable filters silently returning fewer rows than `topK`, or none.

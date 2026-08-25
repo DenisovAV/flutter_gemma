@@ -11,6 +11,7 @@ import 'dart:io';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_rag_sqlite/flutter_gemma_rag_sqlite.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sqlite3/sqlite3.dart';
 
 import 'vec0_locator.dart';
 
@@ -19,6 +20,44 @@ void main() {
   // locator is only a gate: it answers "is the loadable present on this host",
   // not "here is the handle to use".
   final skip = vec0SkipReason;
+
+  group('a failed initialize() must not report itself ready', () {
+    test('isInitialized is false after initialize() throws', () async {
+      // `_isInitialized = true` used to sit BEFORE the dimension detection,
+      // inside the same try. A schema this release cannot read made detection
+      // throw, the catch reported failure to the caller — and the flag stayed
+      // true. A caller doing `try { await initialize(p); } catch (_) {}` and
+      // then gating on `isInitialized` got a green light out of a failure.
+      //
+      // The contract says "true if [initialize] was called successfully"
+      // (VectorStoreRepository), and the qdrant sibling answers false here.
+      useHostNativeLibraries();
+      final tmp = Directory.systemTemp.createTempSync('sqlite_init_fail');
+      addTearDown(() {
+        try {
+          tmp.deleteSync(recursive: true);
+        } catch (_) {}
+      });
+      final path = '${tmp.path}/rag.db';
+
+      // A `vec_documents` that is not the shape this release expects.
+      final raw = sqlite3.open(path);
+      raw.execute('CREATE TABLE vec_documents (id TEXT, nonsense INTEGER)');
+      raw.dispose();
+
+      final store = SqliteVectorStore();
+      addTearDown(() => store.close().catchError((Object _) {}));
+      await expectLater(
+        store.initialize(path),
+        throwsA(isA<VectorStoreException>()),
+      );
+      expect(
+        store.isInitialized,
+        isFalse,
+        reason: 'an initialize() that threw reported the store as ready',
+      );
+    }, skip: vec0SkipReason);
+  });
 
   group('SqliteVectorStore (vec0)', () {
     late SqliteVectorStore repo;

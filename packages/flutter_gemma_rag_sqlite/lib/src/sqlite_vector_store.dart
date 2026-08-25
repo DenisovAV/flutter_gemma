@@ -143,9 +143,20 @@ class SqliteVectorStore implements VectorStoreRepository {
       }
       _db?.close();
       _db = sqlite3.open(databasePath);
-      _isInitialized = true;
       _detectDimensionFromExistingTable();
+      // Last, and only once everything above succeeded. Setting it before
+      // `_detectDimensionFromExistingTable()` — which throws on a schema this
+      // release does not expect — meant a caller who did
+      // `try { await initialize(p); } catch (_) {}` and then gated on
+      // `isInitialized` got true out of an initialize that had just reported
+      // failure. The contract is "true if [initialize] was called
+      // successfully", and the qdrant sibling answers false in the same
+      // situation.
+      _isInitialized = true;
     } catch (e) {
+      // Do not leave a half-open store behind either: the handle above may be
+      // live while the schema is not the one we can use.
+      _isInitialized = false;
       throw VectorStoreException('Failed to initialize vector store', e);
     }
   }

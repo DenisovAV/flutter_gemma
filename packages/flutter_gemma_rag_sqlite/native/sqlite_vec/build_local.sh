@@ -62,7 +62,45 @@ repackage() {
   tar -xzf "$archive" -C "$ext"
   [ -f "$ext/$upstreamName" ] || { echo "ERROR: $upstreamName missing in upstream tarball" >&2; exit 1; }
   mv "$ext/$upstreamName" "$ext/$bundledName"
+  normalize_apple_minos "$dirName" "$ext/$bundledName"
   pack "$dirName" "$ext/$bundledName"
+}
+
+# Every bundled Apple dylib must declare minos 13.0.
+#
+# Flutter hardcodes `MinimumOSVersion 13.0` into the Native-Assets framework
+# wrapper it generates (isolated/native_assets/ios/native_assets.dart,
+# `const targetIOSVersion = 13`), and App Store Connect compares each
+# framework's BINARY against ITS OWN wrapper plist — so a slice declaring
+# anything else is ITMS-90208 regardless of the app's own deployment target.
+#
+# asg017's iOS device tarball ships `LC_VERSION_MIN_IPHONEOS 7.0` — the legacy
+# load command, which `vtool -show-build-version` cannot even read — and the
+# simulator slice ships 14.0. Neither matches 13.0. This repo has shipped that
+# rejection once already (#286), from the same omission in a different build
+# script: litert_lm/build_ios.sh does this step, this one did not.
+normalize_apple_minos() {
+  local dirName="$1" lib="$2"
+  local platform
+  case "$dirName" in
+    ios_arm64)     platform=ios ;;
+    ios_sim_arm64) platform=iossim ;;
+    macos_arm64)   platform=macos ;;
+    *) return 0 ;;
+  esac
+  [ "$platform" = "macos" ] && return 0  # macOS has no equivalent wrapper plist
+  vtool -set-build-version "$platform" 13.0 18.5 -replace \
+        -output "$lib.norm" "$lib"
+  mv "$lib.norm" "$lib"
+  # Prove it, rather than trusting the call: a wrong platform argument is
+  # accepted silently and leaves the old load command in place.
+  local got
+  got="$(vtool -show-build-version "$lib" | awk '/minos/ {print $2; exit}')"
+  [ "$got" = "13.0" ] || {
+    echo "ERROR: $dirName minos is '$got', expected 13.0" >&2
+    exit 1
+  }
+  echo "    minos normalized to 13.0 ($platform)"
 }
 
 # Rebuild android arm64 from the amalgamation with 16 KB LOAD-segment alignment.

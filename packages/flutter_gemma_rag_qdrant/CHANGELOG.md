@@ -1,4 +1,4 @@
-## 2.0.0
+## 1.3.0
 - **Breaking:** moved onto the official `qdrant_edge` UniFFI SDK.
 - **Breaking:** a 1.x store is not readable — remove its files, then re-index.
 - **Breaking:** `clear()` empties the shard in place; it never deletes files.

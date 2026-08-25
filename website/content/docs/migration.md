@@ -33,7 +33,7 @@ dependencies:
   flutter_gemma_litertlm: ^1.5.2        # add if you run .litertlm models (also provides LiteRtEmbeddingBackend)
   flutter_gemma_mediapipe: ^1.0.5       # add if you run .task / .bin models
   flutter_gemma_embeddings: ^2.0.0      # add if you compute embeddings (needs a backend, see above)
-  flutter_gemma_rag_qdrant: ^2.0.0      # add for native on-device RAG (qdrant)
+  flutter_gemma_rag_qdrant: ^1.3.0      # add for native on-device RAG (qdrant)
   flutter_gemma_rag_sqlite: ^1.2.0      # add for on-device RAG (sqlite-vec; all platforms incl. web)
 ```
 
@@ -161,11 +161,11 @@ no-op on every later launch.
 There is no built-in migration call — this is a one-time fix for an upgrade
 that has already happened, not an ongoing API.
 
-## Breaking: rag_qdrant 2.0.0 — the on-disk store is not readable
+## Breaking: rag_qdrant 1.3.0 — the on-disk store is not readable
 
 <Warning>
-`flutter_gemma_rag_qdrant` **2.0.0** moves onto the official `qdrant_edge`
-UniFFI SDK, and **an index written by 1.x cannot be read by 2.0**. This is a
+`flutter_gemma_rag_qdrant` **1.3.0** moves onto the official `qdrant_edge`
+UniFFI SDK, and **an index written by 1.2 or earlier cannot be read**. This is a
 data change, not an API change: your `addDocument` / `searchSimilar` calls are
 unchanged, but the documents already on the device are not.
 </Warning>

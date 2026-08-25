@@ -60,7 +60,7 @@ refuses; if a schema must work on both, keep it inside sqlite's narrower set.
 
 ## Upgrading from 1.x
 
-**2.0 cannot read a store written by 1.x.** The shard format changed with the
+**1.3 cannot read a store written by 1.2 or earlier.** The shard format changed with the
 move to crate 0.8.0, and this release keeps its data in an owned
 `qdrant_edge_v1/` subdirectory rather than directly at the path you pass to
 `initialize()`.

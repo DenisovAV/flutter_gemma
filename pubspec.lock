@@ -876,10 +876,10 @@ packages:
     dependency: transitive
     description:
       name: qdrant_edge
-      sha256: e2c01ccf66306c3b6a913383863d6f9f9f9be3017e9c6b49a8747665de8435af
+      sha256: "66ee935db20f885cfd12cf9e7a17369fd2753887b9d8454344f544d9c6bde5b0"
       url: "https://pub.dev"
     source: hosted
-    version: "0.8.0-dev.2"
+    version: "0.8.0-dev.3"
   quiver:
     dependency: transitive
     description:

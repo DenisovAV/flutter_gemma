@@ -59,6 +59,18 @@ class QdrantException implements Exception {
   String toString() => 'QdrantException: $message';
 }
 
+/// The shard is open somewhere else — another isolate, another store instance,
+/// a handle the app did not close.
+///
+/// Recoverable and ordinary, which is exactly why it needs its own type: it
+/// used to arrive as the same generic runtime error as "this data is corrupt",
+/// distinguishable only by grepping `WouldBlock` out of an English message.
+/// Treating the two as one is how a documented recovery step, written for the
+/// corrupt case, once deleted an intact corpus.
+class QdrantShardLockedException extends QdrantException {
+  const QdrantShardLockedException(super.message);
+}
+
 /// High-level Dart wrapper over the official Qdrant Edge SDK ([qe.EdgeShard]).
 ///
 /// This backs [QdrantVectorStore]; it is not meant for direct use by
@@ -101,10 +113,10 @@ class QdrantEdgeClient {
         },
       );
       return QdrantEdgeClient._(qe.EdgeShard.load(path: path, config: config));
-    } on qe.EdgeException catch (e) {
-      throw QdrantException(_flatten(e));
     } on FileSystemException catch (e) {
       throw QdrantException('Failed to create shard directory at $path: $e');
+    } catch (e) {
+      _rethrow(e);
     }
   }
 
@@ -121,37 +133,29 @@ class QdrantEdgeClient {
   static Future<({QdrantEdgeClient client, int dim})?> openExisting({
     required String path,
   }) async {
-    if (!Directory(path).existsSync()) return null;
-    // `EdgeShard.load` raises ONE error for two different facts — "this
-    // directory holds no shard" and "this shard will not load" — so the caller
-    // cannot classify on the exception. Measured:
-    //
-    //   empty dir                        -> "edge config is not provided…"
-    //   dir of unrelated files           -> "edge config is not provided…"
-    //   config gone, segments present    -> LOADS, dim intact, data readable
-    //   config corrupted, segments there -> "IO Error: Failed to deserialize…"
-    //
-    // The third line is why an earlier version of this gate was wrong: it
-    // required `edge_config.json` and returned null without it, so a shard
-    // that the engine reads perfectly well reported as an empty store. A
-    // `clear()` that died after unlinking the marker but before `segments/`
-    // reached exactly that state, and re-initialize — the step the fail-closed
-    // path prescribes — laundered it into a confident zero.
-    //
-    // So gate on evidence of CONTENT, and let anything with content reach the
-    // load. `wal/` alone is deliberately not evidence: a first open that failed
-    // leaves it behind with nothing committed, and treating that as an
-    // unreadable shard would refuse every read on a store that never had data.
-    //
-    // These names can only be ours. This is the OWNED `qdrant_edge_v1`
-    // subdirectory, not the caller's databasePath — the distinction that makes
-    // the same check destructive there (a caller's own `segments/`) and correct
-    // here.
-    final sep = Platform.pathSeparator;
-    final hasContent =
-        File('$path${sep}edge_config.json').existsSync() ||
-        Directory('$path${sep}segments').existsSync();
-    if (!hasContent) return null;
+    // `probeShard` (SDK 0.8.0-dev.3) answers the one question this method has
+    // to ask, and it is the SDK's to answer: is there a shard here, and will it
+    // load? Before it existed, `EdgeShard.load` raised the SAME error for "this
+    // directory holds no shard" and "this shard will not load", so this package
+    // guessed from the filesystem — looking for `edge_config.json` and parsing
+    // it. That guess reported a full corpus as an empty store, because the
+    // engine reads a shard whose config file is missing perfectly well. The
+    // heuristic is gone; the SDK is asked instead.
+    final probe = qe.probeShard(path: path);
+    switch (probe.presence) {
+      case qe.EdgeShardPresence.none:
+        return null;
+      case qe.EdgeShardPresence.unreadable:
+        // Positive evidence that something of ours is here and will not open.
+        // Never report this as "no shard" — that is the silent-empty-index
+        // defect this release exists to remove.
+        throw QdrantException(
+          'A qdrant shard is present at $path but cannot be read'
+          '${probe.reason == null ? '' : ': ${probe.reason}'}',
+        );
+      case qe.EdgeShardPresence.loadable:
+        break;
+    }
     try {
       final shard = qe.EdgeShard.load(path: path, config: null);
       final cfg = shard.config();
@@ -169,8 +173,25 @@ class QdrantEdgeClient {
         );
       }
       return (client: QdrantEdgeClient._(shard), dim: size);
-    } on qe.EdgeException catch (e) {
-      throw QdrantException(_flatten(e));
+    } catch (e) {
+      _rethrow(e);
+    }
+  }
+
+  /// Remove every point, leaving the shard open and usable.
+  ///
+  /// This is what the store's `clear()` needs, and it means the store never
+  /// touches the filesystem to erase an index. It spent a release deleting the
+  /// shard DIRECTORY instead, on the strength of a comment carried forward from
+  /// the old Rust shim without rechecking: "qdrant-edge has no truncate
+  /// primitive". The SDK has had one all along as
+  /// `deletePointsByFilter(Filter())`, and 0.8.0-dev.3 gives it a name.
+  Future<void> deleteAll() async {
+    _checkOpen();
+    try {
+      _shard.clear();
+    } catch (e) {
+      _rethrow(e);
     }
   }
 
@@ -188,8 +209,8 @@ class QdrantEdgeClient {
           points: [_point(id, vector, payload)],
         ),
       );
-    } on qe.EdgeException catch (e) {
-      throw QdrantException(_flatten(e));
+    } catch (e) {
+      _rethrow(e);
     }
   }
 
@@ -206,8 +227,8 @@ class QdrantEdgeClient {
           points: [for (final p in points) _point(p.id, p.vector, p.payload)],
         ),
       );
-    } on qe.EdgeException catch (e) {
-      throw QdrantException(_flatten(e));
+    } catch (e) {
+      _rethrow(e);
     }
   }
 
@@ -240,8 +261,8 @@ class QdrantEdgeClient {
             payload: _decodePayload(sp.payload),
           ),
       ];
-    } on qe.EdgeException catch (e) {
-      throw QdrantException(_flatten(e));
+    } catch (e) {
+      _rethrow(e);
     }
   }
 
@@ -255,8 +276,8 @@ class QdrantEdgeClient {
           pointIds: [for (final id in ids) qe.UuidPointId(id)],
         ),
       );
-    } on qe.EdgeException catch (e) {
-      throw QdrantException(_flatten(e));
+    } catch (e) {
+      _rethrow(e);
     }
   }
 
@@ -265,8 +286,8 @@ class QdrantEdgeClient {
     _checkOpen();
     try {
       return _shard.count(request: qe.CountRequest());
-    } on qe.EdgeException catch (e) {
-      throw QdrantException(_flatten(e));
+    } catch (e) {
+      _rethrow(e);
     }
   }
 
@@ -312,6 +333,27 @@ class QdrantEdgeClient {
   }
 
   static String _flatten(qe.EdgeException e) => e.toString();
+
+  /// The one place SDK failures become this package's own type.
+  ///
+  /// `on qe.EdgeException` alone was not enough: a Rust panic or a
+  /// bindings/native protocol mismatch arrives as `UniffiInternalError`, which
+  /// is not an `EdgeException` — so it crossed every wrapper untouched and
+  /// reached application code as a type the app could not name in a catch.
+  /// 0.8.0-dev.3 exports it, so it can finally be caught here.
+  static Never _rethrow(Object e) {
+    if (e is qe.ShardLockedEdgeException) {
+      throw QdrantShardLockedException(
+        'The shard is already open elsewhere (its write-ahead log is held by '
+        'another handle). Close the other store, or wait for it to finish.',
+      );
+    }
+    if (e is qe.EdgeException) throw QdrantException(_flatten(e));
+    if (e is qe.UniffiInternalError) {
+      throw QdrantException('qdrant-edge internal failure: $e');
+    }
+    throw e;
+  }
 
   // ---- Filter bridge: qdrant JSON envelope → typed qe.Filter ----------------
 

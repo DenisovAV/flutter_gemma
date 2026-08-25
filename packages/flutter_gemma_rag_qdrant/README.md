@@ -65,9 +65,10 @@ move to crate 0.8.0, and this release keeps its data in an owned
 `qdrant_edge_v1/` subdirectory rather than directly at the path you pass to
 `initialize()`.
 
-`initialize()` itself throws a `VectorStoreException` naming the situation —
-not the first write, so a read-only session hits it too. The remedy is one
-call, and it removes the old on-disk layout for you:
+`initialize()` throws a `QdrantLegacyStoreException` naming the situation — not
+the first write, so a read-only session hits it too. It names the three entries
+a 1.x shard owns (`edge_config.json`, `wal/`, `segments/`); remove those from
+the directory yourself, then re-index.
 
 ```dart
 import 'package:flutter_gemma_rag_qdrant/flutter_gemma_rag_qdrant.dart';
@@ -75,30 +76,24 @@ import 'package:flutter_gemma_rag_qdrant/flutter_gemma_rag_qdrant.dart';
 final store = QdrantVectorStore();
 try {
   await store.initialize(path);
-} on QdrantLegacyStoreException {
-  // ONLY this type. `initialize()` also throws the base VectorStoreException
-  // when a 2.0 shard is present but will not open — a WAL held by another
-  // store, a permission problem — and calling clear() for that would delete
-  // an intact corpus. Catching the base type here did exactly that.
-  await store.clear();          // removes the 1.x layout as well as the 2.x one
-  await store.initialize(path);
+} on QdrantLegacyStoreException catch (e) {
+  // e.message names exactly what to remove. Do it with the file APIs you
+  // already use for `path`, then initialize() again and re-index.
+  rethrow;
 }
-// ...then re-index your documents.
 ```
 
-`clear()` deletes the 1.x layout only when `edge_config.json` is a shard config
-this package wrote. If the file is something else of yours that happens to share
-the name, `clear()` refuses and says so — move your files, or point
-`initialize()` at a subdirectory of their own. If it is a 1.x index whose config
-this release does not recognise, remove `edge_config.json`, `wal/` and
-`segments/` yourself, then re-index.
+**This release never deletes a file it cannot read.** `clear()` empties the
+shard in place — the SDK's own `EdgeShard.clear()` — so it does not remove the
+directory, and it refuses outright when a 1.x layout is present. The previous
+design deleted directories to erase an index, and twice removed files that
+belonged to the caller rather than to the store; the deletion is gone, and with
+it that whole class of mistake.
 
-`clear()` only removes the entries a qdrant shard owns (`edge_config.json`,
-`wal/`, `segments/`) — unrelated files you keep alongside the store are left
-alone.
-
-If you skip this, nothing silently degrades: the store refuses to open rather
-than coming up empty.
+Catch `QdrantLegacyStoreException`, never the base `VectorStoreException`:
+`initialize()` also throws the base type when a 2.0 shard is present but will
+not open right now — a WAL held by another store, a permission problem — and
+that is not a store you want to act destructively on.
 
 ## Platforms
 

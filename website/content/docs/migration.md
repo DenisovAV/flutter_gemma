@@ -183,22 +183,25 @@ import 'package:flutter_gemma_rag_qdrant/flutter_gemma_rag_qdrant.dart';
 final store = QdrantVectorStore();
 try {
   await store.initialize(path);
-} on QdrantLegacyStoreException {
-  // ONLY this type. `initialize()` also throws the base VectorStoreException
-  // when a 2.0 shard is present but will not open — a WAL held by another
-  // store, a permission problem — and clear() would then delete an intact
-  // corpus and report success. Catch the specific type.
-  await store.clear();
-  await store.initialize(path);
+} on QdrantLegacyStoreException catch (e) {
+  // e.message names the three entries a 1.x shard owns. Remove them with the
+  // file APIs you already use for `path`, then initialize() again.
+  rethrow;
 }
 // ...then re-add your documents.
 ```
 
 <Warning>
-Do not widen that `catch` to `VectorStoreException`. `clear()` is destructive,
-and a store that merely could not be opened right now is not a store you want
-erased.
+Catch `QdrantLegacyStoreException`, not the base `VectorStoreException`.
+`initialize()` also throws the base type when a 2.0 shard is present but will
+not open right now — a WAL held by another store, a permission problem — and
+treating that as "the old format is here" is how a recovery step can act on a
+store that is perfectly fine.
 </Warning>
+
+`clear()` no longer deletes anything: it empties the shard in place, and it
+refuses when a 1.x layout is present rather than removing files it cannot
+read.
 
 `clear()` deletes only what this package wrote. Your own files sitting next to
 the store at the same path are left alone.

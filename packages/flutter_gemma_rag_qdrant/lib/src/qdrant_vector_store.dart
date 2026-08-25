@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_gemma/core/utils/gemma_log.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_rag_qdrant/src/filter_codec.dart';
@@ -199,31 +198,6 @@ class QdrantVectorStore implements VectorStoreRepository {
   /// opens it, refuses to start over it, and can remove it via [clear].
   static const _storeDirName = 'qdrant_edge_v1';
 
-  /// Test-only seam: when set, [clear] calls this instead of deleting, for
-  /// BOTH things it removes — the owned shard directory and each entry of a
-  /// 1.x layout at the bare `databasePath`. Lets tests deterministically
-  /// exercise the delete-failure paths (fail-closed recovery, and the
-  /// partial-sweep report) by throwing a [FileSystemException] from here,
-  /// without OS-level fault injection (permission bits, symlinks) that would
-  /// not behave identically across POSIX and Windows.
-  ///
-  /// It covered only the owned directory at first, which left the entire 1.x
-  /// sweep-failure path — the code whose whole reason to exist is refusing to
-  /// report success over a partial delete — unreachable from any test.
-  @visibleForTesting
-  void Function(Directory dir)? debugDeleteDirOverride;
-
-  /// Test-only seam: a fault to raise after [clear] closes the client, so the
-  /// close-failure branch — which must settle state BEFORE it reports — can be
-  /// reached at all. Nothing else can force `QdrantEdgeClient.close()` to fail.
-  ///
-  /// Shaped as "return the error to throw, or null" rather than a callback
-  /// that may or may not do the work: it can inject a failure but can never
-  /// cause a step to be silently skipped, which is the failure mode the other
-  /// seam here is capable of.
-  @visibleForTesting
-  Object? Function()? debugCloseFault;
-
   @override
   /// The contract is "true if [initialize] was called successfully" — so a
   /// store whose initialize() threw must answer false, even though the path is
@@ -356,11 +330,20 @@ class QdrantVectorStore implements VectorStoreRepository {
       // so a write must not paper over them either — addDocument asserts the
       // latch too. gemmaLog alone would not do: it is debug-only, so in a
       // release build nobody is told at all.
-      _unusableReason =
-          'A qdrant shard exists at $storeDir but could not be opened, so this '
-          'store cannot tell you whether it is empty — reporting no results '
-          'would hide an intact corpus. Call initialize() again once the cause '
-          'is cleared. Underlying error: $e';
+      // Two different situations, two different things to tell the caller.
+      // They arrived as one generic error until the SDK gave the lock its own
+      // type — and conflating "someone else has it open" with "this data is
+      // damaged" is how a recovery step written for the second once ran
+      // against the first.
+      _unusableReason = e is QdrantShardLockedException
+          ? 'The qdrant shard at $storeDir is open elsewhere, so this store '
+                'cannot read it — and reporting no results would hide an '
+                'intact corpus. Close the other store (or wait for it), then '
+                'call initialize() again. Underlying error: $e'
+          : 'A qdrant shard exists at $storeDir but could not be opened, so '
+                'this store cannot tell you whether it is empty — reporting no '
+                'results would hide an intact corpus. Call initialize() again '
+                'once the cause is cleared. Underlying error: $e';
       gemmaLog('[QdrantVectorStore] could not adopt existing shard: $e');
       // And REPORT it. The contract says initialize() throws
       // VectorStoreException when initialization fails, and this failed: a
@@ -387,174 +370,42 @@ class QdrantVectorStore implements VectorStoreRepository {
   /// why this release cannot read it, and the one call that clears it.
   static String _legacyStoreMessage(String databasePath) =>
       'Found a store written by flutter_gemma_rag_qdrant 1.x at $databasePath. '
-      'Its on-disk format is not readable by 2.0. Call clear() to remove it '
-      '(that now deletes the 1.x layout too), then re-index.';
+      'Its on-disk format is not readable by 2.0, and this release never '
+      'deletes files it cannot read: remove "${_legacyEntries.join('", "')}" '
+      'from that directory yourself, then re-index. Anything else you keep '
+      'there is left alone.';
 
   /// True when [databasePath] holds a shard written by 1.x. Such a store is
   /// invisible to this release — 2.0 only ever opens the owned subdir — so
   /// without this check the app comes up with an empty index, no error, and
   /// the old corpus still occupying disk.
-  /// Refusing to start and deleting need different evidence, so the probe
-  /// answers with more than a bool.
+  /// True when [databasePath] holds a store written by 1.x.
   ///
-  /// A marker we cannot READ forced this. It is either a real 1.x store
-  /// (refuse, or the app silently comes up empty over the corpus) or somebody
-  /// else's file of the same name sitting beside directories the caller
-  /// happens to have called `wal` and `segments` (do not touch). We cannot
-  /// tell which — that is what "cannot read" means — and the two want opposite
-  /// answers, so it gets the safe half of each: refuse to start, never delete.
-  /// Answering a plain `true` deleted both of the caller's directories and
-  /// returned from clear() normally. Measured.
-  static _LegacyProbe _probeLegacyStoreAt(String databasePath) {
-    // Gate on `edge_config.json` ONLY, and on its content — never on `wal` or
-    // `segments`. Those two are ordinary directory names, `databasePath` is
-    // routinely an app-documents directory, and a false positive here is
-    // destructive: the store refuses to run and `clear()` — the remedy the
-    // error message names — deletes what it matched. A caller's own
-    // `segments/` must never be mistaken for our shard.
-    //
-    // The cost is a false NEGATIVE for a 1.x store whose marker was removed by
-    // hand. That case degrades to "2.0 creates its subdir alongside", which
-    // wastes disk but destroys nothing — the right direction to be wrong in.
+  /// It used to answer with four states, because "may I refuse?" and "may I
+  /// delete?" needed different evidence and getting that wrong cost a caller
+  /// their own `wal/` and `segments/` twice. clear() no longer deletes
+  /// anything, so the second question is gone and one bool is enough.
+  ///
+  /// A marker we cannot READ still counts as present: refusing costs a user
+  /// one manual cleanup, while missing a real 1.x store costs them a silently
+  /// empty index over an intact corpus, which is what this release exists to
+  /// prevent.
+  static bool _hasLegacyStoreAt(String databasePath) {
     final marker = File(p.join(databasePath, _legacyEntries.first));
-    if (!marker.existsSync()) return _LegacyProbe.absent;
+    if (!marker.existsSync()) return false;
+    final hasPayload = _legacyEntries.skip(1).any((name) {
+      final at = p.join(databasePath, name);
+      return Directory(at).existsSync() || File(at).existsSync();
+    });
+    if (!hasPayload) return false; // a lone marker is a leftover, not a store
     try {
-      final decoded = jsonDecode(marker.readAsStringSync());
-      if (decoded is! Map) {
-        // Readable, and not our config — someone else's file of the same name.
-        // Positively not ours, so not even a refusal.
-        return _LegacyProbe.absent;
-      }
-      // A 1.x store is the marker AND its payload. The marker ALONE is a
-      // leftover — most likely from a sweep that removed `wal/` and
-      // `segments/` and then could not unlink it. Calling that a store made
-      // initialize() refuse forever over nothing, and clear() fail forever on
-      // the one file it had already failed to remove: a loop whose only exit
-      // was the call that was looping.
-      final hasPayload = _legacyEntries.skip(1).any((name) {
-        final at = p.join(databasePath, name);
-        return Directory(at).existsSync() || File(at).existsSync();
-      });
-      if (!hasPayload) return _LegacyProbe.absent;
-
-      // "It is a JSON object" was NOT proof enough to delete by. A caller
-      // whose own `edge_config.json` held `{}`, beside their own `wal/` and
-      // `segments/`, was classified as a 1.x store — and clear(), the remedy
-      // the refusal prescribes, removed both directories and returned
-      // normally. Measured. That is the destructive false positive this file
-      // has now reopened twice, each time through whichever door the previous
-      // fix left ajar.
-      //
-      // Proof that a store is OURS is the shard config this package writes:
-      //   {"on_disk_payload":true,"vectors":{"":{"size":N,...}},...}
-      // The unnamed "" vector field is the part that says "this package";
-      // qdrant-edge stores written by anything else use named fields, and 2.0
-      // declines those too (see QdrantEdgeClient.openExisting).
-      //
-      // Without that proof we still REFUSE — it may well be a 1.x store whose
-      // config we do not recognise, and coming up empty over a corpus is the
-      // defect this release exists to remove — but we do not delete. Refusing
-      // and deleting need different evidence.
-      final vectors = decoded['vectors'];
-      final isOurs = vectors is Map && vectors.containsKey('');
-      return isOurs ? _LegacyProbe.ours : _LegacyProbe.unrecognized;
+      // Readable and not JSON at all: positively someone else's file.
+      return jsonDecode(marker.readAsStringSync()) is Map;
     } on FormatException {
-      return _LegacyProbe.absent;
+      return false;
     } on FileSystemException {
-      return _LegacyProbe.unreadable;
+      return true;
     }
-  }
-
-  static bool _hasLegacyStoreAt(String databasePath) =>
-      _probeLegacyStoreAt(databasePath) != _LegacyProbe.absent;
-
-  /// Deletes ONLY the three entries a 1.x shard owns. Deliberately not a
-  /// recursive wipe of [databasePath]: callers are allowed to keep unrelated
-  /// files alongside the store, and this release must not touch them.
-  /// Returns the entries it could NOT remove, so the caller can settle its
-  /// own state before reporting the failure.
-  List<String> _clearLegacyStoreAt(String databasePath) {
-    switch (_probeLegacyStoreAt(databasePath)) {
-      case _LegacyProbe.absent:
-        return const [];
-      case _LegacyProbe.unreadable:
-        // Refuse, do not guess. Deleting here is unrecoverable and the
-        // evidence does not support it. The caller can fix the permission or
-        // remove the file, after which this becomes an ordinary sweep.
-        return [
-          '${p.join(databasePath, _legacyEntries.first)} (cannot be read, so '
-              'nothing beside it was deleted — fix its permissions or remove '
-              'it yourself, then call clear() again)',
-        ];
-      case _LegacyProbe.unrecognized:
-        return [
-          '${p.join(databasePath, _legacyEntries.first)} (is not a shard '
-              'config this package wrote, so nothing beside it was deleted — '
-              'if these files are yours, move the store to a path of its own; '
-              'if they are a 1.x index, delete the three entries yourself)',
-        ];
-      case _LegacyProbe.ours:
-        break;
-    }
-    // Delete the payload first, and the MARKER only if ALL of it went.
-    // `edge_config.json` is what _hasLegacyStoreAt keys on, so a survivor
-    // without it is permanently undetectable — unclearable by this API and
-    // invisible to the guard in initialize().
-    //
-    // Ordering alone does not buy that, which is what the first version of
-    // this got wrong: the loop ran past a failure and deleted the marker
-    // anyway, so a `wal/` that would not go left the store both un-swept and
-    // un-detectable. The order is necessary; the skip is what makes it
-    // sufficient.
-    final failed = <String>[];
-    final payload = _legacyEntries.skip(1).toList();
-    for (final name in payload) {
-      final path = p.join(databasePath, name);
-      final dir = Directory(path);
-      final file = File(path);
-      try {
-        final override = debugDeleteDirOverride;
-        if (dir.existsSync()) {
-          if (override != null) {
-            override(dir);
-          } else {
-            dir.deleteSync(recursive: true);
-          }
-        } else if (file.existsSync()) {
-          if (override != null) {
-            override(Directory(path));
-          } else {
-            file.deleteSync();
-          }
-        }
-      } on FileSystemException catch (e) {
-        failed.add('$path ($e)');
-      }
-    }
-
-    if (failed.isEmpty) {
-      final markerPath = p.join(databasePath, _legacyEntries.first);
-      try {
-        final override = debugDeleteDirOverride;
-        if (override != null) {
-          override(Directory(markerPath));
-        } else {
-          File(markerPath).deleteSync();
-        }
-      } on FileSystemException catch (e) {
-        failed.add('$markerPath ($e)');
-      }
-    } else {
-      failed.add(
-        '${p.join(databasePath, _legacyEntries.first)} (kept on purpose: it is '
-        'how the leftovers above stay detectable)',
-      );
-    }
-    // Do NOT log-and-continue: gemmaLog is debug-only, so a
-    // logged failure here is an unreported one for every user. clear() is how a
-    // caller erases indexed documents — reporting success over a partial delete
-    // is the same defect this release fixed for the owned subdirectory.
-    return failed;
   }
 
   /// Two refusals, one place.
@@ -855,174 +706,62 @@ class QdrantVectorStore implements VectorStoreRepository {
   Future<void> clear() => _serializeLifecycle(_clear);
 
   Future<void> _clear() async {
-    final c = _client;
     final databasePath = _databasePath;
     if (databasePath == null) {
       // The contract documents StateError here, and the sibling sqlite store
       // throws it. Returning silently made "I cleared the store" and "I was
-      // never given a path" the same observable outcome. Note this is the
-      // UNINITIALIZED case only — clear() deliberately does NOT consult
-      // _assertUsable, because a latched store is exactly the one that needs
-      // clearing.
+      // never given a path" the same observable outcome.
       throw StateError('VectorStore not initialized. Call initialize() first.');
     }
 
-    // qdrant-edge has no truncate primitive — close the client, delete the
-    // OWNED shard subdirectory (never the bare databasePath), and let the
-    // next addDocument reopen fresh.
-    // Check the boundary BEFORE closing anything, when there is a directory to
-    // check. It used to run after the close and after the generation bump but
-    // before the handles were settled, so a refusal left `isInitialized` true
-    // over a client that was already closed — every read failing with
-    // "QdrantEdgeClient is closed", an internal state the caller never
-    // touched, and no documented way out.
+    // Erase the documents, not the directory.
     //
-    // The existence test is not incidental: the guard canonicalizes with
-    // resolveSymbolicLinks, which throws on a path that is not there, and a
-    // pure 1.x store has no owned subdirectory yet.
-    if (Directory(_storeDirFor(databasePath)).existsSync()) {
-      _assertStoreDirWithinDatabasePath(
-        databasePath,
-        _storeDirFor(databasePath),
+    // Every destructive path this class used to carry — deleting the owned
+    // subdirectory, the canonicalized boundary guard against a symlink escape,
+    // the sweep over a 1.x layout, the marker-last ordering, the partial-sweep
+    // report, a fault-injection seam that could silently skip a delete — grew
+    // out of one sentence carried forward from the old Rust shim without ever
+    // being rechecked against the SDK that replaced it: "qdrant-edge has no
+    // truncate primitive".
+    //
+    // It has one. `deletePointsByFilter` with an empty filter matches every
+    // point. Measured: 2 in, 0 after, directory intact, store still writable
+    // and re-openable. So clear() no longer closes the client, no longer
+    // touches the filesystem, and cannot delete anything that is not a point
+    // it wrote — which retires the whole class of bug that reached a caller's
+    // own `wal/` and `segments/` twice, and an intact 2.0 corpus once.
+    if (_hasLegacyStoreAt(databasePath)) {
+      // A 1.x layout cannot be emptied in place: this release cannot open it.
+      // Refusing is the whole remedy now — we do not delete what we cannot
+      // read, and we say exactly what to remove.
+      throw QdrantLegacyStoreException(
+        'Found a store written by flutter_gemma_rag_qdrant 1.x at '
+        '$databasePath. Its on-disk format is not readable by 2.0, so clear() '
+        'cannot empty it. Delete "${_legacyEntries.join('", "')}" from that '
+        'directory yourself, then re-index. Files of your own alongside them '
+        'are not touched by this package.',
       );
     }
 
-    if (c != null) {
-      try {
-        await c.close();
-        final fault = debugCloseFault?.call();
-        if (fault != null) throw fault;
-      } catch (e) {
-        // Settle before reporting, exactly as the delete branch below does.
-        // Throwing straight out left the failed client INSTALLED — and
-        // QdrantEdgeClient.close() marks itself closed before it unloads, so
-        // every later operation died with "QdrantEdgeClient is closed" until
-        // initialize() was called again. The un-bumped generation also let an
-        // in-flight _ensureClient open install itself over the store we were
-        // asked to clear.
-        _client = null;
-        _dim = null;
-        _generation++;
-        _databasePath = null;
-        throw VectorStoreException(
-          'Failed to close qdrant client during clear: $e',
-        );
-      }
-    }
-    // Invalidate any in-flight open now — it must not install its client on
-    // top of a store we are clearing. But do NOT drop `_client`/`_dim` yet:
-    // the guard and the delete below can throw, and nulling them first makes
-    // getStats()/searchSimilar() answer "empty" over data that is still on
-    // disk, then resurrect it on the next write. 1.x deliberately dropped the
-    // handles only after close + delete both succeeded; that ordering is the
-    // property, not an accident.
-    _generation++;
-
-    final storeDir = _storeDirFor(databasePath);
-    final dir = Directory(storeDir);
-    if (!dir.existsSync()) {
-      // Nothing under the owned subdir. There may still be a 1.x store at the
-      // bare path — clear() is the remedy the CHANGELOG points at, so it has
-      // to be able to remove one.
-      final failed = _clearLegacyStoreAt(databasePath);
-      _client = null;
-      _dim = null;
-      // Only an EMPTY sweep clears the latch. Clearing it unconditionally
-      // switched off the very signal whose cause — a 1.x store still on disk —
-      // this call had just failed to remove: clear() threw once, and every
-      // read after it answered 0 documents over surviving data, with no way
-      // back (initialize latches again, clear un-latches again).
-      _unusableReason = failed.isEmpty
-          ? null
-          : _legacySweepFailureMessage(databasePath, failed);
-      if (failed.isNotEmpty) _throwLegacySweepFailure(databasePath, failed);
-      return;
-    }
-
-    List<String> legacyFailures = const [];
     try {
-      final override = debugDeleteDirOverride;
-      if (override != null) {
-        override(dir);
-      } else {
-        dir.deleteSync(recursive: true);
+      final open = _client;
+      if (open != null) {
+        await open.deleteAll();
+        return;
       }
-      legacyFailures = _clearLegacyStoreAt(databasePath);
-      // Close + delete both succeeded: only now is it safe to report empty —
-      // and only if the 1.x sweep left nothing behind either.
-      _client = null;
-      _dim = null;
-      _unusableReason = legacyFailures.isEmpty
-          ? null
-          : _legacySweepFailureMessage(databasePath, legacyFailures);
-    } on FileSystemException catch (e) {
-      // Delete failed partway — the on-disk subdir may be left in a mixed
-      // state. Fail-closed: mark the whole store uninitialized (rather than
-      // just clearing the client/dim above) so nothing reuses a possibly
-      // half-deleted shard; the caller must call initialize() again before
-      // any further operation succeeds.
-      _databasePath = null;
-      throw VectorStoreException(
-        'Failed to delete qdrant shard directory at $storeDir: $e',
-      );
-    }
-    // Reported only after the handles are settled above — a throw here must not
-    // skip the state transition and wedge the store on a closed client.
-    if (legacyFailures.isNotEmpty) {
-      _throwLegacySweepFailure(databasePath, legacyFailures);
-    }
-  }
-
-  static String _legacySweepFailureMessage(
-    String databasePath,
-    List<String> failed,
-  ) =>
-      "clear() removed this release's store but could not finish removing the "
-      '1.x store at $databasePath. What is left, and why: '
-      '${failed.join('; ')}';
-
-  static Never _throwLegacySweepFailure(
-    String databasePath,
-    List<String> failed,
-  ) {
-    // Not a log: gemmaLog is debug-only, so logging a
-    // partial delete means no user is ever told. clear() is how a caller erases
-    // indexed documents; reporting success over surviving data is the defect
-    // this release fixed for the owned subdirectory.
-    throw VectorStoreException(
-      _legacySweepFailureMessage(databasePath, failed),
-    );
-  }
-
-  /// Refuses to delete anything unless the *canonicalized* [storeDir]
-  /// resolves to a non-root descendant of the *canonicalized* [databasePath]
-  /// — i.e. actually inside it, not equal to it. Canonicalizing (resolving
-  /// symlinks) before comparing is what makes this a real guard rather than a
-  /// string-prefix check: [storeDir] is always literally
-  /// `p.join(databasePath, 'qdrant_edge_v1')` by construction, so the only way
-  /// this can fail is a symlink (or similar) that makes the on-disk path
-  /// resolve outside [databasePath]. On any failure to resolve, or an escape,
-  /// this throws [VectorStoreException] and deletes nothing.
-  void _assertStoreDirWithinDatabasePath(String databasePath, String storeDir) {
-    final String canonicalDatabasePath;
-    final String canonicalStoreDir;
-    try {
-      canonicalDatabasePath = Directory(
-        databasePath,
-      ).resolveSymbolicLinksSync();
-      canonicalStoreDir = Directory(storeDir).resolveSymbolicLinksSync();
-    } on FileSystemException catch (e) {
-      throw VectorStoreException(
-        'Failed to resolve the qdrant shard path for the clear() safety '
-        'check: $e',
-      );
-    }
-    if (!p.isWithin(canonicalDatabasePath, canonicalStoreDir)) {
-      throw VectorStoreException(
-        'Refusing to delete "$storeDir": it does not resolve to a path '
-        'inside the initialized database directory "$databasePath" '
-        '(possible symlink escape). No data was deleted.',
-      );
+      // Nothing adopted yet. Do not go through _ensureClient — it takes a
+      // dimension, and inventing one here would CREATE a shard in order to
+      // report it empty.
+      final storeDir = _storeDirFor(databasePath);
+      if (!Directory(storeDir).existsSync()) return; // never written to
+      final opened = await QdrantEdgeClient.openExisting(path: storeDir);
+      if (opened == null) return; // a directory, but no shard in it
+      _client = opened.client;
+      _dim = opened.dim;
+      _unusableReason = null;
+      await opened.client.deleteAll();
+    } on QdrantException catch (e) {
+      throw VectorStoreException('Failed to clear the qdrant shard', e);
     }
   }
 
@@ -1044,25 +783,4 @@ class QdrantVectorStore implements VectorStoreRepository {
       }
     }
   }
-}
-
-/// What [QdrantVectorStore._probeLegacyStoreAt] found at the bare
-/// `databasePath`.
-///
-/// Three of the four states refuse to start; only [ours] also authorises
-/// deletion. That asymmetry is the whole point — see the probe's doc.
-enum _LegacyProbe {
-  /// Nothing of ours here. Start normally.
-  absent,
-
-  /// A shard config this package wrote, with its payload. Refuse, and clear()
-  /// may remove it.
-  ours,
-
-  /// A marker and payload are here, but the config is not one we wrote.
-  /// Refuse — it may be a 1.x layout we do not recognise — but never delete.
-  unrecognized,
-
-  /// The marker exists and could not be read. Refuse, never delete.
-  unreadable,
 }

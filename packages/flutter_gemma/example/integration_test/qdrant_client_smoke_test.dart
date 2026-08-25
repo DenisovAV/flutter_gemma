@@ -10,7 +10,6 @@ import 'package:flutter_gemma_rag_qdrant/src/filter_codec.dart';
 import 'package:flutter_gemma_rag_qdrant/src/point_id_hasher.dart';
 import 'package:flutter_gemma_rag_qdrant/src/qdrant_edge_client.dart';
 import 'package:flutter_gemma_rag_qdrant/flutter_gemma_rag_qdrant.dart';
-import 'package:flutter_gemma_rag_qdrant/src/qdrant_vector_store.dart';
 import 'package:flutter_gemma/core/services/vector_store_filter.dart';
 import 'package:flutter_gemma/core/services/vector_store_repository.dart';
 import 'package:flutter_test/flutter_test.dart';

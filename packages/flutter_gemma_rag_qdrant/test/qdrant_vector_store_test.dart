@@ -20,16 +20,6 @@ import 'package:flutter_gemma_rag_qdrant/flutter_gemma_rag_qdrant.dart';
 // QdrantException → VectorStoreException wrapping contract directly against
 // QdrantEdgeClient (see 'exception wrapping' group below).
 import 'package:flutter_gemma_rag_qdrant/src/qdrant_edge_client.dart';
-// Internal (src/) import under a prefix: the barrel export
-// (flutter_gemma_rag_qdrant.dart, imported above) is platform-conditional
-// (native `QdrantVectorStore` vs. the web stub), and `dart analyze` resolves
-// that condition as false by default, typing every barrel `QdrantVectorStore`
-// use in this file as the STUB class. That's invisible everywhere else in
-// this file because the stub implements the same `VectorStoreRepository`
-// interface — but `debugDeleteDirOverride` is a native-only test seam, not
-// part of that interface, so it needs the concrete native class directly.
-import 'package:flutter_gemma_rag_qdrant/src/qdrant_vector_store.dart'
-    as native;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
@@ -713,8 +703,15 @@ void main() {
 
       expect(
         ownedSubdir.existsSync(),
-        isFalse,
-        reason: 'clear() must remove the owned subdir',
+        isTrue,
+        reason:
+            'clear() empties the shard in place through the SDK; it no longer '
+            'deletes the directory, and must not start again',
+      );
+      expect(
+        (await store.getStats()).documentCount,
+        0,
+        reason: 'clear() left documents behind',
       );
       expect(
         dbDir.existsSync(),
@@ -757,115 +754,6 @@ void main() {
         equals(0),
         reason: 'a failed open must leave no live client / data behind',
       );
-
-      await store.close();
-    });
-
-    test(
-      '(c) clear() refuses to delete when the owned subdir resolves outside '
-      'databasePath (symlink escape), and deletes nothing',
-      () async {
-        // A real target directory OUTSIDE dbDir, standing in for whatever
-        // clear() must never touch.
-        final outsideTarget = Directory(
-          '${Directory.systemTemp.path}/qdrant_outside_${DateTime.now().microsecondsSinceEpoch}',
-        )..createSync(recursive: true);
-        final sentinel = File(p.join(outsideTarget.path, 'sentinel.txt'))
-          ..writeAsStringSync('do not delete me');
-
-        try {
-          // Coerce the owned-subdir path into a symlink pointing OUTSIDE
-          // databasePath — the only way `storeDir` (always literally
-          // `p.join(databasePath, 'qdrant_edge_v1')`) can resolve escape it.
-          final linkPath = p.join(dbDir.path, _storeDirName);
-          Link(linkPath).createSync(outsideTarget.path);
-
-          final store = QdrantVectorStore();
-          await store.initialize(dbDir.path);
-
-          await expectLater(store.clear, throwsA(isA<VectorStoreException>()));
-
-          expect(
-            sentinel.existsSync(),
-            isTrue,
-            reason:
-                'the guard must refuse to delete before touching '
-                'anything outside databasePath',
-          );
-          expect(outsideTarget.existsSync(), isTrue);
-
-          await store.close();
-        } finally {
-          if (outsideTarget.existsSync()) {
-            outsideTarget.deleteSync(recursive: true);
-          }
-        }
-      },
-      // Symlink creation can be unavailable/unprivileged in some sandboxed
-      // CI environments; skip there rather than fail on an environment gap
-      // unrelated to the guard logic itself.
-      onPlatform: {'windows': const Skip('symlink creation needs elevation')},
-    );
-
-    test('(d) clear() delete-failure marks the store uninitialized '
-        '(fail-closed), and re-initializing recovers', () async {
-      // Portable fault injection via the debug seam (debugDeleteDirOverride)
-      // rather than OS-level permission tricks: chmod-based denial does not
-      // behave identically on POSIX vs Windows (and is a no-op as root), so
-      // it cannot be the portable coverage plan item 49 mandates. The seam
-      // forces clear()'s delete step to fail deterministically on every
-      // platform.
-      final store = native.QdrantVectorStore();
-      await store.initialize(dbDir.path);
-      await store.addDocument(
-        id: 'doc',
-        content: 'doc',
-        embedding: const [1.0, 0.0, 0.0, 0.0],
-      );
-
-      store.debugDeleteDirOverride = (dir) {
-        // Simulate a realistic partway delete failure: the shard's
-        // contents are removed (as a real recursive delete would manage
-        // before hitting trouble) but the owned subdir entry itself fails
-        // to go away — matching the "on-disk subdir may be left in a mixed
-        // state" case clear() defends against — then report failure.
-        if (dir.existsSync()) {
-          for (final entry in dir.listSync()) {
-            entry.deleteSync(recursive: true);
-          }
-        }
-        throw const FileSystemException(
-          'simulated delete failure',
-          'debugDeleteDirOverride',
-        );
-      };
-
-      await expectLater(store.clear, throwsA(isA<VectorStoreException>()));
-
-      expect(
-        store.isInitialized,
-        isFalse,
-        reason:
-            'a delete failure must fail-closed: the store must not '
-            'reuse a possibly half-deleted shard',
-      );
-
-      // Recovery: clearing the override and re-initializing after the
-      // fail-closed reset must work cleanly, with no leftover state from
-      // the failed clear().
-      store.debugDeleteDirOverride = null;
-      await store.initialize(dbDir.path);
-      await store.addDocument(
-        id: 'doc_after_recovery',
-        content: 'doc after recovery',
-        embedding: const [1.0, 0.0, 0.0, 0.0],
-      );
-      final hits = await store.searchSimilar(
-        queryEmbedding: const [1.0, 0.0, 0.0, 0.0],
-        topK: 5,
-      );
-      expect(hits.map((h) => h.id).toSet(), equals({'doc_after_recovery'}));
-      expect((await store.getStats()).documentCount, equals(1));
 
       await store.close();
     });

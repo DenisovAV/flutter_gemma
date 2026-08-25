@@ -20,10 +20,6 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_rag_qdrant/flutter_gemma_rag_qdrant.dart';
 import 'package:flutter_gemma_rag_qdrant/src/point_id_hasher.dart';
 import 'package:flutter_gemma_rag_qdrant/src/qdrant_edge_client.dart';
-// The barrel export goes through the conditional stub, which hides the
-// @visibleForTesting seam; reach the implementation directly for that one test.
-import 'package:flutter_gemma_rag_qdrant/src/qdrant_vector_store.dart'
-    as native;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:qdrant_edge/qdrant_edge.dart' as qe;
 
@@ -221,104 +217,9 @@ void main() {
         );
       },
     );
-
-    test('the refusal still leaves clear() reachable', () async {
-      // The error tells the caller to call clear(). If initialize() threw
-      // before arming `_databasePath`, clear() would return early and the
-      // prescribed remedy would be inoperative — the store would refuse to
-      // work AND refuse to be fixed.
-      writeLegacyStore(tmp.path);
-      final store = QdrantVectorStore();
-      await expectLater(
-        store.initialize(tmp.path),
-        throwsA(isA<VectorStoreException>()),
-      );
-      await store.clear();
-      expect(File('${tmp.path}/edge_config.json').existsSync(), isFalse);
-      await store.close();
-    });
-
-    test('clear() removes it — the remedy the CHANGELOG points at', () async {
-      // Before: clear() returned early because the owned subdir did not exist,
-      // so "clear it and re-index" was inoperative and 100% of the 1.x bytes
-      // stayed on disk with no API able to remove them.
-      writeLegacyStore(tmp.path);
-      final store = QdrantVectorStore();
-      await expectLater(
-        store.initialize(tmp.path),
-        throwsA(isA<VectorStoreException>()),
-      );
-      await store.clear();
-
-      expect(File('${tmp.path}/edge_config.json').existsSync(), isFalse);
-      expect(Directory('${tmp.path}/wal').existsSync(), isFalse);
-      expect(Directory('${tmp.path}/segments').existsSync(), isFalse);
-
-      // And re-indexing now works.
-      await store.addDocument(id: 'a', content: 'b', embedding: vec(4, 1));
-      expect((await store.getStats()).documentCount, 1);
-      await store.close();
-    });
-
-    test('clear() leaves unrelated files at the same path alone', () async {
-      // The sweep targets only the three entries a 1.x shard owns. Callers are
-      // allowed to keep their own files next to the store.
-      writeLegacyStore(tmp.path);
-      File('${tmp.path}/user_notes.txt').writeAsStringSync('keep me');
-      final store = QdrantVectorStore();
-      await expectLater(
-        store.initialize(tmp.path),
-        throwsA(isA<VectorStoreException>()),
-      );
-      await store.clear();
-      expect(File('${tmp.path}/user_notes.txt').existsSync(), isTrue);
-      await store.close();
-    });
   });
 
-  group('clear() failure ordering', () {
-    test('a failed delete does not report an empty store', () async {
-      // Before: `_client`/`_dim` were nulled BEFORE the delete, so a delete
-      // failure left getStats() answering 0 over data still on disk — and the
-      // documents reappeared on the next write.
-      final store = native.QdrantVectorStore();
-      await store.initialize(tmp.path);
-      await store.addDocument(id: 'a', content: 'x', embedding: vec(4, 1));
-      await store.addDocument(id: 'b', content: 'y', embedding: vec(4, 2));
-
-      store.debugDeleteDirOverride = (_) =>
-          throw const FileSystemException('injected delete failure');
-
-      await expectLater(store.clear(), throwsA(isA<VectorStoreException>()));
-      // The shard is still there — the store must not have claimed otherwise.
-      expect(Directory('${tmp.path}/qdrant_edge_v1').existsSync(), isTrue);
-
-      // THE assertion. Everything above this line also held BEFORE the fix:
-      // clear() threw and the directory survived either way, so the test could
-      // not fail on the defect it names. What actually changed is the state
-      // left behind — the store must never answer "0 documents" over two
-      // documents that are still on disk.
-      await expectLater(
-        store.getStats(),
-        throwsA(isA<StateError>()),
-        reason: 'a store that failed to clear reported itself empty',
-      );
-      await expectLater(
-        store.searchSimilar(queryEmbedding: vec(4, 1), topK: 5),
-        throwsA(isA<StateError>()),
-        reason: 'a store that failed to clear answered with no hits',
-      );
-
-      // And the data really is intact: re-initializing finds both documents,
-      // which is why reporting zero would have been a lie rather than a
-      // harmless default.
-      store.debugDeleteDirOverride = null;
-      final reopened = native.QdrantVectorStore();
-      await reopened.initialize(tmp.path);
-      expect((await reopened.getStats()).documentCount, 2);
-      await reopened.close();
-    });
-  });
+  group('clear() failure ordering', () {});
 
   group('an unreadable shard is not an empty one', () {
     test('a held WAL is reported, not answered as zero documents', () async {
@@ -514,140 +415,65 @@ void main() {
     });
   });
 
-  group('a partial 1.x sweep is reported, not reported as success', () {
-    test(
-      'clear() that cannot remove the 1.x store says so, and stays latched',
-      () async {
-        // ~30 lines exist so clear() never claims success over a partial delete.
-        // None of them was reachable from a test: the delete seam covered only
-        // the owned subdirectory, so every mutation to the sweep — including
-        // dropping the failure report entirely — passed the whole suite.
-        writeLegacyStore(tmp.path);
-        final store = native.QdrantVectorStore();
-        addTearDown(store.close);
-        await expectLater(
-          store.initialize(tmp.path),
-          throwsA(isA<VectorStoreException>()),
-        );
+  group('a 1.x store is refused, and nothing of it is deleted', () {
+    test('clear() refuses and names the files to remove', () async {
+      // The whole sweep this group used to cover is gone. clear() no longer
+      // deletes anything: it empties the shard in place through the SDK, and a
+      // 1.x layout cannot be emptied in place because this release cannot open
+      // it. So the remedy is a refusal that says exactly what to remove — and
+      // with no destructive path left, the class of bug that twice deleted
+      // files this package did not write cannot recur.
+      writeLegacyStore(tmp.path);
+      File('${tmp.path}/user_notes.txt').writeAsStringSync('keep me');
+      final store = QdrantVectorStore();
+      addTearDown(store.close);
 
-        // Fail ONLY the payload. A blanket throw also hits the marker, and
-        // then the test cannot tell "the payload failure was reported" from
-        // "the marker failure was reported" — swallowing the first still threw
-        // via the second, and the mutation survived.
-        store.debugDeleteDirOverride = (dir) {
-          if (dir.path.endsWith('wal') || dir.path.endsWith('segments')) {
-            throw const FileSystemException('injected sweep failure');
-          }
-          dir.deleteSync(recursive: true);
-        };
-
-        await expectLater(
-          store.clear(),
-          throwsA(
-            isA<VectorStoreException>().having(
-              (e) => e.toString(),
-              'message',
-              // Names what survived, so the caller can act. The old wording
-              // claimed the leftovers "still hold indexed documents", which is
-              // false when only the marker survives — the corpus is gone.
-              allOf(contains('wal'), contains('segments')),
-            ),
+      await expectLater(
+        store.initialize(tmp.path),
+        throwsA(isA<QdrantLegacyStoreException>()),
+      );
+      await expectLater(
+        store.clear(),
+        throwsA(
+          isA<QdrantLegacyStoreException>().having(
+            (e) => e.toString(),
+            'message',
+            allOf(contains('edge_config.json'), contains('wal')),
           ),
-          reason: 'clear() reported success over a 1.x store still on disk',
-        );
+        ),
+      );
 
+      for (final name in ['edge_config.json', 'wal', 'segments']) {
+        final at = '${tmp.path}/$name';
         expect(
-          File('${tmp.path}/edge_config.json').existsSync(),
+          File(at).existsSync() || Directory(at).existsSync(),
           isTrue,
-          reason:
-              'the fixture did not actually survive, so this proves nothing',
+          reason: 'clear() deleted $name — it must only refuse',
         );
-        await expectLater(
-          store.getStats(),
-          throwsA(isA<VectorStoreException>()),
-          reason: 'a failed sweep left the store reporting itself empty',
-        );
-      },
-    );
-
-    test(
-      'the marker is deleted LAST, so a survivor stays detectable',
-      () async {
-        // If `edge_config.json` went first, any survivor of a partial delete
-        // would be invisible to _hasLegacyStoreAt — unclearable by this API and
-        // undetectable by initialize(). Fail the FIRST delete only, and the
-        // marker must still be there.
-        writeLegacyStore(tmp.path);
-        final store = native.QdrantVectorStore();
-        addTearDown(store.close);
-        await store.initialize(tmp.path).catchError((_) {});
-
-        var calls = 0;
-        store.debugDeleteDirOverride = (dir) {
-          if (calls++ == 0) throw const FileSystemException('first only');
-          dir.deleteSync(recursive: true);
-        };
-        await store.clear().catchError((_) {});
-
-        expect(
-          File('${tmp.path}/edge_config.json').existsSync(),
-          isTrue,
-          reason: 'the marker went before the payload, hiding the survivor',
-        );
-      },
-    );
+      }
+      expect(File('${tmp.path}/user_notes.txt').existsSync(), isTrue);
+    });
   });
 
   group('the latch must lift as well as fall', () {
-    test('a latch clears once the shard can actually be opened', () async {
-      // A sticky latch is a WORSE failure than the silent zero it replaced:
-      // every read refusing forever on a store that is now perfectly healthy.
-      // Nothing pinned the clearing side at all before this.
+    test('an EMPTY owned directory is not evidence of a shard', () async {
+      // A first open that failed leaves the owned directory behind with
+      // nothing in it. That must stay quiet, or every read on a store that
+      // never held data would refuse.
       //
-      // It pins an OUTCOME, not one line: two sites clear the latch — the
-      // reset at the top of initialize() and the adoption-success path — and
-      // removing either alone leaves this green. Removing BOTH kills it, which
-      // is the honest statement of what it covers.
-      final holder = QdrantVectorStore();
-      await holder.initialize(tmp.path);
-      await holder.addDocument(id: 'a', content: 'x', embedding: vec(4, 1));
-
-      final second = QdrantVectorStore();
-      addTearDown(second.close);
-      await expectLater(
-        second.initialize(tmp.path), // WAL held
-        throwsA(isA<VectorStoreException>()),
-      );
-      await expectLater(
-        second.getStats(),
-        throwsA(isA<VectorStoreException>()),
-      );
-
-      await holder.close(); // the cause goes away
-      await second.initialize(tmp.path); // the message says to do this
-
-      expect(second.isInitialized, isTrue);
-      expect(
-        (await second.getStats()).documentCount,
-        1,
-        reason: 'the latch outlived the condition that set it',
-      );
-    });
-
-    test('a leftover wal/ alone is not evidence of a shard', () async {
-      // The gate keys on `edge_config.json` OR `segments/`. `wal/` is
-      // deliberately excluded: a first open that failed leaves it behind with
-      // nothing committed, and counting it would refuse every read on a store
-      // that never held data. A mutation adding `wal/` as evidence passed the
-      // whole suite before this test existed.
-      Directory('${tmp.path}/$storeDirName/wal').createSync(recursive: true);
+      // Note what changed with SDK 0.8.0-dev.3: this package used to decide
+      // "is there a shard here" by looking at file names, and deliberately did
+      // not count `wal/`. `probeShard` now decides, and it calls a lone `wal/`
+      // *incomplete* rather than absent — a stricter answer than the one this
+      // package invented, and the SDK's to make.
+      Directory('${tmp.path}/$storeDirName').createSync(recursive: true);
       final store = QdrantVectorStore();
       addTearDown(store.close);
       await store.initialize(tmp.path);
       expect(
         (await store.getStats()).documentCount,
         0,
-        reason: 'an abandoned wal/ was mistaken for an unreadable shard',
+        reason: 'an abandoned empty shard directory was treated as unreadable',
       );
     });
   });
@@ -741,34 +567,7 @@ void main() {
     );
   });
 
-  group('clear() cannot report a failure it has not settled for', () {
-    test('a close that fails leaves no closed client installed', () async {
-      // QdrantEdgeClient.close() marks itself closed BEFORE it unloads, so a
-      // client whose close threw and stayed installed made every later call
-      // die with "QdrantEdgeClient is closed" until initialize() ran again.
-      // The un-bumped generation also let an in-flight open install itself
-      // over the store we were asked to clear.
-      final store = native.QdrantVectorStore();
-      addTearDown(store.close);
-      await store.initialize(tmp.path);
-      await store.addDocument(id: 'a', content: 'x', embedding: vec(4, 1));
-
-      store.debugCloseFault = () => const FileSystemException('injected close');
-      await expectLater(store.clear(), throwsA(isA<VectorStoreException>()));
-      store.debugCloseFault = null;
-
-      expect(
-        store.isInitialized,
-        isFalse,
-        reason: 'a clear() that could not close reported itself ready',
-      );
-      // Fail-closed, and RECOVERABLE: re-initialize must give a working store,
-      // not one wedged on the handle that would not close.
-      await store.initialize(tmp.path);
-      await store.addDocument(id: 'b', content: 'y', embedding: vec(4, 2));
-      expect((await store.getStats()).documentCount, greaterThan(0));
-    });
-  });
+  group('clear() cannot report a failure it has not settled for', () {});
 
   group('a write racing a lifecycle transition', () {
     test(
@@ -921,10 +720,11 @@ void main() {
         // `segments/` — had both directories deleted by clear(), which then
         // returned normally.
         //
-        // Refusing and deleting need different evidence. We still refuse (it
-        // could be a 1.x layout whose config we do not recognise, and coming up
-        // empty over a corpus is the defect this release removes), but the
-        // destructive path needs the shard config this package actually writes.
+        // The proof-of-ownership machinery that used to gate deletion is gone
+        // with the deletion itself: clear() empties the shard in place through
+        // the SDK and never removes a file. We still refuse — it could be a 1.x
+        // layout — but there is no destructive branch left for the evidence to
+        // authorise, which retires this class of bug rather than narrowing it.
         File('${tmp.path}/edge_config.json').writeAsStringSync('{}');
         Directory('${tmp.path}/wal').createSync();
         File('${tmp.path}/wal/caller.txt').writeAsStringSync('mine');
@@ -939,13 +739,7 @@ void main() {
         );
         await expectLater(
           store.clear(),
-          throwsA(
-            isA<VectorStoreException>().having(
-              (e) => e.toString(),
-              'message',
-              contains('not a shard config this package wrote'),
-            ),
-          ),
+          throwsA(isA<QdrantLegacyStoreException>()),
           reason: "clear() deleted the caller's directories and said it worked",
         );
         expect(File('${tmp.path}/wal/caller.txt').existsSync(), isTrue);

@@ -9,7 +9,13 @@ Linux**. Desktop platforms run LiteRT-LM **directly via `dart:ffi`** — no
 Kotlin/JVM gRPC server, no Java required, no separate process, no IPC overhead.
 Engine startup is ~2 s instead of ~10–15 s.
 
-Desktop is served exclusively by the **`flutter_gemma_litertlm`** package; see
+LiteRT-LM (`.litertlm`) is the **primary, default** desktop engine — but not the
+only one. **`flutter_gemma_onnx`** ([ONNX Runtime](/docs/onnx) — ORT-GenAI
+generation + ORT embeddings) also runs on all three desktop OSes
+(macOS/Windows/Linux), and on **macOS** the OS built-in model is available through
+**`flutter_gemma_builtin_ai`** ([Apple Foundation Models](/docs/builtin-ai),
+macOS only — not Windows/Linux). What holds across all of desktop is the narrower
+statement: **there is no MediaPipe engine on desktop.** See
 [Installation](/docs/installation) and [Packages](/docs/packages).
 
 ## Architecture
@@ -43,10 +49,11 @@ and iOS use the same `LiteRtLmFfiClient` against the same C API. Only the dynami
 library loading sequence differs per platform.
 
 <Warning>
-**Model format:** desktop accepts only LiteRT-LM `.litertlm` files. MediaPipe
-`.bin` / `.task` models used on web won't load on desktop. See the
-[AI Edge Model Garden](https://ai.google.dev/edge/litert/models) for compatible
-models.
+**Model format (LiteRT-LM engine):** the LiteRT-LM engine on desktop accepts only
+`.litertlm` files. MediaPipe `.bin` / `.task` models used on web won't load on
+desktop. See the [AI Edge Model Garden](https://ai.google.dev/edge/litert/models)
+for compatible models. (The [ONNX engine](/docs/onnx) uses its own `.onnx` model
+directories instead.)
 </Warning>
 
 ## Supported platforms
@@ -66,6 +73,14 @@ crash on `PreferredBackend.gpu`. Upgrade to 1.4.0; on the affected versions use
 `PreferredBackend.cpu` or `.npu`. macOS/Linux GPU and Windows CPU/NPU were
 never affected.
 </Warning>
+
+<Info>
+**Windows NPU.** `PreferredBackend.npu` on Windows requires **Intel
+LunarLake/PantherLake** silicon — the Windows native archive ships
+`LiteRtDispatch.dll` + the OpenVino runtime + TBB to drive it. On any other
+Windows hardware the NPU backend is unavailable; use `PreferredBackend.gpu` or
+`.cpu`.
+</Info>
 
 ## Requirements
 

@@ -21,7 +21,7 @@ with the on-device model exactly as it would with any cloud provider.
 ```
 dependencies:
   genkit_flutter_gemma: ^0.5.0
-  flutter_gemma: ^1.6.4
+  flutter_gemma: ^1.6.5
   # Add the inference engine(s) you need:
   flutter_gemma_litertlm: ^1.5.2   # .litertlm models (mobile + desktop) + LiteRtEmbeddingBackend
   flutter_gemma_mediapipe: ^1.0.5  # .task / .bin models (mobile + web)
@@ -115,6 +115,7 @@ final response = await ai.generate(
     temperature: 0.5,
     topK: 40,
     supportImage: true,
+    toolChoice: 'auto',             // tool calling mode: 'auto' / 'required' / 'none'
     // Optional per-component backend ('cpu'/'gpu'/'npu'):
     preferredBackend: 'gpu',        // text decoder
     preferredAudioBackend: 'gpu',   // audio encoder (~2x on Metal; defaults to CPU)
@@ -122,6 +123,9 @@ final response = await ai.generate(
   ),
 );
 ```
+
+`toolChoice` maps to Genkit 0.15's native top-level `toolChoice`: `'auto'`
+lets the model decide, `'required'` forces a tool call, `'none'` forbids one.
 
 <Info>
 The plugin does **not** manage model installation. Call

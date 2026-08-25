@@ -19,6 +19,8 @@ SmolLM and more — see [Models](/docs/models) for the full list.
 - **Local Execution:** Run Gemma and other LLMs (Qwen, DeepSeek, Phi, FastVLM, SmolLM, …) directly on user devices for enhanced privacy and offline functionality.
 - **Platform Support:** Compatible with iOS, Android, Web, macOS, Windows, and Linux.
 - **Desktop Support:** Native desktop apps with GPU acceleration via LiteRT-LM, called directly from Dart through `dart:ffi` — no JVM/JRE bundling. See [Desktop Support](/docs/desktop).
+- **Built-in / System AI:** Use the OS's own on-device model, no download — Gemini Nano (Android + Chrome) + Apple Foundation Models (iOS/macOS). See [Built-in AI](/docs/builtin-ai).
+- **Pluggable Engines:** Opt-in engine packages — LiteRT-LM, MediaPipe, ONNX Runtime, built-in OS AI — registered via `FlutterGemma.initialize(...)`. See [Packages](/docs/packages).
 - **Multimodal Support:** Text + image input with Gemma 4, Gemma3n, FastVLM, Qwen2-VL, SmolVLM2, and LLaVA-OneVision vision models. See [Multimodal](/docs/multimodal).
 - **Audio Input:** Record and send audio messages with Gemma 4 and Gemma3n models (Android, iOS device, Desktop).
 - **Function Calling:** Let models call external functions and integrate with other services. See [Function Calling](/docs/function-calling).
@@ -36,12 +38,29 @@ SmolLM and more — see [Models](/docs/models) for the full list.
 ## What's new in 1.6
 
 - **`flutter_gemma_onnx`** — new opt-in ONNX Runtime engine: text generation via ORT-GenAI (`OnnxEngine`) + embeddings via plain ONNX Runtime (`OnnxEmbeddingBackend`), both `dart:ffi`. Device-verified on macOS, Linux, Windows, Android, and iOS (arm64) — plus **Web**, via Transformers.js (generation) and onnxruntime-web (embeddings). See [Packages](/docs/packages#onnx-runtime-engine).
+- **`flutter_gemma_builtin_ai`** — new opt-in OS built-in AI engine: Gemini Nano (Android; Web via Chrome Prompt API) + Apple Foundation Models (iOS/macOS), via `ModelFileType.builtIn` — no download. See [Built-in AI](/docs/builtin-ai).
 - **BREAKING (`flutter_gemma_embeddings` 2.0.0):** the embedder is now runtime-agnostic — `LiteRtEmbeddingBackend` moved to `flutter_gemma_litertlm` (1.5.0). See [Migration](/docs/migration).
 
 ## What's new in 1.5
 
 - **genai_primitives support** — drive an on-device chat with the Flutter team's standard `ChatMessage` types via `package:flutter_gemma/genai.dart` (`sendMessage`/`generateContent` + streams, covering text, vision, audio, thinking, and tool calls). See [genai_primitives](/docs/genai).
 - **`FlutterGemma` is the one canonical entry point.** RAG moved onto the `FlutterGemma.rag.*` namespace (`initialize`/`addDocument`/`addDocumentWithEmbedding`/`searchSimilar`/`removeDocument`/`stats`/`clear`), and the facade gained model introspection (`activeModelSpec`/`activeEmbedderSpec`/`activeSttSpec`/`activeTtsSpec`, `getModelPath`), storage helpers (`getStorageInfo`/`getOrphanedFiles`/`cleanupStorage`/`performCleanup`), and per-modality uninstallers (`uninstallEmbedder`/`uninstallStt`/`uninstallTts`). `FlutterGemmaPlugin.instance` is now a documented low-level SPI tier — app code shouldn't need it.
+
+## What's new in 1.4
+
+- **`flutter_gemma_speech`** — new opt-in on-device speech package: STT (moonshine) + TTS (Matcha) + a full STT → LLM → TTS voice loop (`VoiceSession`). See [Speech](/docs/speech).
+
+## What's new in 1.3
+
+- **`ModelFileType.builtIn`** for OS system models (Gemini Nano / Apple Foundation Models), plus download-reliability fixes. See [Built-in AI](/docs/builtin-ai).
+
+## What's new in 1.2
+
+- **`flutter_gemma_agent`** — new opt-in agent-skills package (the `skillExecutors:` registration seam), plus the Android Mali GPU fix. See [Agent Skills](/docs/agent).
+
+## What's new in 1.1
+
+- **Declared-column RAG filters** — `FilterSchema`/`FilterField` + `configure`, and `filterSchema:` on `initialize`; `enableHnsw` is deprecated. See [Embeddings & RAG](/docs/embeddings-and-rag).
 
 ## What's new in 1.0
 

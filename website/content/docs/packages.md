@@ -16,7 +16,7 @@ ships only the native weight it actually uses. All packages live in one monorepo
 | **`flutter_gemma`** | Core — registry, contracts, model management, sessions, chat. No engine on its own. **Always required.** | All |
 | **`flutter_gemma_litertlm`** | `.litertlm` inference via `dart:ffi` (LiteRT-LM C API). Owns the shared native library. | Mobile + Desktop + Web |
 | **`flutter_gemma_mediapipe`** | `.task` / `.bin` inference via MediaPipe. | Mobile + Web |
-| **`flutter_gemma_builtin_ai`** | System OS models — Gemini Nano (Android / AICore) + Apple Foundation Models (iOS 26+/macOS). No model file to bundle or download. | Android + iOS + macOS |
+| **`flutter_gemma_builtin_ai`** | System OS models — Gemini Nano (Android / AICore), Apple Foundation Models (iOS 26+/macOS), and Gemini Nano via the Chrome Prompt API (Web). No model file to bundle or download. | Android + iOS + macOS + Web |
 | **`flutter_gemma_onnx`** | Text generation (`OnnxEngine`) + embeddings (`OnnxEmbeddingBackend`) — ORT-GenAI/ORT via `dart:ffi` on native, Transformers.js/onnxruntime-web on Web. | macOS, Linux, Windows, Android, iOS (arm64) + Web |
 | **`flutter_gemma_embeddings`** | Runtime-agnostic text-embedding pipeline (tokenizer, pooling, isolate worker). Needs a backend — `LiteRtEmbeddingBackend` (`flutter_gemma_litertlm`) or `OnnxEmbeddingBackend` (`flutter_gemma_onnx`). | All |
 | **`flutter_gemma_rag_qdrant`** | On-device RAG vector store (qdrant-edge, via the official qdrant_edge UniFFI SDK). Fastest on native. | Native (no Web) |
@@ -31,7 +31,8 @@ ships only the native weight it actually uses. All packages live in one monorepo
   See [Installation](/docs/installation).
 - **Probe-chain registry.** Engines and backends are pure factories that declare
   `canHandle(spec)` + a priority. The registry selects a provider per model by
-  file type — `.task` / `.bin` / `.tflite` → MediaPipe, `.litertlm` → LiteRT-LM.
+  file type — `.task` / `.bin` / `.tflite` → MediaPipe, `.litertlm` → LiteRT-LM,
+  `.onnx` → Onnx, `builtIn` → BuiltInAi.
 - **One app can run both formats.** Register both `LiteRtLmEngine()` and
   `MediaPipeEngine()`, and the registry routes each model to the engine that
   handles its extension.
@@ -57,8 +58,11 @@ ships only the native weight it actually uses. All packages live in one monorepo
 | Transcribe audio, synthesize speech, or run a voice loop on-device (STT + TTS + voice) | `flutter_gemma_speech` |
 
 <Info>
-Desktop is served exclusively by `flutter_gemma_litertlm` and uses LiteRT-LM
-format only. There is no MediaPipe engine on desktop. See
+Desktop is served **primarily** by [`flutter_gemma_litertlm`](/docs/litertlm)
+(`.litertlm`) — the default engine. [`flutter_gemma_onnx`](/docs/onnx) also runs
+on all three desktop OSes (macOS/Windows/Linux), and on **macOS** the OS built-in
+model is available via [`flutter_gemma_builtin_ai`](/docs/builtin-ai) (Apple
+Foundation Models, macOS only). There is no MediaPipe engine on desktop. See
 [Desktop Support](/docs/desktop).
 </Info>
 

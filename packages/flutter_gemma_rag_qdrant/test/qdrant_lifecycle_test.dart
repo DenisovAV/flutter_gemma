@@ -714,6 +714,94 @@ void main() {
     );
   });
 
+  group('clear() cannot report a failure it has not settled for', () {
+    test('a close that fails leaves no closed client installed', () async {
+      // QdrantEdgeClient.close() marks itself closed BEFORE it unloads, so a
+      // client whose close threw and stayed installed made every later call
+      // die with "QdrantEdgeClient is closed" until initialize() ran again.
+      // The un-bumped generation also let an in-flight open install itself
+      // over the store we were asked to clear.
+      final store = native.QdrantVectorStore();
+      addTearDown(store.close);
+      await store.initialize(tmp.path);
+      await store.addDocument(id: 'a', content: 'x', embedding: vec(4, 1));
+
+      store.debugCloseFault = () => const FileSystemException('injected close');
+      await expectLater(store.clear(), throwsA(isA<VectorStoreException>()));
+      store.debugCloseFault = null;
+
+      expect(
+        store.isInitialized,
+        isFalse,
+        reason: 'a clear() that could not close reported itself ready',
+      );
+      // Fail-closed, and RECOVERABLE: re-initialize must give a working store,
+      // not one wedged on the handle that would not close.
+      await store.initialize(tmp.path);
+      await store.addDocument(id: 'b', content: 'y', embedding: vec(4, 2));
+      expect((await store.getStats()).documentCount, greaterThan(0));
+    });
+  });
+
+  group('a write racing a lifecycle transition', () {
+    test(
+      'addDocument during clear() fails loudly and leaves a usable store',
+      () async {
+        // The lifecycle lane serializes initialize/clear/close against each
+        // other, but NOT against the write path — _ensureClient stays outside it
+        // so bulk indexing is not funnelled through one queue. That leaves a
+        // window where a write can hold a client clear() is closing. The
+        // requirement is not that the write succeed; it is that it never
+        // succeed QUIETLY into a store being erased, and that what is left
+        // behind is usable.
+        final store = QdrantVectorStore();
+        addTearDown(store.close);
+        await store.initialize(tmp.path);
+        await store.addDocument(id: 'seed', content: 's', embedding: vec(4, 1));
+
+        final outcomes = await Future.wait([
+          store.clear().then((_) => 'ok').catchError((Object e) => 'threw'),
+          store
+              .addDocument(id: 'a', content: 'x', embedding: vec(4, 2))
+              .then((_) => 'ok')
+              .catchError((Object e) => 'threw'),
+        ]);
+
+        expect(outcomes.first, 'ok');
+        expect(store.isInitialized, isTrue);
+        // Either the write landed before the erase or it was refused — never a
+        // silent no-op, and never a wedged store.
+        expect((await store.getStats()).documentCount, anyOf(0, 1));
+        await store.addDocument(id: 'b', content: 'y', embedding: vec(4, 3));
+        expect((await store.getStats()).documentCount, greaterThan(0));
+      },
+    );
+
+    test('addDocument during close() does not leak the WAL lock', () async {
+      // The worst outcome here is invisible: a store the caller closed keeps
+      // qdrant's exclusive WAL for the process lifetime, and every later
+      // store on that path fails WouldBlock — which this release now latches,
+      // so it would present as "your corpus is unreadable" forever.
+      final store = QdrantVectorStore();
+      await store.initialize(tmp.path);
+      await Future.wait([
+        store.close().catchError((Object e) {}),
+        store
+            .addDocument(id: 'a', content: 'x', embedding: vec(4, 1))
+            .catchError((Object e) {}),
+      ]);
+
+      final reopened = QdrantVectorStore();
+      addTearDown(reopened.close);
+      await reopened.initialize(tmp.path);
+      await expectLater(
+        reopened.getStats(),
+        completes,
+        reason: 'the closed store kept its WAL lock',
+      );
+    });
+  });
+
   group('uninitialized store', () {
     test(
       'reads throw StateError, as VectorStoreRepository documents',

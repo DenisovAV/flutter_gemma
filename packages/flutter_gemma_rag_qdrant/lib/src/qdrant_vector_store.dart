@@ -180,6 +180,17 @@ class QdrantVectorStore implements VectorStoreRepository {
   @visibleForTesting
   void Function(Directory dir)? debugDeleteDirOverride;
 
+  /// Test-only seam: a fault to raise after [clear] closes the client, so the
+  /// close-failure branch — which must settle state BEFORE it reports — can be
+  /// reached at all. Nothing else can force `QdrantEdgeClient.close()` to fail.
+  ///
+  /// Shaped as "return the error to throw, or null" rather than a callback
+  /// that may or may not do the work: it can inject a failure but can never
+  /// cause a step to be silently skipped, which is the failure mode the other
+  /// seam here is capable of.
+  @visibleForTesting
+  Object? Function()? debugCloseFault;
+
   @override
   /// The contract is "true if [initialize] was called successfully" — so a
   /// store whose initialize() threw must answer false, even though the path is
@@ -754,6 +765,8 @@ class QdrantVectorStore implements VectorStoreRepository {
     if (c != null) {
       try {
         await c.close();
+        final fault = debugCloseFault?.call();
+        if (fault != null) throw fault;
       } catch (e) {
         // Settle before reporting, exactly as the delete branch below does.
         // Throwing straight out left the failed client INSTALLED — and

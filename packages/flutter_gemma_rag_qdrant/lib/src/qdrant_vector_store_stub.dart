@@ -3,6 +3,13 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 /// Non-web stub for [QdrantVectorStore]. qdrant-edge can't compile to WASM,
 /// so on web every method throws; web RAG uses flutter_gemma_rag_sqlite's
 /// WebSqliteVectorStore instead.
+/// Mirror of the native arm's type so `on QdrantLegacyStoreException` compiles
+/// on every platform. The stub never throws it — there is no store here to be
+/// a 1.x one.
+class QdrantLegacyStoreException extends VectorStoreException {
+  const QdrantLegacyStoreException(super.message);
+}
+
 class QdrantVectorStore implements VectorStoreRepository {
   @override
   bool get isInitialized => false;

@@ -70,20 +70,28 @@ not the first write, so a read-only session hits it too. The remedy is one
 call, and it removes the old on-disk layout for you:
 
 ```dart
-// VectorStoreException comes from flutter_gemma, not from this package —
-// this barrel exports only QdrantVectorStore.
-import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_rag_qdrant/flutter_gemma_rag_qdrant.dart';
 
 final store = QdrantVectorStore();
 try {
   await store.initialize(path);
-} on VectorStoreException {
+} on QdrantLegacyStoreException {
+  // ONLY this type. `initialize()` also throws the base VectorStoreException
+  // when a 2.0 shard is present but will not open — a WAL held by another
+  // store, a permission problem — and calling clear() for that would delete
+  // an intact corpus. Catching the base type here did exactly that.
   await store.clear();          // removes the 1.x layout as well as the 2.x one
   await store.initialize(path);
 }
 // ...then re-index your documents.
 ```
+
+`clear()` deletes the 1.x layout only when `edge_config.json` is a shard config
+this package wrote. If the file is something else of yours that happens to share
+the name, `clear()` refuses and says so — move your files, or point
+`initialize()` at a subdirectory of their own. If it is a 1.x index whose config
+this release does not recognise, remove `edge_config.json`, `wal/` and
+`segments/` yourself, then re-index.
 
 `clear()` only removes the entries a qdrant shard owns (`edge_config.json`,
 `wal/`, `segments/`) — unrelated files you keep alongside the store are left

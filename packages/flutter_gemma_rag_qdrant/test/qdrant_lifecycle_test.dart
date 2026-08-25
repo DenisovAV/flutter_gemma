@@ -39,8 +39,12 @@ void writeLegacyStore(String databasePath) {
   // classified as our store — which is exactly how a caller's own
   // `edge_config.json` got their `wal/` and `segments/` deleted. The unnamed
   // "" vector field is the part that says "this package wrote it".
+  // `on_disk_payload` is false here because that is what the 1.x Rust shim
+  // wrote (build_edge_config in the deleted native/qdrant_edge). The probe does
+  // not read that key — the proof of ownership is the unnamed "" vector field —
+  // but a fixture that claims to be what 1.x wrote should be it.
   File('$databasePath/edge_config.json').writeAsStringSync(
-    '{"on_disk_payload":true,'
+    '{"on_disk_payload":false,'
     '"vectors":{"":{"size":4,"distance":"Cosine","on_disk":false}},'
     '"sparse_vectors":{}}',
   );

@@ -50,6 +50,21 @@ import 'package:path/path.dart' as p;
 ///     (`edge_config.json`, `wal/`, `segments/`). That is what makes the
 ///     documented "clear and re-index" remedy actually work. Any OTHER file or
 ///     directory the caller keeps alongside the store is never touched.
+/// Thrown when a store written by `flutter_gemma_rag_qdrant` 1.x is found at
+/// the bare `databasePath`, and ONLY then.
+///
+/// It exists because the remedy is destructive. `clear()` is the documented
+/// answer to this one situation, and to no other: for a moment this package
+/// threw a bare [VectorStoreException] for both this and "a shard is here and
+/// would not open", which made the recipe in its own README delete an intact
+/// 2.0 corpus whenever the store happened to be open elsewhere — and report
+/// success. Measured, with two documents.
+///
+/// Catch this, not [VectorStoreException], before calling `clear()`.
+class QdrantLegacyStoreException extends VectorStoreException {
+  const QdrantLegacyStoreException(super.message);
+}
+
 class QdrantVectorStore implements VectorStoreRepository {
   QdrantEdgeClient? _client;
 
@@ -301,7 +316,7 @@ class QdrantVectorStore implements VectorStoreRepository {
       // Latch BEFORE throwing. A caller that catches this and carries on, or
       // any other code path that reads, must not be told the store is empty.
       _unusableReason = _legacyStoreMessage(databasePath);
-      throw VectorStoreException(_unusableReason!);
+      throw QdrantLegacyStoreException(_unusableReason!);
     }
 
     try {
@@ -636,7 +651,7 @@ class QdrantVectorStore implements VectorStoreRepository {
       // this one first — a write before any read — must end up in the same
       // state, or the next read answers "empty" over the 1.x corpus.
       _unusableReason = _legacyStoreMessage(databasePath);
-      throw VectorStoreException(_unusableReason!);
+      throw QdrantLegacyStoreException(_unusableReason!);
     }
     try {
       Directory(storeDir).createSync(recursive: true);

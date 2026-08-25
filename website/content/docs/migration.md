@@ -178,21 +178,27 @@ the store opens, not as silently unanswered questions later.
 Clear the old store once, then re-index:
 
 ```dart
-// VectorStoreException comes from flutter_gemma; the rag_qdrant barrel
-// exports only QdrantVectorStore.
-import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_rag_qdrant/flutter_gemma_rag_qdrant.dart';
 
 final store = QdrantVectorStore();
 try {
   await store.initialize(path);
-} on VectorStoreException {
-  // 1.x layout at `path` — clear() removes it, including the old on-disk files.
+} on QdrantLegacyStoreException {
+  // ONLY this type. `initialize()` also throws the base VectorStoreException
+  // when a 2.0 shard is present but will not open — a WAL held by another
+  // store, a permission problem — and clear() would then delete an intact
+  // corpus and report success. Catch the specific type.
   await store.clear();
   await store.initialize(path);
 }
 // ...then re-add your documents.
 ```
+
+<Warning>
+Do not widen that `catch` to `VectorStoreException`. `clear()` is destructive,
+and a store that merely could not be opened right now is not a store you want
+erased.
+</Warning>
 
 `clear()` deletes only what this package wrote. Your own files sitting next to
 the store at the same path are left alone.

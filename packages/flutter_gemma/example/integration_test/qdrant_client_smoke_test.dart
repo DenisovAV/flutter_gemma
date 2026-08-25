@@ -9,6 +9,7 @@ import 'dart:io';
 import 'package:flutter_gemma_rag_qdrant/src/filter_codec.dart';
 import 'package:flutter_gemma_rag_qdrant/src/point_id_hasher.dart';
 import 'package:flutter_gemma_rag_qdrant/src/qdrant_edge_client.dart';
+import 'package:flutter_gemma_rag_qdrant/flutter_gemma_rag_qdrant.dart';
 import 'package:flutter_gemma_rag_qdrant/src/qdrant_vector_store.dart';
 import 'package:flutter_gemma/core/services/vector_store_filter.dart';
 import 'package:flutter_gemma/core/services/vector_store_repository.dart';
@@ -202,7 +203,13 @@ void main() {
     // corpus keeps its disk. On device this is the case that would silently
     // cost a user their index on upgrade.
     shardDir.createSync(recursive: true);
-    File('${shardDir.path}/edge_config.json').writeAsStringSync('{}');
+    // The real 1.x shard config. `{}` used to be enough, and this fixture was
+    // left behind when the unit one was corrected — which made this test, the
+    // PR's on-device evidence, silently red. Keep it identical to
+    // `writeLegacyStore` in test/qdrant_lifecycle_test.dart.
+    File('${shardDir.path}/edge_config.json').writeAsStringSync(
+      '{"on_disk_payload":false,"vectors":{"":{"size":4,"distance":"Cosine","on_disk":false}},"sparse_vectors":{}}',
+    );
     Directory('${shardDir.path}/wal').createSync();
     Directory('${shardDir.path}/segments').createSync();
     File('${shardDir.path}/user_file.txt').writeAsStringSync('keep me');
@@ -215,7 +222,7 @@ void main() {
     // its corpus, and never say why.
     await expectLater(
       store.initialize(shardDir.path),
-      throwsA(isA<VectorStoreException>()),
+      throwsA(isA<QdrantLegacyStoreException>()),
     );
     // And the refusal must not hide behind an empty answer either.
     await expectLater(store.getStats(), throwsA(isA<VectorStoreException>()));

@@ -40,7 +40,7 @@ class _NativeBundle {
   final Map<String, String> checksums;
 
   /// Name of the main shared library to register as a CodeAsset (e.g.
-  /// `LiteRtLm`, `qdrant_edge_ffi`). Platform-appropriate extension is added
+  /// `LiteRtLm`, `vec0`). Platform-appropriate extension is added
   /// via [_dylibFileName].
   final String mainLibName;
 

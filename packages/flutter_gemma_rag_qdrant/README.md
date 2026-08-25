@@ -1,8 +1,9 @@
 # flutter_gemma_rag_qdrant
 
 qdrant-edge on-device RAG vector store for [flutter_gemma](https://pub.dev/packages/flutter_gemma).
-Opt-in package implementing `VectorStoreRepository` via a Rust FFI shim
-(`qdrant-edge`). qdrant's HNSW index makes it the fastest **native** RAG store —
+Opt-in package implementing `VectorStoreRepository` on top of the official
+[`qdrant_edge`](https://pub.dev/packages/qdrant_edge) UniFFI Dart SDK
+(a binding over the `qdrant-edge` Rust crate). qdrant's HNSW index makes it the fastest **native** RAG store —
 roughly **5–11× faster search** than the in-SQLite `sqlite-vec`/`vec0` store at
 1k–10k docs, and further ahead as the corpus grows (see
 [benchmark](https://github.com/DenisovAV/flutter_gemma/blob/main/docs/benchmarks/rag_sqlite_vec_vs_qdrant.md)).
@@ -56,13 +57,67 @@ refuses; if a schema must work on both, keep it inside sqlite's narrower set.
   filtering by metadata fields requires valid JSON.
 - Distance defaults to cosine.
 
+
+## Upgrading from 1.x
+
+**1.3 cannot read a store written by 1.2 or earlier.** The shard format changed with the
+move to crate 0.8.0, and this release keeps its data in an owned
+`qdrant_edge_v1/` subdirectory rather than directly at the path you pass to
+`initialize()`.
+
+`initialize()` throws a `QdrantLegacyStoreException` naming the situation — not
+the first write, so a read-only session hits it too. It names the three entries
+a 1.x shard owns (`edge_config.json`, `wal/`, `segments/`); remove those from
+the directory yourself, then re-index.
+
+```dart
+import 'package:flutter_gemma_rag_qdrant/flutter_gemma_rag_qdrant.dart';
+
+final store = QdrantVectorStore();
+try {
+  await store.initialize(path);
+} on QdrantLegacyStoreException catch (e) {
+  // e.message names exactly what to remove. Do it with the file APIs you
+  // already use for `path`, then initialize() again and re-index.
+  rethrow;
+}
+```
+
+**This release never deletes a file it cannot read.** `clear()` empties the
+shard in place — the SDK's own `EdgeShard.clear()` — so it does not remove the
+directory, and it refuses outright when a 1.x layout is present. The previous
+design deleted directories to erase an index, and twice removed files that
+belonged to the caller rather than to the store; the deletion is gone, and with
+it that whole class of mistake.
+
+Catch `QdrantLegacyStoreException`, never the base `VectorStoreException`:
+`initialize()` also throws the base type when a 2.0 shard is present but will
+not open right now — a WAL held by another store, a permission problem — and
+that is not a store you want to act destructively on.
+
 ## Platforms
 
 | Platform | Support |
 |----------|---------|
-| Android / iOS | ✅ FFI (qdrant-edge) |
-| macOS / Linux / Windows | ✅ FFI (qdrant-edge) |
+| Android (arm64, x64) | ✅ |
+| iOS (arm64, simulator) | ✅ |
+| macOS (arm64) | ✅ |
+| Linux | ✅ |
+| Windows (x64) | ✅ |
 | Web | ❌ — use `flutter_gemma_rag_sqlite` (`WebSqliteVectorStore`) |
 
-The native library is fetched at build time by the package's Native-Assets hook
-(SHA256-verified) — no manual setup.
+An unsupported native target (e.g. Intel macOS, Windows arm64, 32-bit Android)
+has no prebuilt archive for the SDK's hook to fetch. The hook prints a warning
+naming the slice and skips it, so the build still produces the supported ABIs —
+**armeabi-v7a is in `flutter build apk`/`appbundle`'s default set**, and failing
+there would break the standard Android release build of every consuming app.
+Code that reaches the engine on a skipped ABI fails to load the library at
+runtime; restrict the ABI set if you want that to be impossible:
+
+```
+flutter build apk --target-platform android-arm64,android-x64
+```
+
+The native binary is provisioned by the `qdrant_edge` SDK's own Native Assets
+build hook (SHA256-verified per-platform archive) — this package has no
+native code, build script, or download logic of its own.

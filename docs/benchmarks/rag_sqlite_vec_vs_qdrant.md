@@ -99,8 +99,10 @@ You need **both** native extensions present, on the **host architecture**:
 
 - **vec0** — a prebuilt `sqlite-vec` loadable extension
   (github.com/asg017/sqlite-vec/releases), pointed at by `$VEC0_DYLIB`.
-- **qdrant-edge** — the `qdrant_edge_ffi` dylib for the host arch, pointed at by
-  `$QDRANT_DYLIB` (host-VM override; in an app it comes from Native Assets).
+- **qdrant-edge** — nothing to supply. Since `flutter_gemma_rag_qdrant` 2.0.0 the
+  engine ships with the official `qdrant_edge` SDK and its Native Assets hook,
+  which `flutter test` runs. `$QDRANT_DYLIB` survives only as the opt-in switch
+  that unskips the benchmark; its value is not read.
 
 From `packages/flutter_gemma_rag_sqlite/`:
 
@@ -108,7 +110,7 @@ From `packages/flutter_gemma_rag_sqlite/`:
 # Canonical runner on the Flutter test toolchain (works where `dart run` crashes
 # on the sqlite3 NativeCallable). Defaults: sizes 1k,10k · topK 5,50.
 VEC0_DYLIB=/path/to/vec0.dylib \
-QDRANT_DYLIB=/path/to/libqdrant_edge_ffi.dylib \
+QDRANT_DYLIB=1 \
 flutter test test/bench_vector_stores_test.dart
 
 # Override the matrix via $BENCH_ARGS (same flags as the tool):
@@ -202,9 +204,9 @@ the lopsided gap the "75×" number implied.
 ### A note on this machine's partial run
 
 On the dev machine (macOS, Apple Silicon, Dart 3.12.0) the **vec0 arm runs**
-(real numbers via `flutter test`), but the **qdrant arm is skipped**: under
-`flutter test` there is no Native Assets bundle, so `qdrant_edge_ffi` doesn't
-resolve, and no host-arch `$QDRANT_DYLIB` was supplied. The "~75×"
-re-measurement therefore still requires a machine with **both** extensions
-present for the host arch — that is the deliverable left for whoever runs the
-final gate.
+(real numbers via `flutter test`), but the **qdrant arm was skipped** because
+`$QDRANT_DYLIB` was not set. That reason is now the only one: as of
+`flutter_gemma_rag_qdrant` 2.0.0 the SDK's Native Assets hook provisions the
+engine under `flutter test`, so the arm needs no host-arch dylib of its own.
+The "~75×" re-measurement still needs vec0 present for the host arch — that is
+the deliverable left for whoever runs the final gate.

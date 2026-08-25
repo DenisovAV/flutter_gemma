@@ -305,14 +305,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.2.0"
-  ffigen:
-    dependency: transitive
-    description:
-      name: ffigen
-      sha256: b7803707faeec4ce3c1b0c2274906504b796e3b70ad573577e72333bd1c9b3ba
-      url: "https://pub.dev"
-    source: hosted
-    version: "20.1.1"
   file:
     dependency: transitive
     description:
@@ -880,6 +872,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.5.0"
+  qdrant_edge:
+    dependency: transitive
+    description:
+      name: qdrant_edge
+      sha256: "66ee935db20f885cfd12cf9e7a17369fd2753887b9d8454344f544d9c6bde5b0"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.8.0-dev.3"
   quiver:
     dependency: transitive
     description:

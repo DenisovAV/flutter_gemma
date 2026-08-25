@@ -46,7 +46,9 @@ From the diff, detect which package(s)/area(s) are affected:
 - `flutter_gemma_litertlm/` — `.litertlm` FFI engine; `native/litert_lm/` build scripts, `lib/src/ffi/`, `hook/build.dart`
 - `flutter_gemma_embeddings/` — LiteRT C API embeddings (isolate worker)
 - `flutter_gemma_mediapipe/` — `.task` MediaPipe; owns pigeon (`lib/pigeon.g.dart`) + Kotlin/Swift + web JS
-- `flutter_gemma_rag_qdrant/` — native RAG (qdrant-edge Rust FFI), `native/qdrant_edge/`
+- `flutter_gemma_rag_qdrant/` — native RAG over the official `qdrant_edge`
+  UniFFI SDK. Since 2.0.0 the package owns NO native code and NO hook: the
+  engine and its Native Assets hook live in the SDK. `lib/src/` only.
 - `flutter_gemma_rag_sqlite/` — sqlite-vec `vec0` KNN on all six platforms; native via `package:sqlite3` FFI, web via `package:sqlite3/wasm.dart` (wa-sqlite was dropped in 1.1.0)
 - `flutter_gemma_speech/` — opt-in STT (moonshine / Whisper / Parakeet) + TTS (Matcha / Qwen3 / Inflect) over the LiteRT C API; shares the litertlm bundle
 - `flutter_gemma_agent/` — opt-in SKILL.md agent skills over the function-calling loop (no Web)
@@ -59,6 +61,41 @@ From the diff, detect which package(s)/area(s) are affected:
 **Desktop:** `packages/*/lib/desktop/` + FFI in `flutter_gemma_litertlm`
 **Site:** `website/` — Jaspr landing + docs (deployed to fluttergemma.dev; CI `.github/workflows/firebase-hosting-merge.yml`)
 **Repo-level:** `.github/workflows/`, `.claude/skills/`, root `pubspec.yaml` (workspace + melos)
+
+### Ground rules for every agent — REVIEWERS DO NOT WRITE
+
+Put this in every agent prompt, verbatim. It is not boilerplate; it is the
+lesson from a review round that had to be redone from scratch.
+
+```
+READ-ONLY. Do not write, create, edit, delete, move or rename ANY file in the
+repository — including test files, scratch files and probe files. Do not run
+mutation testing. Do not run `flutter test`, `flutter analyze`, `dart format`
+or `flutter pub get` (they write into .dart_tool and build outputs). Do not run
+git add / restore / checkout / stash / clean / commit. Reading is unlimited:
+cat, sed, grep, find, `git show`, `git diff`, `git log`, and ~/.pub-cache.
+If you want something verified by execution, DESCRIBE THE EXPERIMENT precisely
+— setup, the call, what to print — and stop. The caller will run it and hand
+you the output.
+```
+
+**What this prevents.** Reviewers told to "verify by mutation and restore
+afterwards" did exactly that, in the shared working tree, on top of
+UNCOMMITTED fixes. Those fixes were silently overwritten twice; one agent's
+mid-mutation state got picked up by a `git add`, so `git diff` showed the
+agent's revert as if it were HEAD, and it was nearly committed. It was caught
+only because the file's md5 changed twice in twenty seconds while nothing was
+being edited. Every test result taken during that window was meaningless.
+
+**Two more rules that follow from it:**
+
+1. **Commit before you review.** Reviewers read a moving tree otherwise, and
+   their findings are anchored to a state that no longer exists.
+2. **Run them ONE AT A TIME when acting on findings.** Parallel is right for a
+   first sweep of a frozen commit. It is wrong once you are editing between
+   reports: read one report, decide what you accept, apply it, commit, then
+   start the next. The agents are advisors — the decision to change code is
+   yours, and it is not delegable to ten of them at once.
 
 ### Step 3: Launch ALL agents in parallel
 
@@ -257,39 +294,65 @@ Report CRITICAL / IMPORTANT / MINOR with file:line.
 
 **Prompt:** Review the changed Dart files in flutter_gemma for code quality. Check: null safety, proper async/await patterns, Stream handling (no leaks, proper cancellation), Message class usage (isUser: true for user messages), PreferencesKeys constants (no inline string keys), proper close()/dispose() in finally blocks, type safety with ModelSource sealed classes. Read CLAUDE.md for coding standards — especially "No Inline String Keys" rule.
 
-### Agent 7: Copilot Review (Second Opinion)
+### Agent 7: Codex Review (Second Opinion)
 
-**Run directly via Bash** (not as a subagent — Copilot CLI needs direct shell access):
+**subagent_type:** `codex:codex-rescue`
 
-```bash
-copilot -p "You are reviewing PR #{number} for flutter_gemma — a multi-platform Flutter plugin for running Google Gemma AI models locally on Android, iOS, Web, and Desktop.
+Not the `copilot` CLI. That binary is GitHub Copilot, billed against a
+different quota entirely, and it answers `402 You have exceeded your monthly
+quota` on every model regardless of the ChatGPT plan — an earlier revision of
+this skill called it and lost a whole review round to that.
+
+**Prompt:**
+
+```
+Second-opinion review of PR #{number} for flutter_gemma. Read the diff with
+`gh pr diff {number}` (or `git diff main...HEAD` if no PR), and read CLAUDE.md
+for the project's conventions.
+
+READ-ONLY. Do not write, create, edit, delete or move any file in the
+repository, and do not run `flutter test` / `flutter analyze` / `dart format` /
+`flutter pub get` — they write into .dart_tool and build outputs. Do not run
+git add / restore / checkout / stash / clean / commit. Reading is unlimited.
+If you want something verified by execution, DESCRIBE the experiment precisely
+and stop; the caller will run it and hand you the output.
 
 Key project context:
-- A Dart pub workspace monorepo: core flutter_gemma plus opt-in packages under packages/. Core registers no engine; engines and backends are passed to FlutterGemma.initialize().
-- .litertlm inference is Dart FFI into the LiteRT-LM C API on every native platform, including desktop. There is NO JVM, NO gRPC, no separate server process and no proto layer — those were removed at 0.14.0. Kotlin exists only in the MediaPipe and builtin_ai packages plus a slim core plugin; MediaPipe never handles .litertlm.
-- Engine selection is by the DECLARED ModelFileType via canHandle(spec), NOT by sniffing the file name. installModel defaults fileType to .task, so a .litertlm model must declare it explicitly or it is routed to MediaPipe.
-- ModelSource sealed class: NetworkSource, AssetSource, BundledSource, FileSource
-- Installation stores identity (modelType, fileType), runtime accepts config (maxTokens, preferredBackend)
-- maxTokens is the CONTEXT WINDOW, not the reply length. Below 1024 the .litertlm KV cache allocation fails; the engine clamps up with a warning. To cap a reply use maxOutputTokens on the session.
-- Error handling: NO silent fallbacks. Throw or return error, never swallow in catch blocks
-- No inline string keys — use PreferencesKeys constants
-- Generated files are never hand-edited: pigeon *.g.dart / *.g.kt / *.g.swift, and the ffigen bindings.
+- A Dart pub workspace monorepo: core flutter_gemma plus opt-in packages under
+  packages/. Core registers no engine; engines and backends are passed to
+  FlutterGemma.initialize().
+- .litertlm inference is Dart FFI into the LiteRT-LM C API on every native
+  platform, desktop included. There is NO JVM, NO gRPC, no separate server
+  process and no proto layer — removed at 0.14.0. Kotlin exists only in the
+  MediaPipe and builtin_ai packages plus a slim core plugin; MediaPipe never
+  handles .litertlm.
+- Engine selection is by the DECLARED ModelFileType via canHandle(spec), NOT by
+  sniffing the file name. installModel defaults fileType to .task, so a
+  .litertlm model must declare it explicitly or it is routed to MediaPipe.
+- ModelSource sealed class: NetworkSource, AssetSource, BundledSource, FileSource.
+- Installation stores identity (modelType, fileType); runtime accepts config
+  (maxTokens, preferredBackend).
+- maxTokens is the CONTEXT WINDOW, not the reply length. Below 1024 the
+  .litertlm KV cache allocation fails; the engine clamps up with a warning. To
+  cap a reply use maxOutputTokens on the session.
+- Error handling: NO silent fallbacks. Throw or return an error; never swallow
+  in a catch. gemmaLog is debug-only, so anything reported only through it is
+  unreported in release builds.
+- No inline string keys — use PreferencesKeys constants.
+- Generated files are never hand-edited: pigeon *.g.dart / *.g.kt / *.g.swift,
+  and the ffigen bindings.
 
-Review steps:
-1. Run: gh pr diff {number}
-2. Read CLAUDE.md for full project conventions
-3. Cross-check: engine routing by declared fileType, conditional-import stub drift against the real signatures (analyze does not catch it), and platform-specific limitations
+Cross-check specifically: engine routing by declared fileType; conditional-import
+stub drift against the real signatures (analyze does not catch it, only
+`flutter build web` does); and platform-specific limitations.
 
-Focus on: bugs, logic errors, security, dead code, silent error swallowing, race conditions in async/streaming code, memory leaks (unclosed sessions/models). Be concise — only report real issues with file:line references. Skip style nits. Categorize as CRITICAL / IMPORTANT / MINOR." \
-  --allow-all-tools \
-  --allow-all-paths \
-  --no-auto-update \
-  --output-format text 2>&1
+Focus on bugs, logic errors, security, dead code, silent error swallowing, race
+conditions in async/streaming code, and memory leaks (unclosed sessions/models).
+Be concise — only real issues, each with file:line and a concrete failure
+scenario. Skip style nits. Categorize CRITICAL / IMPORTANT / MINOR.
 ```
 
 If no PR number, detect via: `gh pr list --head $(git branch --show-current) --json number -q '.[0].number'`
-
-**Run this command directly via Bash tool** (timeout: 300000ms). Parse the output and extract findings with severity levels.
 
 ### Agent 8: Code Reviewer
 

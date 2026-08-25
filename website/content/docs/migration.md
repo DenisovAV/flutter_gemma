@@ -33,7 +33,7 @@ dependencies:
   flutter_gemma_litertlm: ^1.5.2        # add if you run .litertlm models (also provides LiteRtEmbeddingBackend)
   flutter_gemma_mediapipe: ^1.0.5       # add if you run .task / .bin models
   flutter_gemma_embeddings: ^2.0.0      # add if you compute embeddings (needs a backend, see above)
-  flutter_gemma_rag_qdrant: ^1.2.0      # add for native on-device RAG (qdrant)
+  flutter_gemma_rag_qdrant: ^1.3.0      # add for native on-device RAG (qdrant)
   flutter_gemma_rag_sqlite: ^1.2.0      # add for on-device RAG (sqlite-vec; all platforms incl. web)
 ```
 
@@ -97,6 +97,117 @@ is unchanged — only where the class is imported from. You still depend on
 longer import a backend class from it. If you'd rather run embeddings over an
 ONNX/ORT model instead, `flutter_gemma_onnx`'s `OnnxEmbeddingBackend` is a
 drop-in alternative — see [Packages](/docs/packages#onnx-runtime-engine).
+
+## Breaking: rag_sqlite 1.1.0 — the index does not carry over
+
+<Warning>
+`flutter_gemma_rag_sqlite` **1.1.0** replaced the Dart brute-force/HNSW store
+with in-SQLite `vec0` KNN, and with it the table the index lives in:
+`documents` became `vec_documents`. **An index written by 1.0.x is not read by
+1.1.0+.** This shipped as a minor version with no note — if you upgraded and
+your RAG answers went vague, this is why.
+</Warning>
+
+Nothing errors. `initialize()` succeeds, `getStats()` reports **0 documents**,
+`searchSimilar()` returns **no hits**, and your rows are still sitting in the
+old `documents` table, unread. The model then answers without the context it
+used to have, which reads as the model getting worse rather than as a
+migration you missed.
+
+**Your data is recoverable.** Unlike the qdrant break below, nothing is lost:
+1.0.x stored `id`, `content`, the `embedding` as a `Float32` BLOB and
+`metadata` in a plain table, all still readable. Move it once at startup — no
+re-embedding, no model needed:
+
+```dart
+import 'dart:typed_data';
+import 'package:sqlite3/sqlite3.dart';   // add sqlite3 to your own pubspec
+
+final store = SqliteVectorStore();
+await store.initialize(path);
+
+final db = sqlite3.open(path);
+final hasLegacy = db
+    .select("SELECT name FROM sqlite_master "
+            "WHERE type='table' AND name='documents'")
+    .isNotEmpty;
+
+if (hasLegacy) {
+  for (final row
+      in db.select('SELECT id, content, embedding, metadata FROM documents')) {
+    // 1.0.x wrote each element with setFloat32(..., Endian.little); read it
+    // back the same way. ByteData.sublistView needs no 4-byte alignment,
+    // which a raw asFloat32List view of the BLOB would.
+    final bytes = ByteData.sublistView(row['embedding'] as Uint8List);
+    await store.addDocument(
+      id: row['id'] as String,
+      content: row['content'] as String,
+      embedding: List<double>.generate(
+        bytes.lengthInBytes ~/ 4,
+        (i) => bytes.getFloat32(i * 4, Endian.little),
+      ),
+      metadata: row['metadata'] as String?,
+    );
+  }
+  db.execute('DROP TABLE documents');   // only after the loop succeeds
+}
+db.dispose();
+```
+
+Guard it with your own "already migrated" flag if you prefer, but the
+`sqlite_master` check is enough: dropping the table is what makes the block a
+no-op on every later launch.
+
+There is no built-in migration call — this is a one-time fix for an upgrade
+that has already happened, not an ongoing API.
+
+## Breaking: rag_qdrant 1.3.0 — the on-disk store is not readable
+
+<Warning>
+`flutter_gemma_rag_qdrant` **1.3.0** moves onto the official `qdrant_edge`
+UniFFI SDK, and **an index written by 1.2 or earlier cannot be read**. This is a
+data change, not an API change: your `addDocument` / `searchSimilar` calls are
+unchanged, but the documents already on the device are not.
+</Warning>
+
+An upgraded app finds no documents where its corpus used to be. 2.0 refuses
+loudly rather than starting empty — `initialize()` throws a
+`QdrantLegacyStoreException` naming the old store — so this shows up the first
+time the store opens, not as silently unanswered questions later.
+
+Remove the old store's files once, then re-index. 2.0 will not do it for you:
+it never deletes data it cannot read, and the three entries a 1.x shard owns
+(`edge_config.json`, `wal/`, `segments/`) may sit beside files of your own.
+
+```dart
+import 'package:flutter_gemma_rag_qdrant/flutter_gemma_rag_qdrant.dart';
+
+final store = QdrantVectorStore();
+try {
+  await store.initialize(path);
+} on QdrantLegacyStoreException catch (e) {
+  // e.message names the three entries a 1.x shard owns. Remove them with the
+  // file APIs you already use for `path`, then initialize() again.
+  rethrow;
+}
+// ...then re-add your documents.
+```
+
+<Warning>
+Catch `QdrantLegacyStoreException`, not the base `VectorStoreException`.
+`initialize()` also throws the base type when a 2.0 shard is present but will
+not open right now — a WAL held by another store, a permission problem — and
+treating that as "the old format is here" is how a recovery step can act on a
+store that is perfectly fine.
+</Warning>
+
+`clear()` no longer deletes anything: it empties the shard in place, and it
+refuses when a 1.x layout is present rather than removing files it cannot
+read.
+
+If your app has no re-indexing path of its own, do the re-index behind the same
+progress UI you use for the first run — from the user's side this is a rebuild
+of the index, not a migration they can be asked to wait through silently.
 
 ## 2. main.dart — the one new call
 

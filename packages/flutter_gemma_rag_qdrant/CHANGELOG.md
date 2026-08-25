@@ -1,3 +1,15 @@
+## 1.3.0
+- **Breaking:** moved onto the official `qdrant_edge` UniFFI SDK.
+- **Breaking:** a 1.x store is not readable — remove its files, then re-index.
+- **Breaking:** `clear()` empties the shard in place; it never deletes files.
+- **Breaking:** `clear()` cannot reset the vector size; switching embedders needs a new path.
+- Android x86_64 is now provisioned alongside arm64 (emulators, Chromebooks).
+- A re-opened store now reports its contents without waiting for a write.
+- A shard that cannot be opened is reported instead of read as empty.
+- A shard held open elsewhere is reported as such, not as damaged.
+- Concurrent `addDocument` calls no longer race each other's shard open.
+- `configure()` rejects a field name that collides with a stored payload key.
+
 ## 1.2.0
 - Encode filters by the declared field type, so both backends answer alike.
 - **Breaking:** reject a field name containing `.` — qdrant reads it as a nested path.

@@ -4,9 +4,10 @@
 // dlopen resolves it by its bundled name. On the host there is no bundle, so
 // every package that runs native code under `flutter test` has to look for the
 // file itself — and three of them had written that search separately
-// (litert_bindings.dart, vec0_locator.dart, qdrant_locator.dart). The copies
-// had already stopped agreeing, which is how this kind of duplication always
-// ends and why the rule now lives in one place.
+// (litert_bindings.dart, vec0_locator.dart, and a qdrant locator that is gone
+// since rag_qdrant 1.3.0 handed native loading to the qdrant_edge SDK). The
+// copies had already stopped agreeing, which is how this kind of duplication
+// always ends and why the rule now lives in one place.
 //
 // TWO ORDERING RULES, both bought with incidents rather than chosen:
 //

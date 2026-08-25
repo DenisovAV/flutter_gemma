@@ -142,7 +142,7 @@ Core has NO pigeon (dropped at the 1.0 cut; its value types are hand-written in 
 - **MediaPipe Web**: v0.10.27, Android/iOS: v0.10.33
 - **LiteRT-LM**: native libs from `native-v0.16.0` GitHub Release (LiteRT-LM pin `924e79c9`, LiteRT pin `0ff28117`). Android tarball bundles the Qualcomm QNN dispatch stack and Windows tarball bundles Intel NPU dispatch (`LiteRtDispatch.dll` + OpenVino runtime + TBB) for `PreferredBackend.npu` (Qualcomm Snapdragon / Intel LunarLake/PantherLake) — both dispatch libs are **rebuilt from the pin every release**; carrying them forward is what silently broke NPU on both platforms (see the `build-native` skill). v0.16.0: fixes the Android OpenCL per-turn memory leak (LiteRT-LM #2699, #348/#402); v0.15.0 **broke the stream-callback ABI** (4-arg → 2-arg chunk object) with no compat path, handled by a runtime probe in `stream_proxy.c`. Windows discrete GPU works again — the crash was our own dead `litert_link_capi_so` Bazel define, not an upstream regression (#2957 retracted).
 - **large_file_handler**: `^0.5.0` (core dep; 0.5.0 declares all 6 platforms — needed for pana platform support + the dart2wasm-clean web graph)
-- **Current Version**: core `flutter_gemma` `1.6.5`, `flutter_gemma_rag_sqlite` `1.2.0`, `flutter_gemma_rag_qdrant` `1.2.0`; `flutter_gemma_litertlm` `1.5.2`, `flutter_gemma_mediapipe` `1.0.5`, `flutter_gemma_embeddings` `2.0.0`, `flutter_gemma_speech` `0.4.3`; `flutter_gemma_agent` `0.2.5`, `flutter_gemma_builtin_ai` `0.2.0`, `flutter_gemma_onnx` `0.3.0`; `genkit_flutter_gemma` `0.5.0`, `genkit_hybrid` `0.1.1`
+- **Current Version**: core `flutter_gemma` `1.6.5`, `flutter_gemma_rag_sqlite` `1.2.0`, `flutter_gemma_rag_qdrant` `1.3.0`; `flutter_gemma_litertlm` `1.5.2`, `flutter_gemma_mediapipe` `1.0.5`, `flutter_gemma_embeddings` `2.0.0`, `flutter_gemma_speech` `0.4.3`; `flutter_gemma_agent` `0.2.5`, `flutter_gemma_builtin_ai` `0.2.0`, `flutter_gemma_onnx` `0.3.0`; `genkit_flutter_gemma` `0.5.0`, `genkit_hybrid` `0.1.1`
 - **0.15.2**: embedding unified on LiteRT C API via Dart FFI on all native platforms (Android + iOS + Desktop). Drops `localagents-rag` JVM dep on Android and the separate TFLite C 0.12.7 tarball on Desktop; `TensorFlowLiteC` pod no longer needed on iOS. Single source of truth for `TaskType.prefix` in Dart, fixes cross-platform embedding drift (#264).
 
 ## Platform-Specific Setup
@@ -286,14 +286,13 @@ flutter analyze && dart format . && tool/test_all.sh
 | `android/src/.../FlutterGemmaMediaPipePlugin.kt`, `PlatformServiceImpl.kt`, `engines/*` | Android MediaPipe (own pluginClass + channel) |
 | `ios/Classes/FlutterGemmaMediaPipePlugin.swift`, `PlatformServiceImpl.swift`, `InferenceModel.swift` | iOS MediaPipe |
 
-**`packages/flutter_gemma_rag_qdrant/` (native RAG; no web):**
+**`packages/flutter_gemma_rag_qdrant/` (native RAG via the official `qdrant_edge` UniFFI SDK; no web):**
 
 | File | Purpose |
 |------|---------|
 | `lib/src/qdrant_vector_store.dart` | `QdrantVectorStore` (VectorStoreRepository) |
-| `lib/src/qdrant/{qdrant_edge_bindings,qdrant_edge_client,point_id_hasher,filter_codec}.dart` | ffigen bindings + Dart wrapper + UUIDv5 hasher + Filter codec |
-| `native/qdrant_edge/{qdrant_edge_ffi/,include/qdrant_edge.h,vendored/,build_local.sh}` | Rust cdylib + C header + vendored source + cross-build |
-| `hook/build.dart` | Native Assets hook — owns the qdrant_edge bundle |
+| `lib/src/{qdrant_edge_client,point_id_hasher,filter_codec}.dart` | thin wrapper over the `qdrant_edge` SDK + UUIDv5 hasher + Filter codec |
+| *(no `hook/build.dart`, no `native/`)* | 2.0.0: the engine and its Native Assets hook live in the `qdrant_edge` SDK |
 
 **`packages/flutter_gemma_rag_sqlite/` (first-class SQLite vector store — in-SQLite `sqlite-vec`/`vec0` KNN on all 6 platforms):**
 
@@ -343,7 +342,7 @@ flutter_gemma/                       # Dart pub workspace (monorepo root)
 │   ├── flutter_gemma_litertlm/      # .litertlm FFI (owns libLiteRtLm) + native/litert_lm/ build scripts
 │   ├── flutter_gemma_embeddings/    # LiteRT embeddings (shares libLiteRtLm; isolate worker)
 │   ├── flutter_gemma_mediapipe/     # .task MediaPipe (own pigeon + Kotlin + Swift + web JS)
-│   ├── flutter_gemma_rag_qdrant/    # native RAG (qdrant-edge Rust FFI)
+│   ├── flutter_gemma_rag_qdrant/    # native RAG (official qdrant_edge UniFFI SDK)
 │   ├── flutter_gemma_rag_sqlite/    # SQLite RAG — in-SQLite vec0 KNN (native sqlite3 FFI + web wasm)
 │   ├── flutter_gemma_builtin_ai/    # OS built-in AI — Gemini Nano (Android) / Apple Foundation Models (iOS/macOS)
 │   ├── flutter_gemma_onnx/          # ONNX Runtime — ORT-GenAI inference + plain-ORT embeddings (macOS arm64 v1)

@@ -87,8 +87,8 @@ class SqliteVectorStore implements VectorStoreRepository {
 
   /// Host-test override for the loadable's path; null in production.
   ///
-  /// The qdrant store already had this (`QdrantEdgeClient.debugOverrideDylibPath`)
-  /// and vec0 had only the environment variable, so a test could hand one store
+  /// The qdrant store had one of these first and vec0 had only the environment
+  /// variable, so a test could hand one store
   /// its library and had to configure the other through the process environment
   /// — which meant `tool/test_all.sh` had to know about it, and a plain
   /// `flutter test` in this package failed on a dlopen for no visible reason.

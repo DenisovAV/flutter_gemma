@@ -11,10 +11,11 @@
 // It is loop-runnable + prints the parseable markdown table the doc expects.
 // Both native extensions are needed for the FULL bench; absent ones are skipped:
 //   * vec0:   $VEC0_DYLIB → the prebuilt sqlite-vec loadable extension.
-//   * qdrant: $QDRANT_DYLIB (debug override) or the Native Assets bundle.
+//   * qdrant: the Native Assets bundle, provisioned by the qdrant_edge SDK's
+//     own hook. $QDRANT_DYLIB is only the opt-in switch — its value is unused.
 //
 // Run from the package dir (defaults: sizes 1k,10k · topK 5,50):
-//   VEC0_DYLIB=/path/to/vec0.dylib QDRANT_DYLIB=/path/to/libqdrant_edge_ffi.dylib \
+//   VEC0_DYLIB=/path/to/vec0.dylib QDRANT_DYLIB=1 \
 //     flutter test test/bench_vector_stores_test.dart
 //
 // Override via $BENCH_ARGS (same flags as the tool's main), e.g.:

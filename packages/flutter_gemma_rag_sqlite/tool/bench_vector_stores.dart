@@ -12,13 +12,14 @@
 // Prereqs (both native extensions must be present for a full run):
 //   * sqlite-vec: $VEC0_DYLIB → the prebuilt vec0 loadable extension
 //     (github.com/asg017/sqlite-vec/releases). Required for the vec0 arm.
-//   * qdrant-edge: the qdrant_edge_ffi dylib. Resolved from $QDRANT_DYLIB
-//     (debug override) or the Native Assets bundle. Optional — if absent the
-//     qdrant arm is SKIPPED and the table prints the vec0 column only.
+//   * qdrant-edge: resolved automatically via the official `qdrant_edge` SDK's
+//     own Native Assets build hook — no manual dylib path. Optional in the
+//     sense that if the hook can't provision it for this platform, the qdrant
+//     arm is SKIPPED (probed at startup) and the table prints the vec0 column
+//     only.
 //
 // Run from the package dir:
 //   VEC0_DYLIB=/path/to/vec0.dylib \
-//   QDRANT_DYLIB=/path/to/libqdrant_edge_ffi.dylib \
 //   dart run tool/bench_vector_stores.dart
 //
 // Flags:
@@ -41,14 +42,12 @@ import 'dart:math';
 
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_rag_sqlite/flutter_gemma_rag_sqlite.dart';
-// Dev-only imports (qdrant is a dev_dependency, never exported from lib/). The
-// qdrant arm is gated at runtime: if the native dylib is missing we skip it.
+// Dev-only import (qdrant is a dev_dependency, never exported from lib/). The
+// qdrant arm is gated at runtime: it is probed at startup (open a throwaway
+// shard) and skipped if that fails — the official qdrant_edge SDK resolves
+// its own native library via its Native Assets build hook, with no override
+// for this bench tool to set.
 import 'package:flutter_gemma_rag_qdrant/flutter_gemma_rag_qdrant.dart';
-// QdrantEdgeClient is not re-exported from the public entry point; the bench
-// reaches into src/ only to set the host-VM dylib override ($QDRANT_DYLIB),
-// the same way the qdrant package's own tests do.
-import 'package:flutter_gemma_rag_qdrant/src/qdrant_edge_client.dart'
-    show QdrantEdgeClient;
 
 /// One measured cell: how a single store performed at one (size, topK).
 class _Cell {
@@ -316,15 +315,9 @@ Future<int> runBench(BenchConfig cfg, IOSink out) async {
     );
   }
 
-  // qdrant resolves its dylib from $QDRANT_DYLIB (debug override) or Native
-  // Assets. Probe by opening a throwaway shard; on failure, skip the arm.
-  final qdrantOverride = Platform.environment['QDRANT_DYLIB'];
-  if (qdrantOverride != null && qdrantOverride.isNotEmpty) {
-    // The bench is a host-VM tool (no Native Assets bundle on `dart run`), so it
-    // sets the same test-only dylib override the qdrant tests use.
-    // ignore: invalid_use_of_visible_for_testing_member
-    QdrantEdgeClient.debugOverrideDylibPath = qdrantOverride;
-  }
+  // qdrant resolves its native library automatically via the official
+  // qdrant_edge SDK's own Native Assets build hook — nothing for this tool to
+  // point at. Probe by opening a throwaway shard; on failure, skip the arm.
   var qdrantAvailable = cfg.runQdrant;
   if (cfg.runQdrant) {
     final probeDir = Directory.systemTemp.createTempSync('bench_qdrant_probe');
@@ -341,7 +334,8 @@ Future<int> runBench(BenchConfig cfg, IOSink out) async {
       qdrantAvailable = false;
       stderr.writeln(
         '[bench] qdrant arm DISABLED: native library unavailable ($e). '
-        'Set \$QDRANT_DYLIB or build the qdrant-edge prebuilt to include it.',
+        'The qdrant_edge SDK\'s Native Assets hook could not provision it '
+        'for this platform/toolchain.',
       );
     } finally {
       try {

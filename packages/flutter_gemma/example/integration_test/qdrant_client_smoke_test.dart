@@ -196,7 +196,7 @@ void main() {
     expect((await store.getStats()).documentCount, equals(8));
   });
 
-  test('store: a 1.x layout is refused, and clear() removes it', () async {
+  test('store: a 1.x layout is refused, and nothing of it is touched', () async {
     // A store written by 1.x sits directly at databasePath; 2.0 only opens its
     // owned subdir. Undetected it comes up empty with no error and the old
     // corpus keeps its disk. On device this is the case that would silently
@@ -226,13 +226,44 @@ void main() {
     // And the refusal must not hide behind an empty answer either.
     await expectLater(store.getStats(), throwsA(isA<VectorStoreException>()));
 
-    await store.clear();
-    expect(File('${shardDir.path}/edge_config.json').existsSync(), isFalse);
+    // clear() refuses too, and — the point of the whole redesign — removes
+    // nothing. This release does not delete data it cannot read, on device
+    // least of all, where the files belong to a real user.
+    await expectLater(
+      store.clear(),
+      throwsA(isA<QdrantLegacyStoreException>()),
+    );
+    for (final name in ['edge_config.json', 'wal', 'segments']) {
+      final at = '${shardDir.path}/$name';
+      expect(
+        File(at).existsSync() || Directory(at).existsSync(),
+        isTrue,
+        reason: 'clear() removed $name — it must only refuse',
+      );
+    }
     expect(File('${shardDir.path}/user_file.txt').existsSync(), isTrue);
+  });
 
-    // ...and the store is usable again afterwards.
+  test('store: clear() empties in place and the store keeps working', () async {
+    // The other half of the redesign, and the reason a device run matters:
+    // clear() erases documents through the SDK instead of deleting the shard
+    // directory, so the directory must survive and the store must still write.
+    final store = QdrantVectorStore();
+    addTearDown(store.close);
     await store.initialize(shardDir.path);
-    await store.addDocument(id: 'a', content: 'b', embedding: vec(4, 1));
+    await store.addDocument(id: 'a', content: 'x', embedding: vec(4, 1));
+    await store.addDocument(id: 'b', content: 'y', embedding: vec(4, 2));
+    expect((await store.getStats()).documentCount, equals(2));
+
+    await store.clear();
+
+    expect((await store.getStats()).documentCount, equals(0));
+    expect(
+      Directory('${shardDir.path}/qdrant_edge_v1').existsSync(),
+      isTrue,
+      reason: 'clear() deleted the shard directory',
+    );
+    await store.addDocument(id: 'c', content: 'z', embedding: vec(4, 3));
     expect((await store.getStats()).documentCount, equals(1));
   });
 
@@ -278,8 +309,22 @@ void main() {
       addTearDown(holder.close);
 
       final second = QdrantVectorStore();
-      await second.initialize(shardDir.path);
       addTearDown(second.close);
+      // initialize() reports the failure, per the VectorStoreRepository
+      // contract, and the message says WHICH failure: "open elsewhere" is
+      // recoverable by closing the other store and must not read like data
+      // corruption. Those two were one generic error until the SDK gave the
+      // lock its own type.
+      await expectLater(
+        second.initialize(shardDir.path),
+        throwsA(
+          isA<VectorStoreException>().having(
+            (e) => e.message,
+            'message',
+            contains('open elsewhere'),
+          ),
+        ),
+      );
 
       await expectLater(
         second.getStats(),

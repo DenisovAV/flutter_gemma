@@ -2,6 +2,7 @@
 - **Breaking:** moved onto the official `qdrant_edge` UniFFI SDK.
 - **Breaking:** a 1.x store is not readable — remove its files, then re-index.
 - **Breaking:** `clear()` empties the shard in place; it never deletes files.
+- **Breaking:** `clear()` cannot reset the vector size; switching embedders needs a new path.
 - Android x86_64 is now provisioned alongside arm64 (emulators, Chromebooks).
 - A re-opened store now reports its contents without waiting for a write.
 - A shard that cannot be opened is reported instead of read as empty.

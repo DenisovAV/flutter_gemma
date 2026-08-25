@@ -45,6 +45,9 @@ abstract class VectorStoreRepository {
   /// Throws:
   /// - [StateError] if not initialized
   /// - [ArgumentError] if embedding dimension doesn't match existing documents
+  /// Throws [VectorStoreException] if the store is initialized but holds
+  /// on-disk data it could not read — an implementation must refuse rather
+  /// than report an unreadable corpus as an empty one.
   Future<void> addDocument({
     required String id,
     required String content,
@@ -57,6 +60,9 @@ abstract class VectorStoreRepository {
   /// If the document does not exist, this is a no-op (does not throw).
   ///
   /// Throws [StateError] if not initialized.
+  /// Throws [VectorStoreException] if the store is initialized but holds
+  /// on-disk data it could not read — an implementation must refuse rather
+  /// than report an unreadable corpus as an empty one.
   Future<void> removeDocument({required String id});
 
   /// Search for similar documents using cosine similarity
@@ -90,6 +96,9 @@ abstract class VectorStoreRepository {
   /// Throws:
   /// - [StateError] if not initialized
   /// - [ArgumentError] if query dimension doesn't match stored dimension
+  /// Throws [VectorStoreException] if the store is initialized but holds
+  /// on-disk data it could not read — an implementation must refuse rather
+  /// than report an unreadable corpus as an empty one.
   Future<List<RetrievalResult>> searchSimilar({
     required List<double> queryEmbedding,
     required int topK,
@@ -104,6 +113,9 @@ abstract class VectorStoreRepository {
   /// - [vectorDimension]: Embedding dimension (0 if empty)
   ///
   /// Throws [StateError] if not initialized
+  /// Throws [VectorStoreException] if the store is initialized but holds
+  /// on-disk data it could not read — an implementation must refuse rather
+  /// than report an unreadable corpus as an empty one.
   Future<VectorStoreStats> getStats();
 
   /// Clear all documents from vector store
@@ -113,6 +125,9 @@ abstract class VectorStoreRepository {
   /// - Resets dimension (next add will auto-detect again)
   ///
   /// Throws [StateError] if not initialized
+  /// Throws [VectorStoreException] if the store is initialized but holds
+  /// on-disk data it could not read — an implementation must refuse rather
+  /// than report an unreadable corpus as an empty one.
   Future<void> clear();
 
   /// Close vector store and release resources

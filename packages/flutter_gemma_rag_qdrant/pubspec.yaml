@@ -26,8 +26,7 @@ dependencies:
     sdk: flutter
   flutter_gemma: ^1.6.1
   uuid: ^4.0.0
-  # For the store's owned-subdir path handling (qdrant_edge_v1) and the
-  # clear() symlink-escape guard.
+  # For the store's owned-subdir path handling (qdrant_edge_v1).
   path: ^1.9.0
   # Official Qdrant Edge Dart SDK (UniFFI binding of the shared qdrant-edge-ffi
   # crate). Exact pin (no caret): a caret on a `-dev` prerelease could resolve

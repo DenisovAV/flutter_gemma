@@ -172,10 +172,12 @@ unchanged, but the documents already on the device are not.
 
 An upgraded app finds no documents where its corpus used to be. 2.0 refuses
 loudly rather than starting empty — `initialize()` throws a
-`VectorStoreException` naming the old store — so this shows up the first time
-the store opens, not as silently unanswered questions later.
+`QdrantLegacyStoreException` naming the old store — so this shows up the first
+time the store opens, not as silently unanswered questions later.
 
-Clear the old store once, then re-index:
+Remove the old store's files once, then re-index. 2.0 will not do it for you:
+it never deletes data it cannot read, and the three entries a 1.x shard owns
+(`edge_config.json`, `wal/`, `segments/`) may sit beside files of your own.
 
 ```dart
 import 'package:flutter_gemma_rag_qdrant/flutter_gemma_rag_qdrant.dart';
@@ -202,9 +204,6 @@ store that is perfectly fine.
 `clear()` no longer deletes anything: it empties the shard in place, and it
 refuses when a 1.x layout is present rather than removing files it cannot
 read.
-
-`clear()` deletes only what this package wrote. Your own files sitting next to
-the store at the same path are left alone.
 
 If your app has no re-indexing path of its own, do the re-index behind the same
 progress UI you use for the first run — from the user's side this is a rebuild

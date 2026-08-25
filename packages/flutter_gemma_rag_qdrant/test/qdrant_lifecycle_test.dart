@@ -219,8 +219,6 @@ void main() {
     );
   });
 
-  group('clear() failure ordering', () {});
-
   group('an unreadable shard is not an empty one', () {
     test('a held WAL is reported, not answered as zero documents', () async {
       // qdrant-edge holds the WAL exclusively. A second store on the same path
@@ -567,8 +565,6 @@ void main() {
     );
   });
 
-  group('clear() cannot report a failure it has not settled for', () {});
-
   group('a write racing a lifecycle transition', () {
     test(
       'addDocument during clear() fails loudly and leaves a usable store',
@@ -733,17 +729,48 @@ void main() {
 
         final store = QdrantVectorStore();
         addTearDown(store.close);
+        // NOT the legacy type. That type is the one the README tells callers
+        // to catch and act on — "e.message names what to remove" — so throwing
+        // it for data we could not identify hands the destructive instruction
+        // to someone whose files merely share those names. The type is part of
+        // the contract, not just the text.
         await expectLater(
           store.initialize(tmp.path),
-          throwsA(isA<VectorStoreException>()),
+          throwsA(
+            allOf(
+              isA<VectorStoreException>(),
+              isNot(isA<QdrantLegacyStoreException>()),
+            ),
+          ),
         );
         await expectLater(
           store.clear(),
-          throwsA(isA<QdrantLegacyStoreException>()),
-          reason: "clear() deleted the caller's directories and said it worked",
+          throwsA(
+            allOf(
+              isA<VectorStoreException>(),
+              isNot(isA<QdrantLegacyStoreException>()),
+              isA<VectorStoreException>().having(
+                (e) => e.message,
+                'message',
+                isNot(contains('remove "edge_config.json"')),
+              ),
+            ),
+          ),
+          reason: "clear() told the caller to delete files that may be theirs",
         );
         expect(File('${tmp.path}/wal/caller.txt').existsSync(), isTrue);
         expect(File('${tmp.path}/segments/caller.txt').existsSync(), isTrue);
+
+        // And — the half that survived the destructive path being removed —
+        // the message must not tell the CALLER to delete them either. Naming
+        // files to remove is an instruction that destroys data just as well as
+        // a deleteSync does, and we cannot tell whose files these are.
+        try {
+          await store.initialize(tmp.path);
+          fail('initialize() accepted a directory it does not own');
+        } on VectorStoreException catch (e) {
+          expect(e.message, contains('did not write'));
+        }
       },
     );
 
@@ -759,6 +786,44 @@ void main() {
       await store.initialize(tmp.path);
       await store.addDocument(id: 'a', content: 'x', embedding: vec(4, 1));
       expect((await store.getStats()).documentCount, 1);
+    });
+  });
+
+  group('the latch must lift as well as fall', () {
+    test('a latch clears once the shard can actually be opened', () async {
+      // Deleted by mistake with the destructive-clear cleanup: its subject —
+      // a store that failed to adopt, then succeeds after the cause is gone —
+      // has nothing to do with deleting directories. A sticky latch is a WORSE
+      // failure than the silent zero it replaced: every read refusing forever
+      // on a store that is now perfectly healthy.
+      //
+      // It pins an OUTCOME, not one line: two sites clear the latch — the
+      // reset at the top of initialize() and the adoption-success path — and
+      // removing either alone leaves this green. Removing BOTH kills it.
+      final holder = QdrantVectorStore();
+      await holder.initialize(tmp.path);
+      await holder.addDocument(id: 'a', content: 'x', embedding: vec(4, 1));
+
+      final second = QdrantVectorStore();
+      addTearDown(second.close);
+      await expectLater(
+        second.initialize(tmp.path), // WAL held by holder
+        throwsA(isA<VectorStoreException>()),
+      );
+      await expectLater(
+        second.getStats(),
+        throwsA(isA<VectorStoreException>()),
+      );
+
+      await holder.close(); // the cause goes away
+      await second.initialize(tmp.path); // the message says to do this
+
+      expect(second.isInitialized, isTrue);
+      expect(
+        (await second.getStats()).documentCount,
+        1,
+        reason: 'the latch outlived the condition that set it',
+      );
     });
   });
 

@@ -141,7 +141,15 @@ class QdrantEdgeClient {
     // it. That guess reported a full corpus as an empty store, because the
     // engine reads a shard whose config file is missing perfectly well. The
     // heuristic is gone; the SDK is asked instead.
-    final probe = qe.probeShard(path: path);
+    final qe.ShardProbe probe;
+    try {
+      probe = qe.probeShard(path: path);
+    } catch (e) {
+      // The probe is an FFI call like any other: a Rust panic here arrives as
+      // UniffiInternalError, which is not an EdgeException, so without this it
+      // crossed the package boundary as a type the caller cannot name.
+      _rethrow(e);
+    }
     switch (probe.presence) {
       case qe.EdgeShardPresence.none:
         return null;
@@ -297,8 +305,14 @@ class QdrantEdgeClient {
     _closed = true;
     try {
       _shard.unload();
-    } on qe.EdgeException {
-      // Best-effort: an already-unloaded shard is fine to ignore on close.
+    } catch (_) {
+      // Best-effort, and deliberately broad. `_closed` is already set above, so
+      // the only thing reaching here is a real unload failure — including a
+      // UniffiInternalError, which is not an EdgeException and used to escape
+      // close() raw. A shard that will not unload keeps its WAL lock for the
+      // process lifetime; the next open reports that as a locked shard, which
+      // is a better place to surface it than an exception out of a close the
+      // caller usually cannot act on.
     }
   }
 

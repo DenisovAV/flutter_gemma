@@ -279,60 +279,55 @@ void main() {
     // these pin that the SDK actually honors that JSON once decoded back into
     // qe.FieldCondition/qe.Match/qe.RangeFloat against a real shard.
 
-    test(
-      'FieldEquals with a bool value narrows a bool field, honoring BOTH '
-      'JSON spellings of true (real bool and the integer 1)',
-      () async {
-        // filter_codec.dart's _equality/bool arm encodes FieldEquals(true)
-        // as should:[match.value==true, range(gte:1,lte:1)] (_boolSpellings,
-        // filter_codec.dart:294-309) because qdrant stores payload booleans
-        // verbatim: {"archived":true} is Bool(true) but {"archived":1} is
-        // Integer(1). Docs stored with each spelling pin that the SDK
-        // actually honors both should-branches, not just the one a
-        // same-spelling test would exercise.
-        repo.configure(
-          FilterSchema(
-            fields: [
-              FilterField(name: 'archived', type: FilterFieldType.bool),
-            ],
-          ),
-        );
-        await repo.addDocument(
-          id: 'doc_live',
-          content: 'live',
-          embedding: const [1.0, 0.0, 0.0, 0.0],
-          metadata: '{"archived":false}',
-        );
-        await repo.addDocument(
-          id: 'doc_archived',
-          content: 'archived',
-          embedding: const [1.0, 0.0, 0.0, 0.0],
-          metadata: '{"archived":true}',
-        );
-        await repo.addDocument(
-          id: 'doc_one',
-          content: 'archived as integer 1',
-          embedding: const [1.0, 0.0, 0.0, 0.0],
-          metadata: '{"archived":1}',
-        );
-        await repo.addDocument(
-          id: 'doc_zero',
-          content: 'not archived as integer 0',
-          embedding: const [1.0, 0.0, 0.0, 0.0],
-          metadata: '{"archived":0}',
-        );
+    test('FieldEquals with a bool value narrows a bool field, honoring BOTH '
+        'JSON spellings of true (real bool and the integer 1)', () async {
+      // filter_codec.dart's _equality/bool arm encodes FieldEquals(true)
+      // as should:[match.value==true, range(gte:1,lte:1)] (_boolSpellings,
+      // filter_codec.dart:294-309) because qdrant stores payload booleans
+      // verbatim: {"archived":true} is Bool(true) but {"archived":1} is
+      // Integer(1). Docs stored with each spelling pin that the SDK
+      // actually honors both should-branches, not just the one a
+      // same-spelling test would exercise.
+      repo.configure(
+        FilterSchema(
+          fields: [FilterField(name: 'archived', type: FilterFieldType.bool)],
+        ),
+      );
+      await repo.addDocument(
+        id: 'doc_live',
+        content: 'live',
+        embedding: const [1.0, 0.0, 0.0, 0.0],
+        metadata: '{"archived":false}',
+      );
+      await repo.addDocument(
+        id: 'doc_archived',
+        content: 'archived',
+        embedding: const [1.0, 0.0, 0.0, 0.0],
+        metadata: '{"archived":true}',
+      );
+      await repo.addDocument(
+        id: 'doc_one',
+        content: 'archived as integer 1',
+        embedding: const [1.0, 0.0, 0.0, 0.0],
+        metadata: '{"archived":1}',
+      );
+      await repo.addDocument(
+        id: 'doc_zero',
+        content: 'not archived as integer 0',
+        embedding: const [1.0, 0.0, 0.0, 0.0],
+        metadata: '{"archived":0}',
+      );
 
-        final hits = await repo.searchSimilar(
-          queryEmbedding: const [1.0, 0.0, 0.0, 0.0],
-          topK: 5,
-          filter: const Filter(must: [FieldEquals(key: 'archived', value: true)]),
-        );
-        expect(
-          hits.map((h) => h.id).toSet(),
-          equals({'doc_archived', 'doc_one'}),
-        );
-      },
-    );
+      final hits = await repo.searchSimilar(
+        queryEmbedding: const [1.0, 0.0, 0.0, 0.0],
+        topK: 5,
+        filter: const Filter(must: [FieldEquals(key: 'archived', value: true)]),
+      );
+      expect(
+        hits.map((h) => h.id).toSet(),
+        equals({'doc_archived', 'doc_one'}),
+      );
+    });
 
     test('FieldEquals with an int value narrows a number field', () async {
       repo.configure(
@@ -406,9 +401,7 @@ void main() {
       () async {
         repo.configure(
           FilterSchema(
-            fields: [
-              FilterField(name: 'price', type: FilterFieldType.number),
-            ],
+            fields: [FilterField(name: 'price', type: FilterFieldType.number)],
           ),
         );
         await repo.addDocument(
@@ -441,48 +434,43 @@ void main() {
       },
     );
 
-    test(
-      'FieldEquals with a double value narrows via the degenerate '
-      'gte==lte range (filter_codec.dart _equality/number arm)',
-      () async {
-        // FieldEquals on a number field is encoded as a degenerate
-        // {gte: v, lte: v} range (filter_codec.dart:311-318). The int case
-        // above exercises that path with a whole number; this pins it with
-        // a double, the value class the "float degenerate-range" arm names.
-        repo.configure(
-          FilterSchema(
-            fields: [
-              FilterField(name: 'price', type: FilterFieldType.number),
-            ],
-          ),
-        );
-        await repo.addDocument(
-          id: 'doc_cheap',
-          content: 'cheap',
-          embedding: const [1.0, 0.0, 0.0, 0.0],
-          metadata: '{"price":5.5}',
-        );
-        await repo.addDocument(
-          id: 'doc_mid',
-          content: 'mid',
-          embedding: const [1.0, 0.0, 0.0, 0.0],
-          metadata: '{"price":50.0}',
-        );
-        await repo.addDocument(
-          id: 'doc_expensive',
-          content: 'expensive',
-          embedding: const [1.0, 0.0, 0.0, 0.0],
-          metadata: '{"price":500.0}',
-        );
+    test('FieldEquals with a double value narrows via the degenerate '
+        'gte==lte range (filter_codec.dart _equality/number arm)', () async {
+      // FieldEquals on a number field is encoded as a degenerate
+      // {gte: v, lte: v} range (filter_codec.dart:311-318). The int case
+      // above exercises that path with a whole number; this pins it with
+      // a double, the value class the "float degenerate-range" arm names.
+      repo.configure(
+        FilterSchema(
+          fields: [FilterField(name: 'price', type: FilterFieldType.number)],
+        ),
+      );
+      await repo.addDocument(
+        id: 'doc_cheap',
+        content: 'cheap',
+        embedding: const [1.0, 0.0, 0.0, 0.0],
+        metadata: '{"price":5.5}',
+      );
+      await repo.addDocument(
+        id: 'doc_mid',
+        content: 'mid',
+        embedding: const [1.0, 0.0, 0.0, 0.0],
+        metadata: '{"price":50.0}',
+      );
+      await repo.addDocument(
+        id: 'doc_expensive',
+        content: 'expensive',
+        embedding: const [1.0, 0.0, 0.0, 0.0],
+        metadata: '{"price":500.0}',
+      );
 
-        final hits = await repo.searchSimilar(
-          queryEmbedding: const [1.0, 0.0, 0.0, 0.0],
-          topK: 5,
-          filter: const Filter(must: [FieldEquals(key: 'price', value: 5.5)]),
-        );
-        expect(hits.map((h) => h.id).toSet(), equals({'doc_cheap'}));
-      },
-    );
+      final hits = await repo.searchSimilar(
+        queryEmbedding: const [1.0, 0.0, 0.0, 0.0],
+        topK: 5,
+        filter: const Filter(must: [FieldEquals(key: 'price', value: 5.5)]),
+      );
+      expect(hits.map((h) => h.id).toSet(), equals({'doc_cheap'}));
+    });
 
     test('should bucket matches when ANY condition matches (OR)', () async {
       repo.configure(
@@ -689,91 +677,85 @@ void main() {
       if (dbDir.existsSync()) dbDir.deleteSync(recursive: true);
     });
 
-    test(
-      '(a) a legacy sibling at the bare databasePath is left untouched by '
-      'init + addDocument + clear()',
-      () async {
-        // Simulates a pre-migration (1.x / crate 0.7.x) shard sitting
-        // directly at the bare path the caller passes to initialize().
-        final legacyMarker = File(p.join(dbDir.path, 'legacy_marker.bin'))
-          ..writeAsBytesSync([1, 2, 3, 4]);
+    test('(a) a legacy sibling at the bare databasePath is left untouched by '
+        'init + addDocument + clear()', () async {
+      // Simulates a pre-migration (1.x / crate 0.7.x) shard sitting
+      // directly at the bare path the caller passes to initialize().
+      final legacyMarker = File(p.join(dbDir.path, 'legacy_marker.bin'))
+        ..writeAsBytesSync([1, 2, 3, 4]);
 
-        final store = QdrantVectorStore();
-        await store.initialize(dbDir.path);
-        await store.addDocument(
+      final store = QdrantVectorStore();
+      await store.initialize(dbDir.path);
+      await store.addDocument(
+        id: 'doc',
+        content: 'doc',
+        embedding: const [1.0, 0.0, 0.0, 0.0],
+      );
+
+      final ownedSubdir = Directory(p.join(dbDir.path, _storeDirName));
+      expect(
+        ownedSubdir.existsSync(),
+        isTrue,
+        reason: 'the shard must be created under the owned subdir',
+      );
+      expect(
+        legacyMarker.existsSync(),
+        isTrue,
+        reason: 'a sibling at the bare databasePath must never be touched',
+      );
+      expect(legacyMarker.readAsBytesSync(), equals([1, 2, 3, 4]));
+
+      await store.clear();
+
+      expect(
+        ownedSubdir.existsSync(),
+        isFalse,
+        reason: 'clear() must remove the owned subdir',
+      );
+      expect(
+        dbDir.existsSync(),
+        isTrue,
+        reason: 'clear() must never remove the caller\'s databasePath',
+      );
+      expect(
+        legacyMarker.existsSync(),
+        isTrue,
+        reason: 'clear() must never touch a sibling of the owned subdir',
+      );
+
+      await store.close();
+    });
+
+    test('(b) junk occupying the owned-subdir path makes addDocument throw a '
+        'VectorStoreException, with the junk left untouched', () async {
+      // Occupy the exact path the store would create its subdir at, with a
+      // plain file instead of a directory — the store can neither mkdir
+      // over it nor open it as a shard.
+      final junkPath = p.join(dbDir.path, _storeDirName);
+      final junk = File(junkPath)..writeAsBytesSync([9, 9, 9]);
+
+      final store = QdrantVectorStore();
+      await store.initialize(dbDir.path);
+
+      await expectLater(
+        () => store.addDocument(
           id: 'doc',
           content: 'doc',
           embedding: const [1.0, 0.0, 0.0, 0.0],
-        );
+        ),
+        throwsA(isA<VectorStoreException>()),
+      );
 
-        final ownedSubdir = Directory(p.join(dbDir.path, _storeDirName));
-        expect(
-          ownedSubdir.existsSync(),
-          isTrue,
-          reason: 'the shard must be created under the owned subdir',
-        );
-        expect(
-          legacyMarker.existsSync(),
-          isTrue,
-          reason: 'a sibling at the bare databasePath must never be touched',
-        );
-        expect(legacyMarker.readAsBytesSync(), equals([1, 2, 3, 4]));
+      expect(junk.existsSync(), isTrue);
+      expect(junk.readAsBytesSync(), equals([9, 9, 9]));
+      expect(
+        (await store.getStats()).documentCount,
+        equals(0),
+        reason: 'a failed open must leave no live client / data behind',
+      );
 
-        await store.clear();
-
-        expect(
-          ownedSubdir.existsSync(),
-          isFalse,
-          reason: 'clear() must remove the owned subdir',
-        );
-        expect(
-          dbDir.existsSync(),
-          isTrue,
-          reason: 'clear() must never remove the caller\'s databasePath',
-        );
-        expect(
-          legacyMarker.existsSync(),
-          isTrue,
-          reason: 'clear() must never touch a sibling of the owned subdir',
-        );
-
-        await store.close();
-      },
-    );
-
-    test(
-      '(b) junk occupying the owned-subdir path makes addDocument throw a '
-      'VectorStoreException, with the junk left untouched',
-      () async {
-        // Occupy the exact path the store would create its subdir at, with a
-        // plain file instead of a directory — the store can neither mkdir
-        // over it nor open it as a shard.
-        final junkPath = p.join(dbDir.path, _storeDirName);
-        final junk = File(junkPath)..writeAsBytesSync([9, 9, 9]);
-
-        final store = QdrantVectorStore();
-        await store.initialize(dbDir.path);
-
-        await expectLater(
-          () => store.addDocument(
-            id: 'doc',
-            content: 'doc',
-            embedding: const [1.0, 0.0, 0.0, 0.0],
-          ),
-          throwsA(isA<VectorStoreException>()),
-        );
-
-        expect(junk.existsSync(), isTrue);
-        expect(junk.readAsBytesSync(), equals([9, 9, 9]));
-        expect(
-          (await store.getStats()).documentCount,
-          equals(0),
-          reason: 'a failed open must leave no live client / data behind',
-        );
-
-        await store.close();
-      },
-    );
+      await store.close();
+    });
 
     test(
       '(c) clear() refuses to delete when the owned subdir resolves outside '
@@ -797,15 +779,13 @@ void main() {
           final store = QdrantVectorStore();
           await store.initialize(dbDir.path);
 
-          await expectLater(
-            store.clear,
-            throwsA(isA<VectorStoreException>()),
-          );
+          await expectLater(store.clear, throwsA(isA<VectorStoreException>()));
 
           expect(
             sentinel.existsSync(),
             isTrue,
-            reason: 'the guard must refuse to delete before touching '
+            reason:
+                'the guard must refuse to delete before touching '
                 'anything outside databasePath',
           );
           expect(outsideTarget.existsSync(), isTrue);
@@ -823,70 +803,68 @@ void main() {
       onPlatform: {'windows': const Skip('symlink creation needs elevation')},
     );
 
-    test(
-      '(d) clear() delete-failure marks the store uninitialized '
-      '(fail-closed), and re-initializing recovers',
-      () async {
-        // Portable fault injection via the debug seam (debugDeleteDirOverride)
-        // rather than OS-level permission tricks: chmod-based denial does not
-        // behave identically on POSIX vs Windows (and is a no-op as root), so
-        // it cannot be the portable coverage plan item 49 mandates. The seam
-        // forces clear()'s delete step to fail deterministically on every
-        // platform.
-        final store = native.QdrantVectorStore();
-        await store.initialize(dbDir.path);
-        await store.addDocument(
-          id: 'doc',
-          content: 'doc',
-          embedding: const [1.0, 0.0, 0.0, 0.0],
-        );
+    test('(d) clear() delete-failure marks the store uninitialized '
+        '(fail-closed), and re-initializing recovers', () async {
+      // Portable fault injection via the debug seam (debugDeleteDirOverride)
+      // rather than OS-level permission tricks: chmod-based denial does not
+      // behave identically on POSIX vs Windows (and is a no-op as root), so
+      // it cannot be the portable coverage plan item 49 mandates. The seam
+      // forces clear()'s delete step to fail deterministically on every
+      // platform.
+      final store = native.QdrantVectorStore();
+      await store.initialize(dbDir.path);
+      await store.addDocument(
+        id: 'doc',
+        content: 'doc',
+        embedding: const [1.0, 0.0, 0.0, 0.0],
+      );
 
-        store.debugDeleteDirOverride = (dir) {
-          // Simulate a realistic partway delete failure: the shard's
-          // contents are removed (as a real recursive delete would manage
-          // before hitting trouble) but the owned subdir entry itself fails
-          // to go away — matching the "on-disk subdir may be left in a mixed
-          // state" case clear() defends against — then report failure.
-          if (dir.existsSync()) {
-            for (final entry in dir.listSync()) {
-              entry.deleteSync(recursive: true);
-            }
+      store.debugDeleteDirOverride = (dir) {
+        // Simulate a realistic partway delete failure: the shard's
+        // contents are removed (as a real recursive delete would manage
+        // before hitting trouble) but the owned subdir entry itself fails
+        // to go away — matching the "on-disk subdir may be left in a mixed
+        // state" case clear() defends against — then report failure.
+        if (dir.existsSync()) {
+          for (final entry in dir.listSync()) {
+            entry.deleteSync(recursive: true);
           }
-          throw const FileSystemException(
-            'simulated delete failure',
-            'debugDeleteDirOverride',
-          );
-        };
-
-        await expectLater(store.clear, throwsA(isA<VectorStoreException>()));
-
-        expect(
-          store.isInitialized,
-          isFalse,
-          reason: 'a delete failure must fail-closed: the store must not '
-              'reuse a possibly half-deleted shard',
+        }
+        throw const FileSystemException(
+          'simulated delete failure',
+          'debugDeleteDirOverride',
         );
+      };
 
-        // Recovery: clearing the override and re-initializing after the
-        // fail-closed reset must work cleanly, with no leftover state from
-        // the failed clear().
-        store.debugDeleteDirOverride = null;
-        await store.initialize(dbDir.path);
-        await store.addDocument(
-          id: 'doc_after_recovery',
-          content: 'doc after recovery',
-          embedding: const [1.0, 0.0, 0.0, 0.0],
-        );
-        final hits = await store.searchSimilar(
-          queryEmbedding: const [1.0, 0.0, 0.0, 0.0],
-          topK: 5,
-        );
-        expect(hits.map((h) => h.id).toSet(), equals({'doc_after_recovery'}));
-        expect((await store.getStats()).documentCount, equals(1));
+      await expectLater(store.clear, throwsA(isA<VectorStoreException>()));
 
-        await store.close();
-      },
-    );
+      expect(
+        store.isInitialized,
+        isFalse,
+        reason:
+            'a delete failure must fail-closed: the store must not '
+            'reuse a possibly half-deleted shard',
+      );
+
+      // Recovery: clearing the override and re-initializing after the
+      // fail-closed reset must work cleanly, with no leftover state from
+      // the failed clear().
+      store.debugDeleteDirOverride = null;
+      await store.initialize(dbDir.path);
+      await store.addDocument(
+        id: 'doc_after_recovery',
+        content: 'doc after recovery',
+        embedding: const [1.0, 0.0, 0.0, 0.0],
+      );
+      final hits = await store.searchSimilar(
+        queryEmbedding: const [1.0, 0.0, 0.0, 0.0],
+        topK: 5,
+      );
+      expect(hits.map((h) => h.id).toSet(), equals({'doc_after_recovery'}));
+      expect((await store.getStats()).documentCount, equals(1));
+
+      await store.close();
+    });
   });
 
   // ---- Exception wrapping: QdrantException must never leak past the store --
@@ -914,47 +892,44 @@ void main() {
   //      the reachable half of that contract instead: the exception type the
   //      wrap depends on really is `QdrantException`, never something else.
   group('exception wrapping', () {
-    test(
-      'searchSimilar/getStats never throw before any successful write '
-      '(safe defaults, no client to leak from)',
-      () async {
-        final store = QdrantVectorStore();
-        await store.initialize(
-          '${Directory.systemTemp.path}/qdrant_nowrite_${DateTime.now().microsecondsSinceEpoch}',
-        );
-        expect(await store.searchSimilar(queryEmbedding: const [1.0], topK: 5), isEmpty);
-        final stats = await store.getStats();
-        expect(stats.documentCount, equals(0));
-        expect(stats.vectorDimension, equals(0));
-        await store.close();
-      },
-    );
+    test('searchSimilar/getStats never throw before any successful write '
+        '(safe defaults, no client to leak from)', () async {
+      final store = QdrantVectorStore();
+      await store.initialize(
+        '${Directory.systemTemp.path}/qdrant_nowrite_${DateTime.now().microsecondsSinceEpoch}',
+      );
+      expect(
+        await store.searchSimilar(queryEmbedding: const [1.0], topK: 5),
+        isEmpty,
+      );
+      final stats = await store.getStats();
+      expect(stats.documentCount, equals(0));
+      expect(stats.vectorDimension, equals(0));
+      await store.close();
+    });
 
-    test(
-      'QdrantEdgeClient.search/count on a closed client throw QdrantException '
-      '(the exact type searchSimilar/getStats catch and wrap into '
-      'VectorStoreException)',
-      () async {
-        final dir =
-            '${Directory.systemTemp.path}/qdrant_closed_client_${DateTime.now().microsecondsSinceEpoch}';
-        final client = await QdrantEdgeClient.open(path: dir, dim: 4);
-        // QdrantEdgeClient (unlike QdrantVectorStore) takes the id as a raw
-        // point UUID — it is the store's job to hash a caller id via
-        // PointIdHasher first.
-        await client.upsert(
-          id: '11111111-1111-1111-1111-111111111111',
-          vector: const [1.0, 0.0, 0.0, 0.0],
-        );
-        await client.close();
+    test('QdrantEdgeClient.search/count on a closed client throw QdrantException '
+        '(the exact type searchSimilar/getStats catch and wrap into '
+        'VectorStoreException)', () async {
+      final dir =
+          '${Directory.systemTemp.path}/qdrant_closed_client_${DateTime.now().microsecondsSinceEpoch}';
+      final client = await QdrantEdgeClient.open(path: dir, dim: 4);
+      // QdrantEdgeClient (unlike QdrantVectorStore) takes the id as a raw
+      // point UUID — it is the store's job to hash a caller id via
+      // PointIdHasher first.
+      await client.upsert(
+        id: '11111111-1111-1111-1111-111111111111',
+        vector: const [1.0, 0.0, 0.0, 0.0],
+      );
+      await client.close();
 
-        await expectLater(
-          () => client.search(queryVector: const [1.0, 0.0, 0.0, 0.0], topK: 5),
-          throwsA(isA<QdrantException>()),
-        );
-        await expectLater(client.count, throwsA(isA<QdrantException>()));
+      await expectLater(
+        () => client.search(queryVector: const [1.0, 0.0, 0.0, 0.0], topK: 5),
+        throwsA(isA<QdrantException>()),
+      );
+      await expectLater(client.count, throwsA(isA<QdrantException>()));
 
-        Directory(dir).deleteSync(recursive: true);
-      },
-    );
+      Directory(dir).deleteSync(recursive: true);
+    });
   });
 }

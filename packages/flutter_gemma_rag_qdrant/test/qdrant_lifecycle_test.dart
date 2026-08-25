@@ -40,52 +40,58 @@ void main() {
   });
 
   group('concurrent open', () {
-    test('parallel addDocument calls share one open instead of racing', () async {
-      // Before: both callers saw `_client == null`, both opened the shard, and
-      // qdrant's exclusive WAL lock failed the loser with
-      // `Can't init WAL: Kind(WouldBlock)` — losing that document.
-      // `Future.wait(docs.map(store.addDocument))` is how you index a corpus.
-      final store = QdrantVectorStore();
-      await store.initialize(tmp.path);
-      await Future.wait([
-        for (var i = 0; i < 8; i++)
-          store.addDocument(
-            id: 'doc$i',
-            content: 'content $i',
-            embedding: vec(4, i + 1.0),
-          ),
-      ]);
-      expect((await store.getStats()).documentCount, 8);
-      await store.close();
-    });
+    test(
+      'parallel addDocument calls share one open instead of racing',
+      () async {
+        // Before: both callers saw `_client == null`, both opened the shard, and
+        // qdrant's exclusive WAL lock failed the loser with
+        // `Can't init WAL: Kind(WouldBlock)` — losing that document.
+        // `Future.wait(docs.map(store.addDocument))` is how you index a corpus.
+        final store = QdrantVectorStore();
+        await store.initialize(tmp.path);
+        await Future.wait([
+          for (var i = 0; i < 8; i++)
+            store.addDocument(
+              id: 'doc$i',
+              content: 'content $i',
+              embedding: vec(4, i + 1.0),
+            ),
+        ]);
+        expect((await store.getStats()).documentCount, 8);
+        await store.close();
+      },
+    );
 
-    test('close() during an in-flight open does not resurrect the store', () async {
-      // Before: the in-flight open re-installed its client AFTER close(), so
-      // `isInitialized` was false while the store still answered reads, the
-      // shard was never unloaded, and its WAL lock was held until the process
-      // exited — every later initialize() on that path failed permanently.
-      final store = QdrantVectorStore();
-      await store.initialize(tmp.path);
-      final write = store.addDocument(
-        id: 'a',
-        content: 'a',
-        embedding: vec(4, 1),
-      );
-      await store.close();
-      try {
-        await write;
-      } catch (_) {
-        // Either outcome is fine; what must NOT happen is a live client.
-      }
-      expect(store.isInitialized, isFalse);
+    test(
+      'close() during an in-flight open does not resurrect the store',
+      () async {
+        // Before: the in-flight open re-installed its client AFTER close(), so
+        // `isInitialized` was false while the store still answered reads, the
+        // shard was never unloaded, and its WAL lock was held until the process
+        // exited — every later initialize() on that path failed permanently.
+        final store = QdrantVectorStore();
+        await store.initialize(tmp.path);
+        final write = store.addDocument(
+          id: 'a',
+          content: 'a',
+          embedding: vec(4, 1),
+        );
+        await store.close();
+        try {
+          await write;
+        } catch (_) {
+          // Either outcome is fine; what must NOT happen is a live client.
+        }
+        expect(store.isInitialized, isFalse);
 
-      // The decisive part: the lock must be gone, so a fresh store can open.
-      final second = QdrantVectorStore();
-      await second.initialize(tmp.path);
-      await second.addDocument(id: 'b', content: 'b', embedding: vec(4, 2));
-      expect((await second.getStats()).documentCount, greaterThan(0));
-      await second.close();
-    });
+        // The decisive part: the lock must be gone, so a fresh store can open.
+        final second = QdrantVectorStore();
+        await second.initialize(tmp.path);
+        await second.addDocument(id: 'b', content: 'b', embedding: vec(4, 2));
+        expect((await second.getStats()).documentCount, greaterThan(0));
+        await second.close();
+      },
+    );
   });
 
   group('reopening an existing store', () {
@@ -132,15 +138,19 @@ void main() {
   });
 
   group('a store written by 1.x', () {
-    test('is refused loudly rather than coming up empty', () async {
+    test('initialize() itself refuses, not just the first write', () async {
       // Before: 2.0 only ever looks under its owned subdir, so a 1.x shard was
       // invisible — no error, no log, an empty index, and the old corpus still
       // occupying disk.
+      //
+      // The check has to be HERE and not on the write path. A read-only
+      // session — open the app, ask a question — never writes, so a write-path
+      // check let initialize() succeed, searchSimilar return nothing, and the
+      // model answer without the corpus that was on disk the whole time.
       writeLegacyStore(tmp.path);
       final store = QdrantVectorStore();
-      await store.initialize(tmp.path);
       await expectLater(
-        store.addDocument(id: 'x', content: 'y', embedding: vec(4, 1)),
+        store.initialize(tmp.path),
         throwsA(
           isA<VectorStoreException>().having(
             (e) => e.toString(),
@@ -151,13 +161,32 @@ void main() {
       );
     });
 
+    test('the refusal still leaves clear() reachable', () async {
+      // The error tells the caller to call clear(). If initialize() threw
+      // before arming `_databasePath`, clear() would return early and the
+      // prescribed remedy would be inoperative — the store would refuse to
+      // work AND refuse to be fixed.
+      writeLegacyStore(tmp.path);
+      final store = QdrantVectorStore();
+      await expectLater(
+        store.initialize(tmp.path),
+        throwsA(isA<VectorStoreException>()),
+      );
+      await store.clear();
+      expect(File('${tmp.path}/edge_config.json').existsSync(), isFalse);
+      await store.close();
+    });
+
     test('clear() removes it — the remedy the CHANGELOG points at', () async {
       // Before: clear() returned early because the owned subdir did not exist,
       // so "clear it and re-index" was inoperative and 100% of the 1.x bytes
       // stayed on disk with no API able to remove them.
       writeLegacyStore(tmp.path);
       final store = QdrantVectorStore();
-      await store.initialize(tmp.path);
+      await expectLater(
+        store.initialize(tmp.path),
+        throwsA(isA<VectorStoreException>()),
+      );
       await store.clear();
 
       expect(File('${tmp.path}/edge_config.json').existsSync(), isFalse);
@@ -176,7 +205,10 @@ void main() {
       writeLegacyStore(tmp.path);
       File('${tmp.path}/user_notes.txt').writeAsStringSync('keep me');
       final store = QdrantVectorStore();
-      await store.initialize(tmp.path);
+      await expectLater(
+        store.initialize(tmp.path),
+        throwsA(isA<VectorStoreException>()),
+      );
       await store.clear();
       expect(File('${tmp.path}/user_notes.txt').existsSync(), isTrue);
       await store.close();
@@ -193,13 +225,112 @@ void main() {
       await store.addDocument(id: 'a', content: 'x', embedding: vec(4, 1));
       await store.addDocument(id: 'b', content: 'y', embedding: vec(4, 2));
 
-      store.debugDeleteDirOverride =
-          (_) => throw const FileSystemException('injected delete failure');
+      store.debugDeleteDirOverride = (_) =>
+          throw const FileSystemException('injected delete failure');
 
       await expectLater(store.clear(), throwsA(isA<VectorStoreException>()));
       // The shard is still there — the store must not have claimed otherwise.
       expect(Directory('${tmp.path}/qdrant_edge_v1').existsSync(), isTrue);
+
+      // THE assertion. Everything above this line also held BEFORE the fix:
+      // clear() threw and the directory survived either way, so the test could
+      // not fail on the defect it names. What actually changed is the state
+      // left behind — the store must never answer "0 documents" over two
+      // documents that are still on disk.
+      await expectLater(
+        store.getStats(),
+        throwsA(isA<StateError>()),
+        reason: 'a store that failed to clear reported itself empty',
+      );
+      await expectLater(
+        store.searchSimilar(queryEmbedding: vec(4, 1), topK: 5),
+        throwsA(isA<StateError>()),
+        reason: 'a store that failed to clear answered with no hits',
+      );
+
+      // And the data really is intact: re-initializing finds both documents,
+      // which is why reporting zero would have been a lie rather than a
+      // harmless default.
+      store.debugDeleteDirOverride = null;
+      final reopened = native.QdrantVectorStore();
+      await reopened.initialize(tmp.path);
+      expect((await reopened.getStats()).documentCount, 2);
+      await reopened.close();
     });
+  });
+
+  group('an unreadable shard is not an empty one', () {
+    test('a held WAL is reported, not answered as zero documents', () async {
+      // qdrant-edge holds the WAL exclusively. A second store on the same path
+      // — a second isolate, a second app process, a store the caller forgot to
+      // close — cannot adopt the shard. Before: adoption failure went to
+      // gemmaLog, which is `if (!kDebugMode) return;`, so a RELEASE build told
+      // nobody and every read answered "empty" over an intact corpus.
+      final holder = QdrantVectorStore();
+      await holder.initialize(tmp.path);
+      await holder.addDocument(id: 'a', content: 'x', embedding: vec(4, 1));
+      addTearDown(holder.close);
+
+      final second = QdrantVectorStore();
+      await second.initialize(tmp.path);
+      addTearDown(second.close);
+
+      await expectLater(
+        second.getStats(),
+        throwsA(isA<VectorStoreException>()),
+        reason: 'a shard it could not open was reported as 0 documents',
+      );
+      await expectLater(
+        second.searchSimilar(queryEmbedding: vec(4, 1), topK: 5),
+        throwsA(isA<VectorStoreException>()),
+        reason: 'a shard it could not open was reported as no hits',
+      );
+    });
+
+    test('a genuinely cold store stays quiet', () async {
+      // The other half of the same property, and the reason the check cannot
+      // simply be "adoption threw". A first open that failed leaves the shard
+      // directory behind EMPTY, and qdrant-edge raises the same error for
+      // "nothing here" as for "here but unreadable" — so classifying on the
+      // exception would make every read on an empty store throw.
+      final store = QdrantVectorStore();
+      await store.initialize(tmp.path);
+      expect((await store.getStats()).documentCount, 0);
+      expect(
+        await store.searchSimilar(queryEmbedding: vec(4, 1), topK: 5),
+        isEmpty,
+      );
+      await store.close();
+
+      Directory('${tmp.path}/qdrant_edge_v1').createSync(recursive: true);
+      final overLeftover = QdrantVectorStore();
+      await overLeftover.initialize(tmp.path);
+      expect(
+        (await overLeftover.getStats()).documentCount,
+        0,
+        reason: 'an abandoned empty shard directory was treated as unreadable',
+      );
+      await overLeftover.close();
+    });
+  });
+
+  group('uninitialized store', () {
+    test(
+      'reads throw StateError, as VectorStoreRepository documents',
+      () async {
+        // The interface documents `StateError` for all three, and the sibling
+        // sqlite store throws it. This one returned empty results and dropped
+        // removeDocument to a debug-only log line — so the same caller mistake
+        // was loud in one implementation and invisible in the other.
+        final store = QdrantVectorStore();
+        await expectLater(store.getStats(), throwsStateError);
+        await expectLater(
+          store.searchSimilar(queryEmbedding: vec(4, 1), topK: 5),
+          throwsStateError,
+        );
+        await expectLater(store.removeDocument(id: 'x'), throwsStateError);
+      },
+    );
   });
 
   group('reserved payload keys', () {
@@ -228,41 +359,43 @@ void main() {
       }
     });
 
-    test('the stored key names are pinned — they ARE the on-disk format', () async {
-      // Renaming any of these silently orphans every shard written by an
-      // earlier build: searchSimilar falls back to `?? hit.id` / `?? ''`, so
-      // hits come back with a UUID for an id and empty content, with no error.
-      // The sibling constant (the UUIDv5 namespace) already has a golden test;
-      // this is the same instinct applied to the keys next to it.
-      final store = QdrantVectorStore();
-      await store.initialize(tmp.path);
-      await store.addDocument(
-        id: 'doc-1',
-        content: 'the body',
-        embedding: vec(4, 1),
-        metadata: jsonEncode({'k': 'v'}),
-      );
-      await store.close();
+    test(
+      'the stored key names are pinned — they ARE the on-disk format',
+      () async {
+        // Renaming any of these silently orphans every shard written by an
+        // earlier build: searchSimilar falls back to `?? hit.id` / `?? ''`, so
+        // hits come back with a UUID for an id and empty content, with no error.
+        // The sibling constant (the UUIDv5 namespace) already has a golden test;
+        // this is the same instinct applied to the keys next to it.
+        final store = QdrantVectorStore();
+        await store.initialize(tmp.path);
+        await store.addDocument(
+          id: 'doc-1',
+          content: 'the body',
+          embedding: vec(4, 1),
+          metadata: jsonEncode({'k': 'v'}),
+        );
+        await store.close();
 
-      // Read the payload back through a raw client, bypassing the store's own
-      // constants — otherwise a rename is invisible, because writes and reads
-      // would both use the renamed key.
-      final client = await QdrantEdgeClient.open(
-        path: '${tmp.path}/qdrant_edge_v1',
-        dim: 4,
-      );
-      final hits = await client.search(queryVector: vec(4, 1), topK: 1);
-      expect(hits, hasLength(1));
-      final payload = hits.single.payload!;
-      expect(payload['__flutter_gemma_id'], 'doc-1');
-      expect(payload['__flutter_gemma_content'], 'the body');
-      expect(
-        jsonDecode(payload['__flutter_gemma_metadata'] as String),
-        {'k': 'v'},
-      );
-      // The point id is the UUIDv5 of the caller's id, not the id itself.
-      expect(hits.single.id, PointIdHasher.hash('doc-1'));
-      await client.close();
-    });
+        // Read the payload back through a raw client, bypassing the store's own
+        // constants — otherwise a rename is invisible, because writes and reads
+        // would both use the renamed key.
+        final client = await QdrantEdgeClient.open(
+          path: '${tmp.path}/qdrant_edge_v1',
+          dim: 4,
+        );
+        final hits = await client.search(queryVector: vec(4, 1), topK: 1);
+        expect(hits, hasLength(1));
+        final payload = hits.single.payload!;
+        expect(payload['__flutter_gemma_id'], 'doc-1');
+        expect(payload['__flutter_gemma_content'], 'the body');
+        expect(jsonDecode(payload['__flutter_gemma_metadata'] as String), {
+          'k': 'v',
+        });
+        // The point id is the UUIDv5 of the caller's id, not the id itself.
+        expect(hits.single.id, PointIdHasher.hash('doc-1'));
+        await client.close();
+      },
+    );
   });
 }

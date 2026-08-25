@@ -122,6 +122,23 @@ class QdrantEdgeClient {
     required String path,
   }) async {
     if (!Directory(path).existsSync()) return null;
+    // `EdgeShard.load` raises the SAME error for "this directory holds no
+    // shard" and for "this shard will not load": an empty directory, a
+    // directory of unrelated files, and a corrupted shard all surface as
+    // `edge config is not provided and no segments were loaded`. Measured, not
+    // assumed — see the layout probe: a shard we wrote is always
+    // `edge_config.json` + `wal/` + `segments/`.
+    //
+    // The distinction is load-bearing. "No shard" must stay quiet, because a
+    // failed first open leaves the freshly created directory behind and the
+    // next run would otherwise refuse every read on an empty store. "Shard
+    // present but unreadable" must be loud, because answering "0 documents"
+    // over an intact corpus is the exact defect this release fixes.
+    //
+    // So decide on the marker, and let only a real shard reach the throw.
+    if (!File('$path${Platform.pathSeparator}edge_config.json').existsSync()) {
+      return null;
+    }
     try {
       final shard = qe.EdgeShard.load(path: path, config: null);
       final cfg = shard.config();
@@ -166,9 +183,7 @@ class QdrantEdgeClient {
     try {
       _shard.update(
         operation: qe.UpdateOperation.upsertPoints(
-          points: [
-            for (final p in points) _point(p.id, p.vector, p.payload),
-          ],
+          points: [for (final p in points) _point(p.id, p.vector, p.payload)],
         ),
       );
     } on qe.EdgeException catch (e) {
@@ -252,7 +267,11 @@ class QdrantEdgeClient {
     }
   }
 
-  qe.Point _point(String id, List<double> vector, Map<String, dynamic>? payload) {
+  qe.Point _point(
+    String id,
+    List<double> vector,
+    Map<String, dynamic>? payload,
+  ) {
     return qe.Point(
       id: qe.UuidPointId(id),
       vector: qe.SingleVector(vector),

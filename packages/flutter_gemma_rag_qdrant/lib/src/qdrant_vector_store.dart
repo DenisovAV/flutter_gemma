@@ -35,15 +35,20 @@ import 'package:path/path.dart' as p;
 ///
 /// ### On-disk layout
 ///
-/// The store never opens or deletes the caller's [initialize] path directly.
-/// It owns a bounded, format-scoped subdirectory — `databasePath/qdrant_edge_v1`
-/// — created on first write. This means:
+/// The store owns a bounded, format-scoped subdirectory —
+/// `databasePath/qdrant_edge_v1` — created on first write, and that is the only
+/// shard it ever opens. This means:
 ///
-///   * a pre-existing (e.g. legacy 1.x / crate 0.7.x) shard sitting at the
-///     bare `databasePath` is never opened, so there is no partial-open or
-///     WAL-corruption risk from mixing engine versions;
-///   * [clear] only ever deletes the owned subdirectory, never the caller's
-///     directory or any sibling inside it.
+///   * a shard written by 1.x (crate 0.7.x) sits at the bare `databasePath` and
+///     is never opened, so there is no partial-open or WAL-corruption risk from
+///     mixing engine versions. It is not ignored either: [initialize] refuses
+///     it with a [VectorStoreException] rather than letting the store come up
+///     silently empty over a populated index;
+///   * [clear] deletes the owned subdirectory, and — only when a 1.x store is
+///     present — the three entries such a shard owns at the bare path
+///     (`edge_config.json`, `wal/`, `segments/`). That is what makes the
+///     documented "clear and re-index" remedy actually work. Any OTHER file or
+///     directory the caller keeps alongside the store is never touched.
 class QdrantVectorStore implements VectorStoreRepository {
   QdrantEdgeClient? _client;
 
@@ -74,6 +79,19 @@ class QdrantVectorStore implements VectorStoreRepository {
   /// one — sending every later write into the wrong store.
   int _generation = 0;
 
+  /// Set when a shard EXISTS on disk but could not be opened.
+  ///
+  /// `_client == null` collapsed three different facts into one value: never
+  /// initialized (a caller error), initialized-but-cold (genuinely empty), and
+  /// "there are documents on disk that we failed to read". The third read as
+  /// the second — searchSimilar returned `[]`, getStats returned 0 — so an app
+  /// whose corpus was intact but unreadable answered without context and said
+  /// nothing about it. That is the defect this release exists to fix; leaving
+  /// it on the read path would be shipping it under a new version number.
+  ///
+  /// Cleared once an open succeeds, and on initialize/clear/close.
+  String? _adoptionFailure;
+
   /// `enableHnsw` is part of the contract but a no-op for qdrant.
   bool _enableHnsw = true;
 
@@ -100,9 +118,9 @@ class QdrantVectorStore implements VectorStoreRepository {
   };
 
   /// The package's on-disk format namespace. A new location for the 0.8.0
-  /// SDK / crate-0.8.0 shard format — a pre-existing shard written by an
-  /// older (1.x / crate 0.7.x) release of this package sits at the bare
-  /// [_databasePath] and is simply orphaned in place, never opened.
+  /// SDK / crate-0.8.0 shard format. A shard written by an older (1.x /
+  /// crate 0.7.x) release sits at the bare [_databasePath]; this release never
+  /// opens it, refuses to start over it, and can remove it via [clear].
   static const _storeDirName = 'qdrant_edge_v1';
 
   /// Test-only seam: when set, [clear] calls this instead of
@@ -173,6 +191,7 @@ class QdrantVectorStore implements VectorStoreRepository {
     }
     _client = null;
     _dim = null;
+    _adoptionFailure = null;
     _generation++;
     _databasePath = databasePath;
 
@@ -184,6 +203,20 @@ class QdrantVectorStore implements VectorStoreRepository {
     // need an embedding in hand to do this.
     final gen = _generation;
     final storeDir = _storeDirFor(databasePath);
+
+    // Detect the 1.x layout HERE, not on the first write. Checking it only in
+    // _ensureClient meant a read-only session — open the app, ask a question —
+    // never reached the check: initialize() succeeded, searchSimilar returned
+    // no hits, and the model answered without the corpus that was sitting on
+    // disk the whole time. Only a write complained.
+    //
+    // Order matters: `_databasePath` is already armed above, so the clear()
+    // this message prescribes is reachable. Throwing before that would leave
+    // the caller holding a store that refuses the remedy it just recommended.
+    if (!Directory(storeDir).existsSync() && _hasLegacyStoreAt(databasePath)) {
+      throw VectorStoreException(_legacyStoreMessage(databasePath));
+    }
+
     try {
       final opened = await QdrantEdgeClient.openExisting(path: storeDir);
       if (opened == null) return;
@@ -196,10 +229,15 @@ class QdrantVectorStore implements VectorStoreRepository {
       }
       _client = opened.client;
       _dim = opened.dim;
+      _adoptionFailure = null;
     } on QdrantException catch (e) {
-      // Best-effort: a shard we cannot adopt here is not fatal — the first
-      // addDocument will try again through _ensureClient and surface the real
-      // error there, with the dimension the caller actually intends.
+      // Not fatal HERE: a write goes through _ensureClient, which retries the
+      // open with the dimension the caller actually intends — and only that
+      // retry can tell a dimension mismatch from a real failure. But a read
+      // between now and then must not answer "empty" for a shard that is
+      // sitting right there, so latch it. gemmaLog alone would not do: it is
+      // `if (!kDebugMode) return;`, so in a release build nobody is told at all.
+      _adoptionFailure = '$e';
       gemmaLog('[QdrantVectorStore] could not adopt existing shard: $e');
     }
   }
@@ -219,15 +257,45 @@ class QdrantVectorStore implements VectorStoreRepository {
   /// invisible to this release — 2.0 only ever opens the owned subdir — so
   /// without this check the app comes up with an empty index, no error, and
   /// the old corpus still occupying disk.
-  static bool _hasLegacyStoreAt(String databasePath) =>
-      File(p.join(databasePath, _legacyEntries.first)).existsSync();
+  static String _legacyStoreMessage(String databasePath) =>
+      'Found a store written by flutter_gemma_rag_qdrant 1.x at $databasePath. '
+      'Its on-disk format is not readable by 2.0. Call clear() to remove it '
+      '(that now deletes the 1.x layout too), then re-index.';
+
+  static bool _hasLegacyStoreAt(String databasePath) {
+    // Gate on `edge_config.json` ONLY, and on its content — never on `wal` or
+    // `segments`. Those two are ordinary directory names, `databasePath` is
+    // routinely an app-documents directory, and a false positive here is
+    // destructive: the store refuses to run and `clear()` — the remedy the
+    // error message names — deletes what it matched. A caller's own
+    // `segments/` must never be mistaken for our shard.
+    //
+    // The cost is a false NEGATIVE for a 1.x store whose marker was removed by
+    // hand. That case degrades to "2.0 creates its subdir alongside", which
+    // wastes disk but destroys nothing — the right direction to be wrong in.
+    final marker = File(p.join(databasePath, _legacyEntries.first));
+    if (!marker.existsSync()) return false;
+    try {
+      return jsonDecode(marker.readAsStringSync()) is Map;
+    } catch (_) {
+      // Present but not JSON — someone else's file with the same name.
+      return false;
+    }
+  }
 
   /// Deletes ONLY the three entries a 1.x shard owns. Deliberately not a
   /// recursive wipe of [databasePath]: callers are allowed to keep unrelated
   /// files alongside the store, and this release must not touch them.
-  static void _clearLegacyStoreAt(String databasePath) {
-    if (!_hasLegacyStoreAt(databasePath)) return;
-    for (final name in _legacyEntries) {
+  /// Returns the entries it could NOT remove, so the caller can settle its
+  /// own state before reporting the failure.
+  static List<String> _clearLegacyStoreAt(String databasePath) {
+    if (!_hasLegacyStoreAt(databasePath)) return const [];
+    // Delete the payload first and the MARKER LAST. `edge_config.json` is what
+    // _hasLegacyStoreAt keys on, so removing it before `wal/` and `segments/`
+    // would make any survivor of a partial delete permanently undetectable —
+    // unclearable by this API and invisible to the guard in initialize().
+    final failed = <String>[];
+    for (final name in [..._legacyEntries.skip(1), _legacyEntries.first]) {
       final path = p.join(databasePath, name);
       final dir = Directory(path);
       final file = File(path);
@@ -238,10 +306,34 @@ class QdrantVectorStore implements VectorStoreRepository {
           file.deleteSync();
         }
       } on FileSystemException catch (e) {
-        gemmaLog(
-          '[QdrantVectorStore] could not remove 1.x store entry $path: $e',
-        );
+        failed.add('$path ($e)');
       }
+    }
+    // Do NOT log-and-continue: gemmaLog is compiled out of release builds, so a
+    // logged failure here is an unreported one for every user. clear() is how a
+    // caller erases indexed documents — reporting success over a partial delete
+    // is the same defect this release fixed for the owned subdirectory.
+    return failed;
+  }
+
+  /// The contract on [VectorStoreRepository] documents `StateError` for an
+  /// uninitialized store on searchSimilar/getStats/removeDocument, and the
+  /// sibling sqlite store throws it. This one returned empty results instead,
+  /// so the same misuse was loud in one implementation and invisible in the
+  /// other.
+  void _assertUsable(String operation) {
+    final databasePath = _databasePath;
+    if (databasePath == null) {
+      throw StateError('VectorStore not initialized. Call initialize() first.');
+    }
+    final failure = _adoptionFailure;
+    if (failure != null) {
+      throw VectorStoreException(
+        '$operation refused: a qdrant shard exists at '
+        '${_storeDirFor(databasePath)} but could not be opened, so this store '
+        'cannot tell you whether it is empty. Reporting no results would hide '
+        'an intact corpus. Underlying error: $failure',
+      );
     }
   }
 
@@ -286,12 +378,7 @@ class QdrantVectorStore implements VectorStoreRepository {
     // error, and answers without context while the old corpus still occupies
     // disk — so refuse loudly instead, and say what actually clears it.
     if (!Directory(storeDir).existsSync() && _hasLegacyStoreAt(databasePath)) {
-      throw VectorStoreException(
-        'Found a store written by flutter_gemma_rag_qdrant 1.x at '
-        '$databasePath. Its on-disk format is not readable by 2.0. '
-        'Call clear() to remove it (that now deletes the 1.x layout too), '
-        'then re-index.',
-      );
+      throw VectorStoreException(_legacyStoreMessage(databasePath));
     }
     try {
       Directory(storeDir).createSync(recursive: true);
@@ -332,6 +419,7 @@ class QdrantVectorStore implements VectorStoreRepository {
       }
       _client = c;
       _dim = dim;
+      _adoptionFailure = null;
       return c;
     } on QdrantException catch (e) {
       // Wrap and rethrow — never auto-rename/delete/rebuild. Whether the
@@ -343,10 +431,7 @@ class QdrantVectorStore implements VectorStoreRepository {
       // client that was not closed, a changed embedding dimension — and only
       // the last is corruption. Blanket "clear and re-index" advice told users
       // to destroy a working index to fix a lock.
-      throw VectorStoreException(
-        'Failed to open qdrant shard at $storeDir',
-        e,
-      );
+      throw VectorStoreException('Failed to open qdrant shard at $storeDir', e);
     }
   }
 
@@ -417,13 +502,11 @@ class QdrantVectorStore implements VectorStoreRepository {
 
   @override
   Future<void> removeDocument({required String id}) async {
+    _assertUsable('removeDocument');
     final c = _client;
-    if (c == null) {
-      gemmaLog(
-        '[QdrantVectorStore] removeDocument($id) called before initialize() — ignored',
-      );
-      return;
-    }
+    // Initialized, no shard on disk: deleting from an empty store is the
+    // documented no-op. Reachable only when nothing was ever written.
+    if (c == null) return;
     try {
       await c.delete([PointIdHasher.hash(id)]);
     } on QdrantException catch (e) {
@@ -438,9 +521,11 @@ class QdrantVectorStore implements VectorStoreRepository {
     double threshold = 0.0,
     Filter? filter,
   }) async {
+    _assertUsable('searchSimilar');
     final c = _client;
     if (c == null || _dim == null) {
-      // No documents yet — nothing to retrieve.
+      // No documents yet — nothing to retrieve. Genuinely empty: _assertUsable
+      // has already ruled out "uninitialized" and "on disk but unreadable".
       return const [];
     }
     if (queryEmbedding.length != _dim) {
@@ -474,6 +559,7 @@ class QdrantVectorStore implements VectorStoreRepository {
 
   @override
   Future<VectorStoreStats> getStats() async {
+    _assertUsable('getStats');
     final c = _client;
     if (c == null) {
       return VectorStoreStats(documentCount: 0, vectorDimension: 0);
@@ -520,14 +606,17 @@ class QdrantVectorStore implements VectorStoreRepository {
       // Nothing under the owned subdir. There may still be a 1.x store at the
       // bare path — clear() is the remedy the CHANGELOG points at, so it has
       // to be able to remove one.
-      _clearLegacyStoreAt(databasePath);
+      final failed = _clearLegacyStoreAt(databasePath);
       _client = null;
       _dim = null;
+      _adoptionFailure = null;
+      if (failed.isNotEmpty) _throwLegacySweepFailure(databasePath, failed);
       return;
     }
 
     _assertStoreDirWithinDatabasePath(databasePath, storeDir);
 
+    List<String> legacyFailures = const [];
     try {
       final override = debugDeleteDirOverride;
       if (override != null) {
@@ -535,10 +624,11 @@ class QdrantVectorStore implements VectorStoreRepository {
       } else {
         dir.deleteSync(recursive: true);
       }
-      _clearLegacyStoreAt(databasePath);
+      legacyFailures = _clearLegacyStoreAt(databasePath);
       // Close + delete both succeeded: only now is it safe to report empty.
       _client = null;
       _dim = null;
+      _adoptionFailure = null;
     } on FileSystemException catch (e) {
       // Delete failed partway — the on-disk subdir may be left in a mixed
       // state. Fail-closed: mark the whole store uninitialized (rather than
@@ -550,6 +640,26 @@ class QdrantVectorStore implements VectorStoreRepository {
         'Failed to delete qdrant shard directory at $storeDir: $e',
       );
     }
+    // Reported only after the handles are settled above — a throw here must not
+    // skip the state transition and wedge the store on a closed client.
+    if (legacyFailures.isNotEmpty) {
+      _throwLegacySweepFailure(databasePath, legacyFailures);
+    }
+  }
+
+  static Never _throwLegacySweepFailure(
+    String databasePath,
+    List<String> failed,
+  ) {
+    // Not a log: gemmaLog is compiled out of release builds, so logging a
+    // partial delete means no user is ever told. clear() is how a caller erases
+    // indexed documents; reporting success over surviving data is the defect
+    // this release fixed for the owned subdirectory.
+    throw VectorStoreException(
+      'clear() removed this release\'s store but could not remove the 1.x '
+      'store at $databasePath. These entries remain on disk and still hold '
+      'indexed documents: ${failed.join('; ')}',
+    );
   }
 
   /// Refuses to delete anything unless the *canonicalized* [storeDir]
@@ -565,7 +675,9 @@ class QdrantVectorStore implements VectorStoreRepository {
     final String canonicalDatabasePath;
     final String canonicalStoreDir;
     try {
-      canonicalDatabasePath = Directory(databasePath).resolveSymbolicLinksSync();
+      canonicalDatabasePath = Directory(
+        databasePath,
+      ).resolveSymbolicLinksSync();
       canonicalStoreDir = Directory(storeDir).resolveSymbolicLinksSync();
     } on FileSystemException catch (e) {
       throw VectorStoreException(
@@ -587,6 +699,7 @@ class QdrantVectorStore implements VectorStoreRepository {
     final c = _client;
     _client = null;
     _dim = null;
+    _adoptionFailure = null;
     _generation++;
     _databasePath = null;
     if (c != null) {

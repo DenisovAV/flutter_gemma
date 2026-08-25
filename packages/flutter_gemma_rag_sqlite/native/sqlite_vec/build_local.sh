@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Build the sqlite-vec (vec0) loadable extension tarballs for every platform the
 # native SqliteVectorStore supports, normalized to the layout hook/build.dart
-# expects. Mirrors flutter_gemma_rag_qdrant/native/qdrant_edge/build_local.sh.
+# expects. (It used to mirror the qdrant package's build_local.sh; that package
+# dropped its native/ entirely in 2.0.0 for the official qdrant_edge SDK.)
 #
 # WHY this exists instead of fetching asg017's prebuilts directly: the upstream
 # asg017 android loadable ships with 4 KB ELF LOAD-segment alignment, which

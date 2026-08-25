@@ -144,35 +144,36 @@ void main() {
 
   List<double> vec(int dim, double seed) => List<double>.filled(dim, seed);
 
-  test('store: a reopened store reports its contents before any write',
-      () async {
-    final first = QdrantVectorStore();
-    await first.initialize(shardDir.path);
-    for (var i = 0; i < 3; i++) {
-      await first.addDocument(
-        id: 'doc$i',
-        content: 'content $i',
-        embedding: vec(4, i + 1.0),
+  test(
+    'store: a reopened store reports its contents before any write',
+    () async {
+      final first = QdrantVectorStore();
+      await first.initialize(shardDir.path);
+      for (var i = 0; i < 3; i++) {
+        await first.addDocument(
+          id: 'doc$i',
+          content: 'content $i',
+          embedding: vec(4, i + 1.0),
+        );
+      }
+      await first.close();
+
+      // A second store on the same path stands in for an app restart. Before
+      // 2.0's fix the client opened lazily on the first write, so this reported
+      // zero documents and no hits over a fully populated index.
+      final reopened = QdrantVectorStore();
+      await reopened.initialize(shardDir.path);
+      addTearDown(reopened.close);
+
+      expect((await reopened.getStats()).documentCount, equals(3));
+      expect(
+        await reopened.searchSimilar(queryEmbedding: vec(4, 1), topK: 5),
+        isNotEmpty,
       );
-    }
-    await first.close();
+    },
+  );
 
-    // A second store on the same path stands in for an app restart. Before
-    // 2.0's fix the client opened lazily on the first write, so this reported
-    // zero documents and no hits over a fully populated index.
-    final reopened = QdrantVectorStore();
-    await reopened.initialize(shardDir.path);
-    addTearDown(reopened.close);
-
-    expect((await reopened.getStats()).documentCount, equals(3));
-    expect(
-      await reopened.searchSimilar(queryEmbedding: vec(4, 1), topK: 5),
-      isNotEmpty,
-    );
-  });
-
-  test('store: concurrent addDocument calls do not race the WAL lock',
-      () async {
+  test('store: concurrent addDocument calls do not race the WAL lock', () async {
     // Indexing a corpus with Future.wait is the obvious thing to write. Before
     // the fix both callers opened the same shard, qdrant holds the WAL
     // exclusively, and the loser failed with Kind(WouldBlock) — losing a

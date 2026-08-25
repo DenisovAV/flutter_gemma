@@ -98,6 +98,41 @@ longer import a backend class from it. If you'd rather run embeddings over an
 ONNX/ORT model instead, `flutter_gemma_onnx`'s `OnnxEmbeddingBackend` is a
 drop-in alternative — see [Packages](/docs/packages#onnx-runtime-engine).
 
+## Breaking: rag_qdrant 2.0.0 — the on-disk store is not readable
+
+<Warning>
+`flutter_gemma_rag_qdrant` **2.0.0** moves onto the official `qdrant_edge`
+UniFFI SDK, and **an index written by 1.x cannot be read by 2.0**. This is a
+data change, not an API change: your `addDocument` / `searchSimilar` calls are
+unchanged, but the documents already on the device are not.
+</Warning>
+
+An upgraded app finds no documents where its corpus used to be. 2.0 refuses
+loudly rather than starting empty — `initialize()` throws a
+`VectorStoreException` naming the old store — so this shows up the first time
+the store opens, not as silently unanswered questions later.
+
+Clear the old store once, then re-index:
+
+```dart
+final store = QdrantVectorStore();
+try {
+  await store.initialize(path);
+} on VectorStoreException {
+  // 1.x layout at `path` — clear() removes it, including the old on-disk files.
+  await store.clear();
+  await store.initialize(path);
+}
+// ...then re-add your documents.
+```
+
+`clear()` deletes only what this package wrote. Your own files sitting next to
+the store at the same path are left alone.
+
+If your app has no re-indexing path of its own, do the re-index behind the same
+progress UI you use for the first run — from the user's side this is a rebuild
+of the index, not a migration they can be asked to wait through silently.
+
 ## 2. main.dart — the one new call
 
 **Before (0.16.x):** engines were bundled into core; `initialize()` was optional.

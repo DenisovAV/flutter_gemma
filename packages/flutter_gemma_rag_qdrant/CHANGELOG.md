@@ -1,8 +1,9 @@
 ## 2.0.0
 - **Breaking:** moved onto the official `qdrant_edge` UniFFI SDK.
 - **Breaking:** a 1.x store is not readable — `clear()` removes it, then re-index.
-- **Breaking:** Android arm32 (armeabi-v7a) gets no engine; target arm64/x64.
+- Android x86_64 is now provisioned alongside arm64 (emulators, Chromebooks).
 - A re-opened store now reports its contents without waiting for a write.
+- A shard that cannot be opened is reported instead of read as empty.
 - Concurrent `addDocument` calls no longer race each other's shard open.
 - `configure()` rejects a field name that collides with a stored payload key.
 

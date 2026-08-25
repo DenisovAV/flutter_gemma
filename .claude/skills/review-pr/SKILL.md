@@ -46,7 +46,9 @@ From the diff, detect which package(s)/area(s) are affected:
 - `flutter_gemma_litertlm/` — `.litertlm` FFI engine; `native/litert_lm/` build scripts, `lib/src/ffi/`, `hook/build.dart`
 - `flutter_gemma_embeddings/` — LiteRT C API embeddings (isolate worker)
 - `flutter_gemma_mediapipe/` — `.task` MediaPipe; owns pigeon (`lib/pigeon.g.dart`) + Kotlin/Swift + web JS
-- `flutter_gemma_rag_qdrant/` — native RAG (qdrant-edge Rust FFI), `native/qdrant_edge/`
+- `flutter_gemma_rag_qdrant/` — native RAG over the official `qdrant_edge`
+  UniFFI SDK. Since 2.0.0 the package owns NO native code and NO hook: the
+  engine and its Native Assets hook live in the SDK. `lib/src/` only.
 - `flutter_gemma_rag_sqlite/` — sqlite-vec `vec0` KNN on all six platforms; native via `package:sqlite3` FFI, web via `package:sqlite3/wasm.dart` (wa-sqlite was dropped in 1.1.0)
 - `flutter_gemma_speech/` — opt-in STT (moonshine / Whisper / Parakeet) + TTS (Matcha / Qwen3 / Inflect) over the LiteRT C API; shares the litertlm bundle
 - `flutter_gemma_agent/` — opt-in SKILL.md agent skills over the function-calling loop (no Web)

@@ -20,7 +20,6 @@ find packages -type f \( -name '*.c' -o -name '*.cc' -o -name '*.cpp' \
 |---|---|
 | `packages/flutter_gemma_litertlm/native/litert_lm/stream_proxy.c` | The one piece of C we author and ship. Adapts LiteRT-LM's streaming callback to the shape our Dart `NativeCallable` expects, choosing the shape at **runtime**. |
 | `packages/flutter_gemma_litertlm/native/litert_lm/include/engine.h` | The LiteRT-LM C API header our `litert_lm_bindings.dart` is generated from. |
-| `packages/flutter_gemma_rag_qdrant/native/qdrant_edge/include/qdrant_edge.h` | C header over a Rust `cdylib`. |
 | `packages/flutter_gemma_rag_sqlite/native/sqlite_vec/src/sqlite-vec.{c,h}` | Vendored sqlite-vec amalgamation, built into the `vec0` loadable extension. |
 | `packages/flutter_gemma_rag_sqlite/tool/sqlite_vec_patches/{getentropy.c,os_web.c}` | Patches so the amalgamation builds for wasm. |
 | `packages/flutter_gemma/{linux/flutter_gemma_plugin.cc,windows/flutter_gemma_plugin.cpp}` + their `include/flutter_gemma/*.h` | The desktop Flutter plugin registration shims. Thin — inference is Dart FFI, not C++. |

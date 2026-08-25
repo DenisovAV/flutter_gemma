@@ -166,12 +166,17 @@ class QdrantVectorStore implements VectorStoreRepository {
   /// opens it, refuses to start over it, and can remove it via [clear].
   static const _storeDirName = 'qdrant_edge_v1';
 
-  /// Test-only seam: when set, [clear] calls this instead of
-  /// `dir.deleteSync(recursive: true)` on the owned shard directory. Lets
-  /// tests deterministically exercise the delete-failure / fail-closed
-  /// recovery path (see `clear()`) by throwing a [FileSystemException] from
-  /// here, without OS-level fault injection (permission bits, symlinks) that
-  /// would not behave identically across POSIX and Windows.
+  /// Test-only seam: when set, [clear] calls this instead of deleting, for
+  /// BOTH things it removes — the owned shard directory and each entry of a
+  /// 1.x layout at the bare `databasePath`. Lets tests deterministically
+  /// exercise the delete-failure paths (fail-closed recovery, and the
+  /// partial-sweep report) by throwing a [FileSystemException] from here,
+  /// without OS-level fault injection (permission bits, symlinks) that would
+  /// not behave identically across POSIX and Windows.
+  ///
+  /// It covered only the owned directory at first, which left the entire 1.x
+  /// sweep-failure path — the code whose whole reason to exist is refusing to
+  /// report success over a partial delete — unreachable from any test.
   @visibleForTesting
   void Function(Directory dir)? debugDeleteDirOverride;
 
@@ -277,7 +282,13 @@ class QdrantVectorStore implements VectorStoreRepository {
         // initialize()/clear()/close() ran while we were opening.
         try {
           await opened.client.close();
-        } catch (_) {}
+        } catch (_) {
+          // Best-effort, and bounded: a shard we cannot close keeps its WAL
+          // lock for the process lifetime, but the next open reports that
+          // loudly (WouldBlock -> latched) rather than answering "empty".
+          // Nothing here can act on the cause, and the store we are unwinding
+          // from is not the one the caller now owns.
+        }
         return;
       }
       _client = opened.client;
@@ -364,39 +375,78 @@ class QdrantVectorStore implements VectorStoreRepository {
   /// files alongside the store, and this release must not touch them.
   /// Returns the entries it could NOT remove, so the caller can settle its
   /// own state before reporting the failure.
-  static List<String> _clearLegacyStoreAt(String databasePath) {
+  List<String> _clearLegacyStoreAt(String databasePath) {
     if (!_hasLegacyStoreAt(databasePath)) return const [];
-    // Delete the payload first and the MARKER LAST. `edge_config.json` is what
-    // _hasLegacyStoreAt keys on, so removing it before `wal/` and `segments/`
-    // would make any survivor of a partial delete permanently undetectable —
-    // unclearable by this API and invisible to the guard in initialize().
+    // Delete the payload first, and the MARKER only if ALL of it went.
+    // `edge_config.json` is what _hasLegacyStoreAt keys on, so a survivor
+    // without it is permanently undetectable — unclearable by this API and
+    // invisible to the guard in initialize().
+    //
+    // Ordering alone does not buy that, which is what the first version of
+    // this got wrong: the loop ran past a failure and deleted the marker
+    // anyway, so a `wal/` that would not go left the store both un-swept and
+    // un-detectable. The order is necessary; the skip is what makes it
+    // sufficient.
     final failed = <String>[];
-    for (final name in [..._legacyEntries.skip(1), _legacyEntries.first]) {
+    final payload = _legacyEntries.skip(1).toList();
+    for (final name in payload) {
       final path = p.join(databasePath, name);
       final dir = Directory(path);
       final file = File(path);
       try {
+        final override = debugDeleteDirOverride;
         if (dir.existsSync()) {
-          dir.deleteSync(recursive: true);
+          if (override != null) {
+            override(dir);
+          } else {
+            dir.deleteSync(recursive: true);
+          }
         } else if (file.existsSync()) {
-          file.deleteSync();
+          if (override != null) {
+            override(Directory(path));
+          } else {
+            file.deleteSync();
+          }
         }
       } on FileSystemException catch (e) {
         failed.add('$path ($e)');
       }
     }
-    // Do NOT log-and-continue: gemmaLog is compiled out of release builds, so a
+
+    if (failed.isEmpty) {
+      final markerPath = p.join(databasePath, _legacyEntries.first);
+      try {
+        final override = debugDeleteDirOverride;
+        if (override != null) {
+          override(Directory(markerPath));
+        } else {
+          File(markerPath).deleteSync();
+        }
+      } on FileSystemException catch (e) {
+        failed.add('$markerPath ($e)');
+      }
+    } else {
+      failed.add(
+        '${p.join(databasePath, _legacyEntries.first)} (kept on purpose: it is '
+        'how the leftovers above stay detectable)',
+      );
+    }
+    // Do NOT log-and-continue: gemmaLog is debug-only, so a
     // logged failure here is an unreported one for every user. clear() is how a
     // caller erases indexed documents — reporting success over a partial delete
     // is the same defect this release fixed for the owned subdirectory.
     return failed;
   }
 
-  /// The contract on [VectorStoreRepository] documents `StateError` for an
-  /// uninitialized store on searchSimilar/getStats/removeDocument, and the
-  /// sibling sqlite store throws it. This one returned empty results instead,
-  /// so the same misuse was loud in one implementation and invisible in the
-  /// other.
+  /// Two refusals, one place.
+  ///
+  /// [VectorStoreRepository] documents `StateError` for an uninitialized store
+  /// on addDocument/searchSimilar/getStats/removeDocument (and clear(), which
+  /// raises it directly — it must stay callable on a LATCHED store, because
+  /// clearing is the remedy). This one returned empty results instead, so the
+  /// same misuse was loud in the sibling sqlite store and invisible here.
+  ///
+  /// The second refusal is the latch: armed, but holding data it cannot read.
   void _assertUsable(String operation) {
     final databasePath = _databasePath;
     if (databasePath == null) {
@@ -705,6 +755,17 @@ class QdrantVectorStore implements VectorStoreRepository {
       try {
         await c.close();
       } catch (e) {
+        // Settle before reporting, exactly as the delete branch below does.
+        // Throwing straight out left the failed client INSTALLED — and
+        // QdrantEdgeClient.close() marks itself closed before it unloads, so
+        // every later operation died with "QdrantEdgeClient is closed" until
+        // initialize() was called again. The un-bumped generation also let an
+        // in-flight _ensureClient open install itself over the store we were
+        // asked to clear.
+        _client = null;
+        _dim = null;
+        _generation++;
+        _databasePath = null;
         throw VectorStoreException(
           'Failed to close qdrant client during clear: $e',
         );
@@ -788,7 +849,7 @@ class QdrantVectorStore implements VectorStoreRepository {
     String databasePath,
     List<String> failed,
   ) {
-    // Not a log: gemmaLog is compiled out of release builds, so logging a
+    // Not a log: gemmaLog is debug-only, so logging a
     // partial delete means no user is ever told. clear() is how a caller erases
     // indexed documents; reporting success over surviving data is the defect
     // this release fixed for the owned subdirectory.

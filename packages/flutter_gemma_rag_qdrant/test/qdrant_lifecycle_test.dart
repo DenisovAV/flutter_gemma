@@ -24,6 +24,7 @@ import 'package:flutter_gemma_rag_qdrant/src/qdrant_edge_client.dart';
 import 'package:flutter_gemma_rag_qdrant/src/qdrant_vector_store.dart'
     as native;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:qdrant_edge/qdrant_edge.dart' as qe;
 
 /// The owned, format-scoped subdirectory this release keeps its shard in.
 const storeDirName = 'qdrant_edge_v1';
@@ -492,6 +493,87 @@ void main() {
     });
   });
 
+  group('a partial 1.x sweep is reported, not reported as success', () {
+    test(
+      'clear() that cannot remove the 1.x store says so, and stays latched',
+      () async {
+        // ~30 lines exist so clear() never claims success over a partial delete.
+        // None of them was reachable from a test: the delete seam covered only
+        // the owned subdirectory, so every mutation to the sweep — including
+        // dropping the failure report entirely — passed the whole suite.
+        writeLegacyStore(tmp.path);
+        final store = native.QdrantVectorStore();
+        addTearDown(store.close);
+        await expectLater(
+          store.initialize(tmp.path),
+          throwsA(isA<VectorStoreException>()),
+        );
+
+        // Fail ONLY the payload. A blanket throw also hits the marker, and
+        // then the test cannot tell "the payload failure was reported" from
+        // "the marker failure was reported" — swallowing the first still threw
+        // via the second, and the mutation survived.
+        store.debugDeleteDirOverride = (dir) {
+          if (dir.path.endsWith('wal') || dir.path.endsWith('segments')) {
+            throw const FileSystemException('injected sweep failure');
+          }
+          dir.deleteSync(recursive: true);
+        };
+
+        await expectLater(
+          store.clear(),
+          throwsA(
+            isA<VectorStoreException>().having(
+              (e) => e.toString(),
+              'message',
+              contains('still hold'),
+            ),
+          ),
+          reason: 'clear() reported success over a 1.x store still on disk',
+        );
+
+        expect(
+          File('${tmp.path}/edge_config.json').existsSync(),
+          isTrue,
+          reason:
+              'the fixture did not actually survive, so this proves nothing',
+        );
+        await expectLater(
+          store.getStats(),
+          throwsA(isA<VectorStoreException>()),
+          reason: 'a failed sweep left the store reporting itself empty',
+        );
+      },
+    );
+
+    test(
+      'the marker is deleted LAST, so a survivor stays detectable',
+      () async {
+        // If `edge_config.json` went first, any survivor of a partial delete
+        // would be invisible to _hasLegacyStoreAt — unclearable by this API and
+        // undetectable by initialize(). Fail the FIRST delete only, and the
+        // marker must still be there.
+        writeLegacyStore(tmp.path);
+        final store = native.QdrantVectorStore();
+        addTearDown(store.close);
+        await store.initialize(tmp.path).catchError((_) {});
+
+        var calls = 0;
+        store.debugDeleteDirOverride = (dir) {
+          if (calls++ == 0) throw const FileSystemException('first only');
+          dir.deleteSync(recursive: true);
+        };
+        await store.clear().catchError((_) {});
+
+        expect(
+          File('${tmp.path}/edge_config.json').existsSync(),
+          isTrue,
+          reason: 'the marker went before the payload, hiding the survivor',
+        );
+      },
+    );
+  });
+
   group('the latch must lift as well as fall', () {
     test('a latch clears once the shard can actually be opened', () async {
       // A sticky latch is a WORSE failure than the silent zero it replaced:
@@ -585,6 +667,50 @@ void main() {
         );
       },
       skip: Platform.isWindows ? 'chmod semantics differ' : false,
+    );
+  });
+
+  group('a shard we did not write', () {
+    test('is reported, not treated as no shard at all', () async {
+      // The one branch with POSITIVE proof a shard is present — it loaded, we
+      // read its config — and it used to discard that and return null, so the
+      // store came up empty over data it had just seen. Reachable from a shard
+      // written by another tool, or by a future format of ours.
+      final storeDir = Directory('${tmp.path}/$storeDirName')
+        ..createSync(recursive: true);
+      qe.EdgeShard.load(
+        path: storeDir.path,
+        config: qe.EdgeConfig(
+          vectorData: {
+            'text': qe.VectorDataConfig(size: 8, distance: qe.Distance.cosine),
+          },
+        ),
+      ).unload();
+
+      final store = QdrantVectorStore();
+      addTearDown(store.close);
+      await store.initialize(tmp.path);
+      await expectLater(
+        store.getStats(),
+        throwsA(isA<VectorStoreException>()),
+        reason: 'a shard it had just loaded was reported as an empty store',
+      );
+    });
+  });
+
+  group('the documented no-ops', () {
+    test(
+      'removeDocument on an initialized, never-written store is a no-op',
+      () async {
+        // The contract says removing a document that does not exist does not
+        // throw. Distinct from the two refusals around it — uninitialized is a
+        // StateError, unreadable is a VectorStoreException — and nothing pinned
+        // which of the three this is.
+        final store = QdrantVectorStore();
+        addTearDown(store.close);
+        await store.initialize(tmp.path);
+        await expectLater(store.removeDocument(id: 'never-added'), completes);
+      },
     );
   });
 

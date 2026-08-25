@@ -677,11 +677,15 @@ void main() {
       if (dbDir.existsSync()) dbDir.deleteSync(recursive: true);
     });
 
-    test('(a) a legacy sibling at the bare databasePath is left untouched by '
-        'init + addDocument + clear()', () async {
-      // Simulates a pre-migration (1.x / crate 0.7.x) shard sitting
-      // directly at the bare path the caller passes to initialize().
-      final legacyMarker = File(p.join(dbDir.path, 'legacy_marker.bin'))
+    test("(a) a caller's own file at the bare databasePath is left untouched "
+        'by init + addDocument + clear()', () async {
+      // NOT a 1.x store — a file of the caller's that happens to live next to
+      // the store. The old name said "legacy sibling", which promised coverage
+      // of the 1.x layout this file never writes, and since clear() now DOES
+      // remove a real 1.x layout the name also read as a contradiction. What
+      // it actually pins is the boundary: we only ever touch our own subdir
+      // and the three entries a 1.x shard owns.
+      final legacyMarker = File(p.join(dbDir.path, 'user_data.bin'))
         ..writeAsBytesSync([1, 2, 3, 4]);
 
       final store = QdrantVectorStore();

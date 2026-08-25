@@ -35,7 +35,15 @@ List<double> vec(int dim, double seed) => List<double>.filled(dim, seed);
 /// Lays out the three entries a 1.x (crate 0.7.x) shard wrote directly at the
 /// caller's databasePath, before this package owned a versioned subdirectory.
 void writeLegacyStore(String databasePath) {
-  File('$databasePath/edge_config.json').writeAsStringSync('{}');
+  // The real shard config, not a placeholder. `{}` used to be enough to be
+  // classified as our store — which is exactly how a caller's own
+  // `edge_config.json` got their `wal/` and `segments/` deleted. The unnamed
+  // "" vector field is the part that says "this package wrote it".
+  File('$databasePath/edge_config.json').writeAsStringSync(
+    '{"on_disk_payload":true,'
+    '"vectors":{"":{"size":4,"distance":"Cosine","on_disk":false}},'
+    '"sparse_vectors":{}}',
+  );
   Directory('$databasePath/wal').createSync(recursive: true);
   Directory('$databasePath/segments').createSync(recursive: true);
 }
@@ -321,8 +329,13 @@ void main() {
       addTearDown(holder.close);
 
       final second = QdrantVectorStore();
-      await second.initialize(tmp.path);
       addTearDown(second.close);
+      // The contract says initialize() throws when initialization fails, and
+      // this failed: a shard is on disk and the WAL is held elsewhere.
+      await expectLater(
+        second.initialize(tmp.path),
+        throwsA(isA<VectorStoreException>()),
+      );
 
       await expectLater(
         second.getStats(),
@@ -406,8 +419,11 @@ void main() {
       addTearDown(holder.close);
 
       final second = QdrantVectorStore();
-      await second.initialize(tmp.path); // WAL held by holder -> latched
       addTearDown(second.close);
+      await expectLater(
+        second.initialize(tmp.path), // WAL held by holder
+        throwsA(isA<VectorStoreException>()),
+      );
 
       await expectLater(
         second.addDocument(id: 'b', content: 'y', embedding: vec(4, 2)),
@@ -593,8 +609,11 @@ void main() {
       await holder.addDocument(id: 'a', content: 'x', embedding: vec(4, 1));
 
       final second = QdrantVectorStore();
-      await second.initialize(tmp.path); // WAL held -> latched
       addTearDown(second.close);
+      await expectLater(
+        second.initialize(tmp.path), // WAL held
+        throwsA(isA<VectorStoreException>()),
+      );
       await expectLater(
         second.getStats(),
         throwsA(isA<VectorStoreException>()),
@@ -693,12 +712,12 @@ void main() {
 
       final store = QdrantVectorStore();
       addTearDown(store.close);
-      await store.initialize(tmp.path);
       await expectLater(
-        store.getStats(),
+        store.initialize(tmp.path),
         throwsA(isA<VectorStoreException>()),
         reason: 'a shard it had just loaded was reported as an empty store',
       );
+      await expectLater(store.getStats(), throwsA(isA<VectorStoreException>()));
     });
   });
 
@@ -851,61 +870,99 @@ void main() {
     });
   });
 
-  group(
-    'evidence good enough to refuse is not evidence good enough to delete',
-    () {
-      test(
-        "an unreadable marker does not cost the caller its directories",
-        () async {
-          // Round 1 through a new door. A marker we cannot READ is either a real
-          // 1.x store (refuse, or the app comes up empty over the corpus) or
-          // someone else's file beside directories the caller happens to have
-          // named `wal` and `segments`. We cannot tell — that is what "cannot
-          // read" means — so it gets the safe half of each: refuse to start, never
-          // delete. Answering a plain `true` deleted both of the caller's
-          // directories and returned from clear() NORMALLY.
-          final marker = File('${tmp.path}/edge_config.json')
-            ..writeAsStringSync('not our file');
-          Directory('${tmp.path}/wal').createSync();
-          File('${tmp.path}/wal/caller.txt').writeAsStringSync('mine');
-          Directory('${tmp.path}/segments').createSync();
-          File('${tmp.path}/segments/caller.txt').writeAsStringSync('mine');
-          Process.runSync('chmod', ['000', marker.path]);
-          addTearDown(() => Process.runSync('chmod', ['600', marker.path]));
+  group('evidence good enough to refuse is not evidence good enough to delete', () {
+    test(
+      "an unreadable marker does not cost the caller its directories",
+      () async {
+        // Round 1 through a new door. A marker we cannot READ is either a real
+        // 1.x store (refuse, or the app comes up empty over the corpus) or
+        // someone else's file beside directories the caller happens to have
+        // named `wal` and `segments`. We cannot tell — that is what "cannot
+        // read" means — so it gets the safe half of each: refuse to start, never
+        // delete. Answering a plain `true` deleted both of the caller's
+        // directories and returned from clear() NORMALLY.
+        final marker = File('${tmp.path}/edge_config.json')
+          ..writeAsStringSync('not our file');
+        Directory('${tmp.path}/wal').createSync();
+        File('${tmp.path}/wal/caller.txt').writeAsStringSync('mine');
+        Directory('${tmp.path}/segments').createSync();
+        File('${tmp.path}/segments/caller.txt').writeAsStringSync('mine');
+        Process.runSync('chmod', ['000', marker.path]);
+        addTearDown(() => Process.runSync('chmod', ['600', marker.path]));
 
-          final store = QdrantVectorStore();
-          addTearDown(store.close);
-          await expectLater(
-            store.initialize(tmp.path),
-            throwsA(isA<VectorStoreException>()),
-          );
-          await expectLater(
-            store.clear(),
-            throwsA(isA<VectorStoreException>()),
-            reason:
-                'clear() reported success while deleting the caller\'s data',
-          );
-          expect(Directory('${tmp.path}/wal').existsSync(), isTrue);
-          expect(Directory('${tmp.path}/segments').existsSync(), isTrue);
-        },
-        skip: Platform.isWindows ? 'chmod semantics differ' : false,
-      );
-
-      test('a marker with no payload beside it is not a store', () async {
-        // What a sweep leaves when it removes `wal/` and `segments/` and then
-        // cannot unlink the marker. Treating that as a store made initialize()
-        // refuse forever over nothing and clear() fail forever on the one file
-        // it had already failed to remove — a loop whose only exit was the call
-        // that was looping.
-        File('${tmp.path}/edge_config.json').writeAsStringSync('{}');
         final store = QdrantVectorStore();
         addTearDown(store.close);
-        await store.initialize(tmp.path);
-        await store.addDocument(id: 'a', content: 'x', embedding: vec(4, 1));
-        expect((await store.getStats()).documentCount, 1);
-      });
-    },
-  );
+        await expectLater(
+          store.initialize(tmp.path),
+          throwsA(isA<VectorStoreException>()),
+        );
+        await expectLater(
+          store.clear(),
+          throwsA(isA<VectorStoreException>()),
+          reason: 'clear() reported success while deleting the caller\'s data',
+        );
+        expect(Directory('${tmp.path}/wal').existsSync(), isTrue);
+        expect(Directory('${tmp.path}/segments').existsSync(), isTrue);
+      },
+      skip: Platform.isWindows ? 'chmod semantics differ' : false,
+    );
+
+    test(
+      "a readable config we did not write is refused but never deleted",
+      () async {
+        // The destructive false positive, reopened a second time through the
+        // door the previous fix left ajar. "It parses as a JSON object" was
+        // treated as proof of ownership, so a caller whose own
+        // `edge_config.json` held `{}` — beside their own `wal/` and
+        // `segments/` — had both directories deleted by clear(), which then
+        // returned normally.
+        //
+        // Refusing and deleting need different evidence. We still refuse (it
+        // could be a 1.x layout whose config we do not recognise, and coming up
+        // empty over a corpus is the defect this release removes), but the
+        // destructive path needs the shard config this package actually writes.
+        File('${tmp.path}/edge_config.json').writeAsStringSync('{}');
+        Directory('${tmp.path}/wal').createSync();
+        File('${tmp.path}/wal/caller.txt').writeAsStringSync('mine');
+        Directory('${tmp.path}/segments').createSync();
+        File('${tmp.path}/segments/caller.txt').writeAsStringSync('mine');
+
+        final store = QdrantVectorStore();
+        addTearDown(store.close);
+        await expectLater(
+          store.initialize(tmp.path),
+          throwsA(isA<VectorStoreException>()),
+        );
+        await expectLater(
+          store.clear(),
+          throwsA(
+            isA<VectorStoreException>().having(
+              (e) => e.toString(),
+              'message',
+              contains('not a shard config this package wrote'),
+            ),
+          ),
+          reason: "clear() deleted the caller's directories and said it worked",
+        );
+        expect(File('${tmp.path}/wal/caller.txt').existsSync(), isTrue);
+        expect(File('${tmp.path}/segments/caller.txt').existsSync(), isTrue);
+      },
+    );
+
+    test('a marker with no payload beside it is not a store', () async {
+      // What a sweep leaves when it removes `wal/` and `segments/` and then
+      // cannot unlink the marker. Treating that as a store made initialize()
+      // refuse forever over nothing and clear() fail forever on the one file
+      // it had already failed to remove — a loop whose only exit was the call
+      // that was looping.
+      File('${tmp.path}/edge_config.json').writeAsStringSync('{}');
+      final store = QdrantVectorStore();
+      addTearDown(store.close);
+      await store.initialize(tmp.path);
+      await store.addDocument(id: 'a', content: 'x', embedding: vec(4, 1));
+      expect((await store.getStats()).documentCount, 1);
+    });
+  });
 
   group('uninitialized store', () {
     test(

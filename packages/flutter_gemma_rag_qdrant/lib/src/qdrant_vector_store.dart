@@ -347,6 +347,13 @@ class QdrantVectorStore implements VectorStoreRepository {
           'would hide an intact corpus. Call initialize() again once the cause '
           'is cleared. Underlying error: $e';
       gemmaLog('[QdrantVectorStore] could not adopt existing shard: $e');
+      // And REPORT it. The contract says initialize() throws
+      // VectorStoreException when initialization fails, and this failed: a
+      // shard is on disk and we could not open it. Returning normally left the
+      // caller believing the store was ready while `isInitialized` said false
+      // and every read refused — the failure surfacing later, somewhere else,
+      // as a surprise.
+      throw VectorStoreException(_unusableReason!);
     }
   }
 
@@ -397,7 +404,8 @@ class QdrantVectorStore implements VectorStoreRepository {
     final marker = File(p.join(databasePath, _legacyEntries.first));
     if (!marker.existsSync()) return _LegacyProbe.absent;
     try {
-      if (jsonDecode(marker.readAsStringSync()) is! Map) {
+      final decoded = jsonDecode(marker.readAsStringSync());
+      if (decoded is! Map) {
         // Readable, and not our config — someone else's file of the same name.
         // Positively not ours, so not even a refusal.
         return _LegacyProbe.absent;
@@ -412,7 +420,29 @@ class QdrantVectorStore implements VectorStoreRepository {
         final at = p.join(databasePath, name);
         return Directory(at).existsSync() || File(at).existsSync();
       });
-      return hasPayload ? _LegacyProbe.ours : _LegacyProbe.absent;
+      if (!hasPayload) return _LegacyProbe.absent;
+
+      // "It is a JSON object" was NOT proof enough to delete by. A caller
+      // whose own `edge_config.json` held `{}`, beside their own `wal/` and
+      // `segments/`, was classified as a 1.x store — and clear(), the remedy
+      // the refusal prescribes, removed both directories and returned
+      // normally. Measured. That is the destructive false positive this file
+      // has now reopened twice, each time through whichever door the previous
+      // fix left ajar.
+      //
+      // Proof that a store is OURS is the shard config this package writes:
+      //   {"on_disk_payload":true,"vectors":{"":{"size":N,...}},...}
+      // The unnamed "" vector field is the part that says "this package";
+      // qdrant-edge stores written by anything else use named fields, and 2.0
+      // declines those too (see QdrantEdgeClient.openExisting).
+      //
+      // Without that proof we still REFUSE — it may well be a 1.x store whose
+      // config we do not recognise, and coming up empty over a corpus is the
+      // defect this release exists to remove — but we do not delete. Refusing
+      // and deleting need different evidence.
+      final vectors = decoded['vectors'];
+      final isOurs = vectors is Map && vectors.containsKey('');
+      return isOurs ? _LegacyProbe.ours : _LegacyProbe.unrecognized;
     } on FormatException {
       return _LegacyProbe.absent;
     } on FileSystemException {
@@ -440,6 +470,13 @@ class QdrantVectorStore implements VectorStoreRepository {
           '${p.join(databasePath, _legacyEntries.first)} (cannot be read, so '
               'nothing beside it was deleted — fix its permissions or remove '
               'it yourself, then call clear() again)',
+        ];
+      case _LegacyProbe.unrecognized:
+        return [
+          '${p.join(databasePath, _legacyEntries.first)} (is not a shard '
+              'config this package wrote, so nothing beside it was deleted — '
+              'if these files are yours, move the store to a path of its own; '
+              'if they are a 1.x index, delete the three entries yourself)',
         ];
       case _LegacyProbe.ours:
         break;
@@ -995,5 +1032,22 @@ class QdrantVectorStore implements VectorStoreRepository {
 }
 
 /// What [QdrantVectorStore._probeLegacyStoreAt] found at the bare
-/// `databasePath`. See its doc for why "cannot read" is its own answer.
-enum _LegacyProbe { absent, ours, unreadable }
+/// `databasePath`.
+///
+/// Three of the four states refuse to start; only [ours] also authorises
+/// deletion. That asymmetry is the whole point — see the probe's doc.
+enum _LegacyProbe {
+  /// Nothing of ours here. Start normally.
+  absent,
+
+  /// A shard config this package wrote, with its payload. Refuse, and clear()
+  /// may remove it.
+  ours,
+
+  /// A marker and payload are here, but the config is not one we wrote.
+  /// Refuse — it may be a 1.x layout we do not recognise — but never delete.
+  unrecognized,
+
+  /// The marker exists and could not be read. Refuse, never delete.
+  unreadable,
+}

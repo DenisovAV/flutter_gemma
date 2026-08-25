@@ -65,12 +65,18 @@ move to crate 0.8.0, and this release keeps its data in an owned
 `qdrant_edge_v1/` subdirectory rather than directly at the path you pass to
 `initialize()`.
 
-Opening a 1.x store throws a `VectorStoreException` naming the situation. The
-remedy is one call, and it removes the old on-disk layout for you:
+`initialize()` itself throws a `VectorStoreException` naming the situation —
+not the first write, so a read-only session hits it too. The remedy is one
+call, and it removes the old on-disk layout for you:
 
 ```dart
-await store.initialize(path);
-await store.clear();   // deletes the 1.x shard as well as the 2.x one
+final store = QdrantVectorStore();
+try {
+  await store.initialize(path);
+} on VectorStoreException {
+  await store.clear();          // removes the 1.x layout as well as the 2.x one
+  await store.initialize(path);
+}
 // ...then re-index your documents.
 ```
 

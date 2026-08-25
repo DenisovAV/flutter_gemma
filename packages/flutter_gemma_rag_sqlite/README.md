@@ -74,6 +74,51 @@ Filtering on an **undeclared** key is a safe no-op (never throws). With no
 Supported operators: `=`, `!=`, `>`, `>=`, `<`, `<=`, `BETWEEN`, `IN`
 (`FieldEquals`, `FieldRange`, `FieldMatchAny`); max 16 declared columns.
 
+## Upgrading from 1.0.x
+
+**1.1.0 does not read an index written by 1.0.x.** The switch to in-SQLite
+`vec0` KNN moved the data from a plain `documents` table into a `vec_documents`
+virtual table. Nothing errors on upgrade: `initialize()` succeeds, `getStats()`
+reports 0 documents, `searchSimilar()` returns no hits, and the old rows sit
+untouched in `documents`. This was not called out when 1.1.0 shipped.
+
+Your data is intact and needs no re-embedding — 1.0.x stored the vector as a
+`Float32` BLOB alongside the id, content and metadata. Move it once:
+
+```dart
+final db = sqlite3.open(path);   // add sqlite3 to your own pubspec
+final hasLegacy = db
+    .select("SELECT name FROM sqlite_master "
+            "WHERE type='table' AND name='documents'")
+    .isNotEmpty;
+
+if (hasLegacy) {
+  for (final row
+      in db.select('SELECT id, content, embedding, metadata FROM documents')) {
+    // 1.0.x wrote each element with setFloat32(..., Endian.little); read it
+    // back the same way. ByteData.sublistView needs no 4-byte alignment,
+    // which a raw asFloat32List view of the BLOB would.
+    final bytes = ByteData.sublistView(row['embedding'] as Uint8List);
+    await store.addDocument(
+      id: row['id'] as String,
+      content: row['content'] as String,
+      embedding: List<double>.generate(
+        bytes.lengthInBytes ~/ 4,
+        (i) => bytes.getFloat32(i * 4, Endian.little),
+      ),
+      metadata: row['metadata'] as String?,
+    );
+  }
+  db.execute('DROP TABLE documents');   // only after the loop succeeds
+}
+db.dispose();
+```
+
+Dropping the table is what makes the block a no-op on later launches. There is
+no built-in migration call — this is a one-time fix for an upgrade that has
+already happened. Full write-up in the
+[migration guide](https://fluttergemma.dev/docs/migration).
+
 ## Setup
 
 **Native** needs no setup — the `vec0` loadable extension is fetched per platform

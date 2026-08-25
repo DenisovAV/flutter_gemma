@@ -98,6 +98,69 @@ longer import a backend class from it. If you'd rather run embeddings over an
 ONNX/ORT model instead, `flutter_gemma_onnx`'s `OnnxEmbeddingBackend` is a
 drop-in alternative — see [Packages](/docs/packages#onnx-runtime-engine).
 
+## Breaking: rag_sqlite 1.1.0 — the index does not carry over
+
+<Warning>
+`flutter_gemma_rag_sqlite` **1.1.0** replaced the Dart brute-force/HNSW store
+with in-SQLite `vec0` KNN, and with it the table the index lives in:
+`documents` became `vec_documents`. **An index written by 1.0.x is not read by
+1.1.0+.** This shipped as a minor version with no note — if you upgraded and
+your RAG answers went vague, this is why.
+</Warning>
+
+Nothing errors. `initialize()` succeeds, `getStats()` reports **0 documents**,
+`searchSimilar()` returns **no hits**, and your rows are still sitting in the
+old `documents` table, unread. The model then answers without the context it
+used to have, which reads as the model getting worse rather than as a
+migration you missed.
+
+**Your data is recoverable.** Unlike the qdrant break below, nothing is lost:
+1.0.x stored `id`, `content`, the `embedding` as a `Float32` BLOB and
+`metadata` in a plain table, all still readable. Move it once at startup — no
+re-embedding, no model needed:
+
+```dart
+import 'dart:typed_data';
+import 'package:sqlite3/sqlite3.dart';   // add sqlite3 to your own pubspec
+
+final store = SqliteVectorStore();
+await store.initialize(path);
+
+final db = sqlite3.open(path);
+final hasLegacy = db
+    .select("SELECT name FROM sqlite_master "
+            "WHERE type='table' AND name='documents'")
+    .isNotEmpty;
+
+if (hasLegacy) {
+  for (final row
+      in db.select('SELECT id, content, embedding, metadata FROM documents')) {
+    // 1.0.x wrote each element with setFloat32(..., Endian.little); read it
+    // back the same way. ByteData.sublistView needs no 4-byte alignment,
+    // which a raw asFloat32List view of the BLOB would.
+    final bytes = ByteData.sublistView(row['embedding'] as Uint8List);
+    await store.addDocument(
+      id: row['id'] as String,
+      content: row['content'] as String,
+      embedding: List<double>.generate(
+        bytes.lengthInBytes ~/ 4,
+        (i) => bytes.getFloat32(i * 4, Endian.little),
+      ),
+      metadata: row['metadata'] as String?,
+    );
+  }
+  db.execute('DROP TABLE documents');   // only after the loop succeeds
+}
+db.dispose();
+```
+
+Guard it with your own "already migrated" flag if you prefer, but the
+`sqlite_master` check is enough: dropping the table is what makes the block a
+no-op on every later launch.
+
+There is no built-in migration call — this is a one-time fix for an upgrade
+that has already happened, not an ongoing API.
+
 ## Breaking: rag_qdrant 2.0.0 — the on-disk store is not readable
 
 <Warning>

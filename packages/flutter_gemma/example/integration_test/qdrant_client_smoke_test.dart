@@ -11,6 +11,7 @@ import 'package:flutter_gemma_rag_qdrant/src/point_id_hasher.dart';
 import 'package:flutter_gemma_rag_qdrant/src/qdrant_edge_client.dart';
 import 'package:flutter_gemma_rag_qdrant/src/qdrant_vector_store.dart';
 import 'package:flutter_gemma/core/services/vector_store_filter.dart';
+import 'package:flutter_gemma/core/services/vector_store_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:path_provider/path_provider.dart';
@@ -207,20 +208,84 @@ void main() {
     File('${shardDir.path}/user_file.txt').writeAsStringSync('keep me');
 
     final store = QdrantVectorStore();
-    await store.initialize(shardDir.path);
     addTearDown(store.close);
 
+    // initialize() itself refuses — not the first write. A read-only session
+    // never writes, so a write-path check let the app come up, answer without
+    // its corpus, and never say why.
     await expectLater(
-      store.addDocument(id: 'x', content: 'y', embedding: vec(4, 1)),
-      throwsA(isA<Exception>()),
+      store.initialize(shardDir.path),
+      throwsA(isA<VectorStoreException>()),
     );
+    // And the refusal must not hide behind an empty answer either.
+    await expectLater(store.getStats(), throwsA(isA<VectorStoreException>()));
 
     await store.clear();
     expect(File('${shardDir.path}/edge_config.json').existsSync(), isFalse);
     expect(File('${shardDir.path}/user_file.txt').existsSync(), isTrue);
 
     // ...and the store is usable again afterwards.
+    await store.initialize(shardDir.path);
     await store.addDocument(id: 'a', content: 'b', embedding: vec(4, 1));
     expect((await store.getStats()).documentCount, equals(1));
   });
+
+  test('store: a shard whose config file is gone is still read', () async {
+    // The case worth spending device time on. The engine reads a shard from
+    // `wal/` + `segments/`; `edge_config.json` is not the data. A gate that
+    // required the marker reported a full corpus as an empty store — and a
+    // clear() interrupted after unlinking the marker, or a partial backup
+    // restore that drops one small file, lands exactly there. Filesystem
+    // ordering and atomicity are the whole subject, so a host VM is the wrong
+    // place to trust it.
+    final seed = QdrantVectorStore();
+    await seed.initialize(shardDir.path);
+    await seed.addDocument(id: 'a', content: 'x', embedding: vec(4, 1));
+    await seed.addDocument(id: 'b', content: 'y', embedding: vec(4, 2));
+    await seed.close();
+
+    final marker = File('${shardDir.path}/qdrant_edge_v1/edge_config.json');
+    expect(marker.existsSync(), isTrue, reason: 'fixture never wrote a marker');
+    marker.deleteSync();
+
+    final reopened = QdrantVectorStore();
+    await reopened.initialize(shardDir.path);
+    addTearDown(reopened.close);
+    expect(
+      (await reopened.getStats()).documentCount,
+      equals(2),
+      reason: 'a readable shard was reported as an empty store',
+    );
+  });
+
+  test(
+    'store: a shard it cannot open is reported, not answered as 0',
+    () async {
+      // qdrant holds the WAL exclusively, so a second store on the same path
+      // cannot adopt it. On device that is a real shape — a background isolate,
+      // or a store the app forgot to close across a route change. It used to
+      // report an empty index and tell nobody: the only notification went to
+      // gemmaLog, which is debug-only, so a release build said nothing at all.
+      final holder = QdrantVectorStore();
+      await holder.initialize(shardDir.path);
+      await holder.addDocument(id: 'a', content: 'x', embedding: vec(4, 1));
+      addTearDown(holder.close);
+
+      final second = QdrantVectorStore();
+      await second.initialize(shardDir.path);
+      addTearDown(second.close);
+
+      await expectLater(
+        second.getStats(),
+        throwsA(isA<VectorStoreException>()),
+        reason: 'a shard it could not open was reported as 0 documents',
+      );
+      await expectLater(
+        second.addDocument(id: 'b', content: 'y', embedding: vec(4, 2)),
+        throwsA(isA<VectorStoreException>()),
+        reason:
+            'a write merged into a shard the store had just refused to read',
+      );
+    },
+  );
 }

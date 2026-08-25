@@ -12,6 +12,7 @@
 // mechanism delivers. Both were checked by mutation; the distinction is written
 // down because "every test here failed before" is the kind of blanket claim
 // that quietly stops being true.
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -526,7 +527,10 @@ void main() {
             isA<VectorStoreException>().having(
               (e) => e.toString(),
               'message',
-              contains('still hold'),
+              // Names what survived, so the caller can act. The old wording
+              // claimed the leftovers "still hold indexed documents", which is
+              // false when only the marker survives — the corpus is gone.
+              allOf(contains('wal'), contains('segments')),
             ),
           ),
           reason: 'clear() reported success over a 1.x store still on disk',
@@ -801,6 +805,107 @@ void main() {
       );
     });
   });
+
+  group('a lifecycle failure nobody awaited', () {
+    test('still reaches the zone', () async {
+      // `initState()` cannot await, so `store.initialize(dir);` is the ordinary
+      // shape — and the one the lane's own comment cites. Advancing the lane
+      // with `run.then((_) {}, onError: (_) {})` registered a listener on the
+      // CALLER's future, which marks the error handled globally: no zone
+      // error, no FlutterError.onError, no crash reporter, and gemmaLog is
+      // debug-only. The release's headline error went nowhere at all, and the
+      // same lane ate clear()'s partial-delete report — which throws instead
+      // of logging for exactly that reason.
+      final errors = <Object>[];
+      await runZonedGuarded(() async {
+        // Control: prove the zone is actually catching in this test.
+        unawaited(Future<void>(() => throw StateError('control')));
+        writeLegacyStore(tmp.path);
+        QdrantVectorStore().initialize(tmp.path); // deliberately not awaited
+        await Future<void>.delayed(const Duration(milliseconds: 250));
+      }, (e, _) => errors.add(e));
+
+      expect(errors.whereType<StateError>(), hasLength(1), reason: 'control');
+      expect(
+        errors.whereType<VectorStoreException>(),
+        hasLength(1),
+        reason: 'an unawaited lifecycle failure was reported to nobody',
+      );
+    });
+
+    test('an awaited failure is not reported twice', () async {
+      // The other half: the lane must not ALSO push the error to the zone when
+      // the caller handled it. Two of the three shapes I tried failed one side
+      // or the other.
+      final errors = <Object>[];
+      await runZonedGuarded(() async {
+        writeLegacyStore(tmp.path);
+        final store = QdrantVectorStore();
+        await expectLater(
+          store.initialize(tmp.path),
+          throwsA(isA<VectorStoreException>()),
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+      }, (e, _) => errors.add(e));
+      expect(errors, isEmpty, reason: 'a handled failure was double-reported');
+    });
+  });
+
+  group(
+    'evidence good enough to refuse is not evidence good enough to delete',
+    () {
+      test(
+        "an unreadable marker does not cost the caller its directories",
+        () async {
+          // Round 1 through a new door. A marker we cannot READ is either a real
+          // 1.x store (refuse, or the app comes up empty over the corpus) or
+          // someone else's file beside directories the caller happens to have
+          // named `wal` and `segments`. We cannot tell — that is what "cannot
+          // read" means — so it gets the safe half of each: refuse to start, never
+          // delete. Answering a plain `true` deleted both of the caller's
+          // directories and returned from clear() NORMALLY.
+          final marker = File('${tmp.path}/edge_config.json')
+            ..writeAsStringSync('not our file');
+          Directory('${tmp.path}/wal').createSync();
+          File('${tmp.path}/wal/caller.txt').writeAsStringSync('mine');
+          Directory('${tmp.path}/segments').createSync();
+          File('${tmp.path}/segments/caller.txt').writeAsStringSync('mine');
+          Process.runSync('chmod', ['000', marker.path]);
+          addTearDown(() => Process.runSync('chmod', ['600', marker.path]));
+
+          final store = QdrantVectorStore();
+          addTearDown(store.close);
+          await expectLater(
+            store.initialize(tmp.path),
+            throwsA(isA<VectorStoreException>()),
+          );
+          await expectLater(
+            store.clear(),
+            throwsA(isA<VectorStoreException>()),
+            reason:
+                'clear() reported success while deleting the caller\'s data',
+          );
+          expect(Directory('${tmp.path}/wal').existsSync(), isTrue);
+          expect(Directory('${tmp.path}/segments').existsSync(), isTrue);
+        },
+        skip: Platform.isWindows ? 'chmod semantics differ' : false,
+      );
+
+      test('a marker with no payload beside it is not a store', () async {
+        // What a sweep leaves when it removes `wal/` and `segments/` and then
+        // cannot unlink the marker. Treating that as a store made initialize()
+        // refuse forever over nothing and clear() fail forever on the one file
+        // it had already failed to remove — a loop whose only exit was the call
+        // that was looping.
+        File('${tmp.path}/edge_config.json').writeAsStringSync('{}');
+        final store = QdrantVectorStore();
+        addTearDown(store.close);
+        await store.initialize(tmp.path);
+        await store.addDocument(id: 'a', content: 'x', embedding: vec(4, 1));
+        expect((await store.getStats()).documentCount, 1);
+      });
+    },
+  );
 
   group('uninitialized store', () {
     test(

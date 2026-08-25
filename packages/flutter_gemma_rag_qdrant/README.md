@@ -70,6 +70,11 @@ not the first write, so a read-only session hits it too. The remedy is one
 call, and it removes the old on-disk layout for you:
 
 ```dart
+// VectorStoreException comes from flutter_gemma, not from this package —
+// this barrel exports only QdrantVectorStore.
+import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma_rag_qdrant/flutter_gemma_rag_qdrant.dart';
+
 final store = QdrantVectorStore();
 try {
   await store.initialize(path);

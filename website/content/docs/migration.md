@@ -178,6 +178,11 @@ the store opens, not as silently unanswered questions later.
 Clear the old store once, then re-index:
 
 ```dart
+// VectorStoreException comes from flutter_gemma; the rag_qdrant barrel
+// exports only QdrantVectorStore.
+import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma_rag_qdrant/flutter_gemma_rag_qdrant.dart';
+
 final store = QdrantVectorStore();
 try {
   await store.initialize(path);

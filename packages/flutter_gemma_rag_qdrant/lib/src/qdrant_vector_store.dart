@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -101,12 +102,29 @@ class QdrantVectorStore implements VectorStoreRepository {
   Future<void> _lifecycle = Future<void>.value();
 
   Future<T> _serializeLifecycle<T>(Future<T> Function() body) {
-    final run = _lifecycle.then((_) => body());
-    // The lane must survive a failed transition: a throwing initialize() must
-    // not wedge every later clear()/close() behind a rejected future — and
-    // clear() is the documented remedy for the throw initialize() does.
-    _lifecycle = run.then((_) {}, onError: (_) {});
-    return run;
+    // The lane advances through a gate that never errors, NOT by attaching a
+    // handler to the caller's own future.
+    //
+    // `_lifecycle = run.then((_) {}, onError: (_) {})` looked equivalent and
+    // was not: attaching onError to `run` registers a listener, which marks
+    // the error handled globally, so an UNAWAITED call reached neither
+    // Zone.handleUncaughtError nor FlutterError.onError. `initState()` cannot
+    // await, so `store.initialize(dir);` fire-and-forget is the ordinary shape
+    // — the one this lane's own comment cites — and over a 1.x store the
+    // headline error of this release went nowhere at all. It also ate
+    // _throwLegacySweepFailure, which throws instead of logging precisely so a
+    // partial delete can never go unreported. Measured against a plain
+    // unawaited async throw in the same zone: the control arrived, this did not.
+    final gate = Completer<void>();
+    final previous = _lifecycle;
+    _lifecycle = gate.future;
+    return previous.then((_) async {
+      try {
+        return await body();
+      } finally {
+        gate.complete();
+      }
+    });
   }
 
   /// Set when the store is armed but must NOT be read: the full message
@@ -354,7 +372,18 @@ class QdrantVectorStore implements VectorStoreRepository {
   /// invisible to this release — 2.0 only ever opens the owned subdir — so
   /// without this check the app comes up with an empty index, no error, and
   /// the old corpus still occupying disk.
-  static bool _hasLegacyStoreAt(String databasePath) {
+  /// Refusing to start and deleting need different evidence, so the probe
+  /// answers with more than a bool.
+  ///
+  /// A marker we cannot READ forced this. It is either a real 1.x store
+  /// (refuse, or the app silently comes up empty over the corpus) or somebody
+  /// else's file of the same name sitting beside directories the caller
+  /// happens to have called `wal` and `segments` (do not touch). We cannot
+  /// tell which — that is what "cannot read" means — and the two want opposite
+  /// answers, so it gets the safe half of each: refuse to start, never delete.
+  /// Answering a plain `true` deleted both of the caller's directories and
+  /// returned from clear() normally. Measured.
+  static _LegacyProbe _probeLegacyStoreAt(String databasePath) {
     // Gate on `edge_config.json` ONLY, and on its content — never on `wal` or
     // `segments`. Those two are ordinary directory names, `databasePath` is
     // routinely an app-documents directory, and a false positive here is
@@ -366,20 +395,33 @@ class QdrantVectorStore implements VectorStoreRepository {
     // hand. That case degrades to "2.0 creates its subdir alongside", which
     // wastes disk but destroys nothing — the right direction to be wrong in.
     final marker = File(p.join(databasePath, _legacyEntries.first));
-    if (!marker.existsSync()) return false;
+    if (!marker.existsSync()) return _LegacyProbe.absent;
     try {
-      return jsonDecode(marker.readAsStringSync()) is Map;
+      if (jsonDecode(marker.readAsStringSync()) is! Map) {
+        // Readable, and not our config — someone else's file of the same name.
+        // Positively not ours, so not even a refusal.
+        return _LegacyProbe.absent;
+      }
+      // A 1.x store is the marker AND its payload. The marker ALONE is a
+      // leftover — most likely from a sweep that removed `wal/` and
+      // `segments/` and then could not unlink it. Calling that a store made
+      // initialize() refuse forever over nothing, and clear() fail forever on
+      // the one file it had already failed to remove: a loop whose only exit
+      // was the call that was looping.
+      final hasPayload = _legacyEntries.skip(1).any((name) {
+        final at = p.join(databasePath, name);
+        return Directory(at).existsSync() || File(at).existsSync();
+      });
+      return hasPayload ? _LegacyProbe.ours : _LegacyProbe.absent;
     } on FormatException {
-      // Present but not JSON — someone else's file with the same name.
-      return false;
+      return _LegacyProbe.absent;
     } on FileSystemException {
-      // Present and ours, but unreadable (permissions, I/O). A blanket
-      // `catch (_)` put this in the same bucket as "not ours" and the app came
-      // up empty over the 1.x corpus. Treat it as present: the cost of being
-      // wrong is a refusal the user can act on, not a silent empty index.
-      return true;
+      return _LegacyProbe.unreadable;
     }
   }
+
+  static bool _hasLegacyStoreAt(String databasePath) =>
+      _probeLegacyStoreAt(databasePath) != _LegacyProbe.absent;
 
   /// Deletes ONLY the three entries a 1.x shard owns. Deliberately not a
   /// recursive wipe of [databasePath]: callers are allowed to keep unrelated
@@ -387,7 +429,21 @@ class QdrantVectorStore implements VectorStoreRepository {
   /// Returns the entries it could NOT remove, so the caller can settle its
   /// own state before reporting the failure.
   List<String> _clearLegacyStoreAt(String databasePath) {
-    if (!_hasLegacyStoreAt(databasePath)) return const [];
+    switch (_probeLegacyStoreAt(databasePath)) {
+      case _LegacyProbe.absent:
+        return const [];
+      case _LegacyProbe.unreadable:
+        // Refuse, do not guess. Deleting here is unrecoverable and the
+        // evidence does not support it. The caller can fix the permission or
+        // remove the file, after which this becomes an ordinary sweep.
+        return [
+          '${p.join(databasePath, _legacyEntries.first)} (cannot be read, so '
+              'nothing beside it was deleted — fix its permissions or remove '
+              'it yourself, then call clear() again)',
+        ];
+      case _LegacyProbe.ours:
+        break;
+    }
     // Delete the payload first, and the MARKER only if ALL of it went.
     // `edge_config.json` is what _hasLegacyStoreAt keys on, so a survivor
     // without it is permanently undetectable — unclearable by this API and
@@ -762,6 +818,23 @@ class QdrantVectorStore implements VectorStoreRepository {
     // qdrant-edge has no truncate primitive — close the client, delete the
     // OWNED shard subdirectory (never the bare databasePath), and let the
     // next addDocument reopen fresh.
+    // Check the boundary BEFORE closing anything, when there is a directory to
+    // check. It used to run after the close and after the generation bump but
+    // before the handles were settled, so a refusal left `isInitialized` true
+    // over a client that was already closed — every read failing with
+    // "QdrantEdgeClient is closed", an internal state the caller never
+    // touched, and no documented way out.
+    //
+    // The existence test is not incidental: the guard canonicalizes with
+    // resolveSymbolicLinks, which throws on a path that is not there, and a
+    // pure 1.x store has no owned subdirectory yet.
+    if (Directory(_storeDirFor(databasePath)).existsSync()) {
+      _assertStoreDirWithinDatabasePath(
+        databasePath,
+        _storeDirFor(databasePath),
+      );
+    }
+
     if (c != null) {
       try {
         await c.close();
@@ -814,8 +887,6 @@ class QdrantVectorStore implements VectorStoreRepository {
       return;
     }
 
-    _assertStoreDirWithinDatabasePath(databasePath, storeDir);
-
     List<String> legacyFailures = const [];
     try {
       final override = debugDeleteDirOverride;
@@ -854,9 +925,9 @@ class QdrantVectorStore implements VectorStoreRepository {
     String databasePath,
     List<String> failed,
   ) =>
-      "clear() removed this release's store but could not remove the 1.x "
-      'store at $databasePath. These entries remain on disk and still hold '
-      'indexed documents: ${failed.join('; ')}';
+      "clear() removed this release's store but could not finish removing the "
+      '1.x store at $databasePath. What is left, and why: '
+      '${failed.join('; ')}';
 
   static Never _throwLegacySweepFailure(
     String databasePath,
@@ -922,3 +993,7 @@ class QdrantVectorStore implements VectorStoreRepository {
     }
   }
 }
+
+/// What [QdrantVectorStore._probeLegacyStoreAt] found at the bare
+/// `databasePath`. See its doc for why "cannot read" is its own answer.
+enum _LegacyProbe { absent, ours, unreadable }

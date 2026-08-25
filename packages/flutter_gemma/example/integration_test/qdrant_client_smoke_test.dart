@@ -9,6 +9,7 @@ import 'dart:io';
 import 'package:flutter_gemma_rag_qdrant/src/filter_codec.dart';
 import 'package:flutter_gemma_rag_qdrant/src/point_id_hasher.dart';
 import 'package:flutter_gemma_rag_qdrant/src/qdrant_edge_client.dart';
+import 'package:flutter_gemma_rag_qdrant/src/qdrant_vector_store.dart';
 import 'package:flutter_gemma/core/services/vector_store_filter.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
@@ -132,5 +133,93 @@ void main() {
     final c2 = await QdrantEdgeClient.open(path: shardDir.path, dim: 4);
     addTearDown(c2.close);
     expect(await c2.count(), equals(2));
+  });
+
+  // ---------------------------------------------------------------------
+  // QdrantVectorStore — the layer the 2.0 migration actually rewrote, and
+  // the one every fix in this release lives in. Until these were added, no
+  // test touched it on a real device on any of the eight shipped platforms:
+  // the cases above drive QdrantEdgeClient directly.
+  // ---------------------------------------------------------------------
+
+  List<double> vec(int dim, double seed) => List<double>.filled(dim, seed);
+
+  test('store: a reopened store reports its contents before any write',
+      () async {
+    final first = QdrantVectorStore();
+    await first.initialize(shardDir.path);
+    for (var i = 0; i < 3; i++) {
+      await first.addDocument(
+        id: 'doc$i',
+        content: 'content $i',
+        embedding: vec(4, i + 1.0),
+      );
+    }
+    await first.close();
+
+    // A second store on the same path stands in for an app restart. Before
+    // 2.0's fix the client opened lazily on the first write, so this reported
+    // zero documents and no hits over a fully populated index.
+    final reopened = QdrantVectorStore();
+    await reopened.initialize(shardDir.path);
+    addTearDown(reopened.close);
+
+    expect((await reopened.getStats()).documentCount, equals(3));
+    expect(
+      await reopened.searchSimilar(queryEmbedding: vec(4, 1), topK: 5),
+      isNotEmpty,
+    );
+  });
+
+  test('store: concurrent addDocument calls do not race the WAL lock',
+      () async {
+    // Indexing a corpus with Future.wait is the obvious thing to write. Before
+    // the fix both callers opened the same shard, qdrant holds the WAL
+    // exclusively, and the loser failed with Kind(WouldBlock) — losing a
+    // document. Worth running on device: the failure is timing-dependent and
+    // storage there is slower than a dev box.
+    final store = QdrantVectorStore();
+    await store.initialize(shardDir.path);
+    addTearDown(store.close);
+
+    await Future.wait([
+      for (var i = 0; i < 8; i++)
+        store.addDocument(
+          id: 'doc$i',
+          content: 'content $i',
+          embedding: vec(4, i + 1.0),
+        ),
+    ]);
+
+    expect((await store.getStats()).documentCount, equals(8));
+  });
+
+  test('store: a 1.x layout is refused, and clear() removes it', () async {
+    // A store written by 1.x sits directly at databasePath; 2.0 only opens its
+    // owned subdir. Undetected it comes up empty with no error and the old
+    // corpus keeps its disk. On device this is the case that would silently
+    // cost a user their index on upgrade.
+    shardDir.createSync(recursive: true);
+    File('${shardDir.path}/edge_config.json').writeAsStringSync('{}');
+    Directory('${shardDir.path}/wal').createSync();
+    Directory('${shardDir.path}/segments').createSync();
+    File('${shardDir.path}/user_file.txt').writeAsStringSync('keep me');
+
+    final store = QdrantVectorStore();
+    await store.initialize(shardDir.path);
+    addTearDown(store.close);
+
+    await expectLater(
+      store.addDocument(id: 'x', content: 'y', embedding: vec(4, 1)),
+      throwsA(isA<Exception>()),
+    );
+
+    await store.clear();
+    expect(File('${shardDir.path}/edge_config.json').existsSync(), isFalse);
+    expect(File('${shardDir.path}/user_file.txt').existsSync(), isTrue);
+
+    // ...and the store is usable again afterwards.
+    await store.addDocument(id: 'a', content: 'b', embedding: vec(4, 1));
+    expect((await store.getStats()).documentCount, equals(1));
   });
 }

@@ -86,7 +86,13 @@ Your data is intact and needs no re-embedding — 1.0.x stored the vector as a
 `Float32` BLOB alongside the id, content and metadata. Move it once:
 
 ```dart
-final db = sqlite3.open(path);   // add sqlite3 to your own pubspec
+import 'dart:typed_data';
+import 'package:sqlite3/sqlite3.dart';   // add sqlite3 to your own pubspec
+
+final store = SqliteVectorStore();
+await store.initialize(path);
+
+final db = sqlite3.open(path);
 final hasLegacy = db
     .select("SELECT name FROM sqlite_master "
             "WHERE type='table' AND name='documents'")

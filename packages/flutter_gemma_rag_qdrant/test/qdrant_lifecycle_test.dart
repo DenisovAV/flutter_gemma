@@ -5,7 +5,13 @@
 // directory: they never open a store a different session — or a different
 // package version — wrote, and never run two operations at once.
 //
-// Each case below was observed failing on the migration commit before the fix.
+// Most cases below were observed failing on the migration commit before the
+// fix. Two are not regression pins and say so at their own site: one guards a
+// fix against OVER-correcting (the cold-store case, which the pre-fix code also
+// passed — for the wrong reason), and one pins an outcome that more than one
+// mechanism delivers. Both were checked by mutation; the distinction is written
+// down because "every test here failed before" is the kind of blanket claim
+// that quietly stops being true.
 import 'dart:convert';
 import 'dart:io';
 
@@ -18,6 +24,9 @@ import 'package:flutter_gemma_rag_qdrant/src/qdrant_edge_client.dart';
 import 'package:flutter_gemma_rag_qdrant/src/qdrant_vector_store.dart'
     as native;
 import 'package:flutter_test/flutter_test.dart';
+
+/// The owned, format-scoped subdirectory this release keeps its shard in.
+const storeDirName = 'qdrant_edge_v1';
 
 List<double> vec(int dim, double seed) => List<double>.filled(dim, seed);
 
@@ -326,11 +335,15 @@ void main() {
     });
 
     test('a genuinely cold store stays quiet', () async {
-      // The other half of the same property, and the reason the check cannot
-      // simply be "adoption threw". A first open that failed leaves the shard
-      // directory behind EMPTY, and qdrant-edge raises the same error for
-      // "nothing here" as for "here but unreadable" — so classifying on the
-      // exception would make every read on an empty store throw.
+      // NOT a regression pin: the pre-fix code passes this too, because back
+      // then adoption threw, was swallowed into gemmaLog, and getStats()
+      // returned 0 — which is what this asserts. What it actually guards is
+      // the fix OVER-correcting. qdrant-edge raises the same error for
+      // "nothing here" as for "here but unreadable", so a latch that keyed on
+      // "adoption threw" would make every read on an empty store refuse.
+      // Removing the openExisting gate kills this test, at the second half;
+      // the first half (a fresh store) asserts nothing and is kept only as the
+      // baseline the second half is read against.
       final store = QdrantVectorStore();
       await store.initialize(tmp.path);
       expect((await store.getStats()).documentCount, 0);
@@ -350,6 +363,229 @@ void main() {
       );
       await overLeftover.close();
     });
+  });
+
+  group('an unreadable shard is not an empty one (review round 2)', () {
+    test('a shard whose edge_config.json is gone is still adopted', () async {
+      // The marker gate this fix originally shipped required `edge_config.json`
+      // and returned "no shard" without it. Measured: the engine loads that
+      // directory FINE — `wal/` and `segments/` are the data, the config is
+      // not — so a store with a full corpus reported zero documents until an
+      // unrelated write made it reappear. `clear()` dying after unlinking the
+      // marker but before `segments/` reaches exactly this state, and the
+      // re-initialize its own fail-closed path prescribes laundered it into a
+      // confident zero.
+      final seed = QdrantVectorStore();
+      await seed.initialize(tmp.path);
+      await seed.addDocument(id: 'a', content: 'x', embedding: vec(4, 1));
+      await seed.addDocument(id: 'b', content: 'y', embedding: vec(4, 2));
+      await seed.close();
+
+      File('${tmp.path}/$storeDirName/edge_config.json').deleteSync();
+
+      final reopened = QdrantVectorStore();
+      await reopened.initialize(tmp.path);
+      expect(
+        (await reopened.getStats()).documentCount,
+        2,
+        reason: 'a readable shard was reported as an empty store',
+      );
+      await reopened.close();
+    });
+
+    test('addDocument refuses over a shard it could not read', () async {
+      // Before: the write path never consulted the latch, and any successful
+      // open cleared it — so the one signal a user gets that their corpus is
+      // unreadable was erasable by an ordinary addDocument, which then merged
+      // into the very shard just reported as empty.
+      final holder = QdrantVectorStore();
+      await holder.initialize(tmp.path);
+      await holder.addDocument(id: 'a', content: 'x', embedding: vec(4, 1));
+      addTearDown(holder.close);
+
+      final second = QdrantVectorStore();
+      await second.initialize(tmp.path); // WAL held by holder -> latched
+      addTearDown(second.close);
+
+      await expectLater(
+        second.addDocument(id: 'b', content: 'y', embedding: vec(4, 2)),
+        throwsA(
+          isA<VectorStoreException>().having(
+            (e) => e.toString(),
+            'message',
+            // The type alone is not enough: without the latch this write still
+            // throws, because the WAL is held — a different failure a bare
+            // isA<VectorStoreException>() cannot tell apart. Only _assertUsable
+            // says "addDocument refused"; a failed open says "Failed to open
+            // qdrant shard at". Verified by mutation: dropping the assertion
+            // changes the message, not the throw.
+            contains('addDocument refused'),
+          ),
+        ),
+      );
+      await expectLater(
+        second.getStats(),
+        throwsA(isA<VectorStoreException>()),
+        reason: 'a write cleared the latch and the store reported itself fine',
+      );
+    });
+
+    test(
+      'a failure for one path does not latch a store armed at another',
+      () async {
+        // An outcome test, deliberately: it does not care WHICH mechanism
+        // keeps the latch from leaking. Today it is the lifecycle lane — the
+        // second initialize() cannot start until the first has finished, and
+        // it clears the latch as it arms the new path. Removing the generation
+        // check in initialize()'s catch leaves this passing, and that is the
+        // truth about the check rather than a gap here.
+        final other = Directory.systemTemp.createTempSync('qdrant_other');
+        addTearDown(() {
+          try {
+            other.deleteSync(recursive: true);
+          } catch (_) {}
+        });
+        final holder = QdrantVectorStore();
+        await holder.initialize(tmp.path);
+        await holder.addDocument(id: 'a', content: 'x', embedding: vec(4, 1));
+        addTearDown(holder.close);
+
+        final store = QdrantVectorStore();
+        addTearDown(store.close);
+        final toLocked = store.initialize(tmp.path); // fails: WAL held
+        final toFresh = store.initialize(other.path); // succeeds
+        await toLocked.catchError((_) {});
+        await toFresh.catchError((_) {});
+
+        expect(
+          (await store.getStats()).documentCount,
+          0,
+          reason: 'the latch leaked from the path the store no longer uses',
+        );
+      },
+    );
+
+    test('two overlapping initialize() calls adopt the corpus', () async {
+      // A provider rebuilt, an initState firing twice. Both calls raced
+      // qdrant's exclusive WAL: one won, the other caught WouldBlock and
+      // latched the store unreadable over an intact corpus — while BOTH
+      // reported success.
+      final seed = QdrantVectorStore();
+      await seed.initialize(tmp.path);
+      await seed.addDocument(id: 'a', content: 'x', embedding: vec(4, 1));
+      await seed.addDocument(id: 'b', content: 'y', embedding: vec(4, 2));
+      await seed.close();
+
+      final store = QdrantVectorStore();
+      addTearDown(store.close);
+      await Future.wait([
+        store.initialize(tmp.path),
+        store.initialize(tmp.path),
+      ]);
+
+      expect(store.isInitialized, isTrue);
+      expect(
+        (await store.getStats()).documentCount,
+        2,
+        reason: 'a double init left the store unreadable over its own corpus',
+      );
+    });
+  });
+
+  group('the latch must lift as well as fall', () {
+    test('a latch clears once the shard can actually be opened', () async {
+      // A sticky latch is a WORSE failure than the silent zero it replaced:
+      // every read refusing forever on a store that is now perfectly healthy.
+      // Nothing pinned the clearing side at all before this.
+      //
+      // It pins an OUTCOME, not one line: two sites clear the latch — the
+      // reset at the top of initialize() and the adoption-success path — and
+      // removing either alone leaves this green. Removing BOTH kills it, which
+      // is the honest statement of what it covers.
+      final holder = QdrantVectorStore();
+      await holder.initialize(tmp.path);
+      await holder.addDocument(id: 'a', content: 'x', embedding: vec(4, 1));
+
+      final second = QdrantVectorStore();
+      await second.initialize(tmp.path); // WAL held -> latched
+      addTearDown(second.close);
+      await expectLater(
+        second.getStats(),
+        throwsA(isA<VectorStoreException>()),
+      );
+
+      await holder.close(); // the cause goes away
+      await second.initialize(tmp.path); // the message says to do this
+
+      expect(second.isInitialized, isTrue);
+      expect(
+        (await second.getStats()).documentCount,
+        1,
+        reason: 'the latch outlived the condition that set it',
+      );
+    });
+
+    test('a leftover wal/ alone is not evidence of a shard', () async {
+      // The gate keys on `edge_config.json` OR `segments/`. `wal/` is
+      // deliberately excluded: a first open that failed leaves it behind with
+      // nothing committed, and counting it would refuse every read on a store
+      // that never held data. A mutation adding `wal/` as evidence passed the
+      // whole suite before this test existed.
+      Directory('${tmp.path}/$storeDirName/wal').createSync(recursive: true);
+      final store = QdrantVectorStore();
+      addTearDown(store.close);
+      await store.initialize(tmp.path);
+      expect(
+        (await store.getStats()).documentCount,
+        0,
+        reason: 'an abandoned wal/ was mistaken for an unreadable shard',
+      );
+    });
+  });
+
+  group('the 1.x probe reads the marker, not just its name', () {
+    test(
+      'a same-named file that is not our config is not a 1.x store',
+      () async {
+        // The probe is content-gated because a false positive is destructive:
+        // the store refuses to run and clear() — the remedy its own error names
+        // — deletes what it matched. Every existing test writes a valid '{}', so
+        // dropping the content check passed the whole suite.
+        File('${tmp.path}/edge_config.json').writeAsStringSync('not our file');
+        final store = QdrantVectorStore();
+        addTearDown(store.close);
+        await store.initialize(tmp.path);
+        await store.addDocument(id: 'a', content: 'x', embedding: vec(4, 1));
+        expect((await store.getStats()).documentCount, 1);
+        expect(
+          File('${tmp.path}/edge_config.json').readAsStringSync(),
+          'not our file',
+          reason: "someone else's file was treated as our 1.x store",
+        );
+      },
+    );
+
+    test(
+      'a marker we cannot READ counts as present, not as absent',
+      () async {
+        // The blanket `catch (_)` put "unreadable" in the same bucket as "not
+        // ours", so a genuine 1.x store whose marker could not be read came up
+        // as an empty index with no error — back in the silent bucket.
+        writeLegacyStore(tmp.path);
+        final marker = File('${tmp.path}/edge_config.json');
+        Process.runSync('chmod', ['000', marker.path]);
+        addTearDown(() => Process.runSync('chmod', ['600', marker.path]));
+
+        final store = QdrantVectorStore();
+        addTearDown(store.close);
+        await expectLater(
+          store.initialize(tmp.path),
+          throwsA(isA<VectorStoreException>()),
+          reason: 'an unreadable 1.x marker was read as "no legacy store"',
+        );
+      },
+      skip: Platform.isWindows ? 'chmod semantics differ' : false,
+    );
   });
 
   group('uninitialized store', () {

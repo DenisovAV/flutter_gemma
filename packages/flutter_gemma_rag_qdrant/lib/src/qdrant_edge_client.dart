@@ -122,31 +122,51 @@ class QdrantEdgeClient {
     required String path,
   }) async {
     if (!Directory(path).existsSync()) return null;
-    // `EdgeShard.load` raises the SAME error for "this directory holds no
-    // shard" and for "this shard will not load": an empty directory, a
-    // directory of unrelated files, and a corrupted shard all surface as
-    // `edge config is not provided and no segments were loaded`. Measured, not
-    // assumed — see the layout probe: a shard we wrote is always
-    // `edge_config.json` + `wal/` + `segments/`.
+    // `EdgeShard.load` raises ONE error for two different facts — "this
+    // directory holds no shard" and "this shard will not load" — so the caller
+    // cannot classify on the exception. Measured:
     //
-    // The distinction is load-bearing. "No shard" must stay quiet, because a
-    // failed first open leaves the freshly created directory behind and the
-    // next run would otherwise refuse every read on an empty store. "Shard
-    // present but unreadable" must be loud, because answering "0 documents"
-    // over an intact corpus is the exact defect this release fixes.
+    //   empty dir                        -> "edge config is not provided…"
+    //   dir of unrelated files           -> "edge config is not provided…"
+    //   config gone, segments present    -> LOADS, dim intact, data readable
+    //   config corrupted, segments there -> "IO Error: Failed to deserialize…"
     //
-    // So decide on the marker, and let only a real shard reach the throw.
-    if (!File('$path${Platform.pathSeparator}edge_config.json').existsSync()) {
-      return null;
-    }
+    // The third line is why an earlier version of this gate was wrong: it
+    // required `edge_config.json` and returned null without it, so a shard
+    // that the engine reads perfectly well reported as an empty store. A
+    // `clear()` that died after unlinking the marker but before `segments/`
+    // reached exactly that state, and re-initialize — the step the fail-closed
+    // path prescribes — laundered it into a confident zero.
+    //
+    // So gate on evidence of CONTENT, and let anything with content reach the
+    // load. `wal/` alone is deliberately not evidence: a first open that failed
+    // leaves it behind with nothing committed, and treating that as an
+    // unreadable shard would refuse every read on a store that never had data.
+    //
+    // These names can only be ours. This is the OWNED `qdrant_edge_v1`
+    // subdirectory, not the caller's databasePath — the distinction that makes
+    // the same check destructive there (a caller's own `segments/`) and correct
+    // here.
+    final sep = Platform.pathSeparator;
+    final hasContent =
+        File('$path${sep}edge_config.json').existsSync() ||
+        Directory('$path${sep}segments').existsSync();
+    if (!hasContent) return null;
     try {
       final shard = qe.EdgeShard.load(path: path, config: null);
       final cfg = shard.config();
       final size = cfg.vectorData['']?.size;
       if (size == null) {
-        // A shard we did not write (no unnamed vector field). Leave it alone.
+        // A shard is HERE and it loaded — we simply cannot use it (no unnamed
+        // vector field: written by another tool, or by a future format).
+        // Returning null said "no shard", so the store came up empty over data
+        // it had just proved was there. That is the strongest evidence this
+        // function ever gets, and it was the one case that discarded it.
         shard.unload();
-        return null;
+        throw const QdrantException(
+          'A qdrant shard is present but was not written by this package '
+          '(no unnamed vector field), so its documents cannot be read here.',
+        );
       }
       return (client: QdrantEdgeClient._(shard), dim: size);
     } on qe.EdgeException catch (e) {

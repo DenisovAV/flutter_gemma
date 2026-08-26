@@ -87,6 +87,43 @@ class InferenceInstallationBuilder {
     return this;
   }
 
+  /// Set model source from a file in a Hugging Face repo.
+  ///
+  /// Builds `https://huggingface.co/<repo>/resolve/<revision>/<file>` and
+  /// installs it via the network path — the plugin already applies the
+  /// configured HuggingFace token to `huggingface.co` URLs for gated repos, so
+  /// [token] is only needed to override it.
+  ///
+  /// Pass [file] explicitly, or take it from
+  /// [FlutterGemma.resolveHuggingFace] when the repo ships a deployment
+  /// manifest (`ResolvedHfModel.file`). [file] may contain `/` for a repo that
+  /// nests variants in subfolders (e.g. `int4/model.litertlm`); each segment is
+  /// URL-encoded independently so the path structure survives.
+  InferenceInstallationBuilder fromHuggingFace(
+    String repo, {
+    required String file,
+    String revision = 'main',
+    String? token,
+    bool? foreground,
+  }) {
+    // Fail loud at the seam — a resolver that returns an empty file, or an
+    // empty repo, would otherwise build a directory URL that only 404s (or,
+    // worse, saves a CDN error page as the model) far downstream.
+    if (repo.trim().isEmpty) {
+      throw ArgumentError.value(repo, 'repo', 'must be a non-empty "org/name"');
+    }
+    if (file.trim().isEmpty) {
+      throw ArgumentError.value(
+        file,
+        'file',
+        'must be a non-empty repo-relative path',
+      );
+    }
+    final encodedPath = file.split('/').map(Uri.encodeComponent).join('/');
+    final url = 'https://huggingface.co/$repo/resolve/$revision/$encodedPath';
+    return fromNetwork(url, token: token, foreground: foreground);
+  }
+
   /// Optional: Add LoRA weights from custom source
   InferenceInstallationBuilder withLora(ModelSource loraSource) {
     _loraSource = loraSource;

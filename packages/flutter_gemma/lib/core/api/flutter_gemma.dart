@@ -1,4 +1,5 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart'
+    show kIsWeb, defaultTargetPlatform, TargetPlatform, visibleForTesting;
 import 'package:flutter_gemma/core/api/inference_installation_builder.dart';
 import 'package:flutter_gemma/core/api/embedding_installation_builder.dart';
 import 'package:flutter_gemma/core/api/stt_installation_builder.dart';
@@ -15,6 +16,8 @@ import 'package:flutter_gemma/core/registry/embedding_registry.dart';
 import 'package:flutter_gemma/core/registry/stt_registry.dart';
 import 'package:flutter_gemma/core/registry/tts_registry.dart';
 import 'package:flutter_gemma/core/registry/skill_executor_registry.dart';
+import 'package:flutter_gemma/core/registry/hugging_face_resolver.dart';
+import 'package:flutter_gemma/core/registry/hugging_face_resolver_registry.dart';
 import 'package:flutter_gemma/core/registry/inference_engine_provider.dart';
 import 'package:flutter_gemma/core/registry/embedding_backend_provider.dart';
 import 'package:flutter_gemma/core/registry/stt_backend_provider.dart';
@@ -156,6 +159,12 @@ class FlutterGemma {
     // stays dependency-free (no webview_flutter / url_launcher). Empty default
     // is a no-op — existing apps are unaffected.
     List<SkillExecutorProvider> skillExecutors = const [],
+    // Opt-in resolvers that turn a Hugging Face repo id into a
+    // [ResolvedHfModel] by reading that repo's deployment metadata (e.g.
+    // flutter_gemma_litertlm reads `litertlm_manifest.json`). Consumed by
+    // [resolveHuggingFace]; empty default is a no-op (that call then throws a
+    // clear "no resolver registered" error).
+    List<HuggingFaceResolver> huggingFaceResolvers = const [],
     VectorStoreRepository? vectorStore,
     // Declares which metadata fields the configured [vectorStore] should make
     // filterable. Threaded to the store via `configure()` at registration,
@@ -216,6 +225,9 @@ class FlutterGemma {
     }
     if (skillExecutors.isNotEmpty) {
       SkillExecutorRegistry.instance.registerAll(skillExecutors);
+    }
+    if (huggingFaceResolvers.isNotEmpty) {
+      HuggingFaceResolverRegistry.instance.registerAll(huggingFaceResolvers);
     }
 
     // Single-flight model-manager init: restore the previously-active model
@@ -348,6 +360,13 @@ class FlutterGemma {
   /// - [supportImage]: Enable multimodal image support (default: false)
   /// - [supportAudio]: Enable audio input support for Gemma 3n E4B (default: false)
   /// - [maxNumImages]: Maximum number of images if supportImage is true
+  /// - [defaults]: overridable runtime defaults from a HF manifest (see
+  ///   [resolveHuggingFace] / [ResolvedHfModel.runtime]). Each explicit argument
+  ///   above wins over the matching field here, which in turn wins over the SDK
+  ///   default — so `getActiveModel(defaults: r.runtime)` applies the manifest's
+  ///   guidance and `getActiveModel()` behaves exactly as before. NOTE: the two
+  ///   session-level fields (`isThinking`, `minOutputTokens`) are NOT applied
+  ///   here — forward them to `createSession` yourself.
   ///
   /// Throws:
   /// - [StateError] if no active inference model is set
@@ -376,12 +395,13 @@ class FlutterGemma {
   /// );
   /// ```
   static Future<InferenceModel> getActiveModel({
-    int maxTokens = 1024,
+    ModelRuntimeDefaults? defaults,
+    int? maxTokens,
     PreferredBackend? preferredBackend,
     PreferredBackend? preferredVisionBackend,
     PreferredBackend? preferredAudioBackend,
-    bool supportImage = false,
-    bool supportAudio = false,
+    bool? supportImage,
+    bool? supportAudio,
     int? maxNumImages,
     bool? enableSpeculativeDecoding,
     int? maxConcurrentSessions,
@@ -402,20 +422,152 @@ class FlutterGemma {
       );
     }
 
+    // Merge precedence: explicit argument > manifest [defaults] > SDK default.
+    // maxTokens keeps its historical 1024 fallback, so an omitted arg with no
+    // defaults behaves exactly as before. The .litertlm engine still clamps
+    // this value downstream (clampLitertlmContextTokens) — a manifest cannot
+    // set a context window the engine rejects (guards #318).
+    final effMaxTokens = mergeRuntimeDefault(
+      maxTokens,
+      defaults?.maxTokens,
+      1024,
+    );
+    final effPreferredBackend = preferredBackend ?? defaults?.preferredBackend;
+    final effSupportImage = mergeRuntimeDefault(
+      supportImage,
+      defaults?.supportImage,
+      false,
+    );
+    final effSupportAudio = mergeRuntimeDefault(
+      supportAudio,
+      defaults?.supportAudio,
+      false,
+    );
+
+    // [defaults] also carries two SESSION-level fields (isThinking,
+    // minOutputTokens) that this model-level call cannot apply. Warn (debug
+    // builds) so a caller who passes `defaults:` here and forgets to forward
+    // them to createSession finds out, instead of a reasoning model silently
+    // truncating mid-<think>.
+    if (defaults != null &&
+        (defaults.isThinking != null || defaults.minOutputTokens != null)) {
+      gemmaLog(
+        '[flutter_gemma] getActiveModel: manifest defaults carry session-level '
+        'fields (isThinking/minOutputTokens) that getActiveModel does not apply '
+        '— forward them to createSession(enableThinking:, maxOutputTokens:).',
+      );
+    }
+
     // Create InferenceModel using identity from spec + runtime params
     return await FlutterGemmaPlugin.instance.createModel(
       modelType: activeSpec.modelType,
       fileType: activeSpec.fileType,
-      maxTokens: maxTokens,
-      preferredBackend: preferredBackend,
+      maxTokens: effMaxTokens,
+      preferredBackend: effPreferredBackend,
       preferredVisionBackend: preferredVisionBackend,
       preferredAudioBackend: preferredAudioBackend,
-      supportImage: supportImage,
-      supportAudio: supportAudio,
+      supportImage: effSupportImage,
+      supportAudio: effSupportAudio,
       maxNumImages: maxNumImages,
       enableSpeculativeDecoding: enableSpeculativeDecoding,
       maxConcurrentSessions: maxConcurrentSessions,
     );
+  }
+
+  /// Three-tier runtime-default merge used by [getActiveModel]: an explicit
+  /// argument wins over a manifest [ModelRuntimeDefaults] value, which wins over
+  /// the SDK default. Extracted so the precedence rule is stated — and tested —
+  /// in one place.
+  @visibleForTesting
+  static T mergeRuntimeDefault<T>(T? explicit, T? manifest, T sdkDefault) =>
+      explicit ?? manifest ?? sdkDefault;
+
+  /// Resolves a Hugging Face repo id into a [ResolvedHfModel] by reading that
+  /// repo's deployment metadata (e.g. `litertlm_manifest.json`), using the
+  /// resolver registered via `initialize(huggingFaceResolvers: [...])`.
+  ///
+  /// [fileType] tells the registry which resolver to pick (the litertlm
+  /// resolver claims `ModelFileType.litertlm`); it is the only deterministic
+  /// selection signal a resolver has before it fetches the manifest.
+  ///
+  /// The result carries install identity ([ResolvedHfModel.modelType] /
+  /// [ResolvedHfModel.fileType] for [installModel], and [ResolvedHfModel.url]
+  /// for the download) plus overridable [ResolvedHfModel.runtime] defaults.
+  /// Apply the model-level defaults with `getActiveModel(defaults:)`; forward
+  /// the two session-level fields to `createSession` yourself. Install from
+  /// [ResolvedHfModel.url] (not `fromHuggingFace(repo, file:)`) so a resolver's
+  /// pinned revision is honoured — the plugin still auto-applies the HF token
+  /// to `huggingface.co` hosts:
+  ///
+  /// ```dart
+  /// final r = await FlutterGemma.resolveHuggingFace(
+  ///     repo, fileType: ModelFileType.litertlm);
+  /// await FlutterGemma.installModel(
+  ///       modelType: r.modelType ?? ModelType.general,
+  ///       fileType: r.fileType,
+  ///     )
+  ///     .fromNetwork(r.url)
+  ///     .install();
+  /// final model = await FlutterGemma.getActiveModel(defaults: r.runtime);
+  /// final session = await model.createSession(
+  ///   enableThinking: r.runtime.isThinking ?? false,
+  ///   maxOutputTokens: r.runtime.minOutputTokens,
+  /// );
+  /// ```
+  ///
+  /// [token] defaults to the token passed to [initialize]. Throws [StateError]
+  /// if no registered resolver handles [repo] — add the engine package that
+  /// provides one (e.g. flutter_gemma_litertlm for `.litertlm` manifests).
+  static Future<ResolvedHfModel> resolveHuggingFace(
+    String repo, {
+    ModelFileType? fileType,
+    String? token,
+    PreferredBackend? preferredBackend,
+  }) async {
+    final resolver = HuggingFaceResolverRegistry.instance.findFor(
+      repo,
+      fileType: fileType,
+    );
+    if (resolver == null) {
+      throw StateError(
+        'No Hugging Face resolver registered for "$repo". Pass one to '
+        'FlutterGemma.initialize(huggingFaceResolvers: [...]) — e.g. the '
+        'litertlm manifest resolver from flutter_gemma_litertlm.',
+      );
+    }
+    return resolver.resolve(
+      repo,
+      token: token ?? ServiceRegistry.instance.huggingFaceToken,
+      platform: _currentPlatformKey(),
+      preferredBackend: preferredBackend,
+    );
+  }
+
+  /// Lowercase platform key passed to [HuggingFaceResolver.resolve] so a
+  /// resolver can honour per-platform recommendations. Returns `'unknown'` for
+  /// any host not in the resolver contract's documented set (e.g. a future
+  /// `TargetPlatform`); resolvers treat that as "no per-platform hint".
+  static String _currentPlatformKey() {
+    if (kIsWeb) return 'web';
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+        return 'android';
+      case TargetPlatform.iOS:
+        return 'ios';
+      case TargetPlatform.macOS:
+        return 'macos';
+      case TargetPlatform.windows:
+        return 'windows';
+      case TargetPlatform.linux:
+        return 'linux';
+      default:
+        gemmaLog(
+          '[flutter_gemma] resolveHuggingFace: no platform key for '
+          '$defaultTargetPlatform — passing "unknown" to the resolver, which '
+          'will fall back to its default (no per-platform recommendation).',
+        );
+        return 'unknown';
+    }
   }
 
   /// Check if there's an active inference model

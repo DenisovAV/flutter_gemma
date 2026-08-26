@@ -56,7 +56,50 @@ void main() {
         isFalse,
         reason: 'an initialize() that threw reported the store as ready',
       );
+
+      // NOT asserted here: that the handle was released. Clearing the flag
+      // alone leaked it — close() returned early on `!_isInitialized`, so a
+      // failed store kept the database open — and the catch now closes it.
+      // But sqlite allows concurrent connections, so a leaked handle is not
+      // observable from a second open on the same path: a test written that
+      // way passes with the leak still present. Measured by mutation, then
+      // left out rather than kept as decoration.
     }, skip: vec0SkipReason);
+
+    test(
+      're-initializing onto another database forgets the old dimension',
+      () async {
+        // `_detectDimensionFromExistingTable` returned early without resetting,
+        // so a store moved from a populated database to an empty one kept the
+        // first one's dimension — and then rejected the first vector it was
+        // given against a shape the new database never had.
+        useHostNativeLibraries();
+        final tmp = Directory.systemTemp.createTempSync('sqlite_redim');
+        addTearDown(() {
+          try {
+            tmp.deleteSync(recursive: true);
+          } catch (_) {}
+        });
+
+        final store = SqliteVectorStore();
+        addTearDown(() => store.close().catchError((Object _) {}));
+        await store.initialize('${tmp.path}/a.db');
+        await store.addDocument(
+          id: 'a',
+          content: 'x',
+          embedding: List<double>.filled(4, 1),
+        );
+
+        await store.initialize('${tmp.path}/b.db');
+        await store.addDocument(
+          id: 'b',
+          content: 'y',
+          embedding: List<double>.filled(8, 1),
+        );
+        expect((await store.getStats()).documentCount, 1);
+      },
+      skip: vec0SkipReason,
+    );
   });
 
   group('SqliteVectorStore (vec0)', () {

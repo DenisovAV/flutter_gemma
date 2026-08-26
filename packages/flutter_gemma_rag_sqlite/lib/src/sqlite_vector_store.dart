@@ -154,9 +154,27 @@ class SqliteVectorStore implements VectorStoreRepository {
       // situation.
       _isInitialized = true;
     } catch (e) {
-      // Do not leave a half-open store behind either: the handle above may be
-      // live while the schema is not the one we can use.
+      // Settle the state BEFORE touching the handle, then close defensively.
+      //
+      // `Database.close()` throws — sqlite3 raises SqliteException on a
+      // non-OK return from sqlite3_close_v2. With the close first, that throw
+      // skipped the three assignments below AND replaced `e`, the error that
+      // actually explains the failure, with a close error. On a re-initialize
+      // after a prior success it also left `_isInitialized` at its old `true`,
+      // resurrecting the exact bug this change exists to fix.
       _isInitialized = false;
+      _detectedDimension = null;
+      final failed = _db;
+      _db = null;
+      try {
+        failed?.close();
+      } catch (closeError) {
+        // Nothing to act on: the store is already being reported as failed,
+        // and the primary error is the one the caller needs.
+        gemmaLog(
+          '[SqliteVectorStore] close() during a failed initialize: $closeError',
+        );
+      }
       throw VectorStoreException('Failed to initialize vector store', e);
     }
   }
@@ -165,6 +183,12 @@ class SqliteVectorStore implements VectorStoreRepository {
   /// table, learn the dimension from a stored embedding so subsequent adds and
   /// queries validate against it (no lazy re-create on the existing table).
   void _detectDimensionFromExistingTable() {
+    // Reset first. Both early returns below mean "this database tells us
+    // nothing", and keeping the previous value there let a re-initialize onto
+    // a DIFFERENT, empty database inherit the old dimension — after which the
+    // first add of a differently-sized vector was rejected against a shape
+    // that database never had.
+    _detectedDimension = null;
     final exists = _db!.select(
       "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
       [_tableName],
@@ -428,7 +452,11 @@ class SqliteVectorStore implements VectorStoreRepository {
 
   @override
   Future<void> close() async {
-    if (!_isInitialized) return;
+    // Deliberately NOT gated on `_isInitialized`. A store whose initialize()
+    // failed is exactly the one holding a handle nobody else will close, and
+    // gating on the flag made close() a no-op for it. Idempotent either way:
+    // `_db` is null once closed.
+    if (_db == null && !_isInitialized) return;
     _db?.close();
     _db = null;
     _isInitialized = false;

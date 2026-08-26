@@ -92,6 +92,23 @@ class WebSqliteVectorStore implements VectorStoreRepository {
 
       _isInitialized = true;
     } catch (e) {
+      // Settle the state, same as the native arm. A FIRST failed initialize
+      // was already honest here (the flag is set last), but a RE-initialize
+      // that throws used to keep the previous run's `true` — and `_db` had
+      // already been reassigned above, dropping the old handle unclosed. So
+      // "isInitialized reports true after an initialize() that threw" was only
+      // half fixed if this arm were left alone.
+      _isInitialized = false;
+      _detectedDimension = null;
+      final failed = _db;
+      _db = null;
+      try {
+        failed?.close();
+      } catch (closeError) {
+        gemmaLog(
+          '[WebVectorStore] dispose() during a failed initialize: $closeError',
+        );
+      }
       throw VectorStoreException('Failed to initialize SQLite WASM (vec0)', e);
     }
   }

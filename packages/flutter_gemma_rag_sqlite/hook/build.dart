@@ -125,12 +125,43 @@ void main(List<String> args) async {
     // into the hook's outputDirectory so the registered output asset does not
     // live inside the package source tree. Windows/Linux register straight from
     // the prebuilt dir. Mirrors the litert/qdrant hooks.
+    // Cheap enough at this size (the loadables are ~150 KB) and immune to the
+    // size collision above.
+    bool sameBytes(File a, File b) {
+      if (a.lengthSync() != b.lengthSync()) return false;
+      final x = a.readAsBytesSync();
+      final y = b.readAsBytesSync();
+      for (var i = 0; i < x.length; i++) {
+        if (x[i] != y[i]) return false;
+      }
+      return true;
+    }
+
     Uri stage(Uri uri) {
       if (os != OS.macOS && os != OS.iOS) return uri;
       final src = File.fromUri(uri);
       final destUri = input.outputDirectory.resolve(uri.pathSegments.last);
       final dest = File.fromUri(destUri);
-      if (!dest.existsSync() || dest.lengthSync() != src.lengthSync()) {
+      // Compare CONTENT, not length.
+      //
+      // The staged directory name is a hash of the build CONFIG — no package
+      // version, no package root — so it is the same path across an upgrade,
+      // and it lives in the app's `.dart_tool`, which `pub upgrade` never
+      // touches. A size-only guard therefore keeps the previous release's file
+      // whenever the new one happens to be the same size.
+      //
+      // That is not hypothetical here: re-stamping `ios_arm64/libvec0.dylib`
+      // from LC_VERSION_MIN_IPHONEOS to LC_BUILD_VERSION took the extra 8
+      // bytes out of Mach-O header slack, so the device slice — the only one
+      // App Store Connect can reject — went 158440 -> 158440. A consumer
+      // upgrading without `flutter clean` would have shipped the old binary
+      // and hit the exact rejection this release fixes, while the hook
+      // reported success and the source tree looked correct.
+      //
+      // This is the one hook in the repo whose source is a committed file
+      // edited in place; the others read from a version-keyed download cache,
+      // where a same-size in-place edit is not the update mechanism.
+      if (!dest.existsSync() || !sameBytes(src, dest)) {
         dest.parent.createSync(recursive: true);
         src.copySync(destUri.toFilePath());
       }

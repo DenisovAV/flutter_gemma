@@ -49,6 +49,23 @@ pack() {
   local dirName="$1" libFile="$2"
   (cd "$(dirname "$libFile")" && tar -czf "$DIST_DIR/sqlite-vec-$dirName.tar.gz" "$(basename "$libFile")")
   echo "    → dist/sqlite-vec-$dirName.tar.gz"
+  install_prebuilt "$dirName" "$libFile"
+}
+
+# Put the artifact where hook/build.dart actually reads it.
+#
+# This script used to write only `dist/*.tar.gz`, which `.gitignore` calls
+# "uploaded nowhere now" — while the hook ships `prebuilt/<target>/`, updated by
+# an undocumented manual copy. So every guard in here, including the minos
+# normalization, protected a tarball nobody consumes while the shipped bytes
+# went unchecked. hook/build.dart's own instruction to "regenerate them all
+# with build_local.sh" was inaccurate for the same reason.
+install_prebuilt() {
+  local dirName="$1" libFile="$2"
+  local dest="$SCRIPT_DIR/prebuilt/$dirName"
+  mkdir -p "$dest"
+  cp "$libFile" "$dest/$(basename "$libFile")"
+  echo "    → prebuilt/$dirName/$(basename "$libFile")  (this is what ships)"
 }
 
 # Download + extract asg017's upstream loadable for one platform, rename the bare
@@ -62,45 +79,61 @@ repackage() {
   tar -xzf "$archive" -C "$ext"
   [ -f "$ext/$upstreamName" ] || { echo "ERROR: $upstreamName missing in upstream tarball" >&2; exit 1; }
   mv "$ext/$upstreamName" "$ext/$bundledName"
-  normalize_apple_minos "$dirName" "$ext/$bundledName"
+  normalize_if_apple "$dirName" "$ext/$bundledName"
   pack "$dirName" "$ext/$bundledName"
 }
 
-# Every bundled Apple dylib must declare minos 13.0.
+# Normalize an Apple slice's minimum-OS metadata to 13.0.
 #
 # Flutter hardcodes `MinimumOSVersion 13.0` into the Native-Assets framework
-# wrapper it generates (isolated/native_assets/ios/native_assets.dart,
-# `const targetIOSVersion = 13`), and App Store Connect compares each
-# framework's BINARY against ITS OWN wrapper plist — so a slice declaring
-# anything else is ITMS-90208 regardless of the app's own deployment target.
+# wrapper it generates, and App Store Connect compares each framework's BINARY
+# against ITS OWN wrapper plist — so any other value is ITMS-90208, whatever the
+# app's own deployment target is. This rewrites metadata only: the real floor is
+# enforced by the podspec, not by this number. See #245, #286.
 #
-# asg017's iOS device tarball ships `LC_VERSION_MIN_IPHONEOS 7.0` — the legacy
-# load command, which `vtool -show-build-version` cannot even read — and the
-# simulator slice ships 14.0. Neither matches 13.0. This repo has shipped that
-# rejection once already (#286), from the same omission in a different build
-# script: litert_lm/build_ios.sh does this step, this one did not.
+# `-output` is the SAME path as the input, deliberately. vtool re-signs its
+# output ad-hoc and derives the signature Identifier from the -output BASENAME,
+# so the `-output "$lib.new"` + `mv` shape bakes ".new" into the shipped
+# binary's identifier — which is what every simulator dylib in this repo carried
+# until it was noticed. Same path in and out, no temp name, no wrong identifier.
+#
+# Reads BOTH fields back afterwards. vtool accepts a wrong platform silently, so
+# a device slice stamped MACOS still reports minos 13.0 and passes a minos-only
+# check — then fails at dlopen with "built for a different platform", far from
+# here.
 normalize_apple_minos() {
-  local dirName="$1" lib="$2"
-  local platform
-  case "$dirName" in
-    ios_arm64)     platform=ios ;;
-    ios_sim_arm64) platform=iossim ;;
-    macos_arm64)   platform=macos ;;
-    *) return 0 ;;
+  local lib="$1" platform="$2" want
+  # Derived, never passed in: a caller that supplies both can get them out of
+  # step, and "expected" would then be whatever the mistake was.
+  case "$platform" in
+    ios)    want=IOS ;;
+    iossim) want=IOSSIMULATOR ;;
+    *) echo "ERROR: unsupported platform '$platform'" >&2; exit 1 ;;
   esac
-  [ "$platform" = "macos" ] && return 0  # macOS has no equivalent wrapper plist
-  vtool -set-build-version "$platform" 13.0 18.5 -replace \
-        -output "$lib.norm" "$lib"
-  mv "$lib.norm" "$lib"
-  # Prove it, rather than trusting the call: a wrong platform argument is
-  # accepted silently and leaves the old load command in place.
-  local got
-  got="$(vtool -show-build-version "$lib" | awk '/minos/ {print $2; exit}')"
-  [ "$got" = "13.0" ] || {
-    echo "ERROR: $dirName minos is '$got', expected 13.0" >&2
+  vtool -set-build-version "$platform" 13.0 18.5 -replace -output "$lib" "$lib"
+  local info; info="$(vtool -show-build-version "$lib")"
+  local got_plat got_min
+  got_plat="$(awk '/platform/ {print $2; exit}' <<<"$info")"
+  got_min="$(awk '/minos/ {print $2; exit}' <<<"$info")"
+  [ "$got_plat" = "$want" ] && [ "$got_min" = "13.0" ] || {
+    echo "ERROR: $(basename "$lib") is platform='$got_plat' minos='$got_min', want $want 13.0" >&2
     exit 1
   }
-  echo "    minos normalized to 13.0 ($platform)"
+  echo "    minos -> 13.0 ($want)"
+}
+
+# Which of this package's targets are Apple, and what platform each declares.
+normalize_if_apple() {
+  local dirName="$1" lib="$2"
+  case "$dirName" in
+    ios_arm64)     normalize_apple_minos "$lib" ios ;;
+    ios_sim_arm64) normalize_apple_minos "$lib" iossim ;;
+    # macOS is deliberately excluded. Flutter's macOS Native-Assets path never
+    # writes a MinimumOSVersion into the generated framework Info.plist, so
+    # there is no wrapper value for App Store Connect to diff against — the
+    # ITMS-90208 mechanism this guards does not exist there.
+    *) return 0 ;;
+  esac
 }
 
 # Rebuild android arm64 from the amalgamation with 16 KB LOAD-segment alignment.

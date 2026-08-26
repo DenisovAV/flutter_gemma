@@ -1,0 +1,56 @@
+Flutter crash report.
+Please report a bug at https://github.com/flutter/flutter/issues.
+
+## command
+
+flutter test
+
+## exception
+
+PathNotFoundException: PathNotFoundException: Directory listing failed, path = '/Users/sashadenisov/Work/flutter_gemma/packages/flutter_gemma_litertlm/native/litert_lm/prebuilt/macos_arm64/' (OS Error: No such file or directory, errno = 2)
+
+```
+```
+
+## flutter doctor
+
+```
+[✓] Flutter (Channel stable, 3.44.0, on macOS 26.5.1 25F80 darwin-arm64, locale en-US) [1,217ms]
+    • Flutter version 3.44.0 on channel stable at /Users/sashadenisov/fvm/versions/3.44.0
+    • Upstream repository https://github.com/flutter/flutter.git
+    • Framework revision 559ffa3f75 (3 months ago), 2026-05-15 14:13:13 -0700
+    • Engine revision 4c525dac5e
+    • Dart version 3.12.0
+    • DevTools version 2.57.0
+    • Feature flags: enable-web, enable-linux-desktop, enable-macos-desktop, enable-windows-desktop, enable-android, enable-ios, no-cli-animations, enable-native-assets, enable-swift-package-manager, omit-legacy-version-file, no-enable-lldb-debugging, enable-uiscene-migration
+
+[✓] Android toolchain - develop for Android devices (Android SDK version 36.1.0) [3.6s]
+    • Android SDK at /Users/sashadenisov/Library/Android/sdk
+    • Emulator version 36.2.12.0 (build_id 14214601) (CL:N/A)
+    • Platform android-36, build-tools 36.1.0
+    • Java binary at: /Applications/Android Studio.app/Contents/jbr/Contents/Home/bin/java
+      This is the JDK bundled with the latest Android Studio installation on this machine.
+      To manually set the JDK path, use: `flutter config --jdk-dir="path/to/jdk"`.
+    • Java version OpenJDK Runtime Environment (build 21.0.8+-14196175-b1038.72)
+    • All Android licenses accepted.
+
+[✓] Xcode - develop for iOS and macOS (Xcode 26.5) [2.1s]
+    • Xcode at /Applications/Xcode.app/Contents/Developer
+    • Build 17F42
+    • CocoaPods version 1.16.2
+
+[✓] Chrome - develop for the web [10ms]
+    • Chrome at /Applications/Google Chrome.app/Contents/MacOS/Google Chrome
+
+[✓] Connected device (4 available) [11.7s]
+    • ARGF20 (mobile)                 • BC9424086E2F362           • android-arm64  • Android 12 (API 32)
+    • sashamobile (wireless) (mobile) • 00008150-0014794E0290C01C • ios            • iOS 26.5.2 23F84
+    • macOS (desktop)                 • macos                     • darwin-arm64   • macOS 26.5.1 25F80 darwin-arm64
+    • Chrome (web)                    • chrome                    • web-javascript • Google Chrome 151.0.7922.174
+    ! Error: Browsing on the local area network for ВУФ. Ensure the device is unlocked and associated with the same local area network as this Mac. (code -27)
+
+[✓] Network resources [981ms]
+    • All expected network resources are available.
+
+• No issues found!
+```

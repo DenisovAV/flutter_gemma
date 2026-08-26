@@ -905,7 +905,9 @@ Future<void> _processBundle({
   final localDir = Directory.fromUri(
     input.packageRoot.resolve(_localPrebuiltPath(bundle, dirName)),
   );
-  if (localDir.uri != prebuiltDir) output.dependencies.add(localDir.uri);
+  if (localDir.uri != prebuiltDir) {
+    output.dependencies.add(_watchableAncestor(localDir).uri);
+  }
 }
 
 // ============================================================================
@@ -965,4 +967,26 @@ bool _sameBytes(File a, File b) {
     if (x[i] != y[i]) return false;
   }
   return true;
+}
+
+/// The nearest ancestor of [dir] that exists — or [dir] itself when it does.
+///
+/// `output.dependencies` has TWO readers with different tolerances.
+/// package:native_assets_builder hashes a missing directory to a sentinel and
+/// is perfectly happy. Flutter writes the same paths into a depfile and its
+/// tooling LISTS them, so naming a directory that is not there aborts the build
+/// with `PathNotFoundException: Directory listing failed` — measured, on a
+/// clean clone where the gitignored `prebuilt/` does not exist.
+///
+/// Walking up preserves what naming it was for: creating the missing level
+/// changes the child-name list of whichever ancestor we did name, so the hook
+/// re-runs and notices the local prebuilt appearing.
+Directory _watchableAncestor(Directory dir) {
+  var d = dir;
+  while (!d.existsSync()) {
+    final parent = d.parent;
+    if (parent.path == d.path) return d; // filesystem root
+    d = parent;
+  }
+  return d;
 }

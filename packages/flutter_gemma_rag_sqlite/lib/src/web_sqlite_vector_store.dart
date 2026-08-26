@@ -270,11 +270,59 @@ class WebSqliteVectorStore implements VectorStoreRepository {
         'content',
         'metadata',
       ];
-      final placeholders = List.filled(columns.length, '?').join(', ');
+      // `CAST(? AS REAL)` for every declared NUMBER column — a web-only
+      // necessity, not belt-and-braces.
+      //
+      // The shared codec already does `value.toDouble()` for a number field
+      // (FilterToVec0.coerceForColumn), which is what makes the NATIVE arm bind
+      // REAL. Under dart2js that call cannot work: it has one numeric type, so
+      // `10.0` and `10` are the same JS number and `10.0 is int` is TRUE
+      // (`_isInt` is `Math.floor(x) === x`). package:sqlite3 does no coercion of
+      // its own — its bind switch simply tests `is int` before `is double`, and
+      // dart2js makes the first branch win. vec0 then refuses the row:
+      //   Expected float for FLOAT metadata column price, received INTEGER
+      // so an ordinary `{"price": 10}` document was insertable natively and not
+      // in a browser. SQL is the one place the distinction survives, so SQL is
+      // where the type gets declared.
+      //
+      // dart2wasm does NOT have this problem — it keeps BoxedInt/BoxedDouble
+      // apart, so the CAST is a harmless no-op there. `flutter build web --wasm`
+      // still falls back to the dart2js output on a browser without WasmGC, so
+      // the hazard is browser-conditional and the CAST has to stay.
+      final numberColumns = {
+        for (final f in _filterSchema.fields)
+          if (f.type == FilterFieldType.number) f.name,
+      };
+      // A non-finite declared value is the absent-field sentinel
+      // (FilterToVec0.absentNumber). It goes in as a literal for the same
+      // reason the WHERE clause does it: binding -Infinity on the web throws
+      // "cannot be converted to a BigInt" before SQL ever sees it.
+      final declaredSql = <String>[];
+      final declaredBinds = <Object?>[];
+      for (final entry in declared.entries) {
+        final v = entry.value;
+        if (numberColumns.contains(entry.key)) {
+          if (v is num && !v.isFinite) {
+            declaredSql.add(FilterToVec0.absentNumberSql);
+            continue;
+          }
+          declaredSql.add('CAST(? AS REAL)');
+        } else {
+          declaredSql.add('?');
+        }
+        declaredBinds.add(v);
+      }
+      final placeholders = [
+        '?', // id
+        '?', // embedding
+        ...declaredSql,
+        '?', // content
+        '?', // metadata
+      ].join(', ');
       final binds = <Object?>[
         id,
         _embeddingToBlob(embedding),
-        ...declared.values,
+        ...declaredBinds,
         content,
         metadata,
       ];

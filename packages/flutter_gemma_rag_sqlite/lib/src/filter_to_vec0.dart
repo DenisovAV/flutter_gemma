@@ -344,9 +344,22 @@ class FilterToVec0 {
           // same post-filter the two-sided negation already accepts. Measured:
           // over d1{2020} d2{2021} d3{absent} d4{2019}, `col > 2020` returned
           // [d2] and NOT BETWEEN returned [d2, d3].
-          binds.add(-double.maxFinite);
+          // The lower guard is a LITERAL, for the same reason absentNumberSql
+          // is — and this one is not theoretical. dart2js dispatches
+          // package:sqlite3's bind on `is int`, which it implements as
+          // `Math.floor(x) === x`; that is TRUE of -double.maxFinite, so the
+          // value took the int path, went through `BigInt(-1.797e308)`, and
+          // the JS->wasm i64 conversion wrapped it to exactly 0. Measured:
+          //   BigInt.asIntN(64, BigInt(-Number.MAX_VALUE)) === 0n
+          // so the web emitted `NOT BETWEEN 0 AND lte` and every document with
+          // a NEGATIVE value came back from a mustNot that should have
+          // excluded it. Native binds the same double correctly, which is why
+          // this survived until the arms were compared on rows.
+          //
+          // As a literal it also keeps the pushdown: measured on vec0 0.1.9,
+          // bound and literal forms give the same plan and the same rows.
           binds.add(lte);
-          return '$column NOT BETWEEN ? AND ?';
+          return '$column NOT BETWEEN $lowestFiniteSql AND ?';
         }
         // Unreachable: an unbounded range in mustNot matches every document,
         // so excluding it leaves nothing — translate() answers that before
@@ -430,8 +443,17 @@ class FilterToVec0 {
           // conjunct — and note both push (plan `…&Bc_&Bb_`), so this costs no
           // pushdown, unlike the OR it replaces.
           binds.add(lte);
-          binds.add(absentNumber);
-          return '($column <= ? AND $column > ?)';
+          // The sentinel goes in as a LITERAL, not a bind. It is a constant, so
+          // there is nothing to inject — and under dart2js it cannot be bound at
+          // all: `-Infinity is int` is true there (`_isInt` is
+          // `Math.floor(x) === x`), so package:sqlite3's bind switch takes the
+          // int branch and the BigInt conversion throws. The message differs per
+          // engine (V8: "cannot be converted to a BigInt"; JavaScriptCore: "Not
+          // an integer"), so do not grep for it. dart2wasm keeps the two numeric
+          // types apart and would have bound it fine — which is why this is
+          // browser-conditional, not web-wide. Native binds it fine too, and that
+          // is exactly why it stayed invisible until the arms were compared.
+          return '($column <= ? AND $column > $absentNumberSql)';
         }
         return null; // no bound → no constraint, skip
 
@@ -709,6 +731,22 @@ class FilterToVec0 {
   /// mustNot back into the post-filter this file exists to avoid.
   static const String absentText = '\u0000__absent__';
   static const double absentNumber = double.negativeInfinity;
+
+  /// [absentNumber] as a SQL literal, for the places it must not be BOUND.
+  ///
+  /// SQLite parses an out-of-range exponent as the corresponding infinity, so
+  /// this is -Infinity as a REAL — the same value the native arm binds,
+  /// expressed where the web's numeric model cannot lose it.
+  static const String absentNumberSql = '-9e999';
+
+  /// `-double.maxFinite` as a SQL literal — the lowest FINITE value, used as the
+  /// lower guard of a `NOT BETWEEN`.
+  ///
+  /// Distinct from [absentNumberSql] on purpose: the absent sentinel is
+  /// -Infinity and sits BELOW this, which is what makes `NOT BETWEEN
+  /// lowestFinite AND x` return the documents that have no value at all — the
+  /// documented mustNot behaviour.
+  static const String lowestFiniteSql = '-1.7976931348623157e308';
   static const int absentBool = -9223372036854775808;
 
   /// The sentinel for [type].

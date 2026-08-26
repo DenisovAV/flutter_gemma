@@ -127,16 +127,6 @@ void main(List<String> args) async {
     // the prebuilt dir. Mirrors the litert/qdrant hooks.
     // Cheap enough at this size (the loadables are ~150 KB) and immune to the
     // size collision above.
-    bool sameBytes(File a, File b) {
-      if (a.lengthSync() != b.lengthSync()) return false;
-      final x = a.readAsBytesSync();
-      final y = b.readAsBytesSync();
-      for (var i = 0; i < x.length; i++) {
-        if (x[i] != y[i]) return false;
-      }
-      return true;
-    }
-
     Uri stage(Uri uri) {
       if (os != OS.macOS && os != OS.iOS) return uri;
       final src = File.fromUri(uri);
@@ -158,10 +148,11 @@ void main(List<String> args) async {
       // and hit the exact rejection this release fixes, while the hook
       // reported success and the source tree looked correct.
       //
-      // This is the one hook in the repo whose source is a committed file
-      // edited in place; the others read from a version-keyed download cache,
-      // where a same-size in-place edit is not the update mechanism.
-      if (!dest.existsSync() || !sameBytes(src, dest)) {
+      // `flutter_gemma_litertlm` and `flutter_gemma_onnx` carry the identical
+      // guard for the same reason: on a maintainer's machine their source is a
+      // LOCAL `prebuilt/` directory that `build_*.sh` rewrites in place, not
+      // the version-keyed download cache an end user fetches.
+      if (!dest.existsSync() || !_sameBytes(src, dest)) {
         dest.parent.createSync(recursive: true);
         src.copySync(destUri.toFilePath());
       }
@@ -178,4 +169,25 @@ void main(List<String> args) async {
     );
     output.dependencies.add(srcUri);
   });
+}
+
+/// Byte-for-byte comparison of two existing files.
+///
+/// `stage()` compares CONTENT rather than `lengthSync()`. The staged directory
+/// is named after the build CONFIG alone — no package version, no package root
+/// — so the same path is reused across an upgrade and across a local native
+/// rebuild. A size-only guard therefore keeps the previous binary whenever the
+/// replacement happens to be the same size, which is exactly what re-stamping
+/// a Mach-O load command produces.
+///
+/// Byte-identical in `flutter_gemma_litertlm` and `flutter_gemma_onnx`; the
+/// packages publish independently and cannot share it.
+bool _sameBytes(File a, File b) {
+  if (a.lengthSync() != b.lengthSync()) return false;
+  final x = a.readAsBytesSync();
+  final y = b.readAsBytesSync();
+  for (var i = 0; i < x.length; i++) {
+    if (x[i] != y[i]) return false;
+  }
+  return true;
 }

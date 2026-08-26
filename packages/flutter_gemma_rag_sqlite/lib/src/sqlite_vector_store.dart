@@ -99,10 +99,13 @@ class SqliteVectorStore implements VectorStoreRepository {
   @visibleForTesting
   static String? debugOverrideDylibPath;
 
-  /// Path to the `vec0` loadable extension. Host tests set `$VEC0_DYLIB`; in a
-  /// real app the per-platform `vec0.<ext>` is bundled by `hook/build.dart`
-  /// (Native Assets) and resolved by its bundled filename — the same mechanism
-  /// qdrant-edge uses.
+  /// Path to the `vec0` loadable extension.
+  ///
+  /// Host tests go through [debugOverrideDylibPath], set by
+  /// `test/vec0_locator.dart`; `$VEC0_DYLIB` remains for the opt-in benchmark
+  /// and for pointing at a hand-built library. In a real app the per-platform
+  /// `vec0.<ext>` is bundled by `hook/build.dart` (Native Assets) and resolved
+  /// by its bundled filename.
   static String _resolveVec0Path() {
     final testOverride = debugOverrideDylibPath;
     if (testOverride != null && testOverride.isNotEmpty) return testOverride;
@@ -158,7 +161,7 @@ class SqliteVectorStore implements VectorStoreRepository {
       //
       // `Database.close()` throws — sqlite3 raises SqliteException on a
       // non-OK return from sqlite3_close_v2. With the close first, that throw
-      // skipped the three assignments below AND replaced `e`, the error that
+      // skipped the three assignments now above it AND replaced `e`, the error that
       // actually explains the failure, with a close error. On a re-initialize
       // after a prior success it also left `_isInitialized` at its old `true`,
       // resurrecting the exact bug this change exists to fix.
@@ -452,15 +455,25 @@ class SqliteVectorStore implements VectorStoreRepository {
 
   @override
   Future<void> close() async {
-    // Deliberately NOT gated on `_isInitialized`. A store whose initialize()
-    // failed is exactly the one holding a handle nobody else will close, and
-    // gating on the flag made close() a no-op for it. Idempotent either way:
-    // `_db` is null once closed.
+    // Deliberately NOT gated on `_isInitialized` alone. A store whose
+    // initialize() failed is the one holding a handle nobody else will close,
+    // and gating on the flag made close() a no-op for it. The catch in
+    // initialize() now clears `_db` itself, so this is defence in depth rather
+    // than the only thing standing between that store and a leak.
     if (_db == null && !_isInitialized) return;
-    _db?.close();
-    _db = null;
-    _isInitialized = false;
-    _detectedDimension = null;
+    // `finally`, for the same reason the catch in initialize() settles state
+    // first: sqlite3 marks the database closed and THEN throws on a non-OK
+    // sqlite3_close_v2, so a close-with-assignments-after left `_isInitialized`
+    // true and `_db` non-null for a database that is already gone —
+    // `isInitialized` reporting ready for a closed store. That is the same
+    // defect this class was just fixed for, nine lines further up.
+    try {
+      _db?.close();
+    } finally {
+      _db = null;
+      _isInitialized = false;
+      _detectedDimension = null;
+    }
   }
 
   // === BLOB Encoding (float32 little-endian, same as Kotlin/Swift) ===

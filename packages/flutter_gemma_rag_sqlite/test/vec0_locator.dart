@@ -9,9 +9,16 @@
 //
 // The artifact is fetched by hook/build.dart into the shared download cache
 // (`<cache>/sqlite_vec/<plat>/`), so that is the first place to look; a local
-// `native/sqlite_vec/prebuilt/<plat>/` from build_local.sh comes next, matching
-// the order the hook itself resolves in. $VEC0_DYLIB still wins, for pointing
-// at a different build.
+// `native/sqlite_vec/prebuilt/<plat>/` from build_local.sh comes next.
+// $VEC0_DYLIB still wins, for pointing at a different build.
+//
+// NOTE this is the opposite of the hook's order, which prefers the local
+// prebuilt (see `_resolveLibDir`). Core's shared helper puts the cache first
+// deliberately — `host_native_library.dart` records that a stale local copy
+// silently shadowing a refreshed download cost an incident. So on a machine
+// holding both, `flutter test` exercises the checksum-verified release bytes
+// while `flutter build` registers the local ones. The hook now says so on
+// stderr when it takes the local path; do not read the two orders as agreeing.
 //
 // Naming the cache is not optional decoration: `flutter test` gets no Native
 // Assets bundling, so this list IS how the suites find the library. When the

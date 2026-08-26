@@ -14,7 +14,7 @@
 #
 # Inputs : SQLITE_VEC_VERSION env (default "0.1.9"); ANDROID_NDK_HOME for android.
 # Outputs: dist/sqlite-vec-<platform>.tar.gz  (each a flat tar of one vec0 lib)
-#          dist/checksums_sqlite_vec_local.txt
+#          dist/checksums_sqlite_vec.txt
 #
 # Usage:
 #   ./native/sqlite_vec/build_local.sh            # all available targets
@@ -23,13 +23,14 @@
 # RELEASING (hook/build.dart fetches from a tag; it does NOT read dist/):
 #   1. Build every target. A partial run publishes a partial release, and the
 #      missing platform fails at the consumer's `pub get`, not here.
-#   2. Set `_bundleVersion` in hook/build.dart to SQLITE_VEC_VERSION. If the
-#      upstream has NOT moved but the bytes have (a 16 KB-alignment rebuild, a
-#      vtool re-stamp, a new sqlite amalgamation), append a letter instead —
-#      `0.1.9-a`, `-b` — the same convention as native-v0.12.0-a/-b. Never
-#      reuse a version for different bytes: the cache path is keyed on it, so
-#      the previous release's files stay put.
-#   3. Copy the seven sums from dist/checksums_sqlite_vec_local.txt into the
+#      2. Set `_bundleVersion` in hook/build.dart to SQLITE_VEC_VERSION. Our
+#      android rebuild and the Apple re-stamps do NOT change that number —
+#      it names the upstream these bytes were built from. Append a letter
+#      (`0.1.9-a`, like native-v0.12.0-a) only when RE-releasing: the bytes
+#      for a version already published have changed, and that tag cannot be
+#      reused. The marker file is keyed on this string, so a consumer who
+#      already has the old bytes keeps them until it moves.
+#   3. Copy the seven sums from dist/checksums_sqlite_vec.txt into the
 #      `_checksums` map in hook/build.dart.
 #   4. Create the tag and upload all seven archives PLUS a
 #      checksums_sqlite_vec.txt carrying the same sums:
@@ -71,20 +72,19 @@ pack() {
   install_prebuilt "$dirName" "$libFile"
 }
 
-# Put the artifact where hook/build.dart actually reads it.
+# Put the artifact where the hook's LOCAL path reads it.
 #
-# This script used to write only `dist/*.tar.gz`, which `.gitignore` calls
-# "uploaded nowhere now" — while the hook ships `prebuilt/<target>/`, updated by
-# an undocumented manual copy. So every guard in here, including the minos
-# normalization, protected a tarball nobody consumes while the shipped bytes
-# went unchecked. hook/build.dart's own instruction to "regenerate them all
-# with build_local.sh" was inaccurate for the same reason.
+# What ships is dist/*.tar.gz, uploaded to a native-sqlite-vec-v* release; the
+# hook fetches from there. prebuilt/ is the maintainer override, checked ahead
+# of the download cache so this script's output can be built against before it
+# is released. Both come from the same normalized bytes: pack() and
+# install_prebuilt() are fed the same file, after normalize_if_apple.
 install_prebuilt() {
   local dirName="$1" libFile="$2"
   local dest="$SCRIPT_DIR/prebuilt/$dirName"
   mkdir -p "$dest"
   cp "$libFile" "$dest/$(basename "$libFile")"
-  echo "    → prebuilt/$dirName/$(basename "$libFile")  (this is what ships)"
+  echo "    → prebuilt/$dirName/$(basename "$libFile")  (local override; dist/*.tar.gz is what ships)"
 }
 
 # Download + extract asg017's upstream loadable for one platform, rename the bare
@@ -114,7 +114,9 @@ repackage() {
 # output ad-hoc and derives the signature Identifier from the -output BASENAME,
 # so the `-output "$lib.new"` + `mv` shape bakes ".new" into the shipped
 # binary's identifier — which is what every simulator dylib in this repo carried
-# until it was noticed. Same path in and out, no temp name, no wrong identifier.
+# — the identifier every simulator dylib in native-v0.16.0 still carries, since
+# a released tarball cannot be re-uploaded; corrected from the next native
+# release onward. Same path in and out, no temp name, no wrong identifier.
 #
 # Reads BOTH fields back afterwards. vtool accepts a wrong platform silently, so
 # a device slice stamped MACOS still reports minos 13.0 and passes a minos-only
@@ -244,6 +246,9 @@ build_target() {
 build_target "${1:-all}"
 
 # Checksums for the GitHub Release page + to paste into hook/build.dart.
-(cd "$DIST_DIR" && shasum -a 256 sqlite-vec-*.tar.gz | tee checksums_sqlite_vec_local.txt)
+# Name it exactly what step 4 uploads and what hook/build.dart's doc refers to.
+# It used to be written as ...._local.txt, so the documented `gh release create`
+# named a file nothing produced and failed as written.
+(cd "$DIST_DIR" && shasum -a 256 sqlite-vec-*.tar.gz | tee checksums_sqlite_vec.txt)
 echo "==> done. tarballs in $DIST_DIR"
 rm -rf "$WORK"

@@ -35,8 +35,8 @@ WANT_COVERAGE=0
 # SqliteVectorStore resolves its vec0 loadable through Native Assets — on macOS
 # that is `vec0.framework/vec0`, which exists only inside a built app, never
 # under `flutter test` on the host. The store already honours $VEC0_DYLIB as an
-# override (sqlite_vector_store.dart:77) and this repo ships the loadable for
-# every platform, so point at it.
+# override (see `_resolveVec0Path`) and a maintainer usually has a local
+# prebuilt, so point at it when one is there.
 #
 # The SUITES no longer need this: they call useHostNativeLibraries() (see
 # rag_sqlite/test/vec0_locator.dart), which hands the store its path through the
@@ -67,7 +67,10 @@ if [[ -z "${VEC0_DYLIB:-}" ]]; then
     export VEC0_DYLIB="$PWD/$_vec0_rel"   # absolute: suites run from their own dir
     echo "==> VEC0_DYLIB=$VEC0_DYLIB"
   else
-    echo "==> no prebuilt vec0 for $(uname -s); rag_sqlite's store suites will skip"
+    # NOT a skip announcement: since the loadables moved to a release,
+    # useHostNativeLibraries() finds them in the download cache the hook
+    # populates, so the suites run without this export.
+    echo "==> no LOCAL prebuilt vec0 for $(uname -s); the suites will use the download cache"
   fi
 fi
 

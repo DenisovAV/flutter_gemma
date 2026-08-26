@@ -85,6 +85,12 @@ class WebSqliteVectorStore implements VectorStoreRepository {
       _sqlite3 = await WasmSqlite3.loadFromUrl(Uri.parse(_wasmUrl));
       await _registerPersistentVfs(_sqlite3!, databasePath);
 
+      // Close the previous handle before overwriting the field, exactly as the
+      // native arm does. Without this a re-initialize dropped a live
+      // connection on the floor — and because the IndexedDB VFS name is
+      // derived from `databasePath`, re-initializing onto the SAME path left
+      // two live connections against one persistent store.
+      _db?.close();
       _db = _sqlite3!.open(_dbFile);
 
       // Recover the dimension from an existing vec0 table (page reload).
@@ -106,7 +112,7 @@ class WebSqliteVectorStore implements VectorStoreRepository {
         failed?.close();
       } catch (closeError) {
         gemmaLog(
-          '[WebVectorStore] dispose() during a failed initialize: $closeError',
+          '[WebVectorStore] close() during a failed initialize: $closeError',
         );
       }
       throw VectorStoreException('Failed to initialize SQLite WASM (vec0)', e);
@@ -166,21 +172,32 @@ class WebSqliteVectorStore implements VectorStoreRepository {
 
   /// Reads the embedding dimension back from an existing vec0 table, if any.
   void _detectExistingTable() {
-    try {
-      final exists = _db!.select(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name = ?",
-        [_tableName],
-      );
-      if (exists.isEmpty) return;
-      final row = _db!.select('SELECT embedding FROM $_tableName LIMIT 1');
-      if (row.isNotEmpty) {
-        final blob = row.first['embedding'] as Uint8List;
-        _detectedDimension = blob.length ~/ 4; // float32 = 4 bytes
-      }
-    } catch (e) {
-      // A pre-vec0 (plain-BLOB) table or a corrupt slot — start fresh.
-      gemmaLog('[WebVectorStore] No reusable vec0 table found: $e');
-    }
+    // Reset first, and do NOT catch — both exactly as the native arm.
+    //
+    // Both early returns below mean "this database tells us nothing", and
+    // keeping the previous value there let a re-initialize onto a DIFFERENT,
+    // empty database inherit the old dimension.
+    //
+    // The catch that used to sit here logged and continued, so `initialize()`
+    // went on to set `_isInitialized = true` with no dimension: `searchSimilar`
+    // then returned `[]`, `getStats` reported `documentCount: 0`, and
+    // `removeDocument` reported success while deleting nothing — over a corpus
+    // that was there and merely unreadable. Its comment claimed it would
+    // "start fresh"; it dropped nothing, so the next `addDocument` ran
+    // `CREATE VIRTUAL TABLE IF NOT EXISTS` against the surviving table and did
+    // nothing either. An app deploying the stock `sqlite3.wasm` instead of the
+    // vec0-linked one this package ships hits it on the first query, and the
+    // only trace was a `gemmaLog` that does not exist in a release build.
+    _detectedDimension = null;
+    final exists = _db!.select(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name = ?",
+      [_tableName],
+    );
+    if (exists.isEmpty) return;
+    final row = _db!.select('SELECT embedding FROM $_tableName LIMIT 1');
+    if (row.isEmpty) return;
+    final blob = row.first['embedding'] as Uint8List;
+    _detectedDimension = blob.length ~/ 4; // float32 = 4 bytes
   }
 
   /// Builds the `vec0` virtual table for dimension [dimension] with one typed,
@@ -422,7 +439,12 @@ class WebSqliteVectorStore implements VectorStoreRepository {
 
   @override
   Future<void> close() async {
-    if (!_isInitialized) return; // Idempotent.
+    // Deliberately NOT gated on `_isInitialized` alone — same rule as the
+    // native arm. A store whose initialize() failed is exactly the one still
+    // holding resources nobody else will release, and the flag is false for it.
+    // `_sqlite3` is named here because the failed-initialize path clears `_db`
+    // but not the WASM instance or the VFS it registered.
+    if (_db == null && _sqlite3 == null && !_isInitialized) return;
     try {
       _db?.close();
     } finally {

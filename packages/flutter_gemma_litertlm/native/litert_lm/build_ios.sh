@@ -187,7 +187,9 @@ echo "=== Patch iOS companion dylibs minos → 13.0 ==="
 # output ad-hoc and derives the signature Identifier from the -output BASENAME,
 # so the `-output "$lib.new"` + `mv` shape bakes ".new" into the shipped
 # binary's identifier — which is what every simulator dylib in this repo carried
-# until it was noticed. Same path in and out, no temp name, no wrong identifier.
+# — the identifier every simulator dylib in native-v0.16.0 still carries, since
+# a released tarball cannot be re-uploaded; corrected from the next native
+# release onward. Same path in and out, no temp name, no wrong identifier.
 #
 # Reads BOTH fields back afterwards. vtool accepts a wrong platform silently, so
 # a device slice stamped MACOS still reports minos 13.0 and passes a minos-only

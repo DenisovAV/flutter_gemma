@@ -9,8 +9,8 @@
 // under `native/sqlite_vec/prebuilt/` and read locally, on the reasoning that
 // ~1 MB was too small to be worth a download. That was wrong twice over:
 //
-//   * every consumer received all seven targets — 1.2 MB of the 3.4 MB
-//     unpacked package — to use exactly one of them;
+//   * every consumer received all seven targets — 1.2 MB of the 2.6 MB
+//     published 1.2.0 unpacks to — to use exactly one of them;
 //   * the local path carries no version, so it is the same path across an
 //     upgrade. The build cache hashes a DIRECTORY as its sorted child NAMES
 //     (`_hashDirectory` in package:native_assets_builder — no content, no
@@ -21,9 +21,10 @@
 //     slice went 158440 -> 158440 and the corrected binary never reached an
 //     incremental build.
 //
-// A version-keyed cache path removes that class of bug structurally rather
-// than by guarding against it: a new bundle version is a new directory, so
-// there is nothing stale to mistake for current.
+// A versioned SOURCE removes that class of bug rather than guarding against
+// it: the pin moves, the marker disagrees, and the cache is dropped. Note the
+// cache PATH is deliberately not version-keyed — see [_cacheRoot] for why the
+// version lives in a marker file instead.
 //
 // Local prebuilts still win when present (`native/sqlite_vec/prebuilt/<target>/`)
 // — that is the maintainer path, so `build_local.sh` output can be tested
@@ -32,10 +33,12 @@
 //
 // The android `.so` is OUR rebuild from the amalgamation with 16 KB ELF
 // LOAD-segment alignment (`-Wl,-z,max-page-size=16384`) for Android 15 / Play
-// targetSdk 35+ (#319); the rest are asg017 upstream loadables. Regenerate
+// targetSdk 35+ (#319). The rest are asg017 upstream loadables, with the two
+// Apple slices re-stamped to minos 13.0 (see build_local.sh). Regenerate
 // them all with `native/sqlite_vec/build_local.sh`, then follow the release
 // steps in that script's header.
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:code_assets/code_assets.dart';
 import 'package:crypto/crypto.dart';
@@ -54,12 +57,15 @@ const _assetName = 'src/native/vec0';
 /// case the number alone cannot express: a REBUILD of an unchanged upstream
 /// takes a letter suffix — `native-v0.12.0-a`, `-b`, `native-v0.13.1-a`.
 ///
-/// Use that suffix whenever the shipped bytes change without the upstream
-/// moving: the 16 KB-alignment android rebuild, an Apple `vtool` re-stamp, a
-/// different sqlite amalgamation. What must never happen is reusing a version
-/// for different bytes — the cache path is keyed on this string, so the
-/// previous release's files simply stay, and the build links against libraries
-/// it was never pinned to.
+/// The suffix is for RE-releasing: the bytes for a version already published
+/// have changed and that tag cannot be reused. It is not a marker for "we
+/// patched upstream" — this very bundle carries the 16 KB-alignment android
+/// rebuild and two Apple `vtool` re-stamps and is still plainly `0.1.9`,
+/// because `0.1.9` names the upstream these bytes were built FROM.
+///
+/// What must never happen is publishing different bytes under a version that
+/// already shipped. The marker file (not the cache path) is keyed on this
+/// string, so a consumer who already has the old bytes keeps them.
 const _bundleVersion = '0.1.9';
 
 const _releaseTag = 'native-sqlite-vec-v$_bundleVersion';
@@ -173,7 +179,10 @@ File _markerFile() =>
 /// Without this the cache path — which carries no version — would keep serving
 /// the previous release's files forever: the archive is only downloaded when
 /// the library is absent, so a version bump alone would never be noticed. Same
-/// mechanism as `_invalidateBundleCacheIfStale` in the litertlm hook.
+/// Same idea as `_invalidateBundleCacheIfStale` in the litertlm hook, with a
+/// simpler marker: that one carries JSON `{version, owner}` because three
+/// packages share its bundle, and it treats a plain-text marker as LEGACY.
+/// Nothing shares this one.
 void _invalidateCacheIfStale() {
   final marker = _markerFile();
   final cached = marker.existsSync() ? marker.readAsStringSync().trim() : null;
@@ -182,7 +191,20 @@ void _invalidateCacheIfStale() {
   final root = _cacheRoot();
   if (root.existsSync()) {
     for (final entry in root.listSync()) {
-      if (entry is Directory) entry.deleteSync(recursive: true);
+      // Only OUR per-platform directories, matched by name — litertlm filters
+      // the same way. A bare "every subdirectory" also swept `.tmp-<target>-
+      // <pid>`, which is a CONCURRENT invocation's staging directory: hooks run
+      // per target, so an iOS-device and iOS-simulator build sharing one $HOME
+      // could have one wipe the other's half-extracted archive mid-rename. The
+      // victim then failed with "archive extracted but libvec0 is not in it",
+      // blaming the release for a local race.
+      if (entry is! Directory) continue;
+      if (!_targetDirName.hasMatch(
+        entry.uri.pathSegments.where((p) => p.isNotEmpty).last,
+      )) {
+        continue;
+      }
+      entry.deleteSync(recursive: true);
     }
     if (cached != null) {
       stderr.writeln(
@@ -194,17 +216,32 @@ void _invalidateCacheIfStale() {
   if (marker.existsSync()) marker.deleteSync();
 }
 
+/// The per-platform subdirectory names this hook owns inside [_cacheRoot].
+final _targetDirName = RegExp(r'^(android|ios|linux|macos|windows)_');
+
 bool _hasLib(Directory dir, OS os) => File(
   '${dir.path}${Platform.pathSeparator}${_bundledFileName(os)}',
 ).existsSync();
 
 /// Local prebuilt first (the maintainer path — `build_local.sh` output is
 /// testable before it is released), then the download cache.
+Directory _localPrebuiltDir(String dirName, Uri packageRoot) =>
+    Directory.fromUri(
+      packageRoot.resolve('native/sqlite_vec/prebuilt/$dirName/'),
+    );
+
 Directory? _resolveLibDir(String dirName, Uri packageRoot, OS os) {
-  final localDir = Directory.fromUri(
-    packageRoot.resolve('native/sqlite_vec/prebuilt/$dirName/'),
-  );
-  if (_hasLib(localDir, os)) return localDir;
+  final localDir = _localPrebuiltDir(dirName, packageRoot);
+  if (_hasLib(localDir, os)) {
+    // Say so. The download path announces itself twice; this one used to be
+    // silent, so a build log could not tell you which bytes were registered —
+    // and a leftover prebuilt/ overrides the pinned release indefinitely.
+    stderr.writeln(
+      'flutter_gemma_rag_sqlite: using LOCAL prebuilt for $dirName '
+      '(${localDir.path}) — the $_releaseTag pin is bypassed',
+    );
+    return localDir;
+  }
 
   final cacheDir = Directory('${_cacheRoot().path}/$dirName');
   if (_hasLib(cacheDir, os)) return cacheDir;
@@ -315,7 +352,8 @@ Future<Directory?> _downloadAndExtract(String dirName, OS os) async {
     }
 
     archiveFile.deleteSync();
-    _markerFile().writeAsStringSync(_bundleVersion);
+    // The marker is written by the caller, once a target has resolved by
+    // EITHER path — see the note there.
     stderr.writeln(
       'flutter_gemma_rag_sqlite: sqlite-vec $dirName ready (checksum verified)',
     );
@@ -327,6 +365,75 @@ Future<Directory?> _downloadAndExtract(String dirName, OS os) async {
       'flutter_gemma_rag_sqlite: could not prepare sqlite-vec for $dirName: $e',
     );
   }
+}
+
+// ============================================================================
+// Apple minimum-OS gate
+// ============================================================================
+
+/// Throws unless [lib] is an iOS Mach-O declaring minos 13.0.
+///
+/// Flutter hardcodes `MinimumOSVersion 13.0` into the Native-Assets framework
+/// wrapper it generates for iOS (`targetIOSVersion` in flutter_tools'
+/// `ios/native_assets.dart` — verified against Flutter 3.44.0; it has moved
+/// 11 -> 12 -> 13 historically). App Store Connect compares each framework's
+/// BINARY against ITS OWN wrapper plist, so any other value is ITMS-90208
+/// whatever the app's deployment target is. macOS is exempt: its Native-Assets
+/// wrapper never gets the key at all.
+///
+/// This runs HERE, on the bytes about to be registered, rather than only in a
+/// host test. The previous guard read a directory the release is packed from,
+/// which meant it ran on a maintainer's machine or not at all — the same shape
+/// as the bug it was written for, where normalization protected a tarball
+/// nobody consumes while the shipped bytes went unchecked. Running it in the
+/// hook makes CI's iOS build the enforcement point.
+void _assertIosMinos(File lib, IOSSdk? sdk) {
+  const lcVersionMinIphoneos = 0x25;
+  const lcBuildVersion = 0x32;
+  final wantPlatform = sdk == IOSSdk.iPhoneSimulator
+      ? 7
+      : 2; // IOSSIMULATOR/IOS
+
+  final b = ByteData.sublistView(lib.readAsBytesSync());
+  if (b.lengthInBytes < 32) {
+    throw StateError('flutter_gemma_rag_sqlite: ${lib.path} is not a Mach-O.');
+  }
+  final ncmds = b.getUint32(16, Endian.little);
+  var off = 32;
+  for (var i = 0; i < ncmds; i++) {
+    if (off + 8 > b.lengthInBytes) break;
+    final cmd = b.getUint32(off, Endian.little);
+    final size = b.getUint32(off + 4, Endian.little);
+    if (size == 0) break;
+    if (cmd == lcBuildVersion && off + 16 <= b.lengthInBytes) {
+      final platform = b.getUint32(off + 8, Endian.little);
+      final v = b.getUint32(off + 12, Endian.little);
+      final minos = '${v >> 16}.${(v >> 8) & 0xff}';
+      if (platform != wantPlatform || minos != '13.0') {
+        throw StateError(
+          'flutter_gemma_rag_sqlite: ${lib.path} declares platform $platform '
+          'minos $minos; expected platform $wantPlatform minos 13.0. An iOS '
+          'slice with any other value is App Store rejection ITMS-90208. '
+          'Re-run native/sqlite_vec/build_local.sh, which normalizes it, and '
+          're-release under a new tag.',
+        );
+      }
+      return;
+    }
+    if (cmd == lcVersionMinIphoneos) {
+      throw StateError(
+        'flutter_gemma_rag_sqlite: ${lib.path} carries the legacy '
+        'LC_VERSION_MIN_IPHONEOS instead of LC_BUILD_VERSION. That is what '
+        "asg017's upstream tarball ships; build_local.sh re-stamps it. This "
+        'binary was not normalized.',
+      );
+    }
+    off += size;
+  }
+  throw StateError(
+    'flutter_gemma_rag_sqlite: ${lib.path} has no version load command, so its '
+    'minimum OS cannot be checked. Refusing to bundle it.',
+  );
 }
 
 // ============================================================================
@@ -363,7 +470,18 @@ void main(List<String> args) async {
     libDir ??= await _downloadAndExtract(dirName, os);
     if (libDir == null) return; // nothing registered for this target
 
+    // Record the pin whenever a target resolves, not only when it was
+    // downloaded. With the write confined to the download path, a local
+    // prebuilt left the marker absent, so the NEXT target read `null !=
+    // _bundleVersion` and wiped every cached directory — silently, since the
+    // "dropped cached X" line is suppressed when there was no previous value.
+    // One local prebuilt meant re-downloading every other target on every
+    // build.
+    _markerFile().parent.createSync(recursive: true);
+    _markerFile().writeAsStringSync(_bundleVersion);
+
     final srcUri = libDir.uri.resolve(_bundledFileName(os));
+    if (os == OS.iOS) _assertIosMinos(File.fromUri(srcUri), iOSSdk);
 
     // APPLE-ONLY staging (Xcode "Cycle inside Flutter Assemble"): copy the
     // dylib into the hook's outputDirectory so the registered output asset
@@ -395,8 +513,18 @@ void main(List<String> args) async {
       ),
     );
     // The FILE, not its directory: a directory dependency is hashed as the
-    // sorted list of child names only, so it cannot see a library change.
+    // sorted list of child NAMES only, so it cannot see a library change.
     output.dependencies.add(srcUri);
+    // …and the branch that did NOT win, because otherwise this only notices a
+    // rewrite of the file already in use — not a change in WHICH file wins.
+    // If the cache resolved and the maintainer then runs build_local.sh, no
+    // recorded hash moves, the hook is skipped, and the fresh local library is
+    // ignored until `flutter clean`. That is this hook's own bug class on the
+    // other branch of the same `if`.
+    //
+    // A directory that does not exist hashes to a sentinel and flips the moment
+    // it is created, so naming it while absent costs nothing.
+    output.dependencies.add(_localPrebuiltDir(dirName, input.packageRoot).uri);
   });
 }
 

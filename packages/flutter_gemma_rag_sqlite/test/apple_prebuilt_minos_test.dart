@@ -1,4 +1,4 @@
-// The committed Apple `vec0` loadables must declare minos 13.0.
+// A SECOND line of defence on the Apple `vec0` minimum-OS value.
 //
 // Flutter hardcodes `MinimumOSVersion 13.0` into the Native-Assets framework
 // wrapper it generates, and App Store Connect compares each framework's BINARY
@@ -15,12 +15,21 @@
 // So this parses the Mach-O load commands itself rather than shelling out to
 // `vtool`, which means it needs no Apple toolchain to run.
 //
-// Since the loadables moved to a versioned GitHub Release, they are no longer
-// in a clone — `native/sqlite_vec/prebuilt/` is populated by build_local.sh and
-// gitignored. So this runs wherever those bytes exist, which is a maintainer's
-// machine, and that is the only machine a release can be cut from: the archives
-// are packed from this exact directory. On CI it skips, because there is
-// nothing there to check — not because the check was waived.
+// The PRIMARY guard is now `_assertIosMinos` in `hook/build.dart`, which runs
+// on the bytes about to be registered, on every build, on every machine — so
+// CI's iOS job enforces it and a maintainer's memory is no longer load-bearing.
+// That is what closes the hole this file's second paragraph describes.
+//
+// This file remains because it checks the local `prebuilt/` tree BEFORE a
+// release is packed, and because it covers the simulator slice, which no
+// device build exercises. It is not the tree the hook packs from — `pack()`
+// tars from the work directory and `install_prebuilt()` copies here
+// afterwards, both from the same normalized file — so treat this as a
+// pre-flight, not as verification of the shipped archive.
+//
+// `native/sqlite_vec/prebuilt/` is gitignored, so in a plain clone there is
+// nothing here to read and the test skips. Note the skip is CWD-relative: run
+// from the repository root it will also skip with the bytes present.
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -92,8 +101,8 @@ void main() {
           '13.0',
           reason:
               '${entry.key} declares minos ${got.minos}. Re-run '
-              'native/sqlite_vec/build_local.sh (it normalizes on install), or '
-              'vtool -set-build-version.',
+              'native/sqlite_vec/build_local.sh — normalize_apple_minos runs '
+              'in repackage(), before pack() — or vtool -set-build-version.',
         );
         expect(
           got.platform,

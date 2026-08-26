@@ -6,3 +6,8 @@ tool/
 # from the native-sqlite-vec-v* GitHub Release via hook/build.dart, so shipping
 # all seven targets in the archive made every install carry 1.2 MB to use one.
 native/sqlite_vec/prebuilt/
+
+# Parity fixtures shared by the native and web suites. They must live under
+# lib/ for dart2js to resolve them across packages, but consumers have no use
+# for a test corpus.
+lib/src/testing/

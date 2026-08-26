@@ -97,6 +97,9 @@ dependency_overrides:
   just_audio: ^0.9.36             # Audio playback (for preview)
 
 dev_dependencies:
+  # The web store integration test opens the same IndexedDB VFS the store
+  # uses, to plant a corpus the store cannot read.
+  sqlite3: ^3.3.0
   integration_test:
     sdk: flutter
   flutter_test:

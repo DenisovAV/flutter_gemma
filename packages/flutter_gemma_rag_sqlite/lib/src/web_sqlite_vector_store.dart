@@ -270,11 +270,53 @@ class WebSqliteVectorStore implements VectorStoreRepository {
         'content',
         'metadata',
       ];
-      final placeholders = List.filled(columns.length, '?').join(', ');
+      // `CAST(? AS REAL)` for every declared NUMBER column — a web-only
+      // necessity, not belt-and-braces.
+      //
+      // The shared codec already does `value.toDouble()` for a number field
+      // (FilterToVec0.coerceForColumn), which is what makes the NATIVE arm bind
+      // REAL. On the web that call cannot work: dart2js has one numeric type, so
+      // `10.0` and `10` are the same JS number and `10.0 is int` is true.
+      // package:sqlite3 then binds a whole-valued double as INTEGER and vec0
+      // refuses it —
+      //   Expected float for FLOAT metadata column price, received INTEGER
+      // — so an ordinary `{"price": 10}` document was insertable natively and
+      // not on the web. SQL is the only place the distinction still exists on
+      // this platform, so SQL is where the type gets declared.
+      final numberColumns = {
+        for (final f in _filterSchema.fields)
+          if (f.type == FilterFieldType.number) f.name,
+      };
+      // A non-finite declared value is the absent-field sentinel
+      // (FilterToVec0.absentNumber). It goes in as a literal for the same
+      // reason the WHERE clause does it: binding -Infinity on the web throws
+      // "cannot be converted to a BigInt" before SQL ever sees it.
+      final declaredSql = <String>[];
+      final declaredBinds = <Object?>[];
+      for (final entry in declared.entries) {
+        final v = entry.value;
+        if (numberColumns.contains(entry.key)) {
+          if (v is num && !v.isFinite) {
+            declaredSql.add(FilterToVec0.absentNumberSql);
+            continue;
+          }
+          declaredSql.add('CAST(? AS REAL)');
+        } else {
+          declaredSql.add('?');
+        }
+        declaredBinds.add(v);
+      }
+      final placeholders = [
+        '?', // id
+        '?', // embedding
+        ...declaredSql,
+        '?', // content
+        '?', // metadata
+      ].join(', ');
       final binds = <Object?>[
         id,
         _embeddingToBlob(embedding),
-        ...declared.values,
+        ...declaredBinds,
         content,
         metadata,
       ];

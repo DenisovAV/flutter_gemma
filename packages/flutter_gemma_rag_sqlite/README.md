@@ -131,6 +131,15 @@ already happened. Full write-up in the
 by this package's Native Assets hook (`hook/build.dart`), SHA256-verified, and
 loaded automatically before any database is opened.
 
+**New in 1.3.0:** that fetch is real. Until 1.2.0 the loadables were committed
+into the package, so every install carried all seven platforms' binaries to use
+one of them. They now come from this repository's `native-sqlite-vec-v*` GitHub
+Release, which means the **first** build of each platform needs `github.com`
+reachable; the library is cached under `~/.cache/flutter_gemma/native/`
+(`~/Library/Caches/…` on macOS, `%LOCALAPPDATA%\…` on Windows) and later builds
+do not go out again. `flutter_gemma_litertlm` has always worked this way. If you
+build in an air-gapped environment, pre-populate that cache directory.
+
 **Web** ships the custom `sqlite3.wasm` (with `sqlite-vec` linked in) as the
 package web asset `web/rag/sqlite3.wasm`. Copy it into your app's web root so it
 sits next to `index.html` at `rag/sqlite3.wasm` — that's the URL

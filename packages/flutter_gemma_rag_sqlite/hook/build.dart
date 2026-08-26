@@ -63,6 +63,7 @@ const _assetName = 'src/native/vec0';
 const _bundleVersion = '0.1.9';
 
 const _releaseTag = 'native-sqlite-vec-v$_bundleVersion';
+const _markerFileName = '.flutter_gemma_sqlite_vec_version';
 const _releaseBase =
     'https://github.com/DenisovAV/flutter_gemma/releases/download/$_releaseTag';
 
@@ -137,12 +138,16 @@ String _bundledFileName(OS os) => switch (os) {
 // Cache
 // ============================================================================
 
-/// Cache root for downloaded archives, NAMESPACED and VERSIONED.
+/// Cache root for downloaded archives: `<base>/sqlite_vec`.
 ///
-/// `$_bundleVersion` in the path is load-bearing, not decoration: without it a
-/// bundle bump reuses a directory already holding the previous release's files
-/// and the stale ones survive, which is how a build ends up linking against
-/// libraries it was never pinned to.
+/// NAMESPACED but not versioned, matching `onnx_genai/` and `qdrant_edge/`
+/// already on disk. Staleness is handled by [_markerFile] plus an explicit
+/// wipe, which is this repo's convention and what
+/// `hostNativeLibraryCandidates(cacheNamespace:)` — the shared locator the
+/// host-side tests use — knows how to find. Putting the version in the path
+/// instead works, but only the hook would know the layout: the locator would
+/// look under `sqlite_vec/<target>/`, find nothing, and every store suite would
+/// skip itself.
 Directory _cacheRoot() {
   final home =
       Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'] ?? '';
@@ -156,10 +161,37 @@ Directory _cacheRoot() {
   } else {
     base = Directory('$home/.cache/flutter_gemma/native');
   }
-  return Directory(
-    '${base.path}${Platform.pathSeparator}'
-    'sqlite_vec${Platform.pathSeparator}$_bundleVersion',
-  );
+  return Directory('${base.path}${Platform.pathSeparator}sqlite_vec');
+}
+
+/// Records which bundle version populated [_cacheRoot].
+File _markerFile() =>
+    File('${_cacheRoot().path}${Platform.pathSeparator}$_markerFileName');
+
+/// Drops cached libraries left by a DIFFERENT bundle version.
+///
+/// Without this the cache path — which carries no version — would keep serving
+/// the previous release's files forever: the archive is only downloaded when
+/// the library is absent, so a version bump alone would never be noticed. Same
+/// mechanism as `_invalidateBundleCacheIfStale` in the litertlm hook.
+void _invalidateCacheIfStale() {
+  final marker = _markerFile();
+  final cached = marker.existsSync() ? marker.readAsStringSync().trim() : null;
+  if (cached == _bundleVersion) return;
+
+  final root = _cacheRoot();
+  if (root.existsSync()) {
+    for (final entry in root.listSync()) {
+      if (entry is Directory) entry.deleteSync(recursive: true);
+    }
+    if (cached != null) {
+      stderr.writeln(
+        'flutter_gemma_rag_sqlite: dropped cached sqlite-vec $cached '
+        '(now pinned to $_bundleVersion)',
+      );
+    }
+  }
+  if (marker.existsSync()) marker.deleteSync();
 }
 
 bool _hasLib(Directory dir, OS os) => File(
@@ -283,6 +315,7 @@ Future<Directory?> _downloadAndExtract(String dirName, OS os) async {
     }
 
     archiveFile.deleteSync();
+    _markerFile().writeAsStringSync(_bundleVersion);
     stderr.writeln(
       'flutter_gemma_rag_sqlite: sqlite-vec $dirName ready (checksum verified)',
     );
@@ -323,6 +356,8 @@ void main(List<String> args) async {
     if (dirName == null) {
       return; // unsupported target — runtime fails with a clear dlopen error
     }
+
+    _invalidateCacheIfStale();
 
     var libDir = _resolveLibDir(dirName, input.packageRoot, os);
     libDir ??= await _downloadAndExtract(dirName, os);

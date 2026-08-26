@@ -221,6 +221,22 @@ changing only the `vectorStore:` you register.
 | **Speed** | Fastest native (~5–11× faster search at 1k–10k docs) | Portable, identical results everywhere |
 | **When to use** | Native throughput at scale | Web reach, or exact results across every platform |
 
+<Info>
+**`sqlite-vec` fetches its native library at build time (1.3.0+).** The
+per-platform `vec0` extension comes from this repository's
+`native-sqlite-vec-v*` GitHub Release, downloaded and SHA256-verified by the
+package's build hook the first time you build for a given platform, then cached
+under `~/.cache/flutter_gemma/native/` (`~/Library/Caches/…` on macOS,
+`%LOCALAPPDATA%\…` on Windows). So the **first** build of each platform needs
+`github.com` reachable; later builds do not. `flutter_gemma_litertlm` has always
+worked this way — as of 1.3.0 both packages behave the same.
+
+Before 1.3.0 the loadables were committed into the package, which shipped all
+seven platforms' binaries to every consumer to use one of them. If you build in
+an air-gapped environment, pre-populate that cache directory, or vendor the
+archives and point the build at them.
+</Info>
+
 **Which store?** `qdrant-edge` is the fastest **native** option — benchmarked
 ~5–11× faster search than the `sqlite-vec` store at 1k–10k documents — using HNSW
 approximate nearest-neighbour. `sqlite-vec` is exact (brute-force KNN inside

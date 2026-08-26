@@ -175,14 +175,54 @@ done
 # See #245, #286.
 echo ""
 echo "=== Patch iOS companion dylibs minos → 13.0 ==="
+# Normalize an Apple slice's minimum-OS metadata to 13.0.
+#
+# Flutter hardcodes `MinimumOSVersion 13.0` into the Native-Assets framework
+# wrapper it generates, and App Store Connect compares each framework's BINARY
+# against ITS OWN wrapper plist — so any other value is ITMS-90208, whatever the
+# app's own deployment target is. This rewrites metadata only: the real floor is
+# enforced by the podspec, not by this number. See #245, #286.
+#
+# `-output` is the SAME path as the input, deliberately. vtool re-signs its
+# output ad-hoc and derives the signature Identifier from the -output BASENAME,
+# so the `-output "$lib.new"` + `mv` shape bakes ".new" into the shipped
+# binary's identifier — which is what every simulator dylib in this repo carried
+# — the identifier every simulator dylib in native-v0.16.0 still carries, since
+# a released tarball cannot be re-uploaded; corrected from the next native
+# release onward. Same path in and out, no temp name, no wrong identifier.
+#
+# Reads BOTH fields back afterwards. vtool accepts a wrong platform silently, so
+# a device slice stamped MACOS still reports minos 13.0 and passes a minos-only
+# check — then fails at dlopen with "built for a different platform", far from
+# here.
+normalize_apple_minos() {
+  local lib="$1" platform="$2" want
+  # Derived, never passed in: a caller that supplies both can get them out of
+  # step, and "expected" would then be whatever the mistake was.
+  case "$platform" in
+    ios)    want=IOS ;;
+    iossim) want=IOSSIMULATOR ;;
+    *) echo "ERROR: unsupported platform '$platform'" >&2; exit 1 ;;
+  esac
+  vtool -set-build-version "$platform" 13.0 18.5 -replace -output "$lib" "$lib"
+  local info; info="$(vtool -show-build-version "$lib")"
+  local got_plat got_min
+  got_plat="$(awk '/platform/ {print $2; exit}' <<<"$info")"
+  got_min="$(awk '/minos/ {print $2; exit}' <<<"$info")"
+  [ "$got_plat" = "$want" ] && [ "$got_min" = "13.0" ] || {
+    echo "ERROR: $(basename "$lib") is platform='$got_plat' minos='$got_min', want $want 13.0" >&2
+    exit 1
+  }
+  echo "    minos -> 13.0 ($want)"
+}
+
 for arch_dir_pair in "ios:$DEVICE_DIR" "iossim:$SIM_DIR"; do
   platform="${arch_dir_pair%%:*}"
   dir="${arch_dir_pair##*:}"
   for libname in libGemmaModelConstraintProvider libLiteRtLm libLiteRtMetalAccelerator libStreamProxy; do
     d="$dir/${libname}.dylib"
     if [ -f "$d" ]; then
-      vtool -set-build-version "$platform" 13.0 18.5 -replace -output "$d.new" "$d"
-      mv "$d.new" "$d"
+      normalize_apple_minos "$d" "$platform"
       chmod +w "$d"
       echo "  $d: minos $(vtool -show-build "$d" | grep minos | awk '{print $2}'), sdk $(vtool -show-build "$d" | grep sdk | awk '{print $2}')"
     fi

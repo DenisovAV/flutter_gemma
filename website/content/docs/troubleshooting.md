@@ -167,6 +167,32 @@ if you hit it.
   To force GPU vision (only for a model built to allow it), pass
   `preferredVisionBackend: PreferredBackend.gpu`. See [Multimodal](/docs/multimodal).
 
+## Native libraries fetched at build time
+
+Some packages download their native library from a GitHub Release when you first
+build for a platform, then cache it under `~/.cache/flutter_gemma/native/`
+(`~/Library/Caches/…` on macOS, `%LOCALAPPDATA%\…` on Windows). This applies to
+`flutter_gemma_litertlm` (always has), `flutter_gemma_onnx`, and
+`flutter_gemma_rag_sqlite` **from 1.3.0** — before that it shipped the loadables
+inside the package.
+
+- **The build fails with a download error or an HTTP status.** The first build of
+  each platform needs `github.com` reachable. In an air-gapped or proxied CI,
+  pre-populate that cache directory, or vendor the archives and point the build
+  at them.
+- **The build fails with `CHECKSUM MISMATCH`.** The bytes served do not match
+  what the package version was pinned to. Re-run once to rule out a corrupt
+  transfer. If it persists, the release asset was replaced after publication —
+  do not work around it by clearing the checksum; report it.
+- **A build that used to succeed now fails instead of quietly skipping.** That is
+  deliberate. These hooks used to report success while bundling nothing, which
+  surfaced later as an opaque `dlopen` crash on a user's device. A platform the
+  package claims to support now fails the build when its library cannot be
+  produced.
+- **Maintainers only:** a local `native/<name>/prebuilt/<target>/` overrides the
+  pinned release, and the hook says so on stderr when it takes that path. If a
+  new release "did not take", that line is the first thing to look for.
+
 ## Function calling
 
 - Function calling is supported only by select models (Gemma 4, Gemma3n, Gemma 3 1B, FunctionGemma, DeepSeek, Qwen, Phi-4). Unsupported models log a warning and ignore tools — they still work for text generation. Check `supportsFunctionCalls`. See [Function Calling](/docs/function-calling).

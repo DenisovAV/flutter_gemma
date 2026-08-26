@@ -1,3 +1,7 @@
+## 0.3.1
+- Fix a rebuilt native library not reaching the build.
+- Fail the build when a runtime download or its checksum check fails, instead of bundling nothing.
+
 ## 0.3.0
 
 - Add web text generation via Transformers.js (`@huggingface/transformers`) — `OnnxEngine` web arm (WebGPU/WASM, HF-repo-id models).

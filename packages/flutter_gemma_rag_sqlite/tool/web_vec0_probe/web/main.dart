@@ -67,18 +67,18 @@ Future<void> main() async {
     final cs = db.prepare('INSERT INTO vc(id, embedding) VALUES (?, ?)');
     cs.execute([
       'a',
-      _f32([1, 0, 0, 0])
+      _f32([1, 0, 0, 0]),
     ]);
     cs.execute([
       'b',
-      _f32([0, 1, 0, 0])
+      _f32([0, 1, 0, 0]),
     ]);
     cs.close();
     final cos = db.select(
       'SELECT id, distance FROM vc WHERE embedding MATCH ? AND k = 2 '
       'ORDER BY distance',
       [
-        _f32([1, 0, 0, 0])
+        _f32([1, 0, 0, 0]),
       ],
     );
     final exactDist = cos.first['distance'] as double;

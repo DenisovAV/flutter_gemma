@@ -7,9 +7,23 @@
 // 23 more suites skipped themselves for the same reason. Since CI ran only
 // packages/flutter_gemma, nobody saw either.
 //
-// The artifact is in this repository — `native/sqlite_vec/prebuilt/<plat>/` —
-// so that is the default. $VEC0_DYLIB still wins, for pointing at a different
-// build.
+// The artifact is fetched by hook/build.dart into the shared download cache
+// (`<cache>/sqlite_vec/<plat>/`), so that is the first place to look; a local
+// `native/sqlite_vec/prebuilt/<plat>/` from build_local.sh comes next.
+// $VEC0_DYLIB still wins, for pointing at a different build.
+//
+// NOTE this is the opposite of the hook's order, which prefers the local
+// prebuilt (see `_resolveLibDir`). Core's shared helper puts the cache first
+// deliberately — `host_native_library.dart` records that a stale local copy
+// silently shadowing a refreshed download cost an incident. So on a machine
+// holding both, `flutter test` exercises the checksum-verified release bytes
+// while `flutter build` registers the local ones. The hook now says so on
+// stderr when it takes the local path; do not read the two orders as agreeing.
+//
+// Naming the cache is not optional decoration: `flutter test` gets no Native
+// Assets bundling, so this list IS how the suites find the library. When the
+// loadables moved out of the package and this still said there was no cache to
+// search, every store suite skipped itself and only the keystone gate noticed.
 library;
 
 import 'dart:io';
@@ -26,8 +40,7 @@ List<String> get vec0Candidates {
   return hostNativeLibraryCandidates(
     libFileName: _libName,
     envOverride: Platform.environment['VEC0_DYLIB'],
-    // vec0's prebuilt is committed to this repository, so there is no download
-    // cache for it -- the shared helper simply finds nothing there.
+    cacheNamespace: 'sqlite_vec',
     relativePaths: host == null
         ? const []
         : [

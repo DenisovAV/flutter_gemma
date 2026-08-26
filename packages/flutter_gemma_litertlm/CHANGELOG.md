@@ -1,3 +1,6 @@
+## 1.5.3
+- Fix a rebuilt native library not reaching the build.
+
 ## 1.5.2
 - Android: embeddings no longer poison the loader, fixing zero-chunk streams and SIGABRT (#447).
 

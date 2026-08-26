@@ -547,18 +547,18 @@ void main(List<String> args) async {
     // Gradle module here to force a manifest-merger floor (unlike
     // flutter_gemma_builtin_ai's minSdk-26 module), so an app with a lower
     // minSdk builds cleanly and only fails at runtime `dlopen` — and only on
-    // API 21-23 devices, the hardest kind of bug to catch pre-release. Fail
-    // fast here instead: skip bundling (same "unsupported target" posture as
-    // the `bundle == null` case above) with a clear diagnostic naming the
-    // floor, rather than shipping a `.so` the OS can't load.
+    // API 21-23 devices, the hardest kind of bug to catch pre-release. So
+    // fail the build here — and actually fail it. This used to write the
+    // diagnostic and `return`, which produced a GREEN build that dies at the
+    // first dlopen on every device, i.e. exactly the outcome the paragraph
+    // above says it exists to prevent.
     if (os == OS.android && codeConfig.android.targetNdkApi < 24) {
-      stderr.writeln(
+      throw StateError(
         'flutter_gemma_onnx: ORT / ORT-GenAI require Android minSdk 24 '
         '(this build targets minSdk ${codeConfig.android.targetNdkApi}). '
         "Raise android/app/build.gradle(.kts)'s `minSdk` to 24 or higher "
         'before using OnnxEngine()/OnnxEmbeddingBackend() on Android.',
       );
-      return;
     }
 
     final cacheDir = Directory('${_cacheBaseDir().path}/${bundle.dirName}');
@@ -576,7 +576,20 @@ void main(List<String> args) async {
       if (cacheDir.existsSync()) cacheDir.deleteSync(recursive: true);
       for (final archive in bundle.archives) {
         final ok = await _downloadVerifyExtract(archive, cacheDir);
-        if (!ok) return; // clear stderr diagnostics already emitted above.
+        if (!ok) {
+          // NOT a `return`. `_downloadVerifyExtract` answers false for a failed
+          // download AND for a checksum mismatch, and returning there produced
+          // a build that exits 0 with no ORT / ORT-GenAI CodeAsset — the #316
+          // shape, and the opposite of what the rag_sqlite and litertlm hooks
+          // do with the same condition. An integrity failure in particular has
+          // no benign reading.
+          throw StateError(
+            'flutter_gemma_onnx: could not obtain ${archive.archiveFileName} '
+            'for ${bundle.dirName} — see the diagnostics above (download '
+            'failure or CHECKSUM MISMATCH). This platform is registered as '
+            'supported, so a missing library is a broken build, not a skip.',
+          );
+        }
       }
       _writeMarker(bundle);
       libDir = cacheDir;
@@ -623,11 +636,24 @@ void main(List<String> args) async {
     // (splitting companion DLLs) is what hangs cancel/close, so this
     // deliberately does not opt Windows in even though it would be a no-op
     // byte-for-byte copy today.
+    // `stage()` sees every archive this hook registers, so it also records what
+    // was READ. `output.dependencies` lists `libDir` below, but a DIRECTORY
+    // entry is hashed as the sorted list of child NAMES only (`_hashDirectory`
+    // in package:native_assets_builder — verified against 0.13.0:
+    // `recursive: false`, no content, no mtime; private, so re-check after a
+    // Flutter SDK bump), so replacing a library in place leaves the hash
+    // identical and the
+    // hook is skipped. Files are content-hashed; listing them is what makes a
+    // re-fetched or hand-replaced runtime reach the next build. The directory
+    // entry stays, to notice an archive appearing or disappearing.
+    final consumed = <Uri>[];
+
     Uri stage(File src, String destFileName) {
+      consumed.add(src.uri);
       if (os != OS.macOS && os != OS.iOS && os != OS.linux) return src.uri;
       final destUri = input.outputDirectory.resolve(destFileName);
       final dest = File.fromUri(destUri);
-      if (!dest.existsSync() || dest.lengthSync() != src.lengthSync()) {
+      if (!dest.existsSync() || !_sameBytes(src, dest)) {
         dest.parent.createSync(recursive: true);
         src.copySync(destUri.toFilePath());
       }
@@ -636,7 +662,17 @@ void main(List<String> args) async {
 
     for (final archive in bundle.archives) {
       final src = _stagedSourceFile(libDir, archive);
-      if (!src.existsSync()) continue; // shouldn't happen post-fetch; be safe.
+      if (!src.existsSync()) {
+        // Was a `continue` "to be safe". It is not safe: it drops one library
+        // out of a multi-library bundle and reports success, so ORT-GenAI can
+        // ship without the ORT it dlopens by bare name.
+        throw StateError(
+          'flutter_gemma_onnx: ${archive.assetName} is missing from '
+          '${libDir.path} after resolution. The directory is present but '
+          'incomplete — most often a cache left over from an interrupted '
+          'extract. Delete it and build again.',
+        );
+      }
       final canonicalFileName = switch (os) {
         OS.linux || OS.android => 'lib${archive.assetName}.so',
         OS.windows => '${archive.assetName}.dll',
@@ -652,5 +688,56 @@ void main(List<String> args) async {
       );
     }
     output.dependencies.add(libDir.uri);
+    output.dependencies.addAll(consumed);
+    // And the branch that did NOT win — see the same note in the litertlm and
+    // rag_sqlite hooks. Naming a directory that does not exist is free: it
+    // hashes to a sentinel and flips the moment it appears.
+    final localCandidate = _localPrebuiltDir(input.packageRoot, bundle);
+    if (localCandidate != null && localCandidate.uri != libDir.uri) {
+      output.dependencies.add(_watchableAncestor(localCandidate).uri);
+    }
   });
+}
+
+/// Byte-for-byte comparison of two existing files.
+///
+/// `stage()` compares CONTENT rather than `lengthSync()`. The staged directory
+/// is named after the build CONFIG alone — no package version, no package root
+/// — so the same path is reused across an upgrade and across a local native
+/// rebuild. A size-only guard therefore keeps the previous binary whenever the
+/// replacement happens to be the same size, which is exactly what re-stamping
+/// a Mach-O load command produces.
+///
+/// Byte-identical in `flutter_gemma_rag_sqlite` and `flutter_gemma_litertlm`;
+/// the packages publish independently and cannot share it.
+bool _sameBytes(File a, File b) {
+  if (a.lengthSync() != b.lengthSync()) return false;
+  final x = a.readAsBytesSync();
+  final y = b.readAsBytesSync();
+  for (var i = 0; i < x.length; i++) {
+    if (x[i] != y[i]) return false;
+  }
+  return true;
+}
+
+/// The nearest ancestor of [dir] that exists — or [dir] itself when it does.
+///
+/// `output.dependencies` has TWO readers with different tolerances.
+/// package:native_assets_builder hashes a missing directory to a sentinel and
+/// is perfectly happy. Flutter writes the same paths into a depfile and its
+/// tooling LISTS them, so naming a directory that is not there aborts the build
+/// with `PathNotFoundException: Directory listing failed` — measured, on a
+/// clean clone where the gitignored `prebuilt/` does not exist.
+///
+/// Walking up preserves what naming it was for: creating the missing level
+/// changes the child-name list of whichever ancestor we did name, so the hook
+/// re-runs and notices the local prebuilt appearing.
+Directory _watchableAncestor(Directory dir) {
+  var d = dir;
+  while (!d.existsSync()) {
+    final parent = d.parent;
+    if (parent.path == d.path) return d; // filesystem root
+    d = parent;
+  }
+  return d;
 }

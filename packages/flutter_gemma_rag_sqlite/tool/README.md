@@ -19,7 +19,13 @@ design is no longer valid and must be revisited before shipping.
 ## Native gate
 
 Download the prebuilt loadable vec0 extension for your platform from
-[asg017/sqlite-vec releases](https://github.com/asg017/sqlite-vec/releases)
+the repository's own
+[`native-sqlite-vec-v*`](https://github.com/DenisovAV/flutter_gemma/releases) release.
+Do NOT take the loadable straight from
+[asg017/sqlite-vec](https://github.com/asg017/sqlite-vec/releases): its Apple
+slices carry the legacy minimum-OS values this package normalizes, and the
+android one is 4 KB-aligned. Normally no override is needed at all — the suites
+resolve the library through `test/vec0_locator.dart`
 (the `loadable` asset, e.g. `vec0.dylib` / `vec0.so` / `vec0.dll`), then:
 
 ```bash

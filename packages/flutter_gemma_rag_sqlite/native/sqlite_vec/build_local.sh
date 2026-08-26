@@ -14,11 +14,31 @@
 #
 # Inputs : SQLITE_VEC_VERSION env (default "0.1.9"); ANDROID_NDK_HOME for android.
 # Outputs: dist/sqlite-vec-<platform>.tar.gz  (each a flat tar of one vec0 lib)
-#          dist/checksums_sqlite_vec_local.txt
+#          dist/checksums_sqlite_vec.txt
 #
 # Usage:
 #   ./native/sqlite_vec/build_local.sh            # all available targets
 #   ./native/sqlite_vec/build_local.sh android    # just the 16 KB android rebuild
+#
+# RELEASING (hook/build.dart fetches from a tag; it does NOT read dist/):
+#   1. Build every target. A partial run publishes a partial release, and the
+#      missing platform fails at the consumer's `pub get`, not here.
+#      2. Set `_bundleVersion` in hook/build.dart to SQLITE_VEC_VERSION. Our
+#      android rebuild and the Apple re-stamps do NOT change that number —
+#      it names the upstream these bytes were built from. Append a letter
+#      (`0.1.9-a`, like native-v0.12.0-a) only when RE-releasing: the bytes
+#      for a version already published have changed, and that tag cannot be
+#      reused. The marker file is keyed on this string, so a consumer who
+#      already has the old bytes keeps them until it moves.
+#   3. Copy the seven sums from dist/checksums_sqlite_vec.txt into the
+#      `_checksums` map in hook/build.dart.
+#   4. Create the tag and upload all seven archives PLUS a
+#      checksums_sqlite_vec.txt carrying the same sums:
+#        gh release create native-sqlite-vec-v<X> --repo DenisovAV/flutter_gemma \
+#          dist/sqlite-vec-*.tar.gz dist/checksums_sqlite_vec.txt
+#   5. NEVER re-upload assets on an existing tag. tar is not reproducible, so
+#      the published SHA256 cannot be recovered, and every consumer already
+#      pinned to that tag starts failing the integrity check (#316).
 #
 # Targets (keys match hook/build.dart prebuilt dir names):
 #   android_arm64   → REBUILT from amalgamation, 16 KB aligned → libvec0.so
@@ -49,6 +69,22 @@ pack() {
   local dirName="$1" libFile="$2"
   (cd "$(dirname "$libFile")" && tar -czf "$DIST_DIR/sqlite-vec-$dirName.tar.gz" "$(basename "$libFile")")
   echo "    → dist/sqlite-vec-$dirName.tar.gz"
+  install_prebuilt "$dirName" "$libFile"
+}
+
+# Put the artifact where the hook's LOCAL path reads it.
+#
+# What ships is dist/*.tar.gz, uploaded to a native-sqlite-vec-v* release; the
+# hook fetches from there. prebuilt/ is the maintainer override, checked ahead
+# of the download cache so this script's output can be built against before it
+# is released. Both come from the same normalized bytes: pack() and
+# install_prebuilt() are fed the same file, after normalize_if_apple.
+install_prebuilt() {
+  local dirName="$1" libFile="$2"
+  local dest="$SCRIPT_DIR/prebuilt/$dirName"
+  mkdir -p "$dest"
+  cp "$libFile" "$dest/$(basename "$libFile")"
+  echo "    → prebuilt/$dirName/$(basename "$libFile")  (local override; dist/*.tar.gz is what ships)"
 }
 
 # Download + extract asg017's upstream loadable for one platform, rename the bare
@@ -62,7 +98,63 @@ repackage() {
   tar -xzf "$archive" -C "$ext"
   [ -f "$ext/$upstreamName" ] || { echo "ERROR: $upstreamName missing in upstream tarball" >&2; exit 1; }
   mv "$ext/$upstreamName" "$ext/$bundledName"
+  normalize_if_apple "$dirName" "$ext/$bundledName"
   pack "$dirName" "$ext/$bundledName"
+}
+
+# Normalize an Apple slice's minimum-OS metadata to 13.0.
+#
+# Flutter hardcodes `MinimumOSVersion 13.0` into the Native-Assets framework
+# wrapper it generates, and App Store Connect compares each framework's BINARY
+# against ITS OWN wrapper plist — so any other value is ITMS-90208, whatever the
+# app's own deployment target is. This rewrites metadata only: the real floor is
+# enforced by the podspec, not by this number. See #245, #286.
+#
+# `-output` is the SAME path as the input, deliberately. vtool re-signs its
+# output ad-hoc and derives the signature Identifier from the -output BASENAME,
+# so the `-output "$lib.new"` + `mv` shape bakes ".new" into the shipped
+# binary's identifier — which is what every simulator dylib in this repo carried
+# — the identifier every simulator dylib in native-v0.16.0 still carries, since
+# a released tarball cannot be re-uploaded; corrected from the next native
+# release onward. Same path in and out, no temp name, no wrong identifier.
+#
+# Reads BOTH fields back afterwards. vtool accepts a wrong platform silently, so
+# a device slice stamped MACOS still reports minos 13.0 and passes a minos-only
+# check — then fails at dlopen with "built for a different platform", far from
+# here.
+normalize_apple_minos() {
+  local lib="$1" platform="$2" want
+  # Derived, never passed in: a caller that supplies both can get them out of
+  # step, and "expected" would then be whatever the mistake was.
+  case "$platform" in
+    ios)    want=IOS ;;
+    iossim) want=IOSSIMULATOR ;;
+    *) echo "ERROR: unsupported platform '$platform'" >&2; exit 1 ;;
+  esac
+  vtool -set-build-version "$platform" 13.0 18.5 -replace -output "$lib" "$lib"
+  local info; info="$(vtool -show-build-version "$lib")"
+  local got_plat got_min
+  got_plat="$(awk '/platform/ {print $2; exit}' <<<"$info")"
+  got_min="$(awk '/minos/ {print $2; exit}' <<<"$info")"
+  [ "$got_plat" = "$want" ] && [ "$got_min" = "13.0" ] || {
+    echo "ERROR: $(basename "$lib") is platform='$got_plat' minos='$got_min', want $want 13.0" >&2
+    exit 1
+  }
+  echo "    minos -> 13.0 ($want)"
+}
+
+# Which of this package's targets are Apple, and what platform each declares.
+normalize_if_apple() {
+  local dirName="$1" lib="$2"
+  case "$dirName" in
+    ios_arm64)     normalize_apple_minos "$lib" ios ;;
+    ios_sim_arm64) normalize_apple_minos "$lib" iossim ;;
+    # macOS is deliberately excluded. Flutter's macOS Native-Assets path never
+    # writes a MinimumOSVersion into the generated framework Info.plist, so
+    # there is no wrapper value for App Store Connect to diff against — the
+    # ITMS-90208 mechanism this guards does not exist there.
+    *) return 0 ;;
+  esac
 }
 
 # Rebuild android arm64 from the amalgamation with 16 KB LOAD-segment alignment.
@@ -154,6 +246,9 @@ build_target() {
 build_target "${1:-all}"
 
 # Checksums for the GitHub Release page + to paste into hook/build.dart.
-(cd "$DIST_DIR" && shasum -a 256 sqlite-vec-*.tar.gz | tee checksums_sqlite_vec_local.txt)
+# Name it exactly what step 4 uploads and what hook/build.dart's doc refers to.
+# It used to be written as ...._local.txt, so the documented `gh release create`
+# named a file nothing produced and failed as written.
+(cd "$DIST_DIR" && shasum -a 256 sqlite-vec-*.tar.gz | tee checksums_sqlite_vec.txt)
 echo "==> done. tarballs in $DIST_DIR"
 rm -rf "$WORK"

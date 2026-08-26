@@ -454,6 +454,15 @@ bool _hasMainLib(Directory dir, _NativeBundle bundle, OS os) {
 ///      package — useful for in-tree development.
 ///   2. cached `<cacheBase>/<bundle-namespace>/<dirName>/` from a previous
 ///      `_downloadAndExtract`.
+/// Package-relative local prebuilt directory for [bundle] on [dirName].
+///
+/// LiteRT keeps the historical `native/litert_lm/`; new bundles use
+/// `native/<namespace>/`.
+String _localPrebuiltPath(_NativeBundle bundle, String dirName) =>
+    bundle.namespace == 'litertlm'
+    ? 'native/litert_lm/prebuilt/$dirName/'
+    : 'native/${bundle.namespace}/prebuilt/$dirName/';
+
 Directory? _resolveLibDir(
   _NativeBundle bundle,
   String dirName,
@@ -463,10 +472,9 @@ Directory? _resolveLibDir(
   // Local prebuilts use a per-bundle directory layout under `native/`.
   // LiteRT historically uses `native/litert_lm/prebuilt/`. For new bundles
   // we use `native/<namespace>/prebuilt/`.
-  final localPath = bundle.namespace == 'litertlm'
-      ? 'native/litert_lm/prebuilt/$dirName/'
-      : 'native/${bundle.namespace}/prebuilt/$dirName/';
-  final localDir = Directory.fromUri(packageRoot.resolve(localPath));
+  final localDir = Directory.fromUri(
+    packageRoot.resolve(_localPrebuiltPath(bundle, dirName)),
+  );
   if (_hasMainLib(localDir, bundle, os)) return localDir;
 
   final cacheDir = Directory('${bundle.cacheRoot().path}/$dirName');
@@ -738,7 +746,7 @@ Future<void> _processBundle({
   // Fix: copy each dylib into the hook's `outputDirectory` (an allowed root
   // that never overlaps the cache dependency dir) and register the CodeAsset
   // from there. The cache dir stays an input-only dependency for rebuild
-  // detection. Copies are size-guarded so the hook only rewrites on change.
+  // detection. Copies compare CONTENT, not length — see [_sameBytes].
   //
   // APPLE-ONLY: the "Cycle inside Flutter Assemble" self-loop is an Xcode
   // mechanism (the Run Script's directoryTreeSignature over an input dir that
@@ -751,12 +759,55 @@ Future<void> _processBundle({
   // toolchain, where the cycle actually occurs; elsewhere register straight
   // from the cache (the layout the loader expects), keeping every file
   // consistent regardless of which list it came from.
+  //
+  // ---------------------------------------------------------------------
+  // The rest of this comment is NOT Apple-specific.
+  //
+  // Every registered asset passes through `stage()`, which makes it the one
+  // place that knows what this hook actually READ — so it records those files
+  // as dependencies too.
+  //
+  // `output.dependencies` already lists `prebuiltDir`, but a DIRECTORY entry is
+  // hashed as the sorted list of child NAMES and nothing else
+  // (`_hashDirectory` in package:native_assets_builder — verified against
+  // 0.13.0: `recursive: false`, no content, no mtime. It is a private symbol
+  // in a package nothing here depends on directly, so re-check it after a
+  // Flutter SDK bump.) Rebuilding these dylibs in place keeps every name, so
+  // the hash is unchanged and the hook is skipped entirely — the new binaries
+  // never reach the build, and `stage()` never even runs to notice.
+  //
+  // Measured, not inferred: the hash this repo's own build recorded for
+  // `prebuilt/ios_arm64/` is md5 of the four child names joined by ';',
+  // truncated to a little-endian int64 —
+  //
+  //   "libGemmaModelConstraintProvider.dylib;libLiteRtLm.dylib;"
+  //   "libLiteRtMetalAccelerator.dylib;libStreamProxy.dylib"
+  //   -> 7433067446362060770
+  //
+  // (Written as two adjacent literals with the ';' inside the first, so the
+  // string is reproducible by copy-paste. A `\` line continuation means
+  // nothing in a `//` comment, and the earlier version of this note that used
+  // one hashed to a different number than the one it claimed.)
+  //
+  // That is the entire invalidation signal for four dylibs, and it is why a
+  // local `build_ios.sh` used to need `flutter clean` to take effect.
+  //
+  // Files are content-hashed, so listing them is what closes that. The
+  // directory entry stays: it is the only thing that notices a NEW companion
+  // appearing, since the lists below are `existsSync`-guarded. Cost is
+  // paid on every up-to-date check, not only when the hook runs, and it is
+  // well under a second for the 19-file / 154 MB android_arm64 set on a warm
+  // cache. No figure is quoted because it is a single-machine measurement and
+  // will read as false on a slower host.
+  final consumed = <Uri>[];
+
   Uri stage(Uri srcUri) {
+    consumed.add(srcUri);
     if (os != OS.macOS && os != OS.iOS) return srcUri;
     final src = File.fromUri(srcUri);
     final destUri = input.outputDirectory.resolve(srcUri.pathSegments.last);
     final dest = File.fromUri(destUri);
-    if (!dest.existsSync() || dest.lengthSync() != src.lengthSync()) {
+    if (!dest.existsSync() || !_sameBytes(src, dest)) {
       dest.parent.createSync(recursive: true);
       src.copySync(destUri.toFilePath());
     }
@@ -843,6 +894,20 @@ Future<void> _processBundle({
   }
 
   output.dependencies.add(prebuiltDir);
+  output.dependencies.addAll(consumed);
+  // And the branch that did NOT win. The entries above describe the directory
+  // that resolved and the files read from it, which notices a rewrite of a file
+  // already in use — but not a change in WHICH directory wins. If the cache
+  // resolved and the maintainer then runs build_*.sh, no recorded hash moves,
+  // the hook is skipped, and the fresh local build is ignored until
+  // `flutter clean`. A directory that does not exist hashes to a sentinel and
+  // flips the moment it is created, so naming it while absent costs nothing.
+  final localDir = Directory.fromUri(
+    input.packageRoot.resolve(_localPrebuiltPath(bundle, dirName)),
+  );
+  if (localDir.uri != prebuiltDir) {
+    output.dependencies.add(_watchableAncestor(localDir).uri);
+  }
 }
 
 // ============================================================================
@@ -881,4 +946,47 @@ void main(List<String> args) async {
       );
     }
   });
+}
+
+/// Byte-for-byte comparison of two existing files.
+///
+/// `stage()` compares CONTENT rather than `lengthSync()`. The staged directory
+/// is named after the build CONFIG alone — no package version, no package root
+/// — so the same path is reused across an upgrade and across a local native
+/// rebuild. A size-only guard therefore keeps the previous binary whenever the
+/// replacement happens to be the same size, which is exactly what re-stamping
+/// a Mach-O load command produces.
+///
+/// Byte-identical in `flutter_gemma_rag_sqlite` and `flutter_gemma_onnx`; the
+/// packages publish independently and cannot share it.
+bool _sameBytes(File a, File b) {
+  if (a.lengthSync() != b.lengthSync()) return false;
+  final x = a.readAsBytesSync();
+  final y = b.readAsBytesSync();
+  for (var i = 0; i < x.length; i++) {
+    if (x[i] != y[i]) return false;
+  }
+  return true;
+}
+
+/// The nearest ancestor of [dir] that exists — or [dir] itself when it does.
+///
+/// `output.dependencies` has TWO readers with different tolerances.
+/// package:native_assets_builder hashes a missing directory to a sentinel and
+/// is perfectly happy. Flutter writes the same paths into a depfile and its
+/// tooling LISTS them, so naming a directory that is not there aborts the build
+/// with `PathNotFoundException: Directory listing failed` — measured, on a
+/// clean clone where the gitignored `prebuilt/` does not exist.
+///
+/// Walking up preserves what naming it was for: creating the missing level
+/// changes the child-name list of whichever ancestor we did name, so the hook
+/// re-runs and notices the local prebuilt appearing.
+Directory _watchableAncestor(Directory dir) {
+  var d = dir;
+  while (!d.existsSync()) {
+    final parent = d.parent;
+    if (parent.path == d.path) return d; // filesystem root
+    d = parent;
+  }
+  return d;
 }

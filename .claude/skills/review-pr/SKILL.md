@@ -97,6 +97,50 @@ being edited. Every test result taken during that window was meaningless.
    start the next. The agents are advisors — the decision to change code is
    yours, and it is not delegable to ten of them at once.
 
+### Acting on a finding — the part that goes wrong
+
+A report is a list of HYPOTHESES, not a list of defects. Converting one straight
+into an edit is how a review round ends with more bugs than it started.
+
+Measured on one PR, one day: reviewers found **six** real pre-existing defects,
+and acting on them introduced **five** new ones. None shipped — four were caught
+by the next round, one by its own test — but four of the five came from the same
+omission, and it is not "this was hard":
+
+| what I changed | what I did not check first |
+|---|---|
+| set a state flag to false on a failure path | who READS that flag — `close()` was gated on it, so the handle leaked |
+| put cleanup in a `catch` | whether the cleanup call can itself throw — it did, swallowing the original error |
+| `vtool -output "$lib.norm"` then `mv` | what the tool does to the OUTPUT — it baked `.norm` into the code signature |
+| wrote a regression test | whether the test can distinguish the two worlds — it could not |
+
+**The loop, per finding, in this order:**
+
+1. **Reproduce it.** Print the wrong value. A finding you cannot reproduce is
+   not yet a defect — and twice this day a confident report was wrong on
+   measurement.
+2. **Read the neighbours.** If you change state, grep every reader of that
+   state. If you change a file, find what consumes it. If you call a tool, check
+   what it does to its output.
+3. **Fix.**
+4. **Mutate the test.** Break the production line the test names, and watch it
+   go red. If it stays green the test is decoration — delete it or fix it, but
+   do not keep it.
+5. **Only then take the next finding.**
+
+Step 4 is not optional and not a formality. Tests written after a fix
+"obviously" pass; that is the problem, not the reassurance.
+
+**Two more that cost real time:**
+
+- **A green narrow check is not a green wide one.** `flutter test` in a package
+  passed while `flutter analyze packages/` had 17 errors, because the ambiguity
+  was only visible from the wider scope. Run the wide one before saying "clean".
+- **A fix that is not observable to the consumer is not a fix.** A corrected
+  binary was still not reaching builds, because the staging guard compared file
+  SIZE and the correction happened not to change it. Verify at the point the
+  user consumes it, not at the point you edited it.
+
 ### Step 3: Launch ALL agents in parallel
 
 Launch all 10 agents simultaneously using the Agent tool. Each agent gets:

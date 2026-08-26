@@ -1,4 +1,5 @@
-## 1.2.1
+## 1.3.0
+- Fetch `vec0` from the `native-sqlite-vec-v*` release instead of shipping it in the package.
 - Fix `isInitialized` reporting true after an `initialize()` that threw.
 - Fix re-initializing onto another database keeping the old vector size.
 - Fix bundled iOS `vec0` declaring the wrong minimum OS (App Store ITMS-90208).

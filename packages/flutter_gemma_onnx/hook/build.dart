@@ -623,11 +623,22 @@ void main(List<String> args) async {
     // (splitting companion DLLs) is what hangs cancel/close, so this
     // deliberately does not opt Windows in even though it would be a no-op
     // byte-for-byte copy today.
+    // `stage()` sees every archive this hook registers, so it also records what
+    // was READ. `output.dependencies` lists `libDir` below, but a DIRECTORY
+    // entry is hashed as the sorted list of child NAMES only (`_hashDirectory`
+    // in package:native_assets_builder — `recursive: false`, no content, no
+    // mtime), so replacing a library in place leaves the hash identical and the
+    // hook is skipped. Files are content-hashed; listing them is what makes a
+    // re-fetched or hand-replaced runtime reach the next build. The directory
+    // entry stays, to notice an archive appearing or disappearing.
+    final consumed = <Uri>[];
+
     Uri stage(File src, String destFileName) {
+      consumed.add(src.uri);
       if (os != OS.macOS && os != OS.iOS && os != OS.linux) return src.uri;
       final destUri = input.outputDirectory.resolve(destFileName);
       final dest = File.fromUri(destUri);
-      if (!dest.existsSync() || dest.lengthSync() != src.lengthSync()) {
+      if (!dest.existsSync() || !_sameBytes(src, dest)) {
         dest.parent.createSync(recursive: true);
         src.copySync(destUri.toFilePath());
       }
@@ -652,5 +663,27 @@ void main(List<String> args) async {
       );
     }
     output.dependencies.add(libDir.uri);
+    output.dependencies.addAll(consumed);
   });
+}
+
+/// Byte-for-byte comparison of two existing files.
+///
+/// `stage()` compares CONTENT rather than `lengthSync()`. The staged directory
+/// is named after the build CONFIG alone — no package version, no package root
+/// — so the same path is reused across an upgrade and across a local native
+/// rebuild. A size-only guard therefore keeps the previous binary whenever the
+/// replacement happens to be the same size, which is exactly what re-stamping
+/// a Mach-O load command produces.
+///
+/// Byte-identical in `flutter_gemma_rag_sqlite` and `flutter_gemma_litertlm`;
+/// the packages publish independently and cannot share it.
+bool _sameBytes(File a, File b) {
+  if (a.lengthSync() != b.lengthSync()) return false;
+  final x = a.readAsBytesSync();
+  final y = b.readAsBytesSync();
+  for (var i = 0; i < x.length; i++) {
+    if (x[i] != y[i]) return false;
+  }
+  return true;
 }

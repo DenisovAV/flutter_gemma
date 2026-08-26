@@ -738,7 +738,7 @@ Future<void> _processBundle({
   // Fix: copy each dylib into the hook's `outputDirectory` (an allowed root
   // that never overlaps the cache dependency dir) and register the CodeAsset
   // from there. The cache dir stays an input-only dependency for rebuild
-  // detection. Copies are size-guarded so the hook only rewrites on change.
+  // detection. Copies compare CONTENT, not length — see [_sameBytes].
   //
   // APPLE-ONLY: the "Cycle inside Flutter Assemble" self-loop is an Xcode
   // mechanism (the Run Script's directoryTreeSignature over an input dir that
@@ -751,12 +751,38 @@ Future<void> _processBundle({
   // toolchain, where the cycle actually occurs; elsewhere register straight
   // from the cache (the layout the loader expects), keeping every file
   // consistent regardless of which list it came from.
+  // Every registered asset passes through `stage()`, which makes it the one
+  // place that knows what this hook actually READ — so it records those files
+  // as dependencies too.
+  //
+  // `output.dependencies` already lists `prebuiltDir`, but a DIRECTORY entry is
+  // hashed as the sorted list of child NAMES and nothing else
+  // (`_hashDirectory` in package:native_assets_builder: `recursive: false`, no
+  // content, no mtime). Rebuilding these dylibs in place keeps every name, so
+  // the hash is unchanged and the hook is skipped entirely — the new binaries
+  // never reach the build, and `stage()` never even runs to notice.
+  //
+  // Measured, not inferred: the hash this repo's own build recorded for
+  // `prebuilt/ios_arm64/` is exactly
+  // md5("libGemmaModelConstraintProvider.dylib;libLiteRtLm.dylib;\
+  // libLiteRtMetalAccelerator.dylib;libStreamProxy.dylib") truncated to a
+  // little-endian int64. That is the entire invalidation signal for four
+  // dylibs, and it is why a local `build_ios.sh` used to need `flutter clean`
+  // to take effect.
+  //
+  // Files are content-hashed, so listing them is what closes that. The
+  // directory entry stays: it is the only thing that notices a NEW companion
+  // appearing, since the lists below are `existsSync`-guarded. Cost is
+  // negligible — 154 MB across the 19-file android_arm64 set hashes in 0.22 s.
+  final consumed = <Uri>[];
+
   Uri stage(Uri srcUri) {
+    consumed.add(srcUri);
     if (os != OS.macOS && os != OS.iOS) return srcUri;
     final src = File.fromUri(srcUri);
     final destUri = input.outputDirectory.resolve(srcUri.pathSegments.last);
     final dest = File.fromUri(destUri);
-    if (!dest.existsSync() || dest.lengthSync() != src.lengthSync()) {
+    if (!dest.existsSync() || !_sameBytes(src, dest)) {
       dest.parent.createSync(recursive: true);
       src.copySync(destUri.toFilePath());
     }
@@ -843,6 +869,7 @@ Future<void> _processBundle({
   }
 
   output.dependencies.add(prebuiltDir);
+  output.dependencies.addAll(consumed);
 }
 
 // ============================================================================
@@ -881,4 +908,25 @@ void main(List<String> args) async {
       );
     }
   });
+}
+
+/// Byte-for-byte comparison of two existing files.
+///
+/// `stage()` compares CONTENT rather than `lengthSync()`. The staged directory
+/// is named after the build CONFIG alone — no package version, no package root
+/// — so the same path is reused across an upgrade and across a local native
+/// rebuild. A size-only guard therefore keeps the previous binary whenever the
+/// replacement happens to be the same size, which is exactly what re-stamping
+/// a Mach-O load command produces.
+///
+/// Byte-identical in `flutter_gemma_rag_sqlite` and `flutter_gemma_onnx`; the
+/// packages publish independently and cannot share it.
+bool _sameBytes(File a, File b) {
+  if (a.lengthSync() != b.lengthSync()) return false;
+  final x = a.readAsBytesSync();
+  final y = b.readAsBytesSync();
+  for (var i = 0; i < x.length; i++) {
+    if (x[i] != y[i]) return false;
+  }
+  return true;
 }

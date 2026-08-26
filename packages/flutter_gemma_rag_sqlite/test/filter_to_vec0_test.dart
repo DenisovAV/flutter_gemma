@@ -128,9 +128,11 @@ void main() {
       );
       // The second conjunct excludes the absent-number sentinel: -Infinity is
       // <= every bound, so without it a document MISSING `price` would satisfy
-      // `price <= 100`. Both comparisons push, so the guard is free.
-      expect(out.whereSql, '("price" <= ? AND "price" > ?)');
-      expect(out.binds, [100.0, FilterToVec0.absentNumber]);
+      // `price <= 100`. The sentinel is a LITERAL, not a bind: it cannot be
+      // bound on dart2js, where -Infinity takes the int path. Both
+      // comparisons still push — measured, same plan either way.
+      expect(out.whereSql, '("price" <= ? AND "price" > -9e999)');
+      expect(out.binds, [100.0]);
     });
 
     test('no bounds → skipped (empty)', () {
@@ -310,9 +312,9 @@ void main() {
       );
       expect(
         out.whereSql,
-        '"lang" IN (?, ?) AND "year" >= ? AND "price" NOT BETWEEN ? AND ?',
+        '"lang" IN (?, ?) AND "year" >= ? AND "price" NOT BETWEEN -1.7976931348623157e308 AND ?',
       );
-      expect(out.binds, ['en', 'fr', 2000.0, -double.maxFinite, 5.0]);
+      expect(out.binds, ['en', 'fr', 2000.0, 5.0]);
     });
   });
 }

@@ -53,6 +53,11 @@ const docs = <Doc>[
   // No `price` at all. The normal RAG case, and the one that could not even be
   // inserted before absent-value sentinels.
   (id: 'no_price', metadata: '{"lang":"it","archived":false}'),
+  // A NEGATIVE price. Present so the `mustNot` + upper-bound case below can
+  // tell the two arms apart: the lower guard of that NOT BETWEEN used to be a
+  // bound -double.maxFinite, which dart2js wrapped to 0, so the web returned
+  // this document from a filter that excludes it.
+  (id: 'neg_price', metadata: '{"lang":"nl","price":-5,"archived":false}'),
   // A price that is not a number. sqlite cannot store it; qdrant keeps it.
   (id: 'str_price', metadata: '{"lang":"pt","price":"cheap","archived":false}'),
 ];
@@ -80,7 +85,14 @@ final cases = <Case>[
     name: 'mustNot RETURNS the document that lacks the field',
     // The rule core documents: must excludes it, mustNot keeps it.
     filter: const Filter(mustNot: [FieldRange(key: 'price', gte: 60)]),
-    expected: ['en_cheap', 'de_arch', 'es_arch1', 'no_price', 'str_price'],
+    expected: [
+      'en_cheap',
+      'de_arch',
+      'es_arch1',
+      'no_price',
+      'str_price',
+      'neg_price',
+    ],
   ),
   (
     name: 'both JSON spellings of a bool are one value',
@@ -173,6 +185,7 @@ final cases = <Case>[
       'es_arch1',
       'no_price',
       'str_price',
+      'neg_price',
     ],
   ),
   (
@@ -204,7 +217,17 @@ final cases = <Case>[
       'es_arch1',
       'no_price',
       'str_price',
+      'neg_price',
     ],
+  ),
+  (
+    // The shape that caught the dart2js i64 wrap. A one-sided upper bound in
+    // mustNot compiles to `NOT BETWEEN <lowest finite> AND lte`, and the lower
+    // guard has to really be the lowest finite value — bound as a double it
+    // became 0 on the web, so everything negative came back.
+    name: 'mustNot with an upper bound excludes the negative value too',
+    filter: const Filter(mustNot: [FieldRange(key: 'price', lte: 20)]),
+    expected: ['fr_dear', 'de_arch', 'es_arch1', 'no_price', 'str_price'],
   ),
   (
     name: 'mustNot over a set',
@@ -213,7 +236,7 @@ final cases = <Case>[
         FieldMatchAny(key: 'lang', values: ['en', 'fr']),
       ],
     ),
-    expected: ['de_arch', 'es_arch1', 'no_price', 'str_price'],
+    expected: ['de_arch', 'es_arch1', 'no_price', 'str_price', 'neg_price'],
   ),
   (
     name: 'must and mustNot compose',

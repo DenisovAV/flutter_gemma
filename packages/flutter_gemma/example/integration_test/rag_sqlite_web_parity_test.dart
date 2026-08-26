@@ -12,13 +12,15 @@
 ///
 /// `flutter_gemma_rag_sqlite`'s README says both arms "speak the same `vec0` SQL
 /// dialect, so KNN and `Filter` behave identically across all six platforms".
-/// Until this file that was an assertion nobody checked: the package's 103 tests
-/// all ran on the VM, and the web arm — a separate implementation of table
-/// creation, metadata encoding and row mapping — had none.
+/// Until this file that was an assertion nobody checked: every one of the
+/// package's VM tests ran on the VM, and the web arm had none. Metadata
+/// ENCODING is shared (`FilterToVec0.declaredColumnValues`); what is separate,
+/// and what drifted, is SQL emission, value binding and row mapping.
 ///
 /// It is not a hypothetical drift. 1.2.0 shipped a fix for "the web arm
-/// rejecting integer metadata the native arm accepts", found by reading rather
-/// than by testing. 1.3.0 then found three more web-only defects the same way.
+/// rejecting integer metadata the native arm accepts", and 1.3.0 fixed three
+/// more that the web arm had been shipping since 1.2.0 — every one of them
+/// found by reading, because nothing ran the web arm.
 ///
 /// The `Filter` -> SQL codec IS shared (`filter_to_vec0.dart`, imported by both
 /// arms), so this suite deliberately does NOT assert generated SQL — that would
@@ -28,9 +30,11 @@
 /// and fails natively (or the reverse) is exactly the drift this exists for.
 ///
 /// The fixture lives in the package's `lib/src/testing/` and is `.pubignore`d,
-/// because the two suites are in different packages and dart2js will not follow
-/// a relative import that escapes its own package — the analyzer accepts one and
-/// the web build then fails with "Undefined name".
+/// because the two suites are in different packages: `test/` has no `package:`
+/// URI, and a `../../..` path out of the example is not something to build a
+/// shared contract on. (An earlier note here blamed dart2js for refusing such
+/// an import. That was wrong — it compiles — so whatever broke the first
+/// attempt was something else and stays undiagnosed.)
 @TestOn('chrome')
 library;
 
@@ -48,14 +52,17 @@ void main() {
   // suite went green twice over a corpus it had failed to insert before that
   // was noticed, and only a mutation of the shared expectations exposed it.
   // Building the store inside each test makes an ingest failure a test failure.
-  Future<WebSqliteVectorStore> seededStore(WidgetTester tester) async {
+  Future<WebSqliteVectorStore> seededStore() async {
     final store = WebSqliteVectorStore();
     // configure BEFORE initialize, exactly as the native suite does — the
     // declared columns are what the vec0 table is built from.
     store.configure(schema);
     // A fresh IndexedDB name per test keeps one case's corpus out of another's.
     await store.initialize('parity_${DateTime.now().microsecondsSinceEpoch}');
-    addTearDown(() => store.close().catchError((Object _) {}));
+    // NOT catchError: close() propagates, and 1.3.0's third fix was a
+    // close() gated on a flag the failure path clears. Swallowing a close
+    // error here would make a regression of it invisible by construction.
+    addTearDown(store.close);
     for (final d in docs) {
       await store.addDocument(
         id: d.id,
@@ -70,7 +77,7 @@ void main() {
   group('web filter parity', () {
     for (final c in cases) {
       testWidgets(c.name, (tester) async {
-        final store = await seededStore(tester);
+        final store = await seededStore();
         final rows = await store.searchSimilar(
           queryEmbedding: embedding,
           topK: docs.length,
@@ -87,10 +94,22 @@ void main() {
       });
     }
 
+    testWidgets('the shared table is not empty', (tester) async {
+      // Both suites do `for (final c in cases)`. An empty `cases` generates
+      // ZERO tests and leaves only the guard below — which is itself `0 == 0`
+      // when `docs` is empty. One bad edit to the shared fixture would gut both
+      // arms at once, which is the drift the fixture was centralised to prevent,
+      // relocated rather than removed.
+      expect(cases, hasLength(20));
+      expect(docs, hasLength(7));
+    });
+
     testWidgets('the web store was actually exercised', (tester) async {
-      // Every case above compares two lists, and two empty lists compare equal,
-      // so a store that ingested nothing would let the whole group pass green.
-      final store = await seededStore(tester);
+      // Sixteen of the cases expect a non-empty result and would fail loudly on
+      // an empty corpus, so this is not the only thing standing between the
+      // group and a false green — but it is the one that says so directly,
+      // rather than leaving it to be inferred from the expectations.
+      final store = await seededStore();
       final stats = await store.getStats();
       expect(
         stats.documentCount,

@@ -134,6 +134,15 @@ void main() {
   // silent skip. This test covers the other half — vec0, which really can be
   // absent, and whose absence would otherwise skip the group and leave the
   // file looking green.
+  test('the shared table is not empty', () {
+    // See the twin in the web suite. Both files do `for (final c in cases)`,
+    // and they now read ONE fixture — so an empty `cases` generates zero tests
+    // in both at once, which is the drift centralising it was meant to prevent,
+    // relocated rather than removed.
+    expect(cases, hasLength(20));
+    expect(docs, hasLength(7));
+  });
+
   test('both backends were actually exercised', () {
     expect(
       vec0SkipReason,

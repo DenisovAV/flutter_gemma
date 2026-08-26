@@ -12,8 +12,8 @@
 ///
 /// WHY THIS FILE EXISTS
 ///
-/// The native arm of this store had three defects fixed in 1.3.0, and the web
-/// arm shipped with all three still in it — a re-initialize inheriting the
+/// 1.2.0 shipped three defects on BOTH arms. 1.3.0 fixed all three on each
+/// side in one change; what it did not have was any way to notice the web half — a re-initialize inheriting the
 /// previous database's vector width, a swallowed detection error that let the
 /// store report ready over a corpus it could not read, and a `close()` gated on
 /// a flag the failure path clears. Four review passes found them; no test did,
@@ -57,17 +57,31 @@ void main() {
       // `_detectedDimension`, so a store moved from a populated database to an
       // empty one kept the first one's width — and then rejected the first
       // vector it was given against a shape the new database never had.
+      // Unique IndexedDB names per run. IndexedDB persists per browser profile,
+      // so fixed names meant run 2 found run 1's 8-wide vector in the "empty"
+      // database, and even the unfixed code then read the right width and
+      // passed.
       final store = WebSqliteVectorStore();
-      addTearDown(() => store.close().catchError((Object _) {}));
+      addTearDown(store.close);
 
-      await store.initialize('redim_a');
+      final run = DateTime.now().microsecondsSinceEpoch;
+      await store.initialize('redim_a_$run');
       await store.addDocument(
         id: 'a',
         content: 'x',
         embedding: List<double>.filled(4, 1),
       );
 
-      await store.initialize('redim_b');
+      await store.initialize('redim_b_$run');
+      expect(
+        (await store.getStats()).vectorDimension,
+        0,
+        reason:
+            'the second database must be EMPTY or this test proves nothing — '
+            'the bug is that an empty one inherited the first one\'s width, and '
+            'a database left over from an earlier run reports its own width and '
+            'passes with the regression intact',
+      );
       await expectLater(
         store.addDocument(
           id: 'b',
@@ -91,10 +105,10 @@ void main() {
       // nothing — over a corpus that was present and merely unreadable. In a
       // release build the only trace was a `gemmaLog` that does not exist.
       //
-      // An app deploying the stock `sqlite3.wasm` instead of the vec0-linked
-      // one this package ships hits exactly this on its first query. The
-      // planted table below stands in for that: a `vec_documents` the store
-      // cannot read as vec0.
+      // The planted table is a `vec_documents` the store cannot read as vec0.
+      // The closest real-world shape is an app that MIGRATES a database made by
+      // the vec0-linked wasm onto the stock one — a first-run app instead fails
+      // loudly at CREATE VIRTUAL TABLE with `no such module: vec0`.
       const path = 'unreadable_corpus';
 
       final sqlite3 = await WasmSqlite3.loadFromUrl(Uri.parse(_wasmUrl));
@@ -108,7 +122,7 @@ void main() {
       await idb.close(); // flush to IndexedDB before the store reopens it
 
       final store = WebSqliteVectorStore();
-      addTearDown(() => store.close().catchError((Object _) {}));
+      addTearDown(store.close);
 
       await expectLater(
         store.initialize(path),
@@ -124,11 +138,12 @@ void main() {
       );
 
       // NOT asserted here: that the WASM instance and its VFS were released.
-      // The failure path clears them and `close()` is no longer gated on
-      // `_isInitialized`, but sqlite tolerates concurrent connections, so a
-      // leaked handle is not observable from a second open on the same path —
-      // a test written that way passes with the leak still present. The native
-      // suite left the same assertion out for the same measured reason.
+      // Note the failure path does NOT clear them — it clears `_db` only, which
+      // is exactly why `close()` names `_sqlite3` in its guard. What cannot be
+      // asserted is the RELEASE: sqlite tolerates concurrent connections, so a
+      // leaked handle is not observable from a second open on the same path and
+      // a test written that way passes with the leak intact. The native suite
+      // left the same assertion out, measured on FFI sqlite.
     });
   });
 }

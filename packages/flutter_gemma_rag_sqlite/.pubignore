@@ -11,3 +11,8 @@ native/sqlite_vec/prebuilt/
 # lib/ for dart2js to resolve them across packages, but consumers have no use
 # for a test corpus.
 lib/src/testing/
+
+# The VM suites, and the reason they must go together with lib/src/testing/:
+# test/cross_backend_parity_test.dart imports the fixture above, so shipping one
+# without the other puts a dangling import in the published archive.
+test/

@@ -275,14 +275,20 @@ class WebSqliteVectorStore implements VectorStoreRepository {
       //
       // The shared codec already does `value.toDouble()` for a number field
       // (FilterToVec0.coerceForColumn), which is what makes the NATIVE arm bind
-      // REAL. On the web that call cannot work: dart2js has one numeric type, so
-      // `10.0` and `10` are the same JS number and `10.0 is int` is true.
-      // package:sqlite3 then binds a whole-valued double as INTEGER and vec0
-      // refuses it —
+      // REAL. Under dart2js that call cannot work: it has one numeric type, so
+      // `10.0` and `10` are the same JS number and `10.0 is int` is TRUE
+      // (`_isInt` is `Math.floor(x) === x`). package:sqlite3 does no coercion of
+      // its own — its bind switch simply tests `is int` before `is double`, and
+      // dart2js makes the first branch win. vec0 then refuses the row:
       //   Expected float for FLOAT metadata column price, received INTEGER
-      // — so an ordinary `{"price": 10}` document was insertable natively and
-      // not on the web. SQL is the only place the distinction still exists on
-      // this platform, so SQL is where the type gets declared.
+      // so an ordinary `{"price": 10}` document was insertable natively and not
+      // in a browser. SQL is the one place the distinction survives, so SQL is
+      // where the type gets declared.
+      //
+      // dart2wasm does NOT have this problem — it keeps BoxedInt/BoxedDouble
+      // apart, so the CAST is a harmless no-op there. `flutter build web --wasm`
+      // still falls back to the dart2js output on a browser without WasmGC, so
+      // the hazard is browser-conditional and the CAST has to stay.
       final numberColumns = {
         for (final f in _filterSchema.fields)
           if (f.type == FilterFieldType.number) f.name,

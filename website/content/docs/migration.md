@@ -34,7 +34,7 @@ dependencies:
   flutter_gemma_mediapipe: ^1.0.5       # add if you run .task / .bin models
   flutter_gemma_embeddings: ^2.0.0      # add if you compute embeddings (needs a backend, see above)
   flutter_gemma_rag_qdrant: ^1.3.0      # add for native on-device RAG (qdrant)
-  flutter_gemma_rag_sqlite: ^1.3.0      # add for on-device RAG (sqlite-vec; all platforms incl. web)
+  flutter_gemma_rag_sqlite: ^1.3.1      # add for on-device RAG (sqlite-vec; all platforms incl. web)
 ```
 
 Pick by what you actually used in 0.16.x:

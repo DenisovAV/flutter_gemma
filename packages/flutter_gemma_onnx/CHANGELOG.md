@@ -1,6 +1,6 @@
 ## 0.3.1
 - Fix a rebuilt native library not reaching the build.
-- Fail the build when a runtime download or its checksum check fails, instead of bundling nothing.
+- Fail the build on an unusable runtime — a failed download, a checksum mismatch, or an Android minSdk below 24 — instead of bundling nothing.
 
 ## 0.3.0
 

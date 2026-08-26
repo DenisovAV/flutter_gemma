@@ -2,6 +2,7 @@
 - Fetch `vec0` from the `native-sqlite-vec-v*` release, so an updated library reaches the build.
 - Fix `isInitialized` reporting true after an `initialize()` that threw.
 - Fix re-initializing onto another database keeping the old vector size.
+- Fix the web store reporting an empty corpus, and a successful delete, over data it could not read.
 - Fix the iOS `vec0` declaring the wrong minimum OS (App Store ITMS-90208).
 - Document the 1.0.x index break and how to move the old rows.
 

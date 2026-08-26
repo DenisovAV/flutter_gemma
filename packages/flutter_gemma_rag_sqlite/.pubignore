@@ -1,3 +1,8 @@
 # Maintainer tooling — build the web vec0 wasm + the keystone web/native gates.
 # Not needed by consumers of the published package; keeps the tarball lean.
 tool/
+
+# Local prebuilts — the maintainer path only. Consumers fetch the loadables
+# from the native-sqlite-vec-v* GitHub Release via hook/build.dart, so shipping
+# all seven targets in the archive made every install carry 1.2 MB to use one.
+native/sqlite_vec/prebuilt/

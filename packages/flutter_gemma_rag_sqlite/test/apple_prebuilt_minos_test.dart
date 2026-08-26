@@ -12,8 +12,15 @@
 // time that step was normalizing a tarball nobody consumes while the shipped
 // bytes went unchecked.
 //
-// So this reads the FILES THAT SHIP, parses the Mach-O load commands itself
-// rather than shelling out to `vtool`, and therefore runs on Linux CI too.
+// So this parses the Mach-O load commands itself rather than shelling out to
+// `vtool`, which means it needs no Apple toolchain to run.
+//
+// Since the loadables moved to a versioned GitHub Release, they are no longer
+// in a clone — `native/sqlite_vec/prebuilt/` is populated by build_local.sh and
+// gitignored. So this runs wherever those bytes exist, which is a maintainer's
+// machine, and that is the only machine a release can be cut from: the archives
+// are packed from this exact directory. On CI it skips, because there is
+// nothing there to check — not because the check was waived.
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -56,35 +63,50 @@ const _platformIosSimulator = 7;
 void main() {
   final root = Directory('native/sqlite_vec/prebuilt');
 
-  test('every committed iOS vec0 slice declares minos 13.0', () {
-    expect(root.existsSync(), isTrue, reason: 'prebuilt dir moved');
+  test(
+    'every iOS vec0 slice about to be packed declares minos 13.0',
+    () {
+      const expected = {
+        'ios_arm64': _platformIos,
+        'ios_sim_arm64': _platformIosSimulator,
+      };
 
-    const expected = {
-      'ios_arm64': _platformIos,
-      'ios_sim_arm64': _platformIosSimulator,
-    };
+      for (final entry in expected.entries) {
+        final lib = File('${root.path}/${entry.key}/libvec0.dylib');
+        // A HALF-populated prebuilt dir is the dangerous case: it means someone
+        // built some targets and is about to pack a release from it. Absent
+        // entirely is a plain clone, handled by the skip below.
+        expect(
+          lib.existsSync(),
+          isTrue,
+          reason:
+              '${entry.key} is missing while other targets are present — '
+              're-run native/sqlite_vec/build_local.sh for every target before '
+              'packing a release.',
+        );
 
-    for (final entry in expected.entries) {
-      final lib = File('${root.path}/${entry.key}/libvec0.dylib');
-      expect(lib.existsSync(), isTrue, reason: '${entry.key} is missing');
-
-      final got = _buildVersion(lib);
-      expect(got, isNotNull, reason: '${entry.key}: no version load command');
-      expect(
-        got!.minos,
-        '13.0',
-        reason:
-            '${entry.key} declares minos ${got.minos}. Re-run '
-            'native/sqlite_vec/build_local.sh (it normalizes on install), or '
-            'vtool -set-build-version.',
-      );
-      expect(
-        got.platform,
-        entry.value,
-        reason:
-            '${entry.key} declares platform ${got.platform} — a wrong vtool '
-            'platform argument is accepted silently and fails later at dlopen',
-      );
-    }
-  });
+        final got = _buildVersion(lib);
+        expect(got, isNotNull, reason: '${entry.key}: no version load command');
+        expect(
+          got!.minos,
+          '13.0',
+          reason:
+              '${entry.key} declares minos ${got.minos}. Re-run '
+              'native/sqlite_vec/build_local.sh (it normalizes on install), or '
+              'vtool -set-build-version.',
+        );
+        expect(
+          got.platform,
+          entry.value,
+          reason:
+              '${entry.key} declares platform ${got.platform} — a wrong vtool '
+              'platform argument is accepted silently and fails later at dlopen',
+        );
+      }
+    },
+    skip: Directory('native/sqlite_vec/prebuilt').existsSync()
+        ? false
+        : 'no local prebuilts — they are fetched from native-sqlite-vec-v* at '
+              'build time; run native/sqlite_vec/build_local.sh to materialize them',
+  );
 }

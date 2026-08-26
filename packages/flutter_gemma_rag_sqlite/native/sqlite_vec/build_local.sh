@@ -20,6 +20,25 @@
 #   ./native/sqlite_vec/build_local.sh            # all available targets
 #   ./native/sqlite_vec/build_local.sh android    # just the 16 KB android rebuild
 #
+# RELEASING (hook/build.dart fetches from a tag; it does NOT read dist/):
+#   1. Build every target. A partial run publishes a partial release, and the
+#      missing platform fails at the consumer's `pub get`, not here.
+#   2. Set `_bundleVersion` in hook/build.dart to SQLITE_VEC_VERSION. If the
+#      upstream has NOT moved but the bytes have (a 16 KB-alignment rebuild, a
+#      vtool re-stamp, a new sqlite amalgamation), append a letter instead —
+#      `0.1.9-a`, `-b` — the same convention as native-v0.12.0-a/-b. Never
+#      reuse a version for different bytes: the cache path is keyed on it, so
+#      the previous release's files stay put.
+#   3. Copy the seven sums from dist/checksums_sqlite_vec_local.txt into the
+#      `_checksums` map in hook/build.dart.
+#   4. Create the tag and upload all seven archives PLUS a
+#      checksums_sqlite_vec.txt carrying the same sums:
+#        gh release create native-sqlite-vec-v<X> --repo DenisovAV/flutter_gemma \
+#          dist/sqlite-vec-*.tar.gz dist/checksums_sqlite_vec.txt
+#   5. NEVER re-upload assets on an existing tag. tar is not reproducible, so
+#      the published SHA256 cannot be recovered, and every consumer already
+#      pinned to that tag starts failing the integrity check (#316).
+#
 # Targets (keys match hook/build.dart prebuilt dir names):
 #   android_arm64   → REBUILT from amalgamation, 16 KB aligned → libvec0.so
 #   macos_arm64     → repackage asg017 macos-aarch64           → libvec0.dylib

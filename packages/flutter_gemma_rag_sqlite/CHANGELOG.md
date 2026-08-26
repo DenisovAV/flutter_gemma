@@ -1,5 +1,6 @@
 ## 1.3.1
 - Fix web inserts failing on a numeric metadata value or a missing number field.
+- Fix web filters with a `mustNot` upper bound returning the negative values they exclude.
 
 ## 1.3.0
 - Fetch `vec0` from the `native-sqlite-vec-v*` release, so an updated library reaches the build.

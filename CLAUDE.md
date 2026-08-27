@@ -27,6 +27,12 @@
 - If `flutter test` hangs on "Dart VM Service was not discovered" or fails with "Cannot start app on wirelessly tethered iOS device", fix iPhone/macOS USB tunnel (Personal Hotspot off, iPhone USB enabled in Network settings, Trust dialog) — do NOT switch to `flutter drive` as a workaround
 - **Exception: web** — Flutter SDK does NOT support `flutter test -d chrome/web-server` for `integration_test` (only `flutter test --platform chrome`, which is deprecated for app-level tests per Flutter docs). The **only** officially supported web integration test runner is `flutter drive --driver=test_driver/integration_test.dart --target=integration_test/<file>.dart -d chrome` (or `-d web-server` headless). On web `flutter drive` is the canonical Flutter-supported path, not a workaround — use it.
 
+## Rule 6b: NO `setUp` IN A SUITE THAT RUNS UNDER `flutter drive` ⛔
+- A `setUp`/`setUpAll` that THROWS under `flutter drive` is reported as **"All tests passed"**, exit 0 — not an error, not a skip. `package:integration_test` writes a result only from inside `runTest`, a failed setUp means `runTest` never runs, so the test is **absent** from the report — and absent reads as "no failure".
+- **Measured, both ways.** `flutter drive` on `-d web-server`: green over a corpus that failed to insert. `flutter test integration_test/<file>.dart -d macos` with the same throwing setUp: `+0 -1: Some tests failed`, exit **1**. So the 40-odd native suites here are safe *because* Rule 6 keeps them off `flutter drive`; only the web ones are exposed.
+- Put anything that can fail **inside the test body** (a guarded `_ensure…()` helper called first thing). `example/integration_test/rag_sqlite_web_parity_test.dart` and `litertlm_web_test.dart` are the pattern.
+- This is not hypothetical: a web suite here was green twice over a corpus it had never inserted, and only a mutation of its expectations exposed it. If a `flutter drive` run says "All tests passed", confirm the suite is not empty before believing it.
+
 ## Rule 7: CHANGELOG ENTRIES ARE ONE LINE ⛔
 - **ONE line per ISSUE**, not per change. A fix that touched nine things is still one bullet
 - Every `## X.Y.Z` bullet must fit on a single short line (~10-15 words)

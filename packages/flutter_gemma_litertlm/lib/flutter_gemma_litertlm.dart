@@ -26,3 +26,12 @@ export 'src/ffi/litert_bindings_stub.dart'
 // the LiteRT.js-backed `WebEmbeddingModel` directly.
 export 'src/embedding/litert_embedding_backend_web.dart'
     if (dart.library.ffi) 'src/embedding/litert_embedding_backend.dart';
+
+// Hugging Face resolver for repos that ship a `litertlm_manifest.json`
+// deployment manifest. Register with
+// `FlutterGemma.initialize(huggingFaceResolvers: [LitertlmManifestResolver()])`
+// and drive it via `FlutterGemma.resolveHuggingFace(repo,
+// fileType: ModelFileType.litertlm)`. All six platforms (its IO arm picks
+// dart:io or browser fetch internally).
+export 'src/manifest/litertlm_manifest_resolver.dart'
+    show LitertlmManifestResolver, ManifestFetch, ManifestFetchException;

@@ -27,6 +27,42 @@ await FlutterGemma.initialize(
 other engines (e.g. `MediaPipeEngine` from `flutter_gemma_mediapipe`) if your app
 uses both formats.
 
+## Install from a Hugging Face repo (`litertlm_manifest.json`)
+
+Repos that ship a
+[`litertlm_manifest.json`](https://github.com/john-rocky/hf-to-litertlm/blob/main/manifest/SCHEMA.md)
+deployment manifest describe every `.litertlm` file they contain — which
+backends each is verified on, which file a given platform should pick, sha256/
+size identity, and session guidance. `LitertlmManifestResolver` reads it so an
+app installs "the right file for this device" without hardcoding filenames:
+
+```dart
+await FlutterGemma.initialize(
+  inferenceEngines: [LiteRtLmEngine()],
+  huggingFaceResolvers: [const LitertlmManifestResolver()],
+);
+
+final r = await FlutterGemma.resolveHuggingFace(
+    'litert-community/Qwen3-4B-Thinking-2507',
+    fileType: ModelFileType.litertlm);
+await FlutterGemma.installModel(
+      modelType: r.modelType ?? ModelType.general,
+      fileType: r.fileType,
+    )
+    .fromNetwork(r.url) // authoritative: carries the resolver's revision pin
+    .install();
+final model = await FlutterGemma.getActiveModel(defaults: r.runtime);
+final session = await model.createSession(
+  enableThinking: r.runtime.isThinking ?? false,
+  maxOutputTokens: r.runtime.minOutputTokens, // a floor — see the field docs
+);
+```
+
+Everything the manifest returns is an overridable default (explicit argument >
+manifest > SDK default); `r.notes` carries platform caveats and known issues
+worth surfacing to developers. Repos without a manifest keep working through
+`installModel(...).fromHuggingFace(repo, file: ...)`.
+
 ## Embeddings
 
 ```dart

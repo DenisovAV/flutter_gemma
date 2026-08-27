@@ -15,12 +15,23 @@ void main() {
         pickOnnxOutputIndex(['sentence_embedding', 'last_hidden_state']),
         0,
       );
+      // sentence_embedding wins even when pooler_output is also present.
+      expect(pickOnnxOutputIndex(['pooler_output', 'sentence_embedding']), 1);
+    });
+
+    test('prefers pooler_output over last_hidden_state', () {
+      // pooler_output is a pre-pooled `[1, dim]` sentence embedding (SigLIP2 /
+      // BERT-style), not per-token hidden states, so it must be picked over
+      // last_hidden_state (which would otherwise be mean-pooled).
+      expect(pickOnnxOutputIndex(['pooler_output', 'last_hidden_state']), 0);
+      expect(pickOnnxOutputIndex(['last_hidden_state', 'pooler_output']), 1);
     });
 
     test(
-      'falls back to last_hidden_state when sentence_embedding is absent',
+      'falls back to last_hidden_state when no pre-pooled output is present',
       () {
-        expect(pickOnnxOutputIndex(['pooler_output', 'last_hidden_state']), 1);
+        expect(pickOnnxOutputIndex(['last_hidden_state', 'logits']), 0);
+        expect(pickOnnxOutputIndex(['logits', 'last_hidden_state']), 1);
       },
     );
 

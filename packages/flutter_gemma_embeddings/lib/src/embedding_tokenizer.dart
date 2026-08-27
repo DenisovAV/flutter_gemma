@@ -79,3 +79,63 @@ class _GemmaSentencePieceEmbeddingTokenizer implements EmbeddingTokenizer {
   TokenizedInput encode(String prefix, String text) =>
       TokenizedInput(ids: encodeForEmbedding(_tokenizer, prefix, text));
 }
+
+// ─────────────────────────── SigLIP2 profile ───────────────────────────
+//
+// SigLIP2's text tower uses a DIFFERENT special-token convention from Gemma:
+// NO leading BOS, a SINGLE trailing EOS (id 1), and its canonical preprocessing
+// lowercases the text. The model's ONNX graph has a FIXED `input_ids [1, 64]`
+// input, so padding to 64 (pad id 0) is the forward pass's job — the tokenizer
+// emits the unpadded `[...ids, EOS]` and the forward pass's `staticSeqLen` path
+// pads it. This is a SEPARATE adapter from the Gemma one (which hardcodes
+// BOS=2/EOS=1) — routing the SigLIP profile here instead of to the Gemma adapter
+// is what avoids the silent BOS-injection corruption; the Gemma path is
+// untouched (non-regressing).
+
+/// SigLIP2's trailing end-of-sequence id. No BOS is prepended.
+const int siglipEosId = 1;
+
+/// SigLIP2's fixed context width and pad id. Unlike Gemma/MiniLM (whose ONNX
+/// graphs declare a static seq-len the forward pass detects and pads to), the
+/// SigLIP int8 export reads as DYNAMIC-shape (`OrtIoSpec.staticSeqLen == null`),
+/// yet the model was trained/exported for EXACTLY 64 tokens and carries NO
+/// attention_mask input — its pooling head sees all 64 positions, so a short,
+/// unpadded input yields a DIFFERENT `pooler_output` (measured: cosine 0.69 vs
+/// the glasses' 64-padded reference). The glasses pad in their tokenizer (DJL
+/// `MAX_LENGTH`/64); this Dart profile must do the same to reach parity.
+const int siglipSeqLen = 64;
+const int siglipPadId = 0;
+
+/// Tokenizes [text] with SigLIP2's convention: `[...encode(text.toLowerCase()).ids, siglipEosId]`,
+/// then RIGHT-PADS (or truncates) to exactly [siglipSeqLen] with [siglipPadId] —
+/// SigLIP needs the fixed width baked into the ids (see [siglipSeqLen]). NO BOS,
+/// NO task-type prefix, single trailing EOS, lowercased.
+List<int> encodeForSiglipEmbedding(
+  SentencePieceTokenizer tokenizer,
+  String text,
+) {
+  final encoded = tokenizer.encode(text.toLowerCase());
+  final ids = <int>[...encoded.ids, siglipEosId];
+  if (ids.length >= siglipSeqLen) return ids.sublist(0, siglipSeqLen);
+  return [...ids, ...List<int>.filled(siglipSeqLen - ids.length, siglipPadId)];
+}
+
+/// [EmbeddingTokenizerFactory] tear-off for the SigLIP2 text tower — reuses the
+/// same base [loadEmbeddingTokenizer] (`.json`/`.model` branch) as Gemma, but
+/// wraps it with SigLIP's no-BOS/single-EOS/lowercase convention instead.
+Future<EmbeddingTokenizer> loadSiglipSentencePieceEmbeddingTokenizer(
+  String tokenizerPath,
+) async {
+  final tokenizer = await loadEmbeddingTokenizer(tokenizerPath);
+  return _SiglipSentencePieceEmbeddingTokenizer(tokenizer);
+}
+
+class _SiglipSentencePieceEmbeddingTokenizer implements EmbeddingTokenizer {
+  _SiglipSentencePieceEmbeddingTokenizer(this._tokenizer);
+
+  final SentencePieceTokenizer _tokenizer;
+
+  @override
+  TokenizedInput encode(String prefix, String text) =>
+      TokenizedInput(ids: encodeForSiglipEmbedding(_tokenizer, prefix + text));
+}

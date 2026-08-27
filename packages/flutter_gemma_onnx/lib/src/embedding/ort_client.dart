@@ -75,8 +75,17 @@ class OrtRunResult {
 
 /// Picks which declared output `OrtFfiClient.load` should read, given the
 /// session's [outputNames] in declaration order. Preference order:
-/// `sentence_embedding` (pre-pooled) > `last_hidden_state` (per-token) >
-/// the first declared output (unrecognized layout, assumed already pooled).
+/// `sentence_embedding` (pre-pooled) > `pooler_output` (pre-pooled) >
+/// `last_hidden_state` (per-token) > the first declared output (unrecognized
+/// layout, assumed already pooled).
+///
+/// `pooler_output` is the SigLIP2 / BERT-style projected pooled output — a
+/// rank-2 `[1, dim]` sentence embedding, NOT per-token hidden states — so it
+/// ranks with `sentence_embedding` (both `pooledFinal`, copied verbatim),
+/// ABOVE `last_hidden_state`. Without this, a graph exposing BOTH
+/// `pooler_output` and `last_hidden_state` (SigLIP does) would fall through to
+/// `last_hidden_state` and get wrongly mean-pooled. WordPiece / EmbeddingGemma
+/// models expose no `pooler_output`, so this is inert for them (non-regressing).
 ///
 /// A pure function — no FFI, no session — so it's unit-testable directly
 /// (design D-T4's "zero dlopen" bar) without a fake [OrtClient] at all;
@@ -84,6 +93,8 @@ class OrtRunResult {
 int pickOnnxOutputIndex(List<String> outputNames) {
   final sentenceIdx = outputNames.indexOf('sentence_embedding');
   if (sentenceIdx != -1) return sentenceIdx;
+  final poolerIdx = outputNames.indexOf('pooler_output');
+  if (poolerIdx != -1) return poolerIdx;
   final hiddenIdx = outputNames.indexOf('last_hidden_state');
   if (hiddenIdx != -1) return hiddenIdx;
   return 0;

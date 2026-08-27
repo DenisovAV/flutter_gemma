@@ -16,6 +16,15 @@ export 'core/services/vector_store_repository.dart'; // VectorStoreRepository + 
 // SkillExecutor implements this contract and is registered/resolved here.
 export 'core/registry/skill_executor_provider.dart'; // SkillExecutorProvider contract
 export 'core/registry/skill_executor_registry.dart'; // SkillExecutorRegistry (fromModel reads it)
+// Hugging Face manifest-resolver seam. Only the app-facing value types are
+// re-exported — [ResolvedHfModel] / [ModelRuntimeDefaults] are the result of
+// FlutterGemma.resolveHuggingFace. The [HuggingFaceResolver] contract itself is
+// implemented by engine packages, which import it directly from
+// core/registry/hugging_face_resolver.dart — as they do the inference / embedding
+// / stt / tts *Provider contracts (those are not barrel-exported either;
+// skill_executor_provider above is the lone exception).
+export 'core/registry/hugging_face_resolver.dart'
+    show ResolvedHfModel, ModelRuntimeDefaults;
 export 'core/domain/platform_types.dart'; // PreferredBackend + RAG value types
 export 'core/message.dart';
 export 'core/model.dart'; // Export ModelType and other model-related classes

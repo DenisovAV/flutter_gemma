@@ -143,6 +143,11 @@ void main() {
             );
             if (anyListsHint) {
               expect(r.runtime.preferredBackend, hint, reason: where);
+              expect(
+                r.notes.where((n) => n.contains('resolved without that hint')),
+                isEmpty,
+                reason: where,
+              );
             } else {
               final noHint = await resolve(repo, platform: platform);
               expect(r.file, noHint.file, reason: where);
@@ -151,6 +156,14 @@ void main() {
                 noHint.runtime.preferredBackend,
                 reason: where,
               );
+              // The drop is on the record: the no-hint notes plus one line
+              // naming the dropped hint.
+              expect(r.notes, [
+                ...noHint.notes,
+                'No variant of "$repo" is verified on the requested '
+                    '${_wire(hint)} backend; resolved without that hint '
+                    '(${_wire(r.runtime.preferredBackend!)}).',
+              ], reason: where);
             }
           }
 

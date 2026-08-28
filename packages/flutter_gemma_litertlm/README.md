@@ -37,6 +37,8 @@ size identity, and session guidance. `LitertlmManifestResolver` reads it so an
 app installs "the right file for this device" without hardcoding filenames:
 
 ```dart
+import 'dart:math' show max;
+
 await FlutterGemma.initialize(
   inferenceEngines: [LiteRtLmEngine()],
   huggingFaceResolvers: [const LitertlmManifestResolver()],
@@ -54,7 +56,9 @@ await FlutterGemma.installModel(
 final model = await FlutterGemma.getActiveModel(defaults: r.runtime);
 final session = await model.createSession(
   enableThinking: r.runtime.isThinking ?? false,
-  maxOutputTokens: r.runtime.minOutputTokens, // a floor — see the field docs
+  // minOutputTokens is a floor, not a cap: keep the app's own budget unless
+  // the manifest asks for more.
+  maxOutputTokens: max(1024, r.runtime.minOutputTokens ?? 0),
 );
 ```
 

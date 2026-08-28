@@ -42,7 +42,9 @@ export 'manifest_fetch_types.dart' show ManifestFetch, ManifestFetchException;
 /// final model = await FlutterGemma.getActiveModel(defaults: r.runtime);
 /// final session = await model.createSession(
 ///   enableThinking: r.runtime.isThinking ?? false,
-///   maxOutputTokens: r.runtime.minOutputTokens,
+///   // minOutputTokens is a FLOOR, not a cap: keep the app's own budget
+///   // unless the manifest asks for more (`max` from dart:math).
+///   maxOutputTokens: max(1024, r.runtime.minOutputTokens ?? 0),
 /// );
 /// ```
 ///
@@ -50,7 +52,8 @@ export 'manifest_fetch_types.dart' show ManifestFetch, ManifestFetchException;
 /// (HTTP 404 — install with `fromHuggingFace(repo, file:)` instead), when
 /// auth is missing or rejected (401/403 carry gated-repo guidance), or the
 /// GET fails otherwise; and [FormatException] when the file exists but is
-/// not a supported `0.1.x` manifest.
+/// not a supported `0.1.x` manifest — including any wrong-typed field, which
+/// never escapes as a raw `TypeError`.
 class LitertlmManifestResolver implements HuggingFaceResolver {
   /// Git revision (branch, tag, or commit) the manifest AND the resolved file
   /// URL are pinned to. Defaults to `main`; pin a commit for reproducible
@@ -144,11 +147,22 @@ class LitertlmManifestResolver implements HuggingFaceResolver {
     }
 
     final LitertlmManifest manifest;
-    final Map<String, dynamic> rawModel;
+    final String baseModel;
+    final String architecture;
+    final bool capabilitiesDeclared;
     try {
       final decoded = jsonDecode(body) as Map<String, dynamic>;
       manifest = LitertlmManifest.fromJson(decoded, revision: revision);
-      rawModel = decoded['model'] as Map<String, dynamic>? ?? const {};
+      // Every raw field the mapping reads is read HERE, so a wrong-typed one
+      // (`"base_model": 3`) is a parse error like any other rather than a
+      // TypeError thrown later from the mapping.
+      final rawModel = decoded['model'] as Map<String, dynamic>? ?? const {};
+      baseModel = rawModel['base_model'] as String? ?? '';
+      architecture = rawModel['architecture'] as String? ?? '';
+      // The converter derives `capabilities` from the bundle header, so a
+      // manifest without the block never looked: that is "silent", which the
+      // seam spells `null` — not "declared unsupported", which is `false`.
+      capabilitiesDeclared = rawModel['capabilities'] != null;
     } on FormatException {
       rethrow;
     } catch (e) {
@@ -162,6 +176,7 @@ class LitertlmManifestResolver implements HuggingFaceResolver {
     // rather than a key that can never match a recommendation.
     final platformKey = platform == 'unknown' ? null : platform;
     final requestedBackend = _wireName(preferredBackend);
+    String? droppedHint;
     var resolution = manifest.resolve(
       platform: platformKey,
       backend: requestedBackend,
@@ -177,6 +192,7 @@ class LitertlmManifestResolver implements HuggingFaceResolver {
       // metadata lists it"), so drop it and resolve without — the returned
       // runtime.preferredBackend then carries the manifest's own choice,
       // never a silent claim of the requested backend.
+      droppedHint = requestedBackend;
       gemmaLog(
         '[LitertlmManifestResolver] no variant of $repo is verified on '
         '"$requestedBackend" — dropping the backend hint.',
@@ -196,19 +212,25 @@ class LitertlmManifestResolver implements HuggingFaceResolver {
       url: _fileUrl(repo, resolution.file),
       fileType: ModelFileType.litertlm,
       modelType: mapModelType(
-        baseModel: rawModel['base_model'] as String? ?? '',
+        baseModel: baseModel,
         displayName: manifest.displayName,
-        architecture: rawModel['architecture'] as String? ?? '',
+        architecture: architecture,
       ),
       sha256: resolution.variant.sha256,
       sizeBytes: resolution.variant.sizeBytes,
       runtime: ModelRuntimeDefaults(
         maxTokens: resolution.contextLength,
         preferredBackend: _fromWireName(resolution.backend, repo),
-        supportImage: resolution.capabilities.vision,
-        supportAudio: resolution.capabilities.audio,
-        isThinking: resolution.capabilities.thinkingDeclared,
-        minOutputTokens: _minOutputTokens(resolution.sessionDefaults),
+        supportImage: capabilitiesDeclared
+            ? resolution.capabilities.vision
+            : null,
+        supportAudio: capabilitiesDeclared
+            ? resolution.capabilities.audio
+            : null,
+        isThinking: capabilitiesDeclared
+            ? resolution.capabilities.thinkingDeclared
+            : null,
+        minOutputTokens: _minOutputTokens(resolution.sessionDefaults, repo),
       ),
       notes: List.unmodifiable([
         ...resolution.notes,
@@ -217,6 +239,12 @@ class LitertlmManifestResolver implements HuggingFaceResolver {
         // floor) — surface it with the platform notes.
         if (resolution.sessionDefaults?['notes'] is String)
           resolution.sessionDefaults!['notes'] as String,
+        // A dropped backend hint is a downgrade the app should see in a
+        // release build too (gemmaLog is debug-only), so it also lands in the
+        // notes the app already surfaces.
+        if (droppedHint != null)
+          'No variant of "$repo" is verified on the requested $droppedHint '
+              'backend; resolved without that hint (${resolution.backend}).',
       ]),
     );
   }
@@ -259,10 +287,19 @@ class LitertlmManifestResolver implements HuggingFaceResolver {
 
   /// `session_defaults.max_output_tokens_min`, tolerantly: the schema
   /// declares `session_defaults` as an open object, so the key is read by
-  /// name, must be an int, and anything else means "not declared".
-  int? _minOutputTokens(Map<String, dynamic>? sessionDefaults) {
+  /// name. A value outside the schema's `integer, minimum: 1` is logged and
+  /// treated as "not declared" — an advisory knob must not fail the whole
+  /// manifest.
+  int? _minOutputTokens(Map<String, dynamic>? sessionDefaults, String repo) {
     final v = sessionDefaults?['max_output_tokens_min'];
-    return v is int ? v : null;
+    if (v == null) return null;
+    if (v is int && v >= 1) return v;
+    gemmaLog(
+      '[LitertlmManifestResolver] $repo declares '
+      'session_defaults.max_output_tokens_min = $v, which is not a positive '
+      'integer (schema: integer, minimum 1) — ignoring it.',
+    );
+    return null;
   }
 
   /// Maps the manifest's model identity onto a [ModelType], or null when no

@@ -137,16 +137,21 @@ class Variant {
       recommended = ((j['recommended'] as List?) ?? const [])
           .map((e) => Recommendation.fromJson(e as Map<String, dynamic>))
           .toList(),
+      // `.toList()` after `.cast<String>()` on purpose: the cast alone is
+      // lazy, so a non-string element would surface as a TypeError at first
+      // use (inside resolve()) instead of failing here, at parse.
       platformNotes =
           (((j['requirements'] as Map<String, dynamic>?)?['platform_notes'])
                   as List?)
-              ?.cast<String>() ??
+              ?.cast<String>()
+              .toList() ??
           const [],
-      knownIssues = (j['known_issues'] as List?)?.cast<String>() ?? const [],
+      knownIssues =
+          (j['known_issues'] as List?)?.cast<String>().toList() ?? const [],
       raw = j;
 
   static List<String> _requireBackends(Map<String, dynamic> j) {
-    final b = (j['backends'] as List?)?.cast<String>();
+    final b = (j['backends'] as List?)?.cast<String>().toList();
     if (b == null || b.isEmpty) {
       throw FormatException(
         'variant ${j['file']} lists no backends (schema requires minItems: 1)',

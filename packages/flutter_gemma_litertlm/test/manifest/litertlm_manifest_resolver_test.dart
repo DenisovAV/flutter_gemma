@@ -212,6 +212,8 @@ void main() {
             .resolver(m)
             .resolve('org/name', preferredBackend: PreferredBackend.gpu);
         expect(r.runtime.preferredBackend, PreferredBackend.gpu);
+        // Honoured, so nothing to report.
+        expect(r.notes, isEmpty);
       },
     );
 
@@ -264,6 +266,24 @@ void main() {
             );
         expect(r.file, 'LFM2.5-1.2B-Instruct_int4_gpu.litertlm');
         expect(r.runtime.preferredBackend, PreferredBackend.gpu);
+        // The downgrade is on the record for release builds too (gemmaLog is
+        // debug-only): last note, naming the dropped hint and the outcome.
+        expect(
+          r.notes.last,
+          allOf(
+            contains('litert-community/LFM2.5-1.2B-Instruct'),
+            contains('requested npu'),
+            contains('(gpu)'),
+          ),
+        );
+        // ...and only there: the variant's own notes come first, untouched.
+        final noHint = await f
+            .resolver(lfmFixture())
+            .resolve(
+              'litert-community/LFM2.5-1.2B-Instruct',
+              platform: 'macos',
+            );
+        expect(r.notes.sublist(0, r.notes.length - 1), noHint.notes);
       },
     );
 
@@ -275,6 +295,10 @@ void main() {
           .resolve('org/name', preferredBackend: PreferredBackend.gpu);
       expect(r.file, 'model.litertlm');
       expect(r.runtime.preferredBackend, PreferredBackend.cpu);
+      expect(r.notes, [
+        'No variant of "org/name" is verified on the requested gpu backend; '
+            'resolved without that hint (cpu).',
+      ]);
     });
 
     test(
@@ -310,37 +334,76 @@ void main() {
         expect(r.runtime.maxTokens, isNull);
         expect(r.runtime.minOutputTokens, isNull);
         expect(r.modelType, isNull);
+        // No `capabilities` block at all: the manifest never looked, which
+        // is "silent" (null) — not "declared unsupported" (false).
+        expect(r.runtime.supportImage, isNull);
+        expect(r.runtime.supportAudio, isNull);
+        expect(r.runtime.isThinking, isNull);
       },
     );
 
-    test('session_defaults is an open object: a notes-only object gives no '
-        'minOutputTokens, a non-int value is ignored', () async {
+    test('a present capabilities block is a declaration: keys it omits are '
+        'false, not null', () async {
       final f = _Fetches();
-      final notesOnly = await f
+      final r = await f
           .resolver(
             manifest(
               model: {
-                'display_name': 'N',
-                'session_defaults': {'notes': 'only notes'},
+                'display_name': 'V',
+                'capabilities': {'vision': true},
               },
             ),
           )
           .resolve('org/name');
-      expect(notesOnly.runtime.minOutputTokens, isNull);
-      expect(notesOnly.notes, ['only notes']);
-
-      final junk = await f
-          .resolver(
-            manifest(
-              model: {
-                'display_name': 'N',
-                'session_defaults': {'max_output_tokens_min': '2048'},
-              },
-            ),
-          )
-          .resolve('org/name');
-      expect(junk.runtime.minOutputTokens, isNull);
+      expect(r.runtime.supportImage, true);
+      expect(r.runtime.supportAudio, false);
+      expect(r.runtime.isThinking, false);
     });
+
+    test(
+      'session_defaults is an open object: a notes-only object gives no '
+      'minOutputTokens; a value outside `integer, minimum: 1` is ignored',
+      () async {
+        final f = _Fetches();
+        final notesOnly = await f
+            .resolver(
+              manifest(
+                model: {
+                  'display_name': 'N',
+                  'session_defaults': {'notes': 'only notes'},
+                },
+              ),
+            )
+            .resolve('org/name');
+        expect(notesOnly.runtime.minOutputTokens, isNull);
+        expect(notesOnly.notes, ['only notes']);
+
+        for (final bad in ['2048', 2048.0, 0, -1, true]) {
+          final junk = await f
+              .resolver(
+                manifest(
+                  model: {
+                    'display_name': 'N',
+                    'session_defaults': {'max_output_tokens_min': bad},
+                  },
+                ),
+              )
+              .resolve('org/name');
+          expect(junk.runtime.minOutputTokens, isNull, reason: '$bad');
+        }
+        final one = await f
+            .resolver(
+              manifest(
+                model: {
+                  'display_name': 'N',
+                  'session_defaults': {'max_output_tokens_min': 1},
+                },
+              ),
+            )
+            .resolve('org/name');
+        expect(one.runtime.minOutputTokens, 1);
+      },
+    );
 
     test('a backend name outside the PreferredBackend enum maps to null '
         '(SDK default), not an error', () async {
@@ -598,6 +661,74 @@ void main() {
           ),
         ),
       );
+    });
+
+    /// A manifest with one element of a string list replaced by a number.
+    Map<String, dynamic> withBadElement(String list) {
+      final variant = <String, dynamic>{
+        'file': 'model.litertlm',
+        'quantization': 'int8',
+        'backends': ['cpu'],
+        'requirements': {
+          'platform_notes': ['ok'],
+        },
+        'known_issues': ['ok'],
+      };
+      switch (list) {
+        case 'platform_notes':
+          variant['requirements'] = {
+            'platform_notes': ['ok', 42],
+          };
+        case 'known_issues':
+          variant['known_issues'] = ['ok', 42];
+        case 'backends':
+          variant['backends'] = ['cpu', 42];
+      }
+      return manifest(variants: [variant]);
+    }
+
+    test('a wrong-typed element in platform_notes / known_issues / backends '
+        'is a FormatException at resolve, not a TypeError from a lazy cast '
+        'later', () async {
+      final f = _Fetches();
+      for (final list in ['platform_notes', 'known_issues', 'backends']) {
+        await expectLater(
+          f.resolver(withBadElement(list)).resolve('org/name'),
+          throwsA(
+            isA<FormatException>().having(
+              (e) => e.message,
+              'message',
+              contains('org/name'),
+            ),
+          ),
+          reason: list,
+        );
+        // The vendored reader itself checks the elements at parse.
+        expect(
+          () => LitertlmManifest.fromJson(withBadElement(list)),
+          throwsA(isA<TypeError>()),
+          reason: list,
+        );
+      }
+    });
+
+    test('a wrong-typed base_model / architecture is a FormatException, '
+        'not a TypeError from the modelType mapping', () async {
+      final f = _Fetches();
+      for (final field in ['base_model', 'architecture']) {
+        final m = manifest(model: {'display_name': 'N', field: 3});
+        await expectLater(
+          f.resolver(m).resolve('org/name'),
+          throwsA(
+            isA<FormatException>().having(
+              (e) => e.message,
+              'message',
+              contains('org/name'),
+            ),
+          ),
+          reason: field,
+        );
+      }
     });
   });
 

@@ -4,8 +4,10 @@
 /// `manifest_fetch_io.dart` / `manifest_fetch_web.dart`.
 ///
 /// Contract: follow redirects (Hugging Face answers `/resolve/` paths with a
-/// 307 to its CDN), send [headers] verbatim, return the body on HTTP 200, and
-/// throw [ManifestFetchException] on any other status.
+/// 307 to its CDN), send [headers] verbatim, return the body on any 2xx, and
+/// throw [ManifestFetchException] carrying the status on any other status —
+/// check the status before touching the body, so an unreadable error page
+/// never loses it.
 typedef ManifestFetch =
     Future<String> Function(Uri url, Map<String, String> headers);
 

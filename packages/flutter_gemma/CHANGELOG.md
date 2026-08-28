@@ -1,3 +1,6 @@
+## 1.6.6
+- Fix web sessions failing right after install because the active model was only half-saved.
+
 ## 1.6.5
 - Tool-declaration injection is a declarative `InferenceChat` flag, not a hardcoded gemma4 check (no behavior change).
 

@@ -1,6 +1,10 @@
 import 'package:flutter_gemma/core/domain/platform_types.dart'
     show PreferredBackend;
 import 'package:flutter_gemma/core/model.dart' show ModelFileType;
+import 'package:flutter_gemma/core/registry/hugging_face_resolver.dart'
+    show HuggingFaceResolver;
+import 'package:flutter_gemma/core/registry/hugging_face_resolver_source.dart'
+    show HuggingFaceResolverSource;
 import 'package:flutter_gemma/core/registry/inference_engine_provider.dart';
 import 'package:flutter_gemma/core/registry/runtime_config.dart';
 import 'package:flutter_gemma/core/utils/gemma_log.dart';
@@ -13,6 +17,7 @@ import 'package:path_provider/path_provider.dart';
 import 'ffi/backend_preference.dart';
 import 'ffi/ffi_inference_model.dart';
 import 'ffi/litert_lm_client.dart';
+import 'manifest/litertlm_manifest_resolver.dart' show LitertlmManifestResolver;
 
 /// Minimum context window (`max_num_tokens`) for `.litertlm` models.
 ///
@@ -70,7 +75,8 @@ encoderInitArgs(RuntimeConfig config, PreferredBackend activeBackend) => (
 /// LiteRT-LM (.litertlm) inference engine. Pure factory: builds and returns a
 /// bare [InferenceModel]; core owns the singleton lifecycle and registers its
 /// reset via [InferenceModel.addCloseListener] (added in a later task).
-class LiteRtLmEngine implements InferenceEngineProvider {
+class LiteRtLmEngine
+    implements InferenceEngineProvider, HuggingFaceResolverSource {
   const LiteRtLmEngine();
 
   @override
@@ -82,6 +88,16 @@ class LiteRtLmEngine implements InferenceEngineProvider {
   @override
   bool canHandle(InferenceModelSpec spec) =>
       spec.fileType == ModelFileType.litertlm;
+
+  /// The engine's own Hugging Face resolver: reads a repo's
+  /// `litertlm_manifest.json`. Auto-registered by
+  /// `FlutterGemma.initialize(inferenceEngines: …)`, so `.litertlm` HF manifests
+  /// resolve without a separate `huggingFaceResolvers:` list. Pass an explicit
+  /// `LitertlmManifestResolver(revision: …)` to `initialize` only to override
+  /// (e.g. pin a revision).
+  @override
+  HuggingFaceResolver? get huggingFaceResolver =>
+      const LitertlmManifestResolver();
 
   @override
   Future<InferenceModel> createModel(

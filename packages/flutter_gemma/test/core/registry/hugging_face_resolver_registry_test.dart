@@ -1,9 +1,15 @@
 import 'package:flutter_gemma/core/api/flutter_gemma.dart';
 import 'package:flutter_gemma/core/registry/hugging_face_resolver.dart';
+import 'package:flutter_gemma/core/registry/hugging_face_resolver_source.dart';
 import 'package:flutter_gemma/core/domain/platform_types.dart'
     show PreferredBackend;
 import 'package:flutter_gemma/core/model.dart' show ModelFileType, ModelType;
+import 'package:flutter_gemma/core/model_management/model_specs.dart'
+    show InferenceModelSpec;
 import 'package:flutter_gemma/core/registry/hugging_face_resolver_registry.dart';
+import 'package:flutter_gemma/core/registry/inference_engine_provider.dart';
+import 'package:flutter_gemma/core/registry/runtime_config.dart';
+import 'package:flutter_gemma/flutter_gemma_interface.dart' show InferenceModel;
 import 'package:flutter_test/flutter_test.dart';
 
 /// Minimal fake resolver — probe-chain selection is what these tests exercise,
@@ -26,6 +32,59 @@ class _R implements HuggingFaceResolver {
     String? platform,
     PreferredBackend? preferredBackend,
   }) async => throw UnimplementedError();
+}
+
+/// Engine that opts into [HuggingFaceResolverSource] and returns [_resolver].
+class _EngineWithResolver
+    implements InferenceEngineProvider, HuggingFaceResolverSource {
+  _EngineWithResolver(this._resolver);
+  final HuggingFaceResolver _resolver;
+  @override
+  String get name => 'with-resolver';
+  @override
+  int get priority => 0;
+  @override
+  bool canHandle(InferenceModelSpec spec) => false;
+  @override
+  Future<InferenceModel> createModel(
+    InferenceModelSpec spec,
+    RuntimeConfig config,
+  ) => throw UnimplementedError();
+  @override
+  HuggingFaceResolver? get huggingFaceResolver => _resolver;
+}
+
+/// Plain engine — no [HuggingFaceResolverSource]. Contributes nothing.
+class _PlainEngine implements InferenceEngineProvider {
+  @override
+  String get name => 'plain';
+  @override
+  int get priority => 0;
+  @override
+  bool canHandle(InferenceModelSpec spec) => false;
+  @override
+  Future<InferenceModel> createModel(
+    InferenceModelSpec spec,
+    RuntimeConfig config,
+  ) => throw UnimplementedError();
+}
+
+/// Opts in but has no resolver right now (returns null). Contributes nothing.
+class _EngineNullResolver
+    implements InferenceEngineProvider, HuggingFaceResolverSource {
+  @override
+  String get name => 'null-resolver';
+  @override
+  int get priority => 0;
+  @override
+  bool canHandle(InferenceModelSpec spec) => false;
+  @override
+  Future<InferenceModel> createModel(
+    InferenceModelSpec spec,
+    RuntimeConfig config,
+  ) => throw UnimplementedError();
+  @override
+  HuggingFaceResolver? get huggingFaceResolver => null;
 }
 
 void main() {
@@ -145,4 +204,43 @@ void main() {
       );
     },
   );
+
+  group('engineHuggingFaceResolvers (auto-derivation from engines)', () {
+    test('collects a resolver only from engines that provide one', () {
+      final r = _R('litertlm', 0);
+      final derived = FlutterGemma.engineHuggingFaceResolvers([
+        _EngineWithResolver(r),
+        _PlainEngine(), // no HuggingFaceResolverSource → skipped
+        _EngineNullResolver(), // opts in but returns null → skipped
+      ]);
+      expect(derived, hasLength(1));
+      expect(derived.single, same(r));
+    });
+
+    test('empty when no engine provides a resolver', () {
+      expect(
+        FlutterGemma.engineHuggingFaceResolvers([
+          _PlainEngine(),
+          _EngineNullResolver(),
+        ]),
+        isEmpty,
+      );
+    });
+
+    test('explicit resolver wins the tie over an engine-derived one '
+        '(initialize registers the explicit list first)', () {
+      final explicit = _R('explicit', 0);
+      final engine = _EngineWithResolver(_R('engine', 0));
+      // Mirror initialize(): explicit list FIRST, engine-derived SECOND, so the
+      // explicit resolver wins on equal priority (findFor: first-registered).
+      HuggingFaceResolverRegistry.instance.registerAll([explicit]);
+      HuggingFaceResolverRegistry.instance.registerAll(
+        FlutterGemma.engineHuggingFaceResolvers([engine]),
+      );
+      expect(
+        HuggingFaceResolverRegistry.instance.findFor('o/r')!.name,
+        'explicit',
+      );
+    });
+  });
 }

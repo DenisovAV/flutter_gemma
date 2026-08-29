@@ -5,6 +5,10 @@ library;
 // Shared, arm-neutral: pure Dart, no platform imports either side.
 export 'src/availability_types.dart'; // BuiltInAiAvailability, BuiltInAiUnavailableException
 export 'src/builtin_ai_models.dart'; // BuiltInAiModels specs
+// HuggingFace resolver (pure Dart) — claims the `ModelFileType.builtIn` slot
+// so `resolveHuggingFace(...)` says "not possible" clearly (no HF file).
+export 'src/builtin_ai_hugging_face_resolver.dart'
+    show BuiltInAiHuggingFaceResolver;
 
 // Swapped arm — native (dart:ffi true on Android/iOS/macOS) vs web
 // (dart2js/dart2wasm, dart:ffi false). Mirrors flutter_gemma_litertlm's

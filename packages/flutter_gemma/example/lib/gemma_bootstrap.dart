@@ -42,11 +42,12 @@ const kExampleTtsBackends = [LiteRtTtsBackend()];
 /// The opt-in Hugging Face resolvers the example registers, one per engine that
 /// declares a `ModelFileType`. So `FlutterGemma.resolveHuggingFace(repo,
 /// fileType:)` answers with a clear per-engine result everywhere, not core's
-/// generic "no resolver registered". ONNX throws "not implemented yet"
-/// (directory install is a follow-up); built-in throws "not possible" (OS owns
-/// the weights, no HF file). `LitertlmManifestResolver` (the real one) is added
-/// here once #469 lands on the pinned core.
+/// generic "no resolver registered". `LitertlmManifestResolver` reads a repo's
+/// `litertlm_manifest.json`; ONNX throws "not implemented yet" (directory
+/// install is a follow-up); built-in throws "not possible" (OS owns the
+/// weights, no HF file).
 const kExampleHuggingFaceResolvers = [
+  LitertlmManifestResolver(),
   OnnxHuggingFaceResolver(),
   BuiltInAiHuggingFaceResolver(),
 ];

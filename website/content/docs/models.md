@@ -231,6 +231,12 @@ await FlutterGemma.installModel(
 **Manifest-driven** — `resolveHuggingFace(repo, fileType:)` reads the repo's deployment manifest (e.g. `litertlm_manifest.json`), picks the right variant for the device, and returns install identity plus overridable runtime defaults. Register a resolver first via `initialize(huggingFaceResolvers: [...])`:
 
 ```dart
+// Register the resolver once at startup (alongside the engine).
+await FlutterGemma.initialize(
+  inferenceEngines: [LiteRtLmEngine()],
+  huggingFaceResolvers: [const LitertlmManifestResolver()],
+);
+
 final r = await FlutterGemma.resolveHuggingFace(
   'litert-community/Qwen3-4B-Thinking-2507',
   fileType: ModelFileType.litertlm,

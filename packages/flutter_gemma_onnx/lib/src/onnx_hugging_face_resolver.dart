@@ -39,7 +39,7 @@ class OnnxHuggingFaceResolver implements HuggingFaceResolver {
     String? token,
     String? platform,
     PreferredBackend? preferredBackend,
-  }) {
+  }) async {
     throw UnimplementedError(
       'Resolving an ONNX model from a Hugging Face repo is not implemented yet '
       '("$repo"). ORT-GenAI models install as a directory (genai_config.json + '

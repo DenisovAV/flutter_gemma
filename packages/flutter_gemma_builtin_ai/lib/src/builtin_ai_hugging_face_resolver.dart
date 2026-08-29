@@ -38,7 +38,7 @@ class BuiltInAiHuggingFaceResolver implements HuggingFaceResolver {
     String? token,
     String? platform,
     PreferredBackend? preferredBackend,
-  }) {
+  }) async {
     throw UnsupportedError(
       'Built-in AI models (Gemini Nano / Apple Foundation Models) are provided '
       'by the OS — there is no Hugging Face file to resolve for "$repo". '

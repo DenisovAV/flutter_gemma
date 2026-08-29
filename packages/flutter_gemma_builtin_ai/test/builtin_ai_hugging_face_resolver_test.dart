@@ -17,18 +17,16 @@ void main() {
         resolver.canResolve('org/repo', fileType: ModelFileType.builtIn),
         isTrue,
       );
-      expect(
-        resolver.canResolve('org/repo', fileType: ModelFileType.onnx),
-        isFalse,
-      );
-      expect(
-        resolver.canResolve('org/repo', fileType: ModelFileType.litertlm),
-        isFalse,
-      );
-      expect(
-        resolver.canResolve('org/repo', fileType: ModelFileType.task),
-        isFalse,
-      );
+      // Every OTHER declared file type must NOT match; iterating
+      // ModelFileType.values keeps this exhaustive if a new value is added.
+      for (final t in ModelFileType.values) {
+        if (t == ModelFileType.builtIn) continue;
+        expect(
+          resolver.canResolve('org/repo', fileType: t),
+          isFalse,
+          reason: '$t',
+        );
+      }
       expect(resolver.canResolve('org/repo'), isFalse);
     },
   );

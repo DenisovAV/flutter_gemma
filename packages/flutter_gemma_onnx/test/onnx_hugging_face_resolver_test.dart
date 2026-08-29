@@ -16,18 +16,17 @@ void main() {
       resolver.canResolve('org/repo', fileType: ModelFileType.onnx),
       isTrue,
     );
-    expect(
-      resolver.canResolve('org/repo', fileType: ModelFileType.litertlm),
-      isFalse,
-    );
-    expect(
-      resolver.canResolve('org/repo', fileType: ModelFileType.builtIn),
-      isFalse,
-    );
-    expect(
-      resolver.canResolve('org/repo', fileType: ModelFileType.task),
-      isFalse,
-    );
+    // Every OTHER declared file type must NOT match, so the stub can never
+    // shadow another engine's resolver. Iterating ModelFileType.values keeps
+    // this exhaustive if a new value is ever added.
+    for (final t in ModelFileType.values) {
+      if (t == ModelFileType.onnx) continue;
+      expect(
+        resolver.canResolve('org/repo', fileType: t),
+        isFalse,
+        reason: '$t',
+      );
+    }
     // A bare hint must NOT match — otherwise resolveHuggingFace(repo) with no
     // fileType would route by registration order.
     expect(resolver.canResolve('org/repo'), isFalse);

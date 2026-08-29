@@ -1,5 +1,6 @@
 ## 1.7.0
 - Add the `HuggingFaceResolver` seam — `resolveHuggingFace` / `fromHuggingFace` / `getActiveModel(defaults:)` — for manifest-driven Hugging Face installs (#454).
+- One-call `installModel(…).fromHuggingFace(repo)` resolves the manifest and installs; engines carry their resolver, so no `huggingFaceResolvers:` list needed (#454).
 
 ## 1.6.5
 - Tool-declaration injection is a declarative `InferenceChat` flag, not a hardcoded gemma4 check (no behavior change).

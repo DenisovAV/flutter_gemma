@@ -1,5 +1,5 @@
 ## 0.2.1
-- Add `BuiltInAiHuggingFaceResolver` so `resolveHuggingFace` reports that built-in OS models have no Hugging Face file (#454).
+- Add `BuiltInAiHuggingFaceResolver` (auto-registered from `BuiltInAiEngine`) so `resolveHuggingFace` reports that built-in OS models have no Hugging Face file (#454).
 
 ## 0.2.0
 - Web support: Gemini Nano via the Chrome Prompt API (desktop Chrome/Edge).

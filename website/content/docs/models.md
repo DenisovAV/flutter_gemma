@@ -215,9 +215,31 @@ await FlutterGemma.installModel(
 
 ### Hugging Face
 
-Two extra paths install a model straight from a Hugging Face repo.
+Install a model straight from a Hugging Face repo. The resolver that reads a repo's deployment manifest ships with the engine, so registering the engine is enough — there is no separate resolver list to maintain.
 
-**Explicit file** — `fromHuggingFace(repo, file:)` resolves `…/resolve/main/<file>` and installs it (the HF token is applied to `huggingface.co` automatically), for any `fileType`:
+**One call (manifest-driven)** — omit `file`, and `fromHuggingFace(repo)` resolves the repo's manifest (e.g. `litertlm_manifest.json`) at install time, installs the right revision-pinned variant for the device, and returns the manifest's overridable runtime defaults on the result:
+
+```dart
+// The engine carries its resolver — nothing else to register.
+await FlutterGemma.initialize(inferenceEngines: [LiteRtLmEngine()]);
+
+final install = await FlutterGemma.installModel(
+  modelType: ModelType.general,     // fallback — the manifest overrides it
+  fileType: ModelFileType.litertlm, // selects the litertlm resolver
+)
+  .fromHuggingFace('litert-community/Qwen3-4B-Thinking-2507')
+  .install();
+
+final model = await FlutterGemma.getActiveModel(defaults: install.runtime);
+final session = await model.createSession(
+  enableThinking: install.runtime?.isThinking ?? false,
+  maxOutputTokens: install.runtime?.minOutputTokens,
+);
+```
+
+`.onnx` and `.builtIn` repos surface their resolver's status here — ONNX reports that directory-based install is a follow-up, and built-in reports that OS models have no Hugging Face file.
+
+**Explicit file** — pass `file`, and `fromHuggingFace(repo, file:)` resolves `…/resolve/<revision>/<file>` and installs it directly, for any `fileType` (no manifest needed; the HF token is applied to `huggingface.co` automatically):
 
 ```dart
 await FlutterGemma.installModel(
@@ -228,29 +250,23 @@ await FlutterGemma.installModel(
   .install();
 ```
 
-**Manifest-driven** — `resolveHuggingFace(repo, fileType:)` reads the repo's deployment manifest (e.g. `litertlm_manifest.json`), picks the right variant for the device, and returns install identity plus overridable runtime defaults. Register a resolver first via `initialize(huggingFaceResolvers: [...])`:
+**Inspect first** — `resolveHuggingFace(repo, fileType:)` returns the resolved identity plus overridable runtime defaults WITHOUT installing, so you can inspect the variant, its notes, and defaults before committing:
 
 ```dart
-// Register the resolver once at startup (alongside the engine).
-await FlutterGemma.initialize(
-  inferenceEngines: [LiteRtLmEngine()],
-  huggingFaceResolvers: [const LitertlmManifestResolver()],
-);
-
 final r = await FlutterGemma.resolveHuggingFace(
   'litert-community/Qwen3-4B-Thinking-2507',
   fileType: ModelFileType.litertlm,
 );
+// … inspect r.file / r.notes / r.runtime …
 await FlutterGemma.installModel(
   modelType: r.modelType ?? ModelType.general,
   fileType: r.fileType,
 )
   .fromNetwork(r.url) // r.url pins the resolver's revision
   .install();
-final model = await FlutterGemma.getActiveModel(defaults: r.runtime);
 ```
 
-The resolver lives in the engine package — `LitertlmManifestResolver` in `flutter_gemma_litertlm` reads `litertlm_manifest.json`. ONNX and built-in engines register resolvers too: ONNX reports that directory-based install is a follow-up, and built-in reports that OS models have no Hugging Face file.
+The resolver lives in the engine package — `LitertlmManifestResolver` in `flutter_gemma_litertlm` reads `litertlm_manifest.json` — and rides on the engine via `HuggingFaceResolverSource`, so `initialize(inferenceEngines: […])` auto-registers it. Pass `initialize(huggingFaceResolvers: [...])` only to override an engine's default (e.g. `LitertlmManifestResolver(revision: 'abc123')` to pin a commit).
 
 ### Source capabilities
 

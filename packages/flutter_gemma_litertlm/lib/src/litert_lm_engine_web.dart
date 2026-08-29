@@ -36,7 +36,7 @@ class LiteRtLmEngine
   /// on web as native, so a repo's manifest resolves without a separate
   /// `huggingFaceResolvers:` list.
   @override
-  HuggingFaceResolver? get huggingFaceResolver =>
+  HuggingFaceResolver get huggingFaceResolver =>
       const LitertlmManifestResolver();
 
   @override

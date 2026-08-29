@@ -18,8 +18,9 @@ import 'package:flutter_gemma/core/registry/hugging_face_resolver.dart'
 /// `genai_config.json`-driven directory resolver is the follow-up; until then
 /// install an ONNX model from a local directory.
 ///
-/// Register it via `FlutterGemma.initialize(huggingFaceResolvers: [...])`,
-/// exactly like the engine (`OnnxEngine`) and backend (`OnnxEmbeddingBackend`).
+/// Auto-registered from `OnnxEngine` (which implements
+/// `HuggingFaceResolverSource`), so registering the engine is enough; pass it in
+/// `FlutterGemma.initialize(huggingFaceResolvers: [...])` only to override.
 class OnnxHuggingFaceResolver implements HuggingFaceResolver {
   const OnnxHuggingFaceResolver();
 

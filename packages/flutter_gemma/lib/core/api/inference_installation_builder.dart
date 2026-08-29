@@ -133,6 +133,12 @@ class InferenceInstallationBuilder {
   ///   the model is already installed (the variant filename is only known after
   ///   the manifest fetch). For offline-safe idempotent installs, cache the
   ///   `ResolvedHfModel` yourself and install from `fromNetwork(r.url)`.
+  /// - `modelType`: pass `ModelType.general` to let the manifest decide the
+  ///   family; pass a SPECIFIC type to keep your choice (it wins over the
+  ///   manifest, and any disagreement is surfaced in [InferenceInstallation.notes]).
+  /// - A [CancelToken] set via `withCancelToken` cannot interrupt the manifest
+  ///   fetch itself (the resolver takes no token); cancellation is honoured
+  ///   immediately after the fetch returns, before the download starts.
   ///
   /// The plugin already applies the configured HuggingFace token to
   /// `huggingface.co` URLs for gated repos, so [token] is only needed to
@@ -263,17 +269,23 @@ class InferenceInstallationBuilder {
 
     // Runtime defaults / notes / model family resolved from a Hugging Face
     // manifest (deferred `fromHuggingFace(repo)`). Null/empty for every non-HF
-    // source; ride on the RESULT ([InferenceInstallation]), never on the spec —
-    // preserving install-vs-runtime separation.
+    // source; they ride on the RESULT ([InferenceInstallation]), never on the
+    // spec — preserving install-vs-runtime separation.
     ModelRuntimeDefaults? resolvedRuntime;
     List<String> resolvedNotes = const [];
     ModelType? resolvedModelType;
 
+    // The effective model source. install() is a pure READER of builder state:
+    // the deferred-HF resolve below assigns the resolved network source to this
+    // LOCAL, never back to `_modelSource`, so reusing a builder instance never
+    // sees install() mutate its source mid-flight.
+    ModelSource? source = _modelSource;
+
     // Deferred Hugging Face resolution runs FIRST — before the builtIn /
-    // onnx-web branches below, which assume a concrete _modelSource. For a
-    // `.builtIn` / `.onnx` repo the resolver throws its own clear error here
+    // onnx-web branches below, which assume a concrete source. For a `.builtIn`
+    // / `.onnx` repo the resolver throws its own clear error here
     // (UnsupportedError / UnimplementedError, naming the repo) instead of those
-    // branches tripping over a null _modelSource.
+    // branches tripping over a null source.
     if (_hfRepo != null) {
       final r = await FlutterGemma.resolveHuggingFace(
         _hfRepo!,
@@ -283,28 +295,41 @@ class InferenceInstallationBuilder {
       // The manifest fetch itself is not cancellable (the resolver contract
       // takes no CancelToken) — fail fast here, before the download starts.
       _cancelToken?.throwIfCancelled();
-      if (r.modelType != null && r.modelType != _modelType) {
-        gemmaLog(
-          '⚠️  Hugging Face manifest declares modelType ${r.modelType} for '
-          '"$_hfRepo" — using it instead of the passed $_modelType (the '
-          'manifest is authoritative about the model family). Pass that '
-          'modelType explicitly to silence this warning.',
-        );
+
+      // Model-family precedence: `ModelType.general` is the conventional "no
+      // claim — resolve it for me" value, so the manifest's family wins over it;
+      // any SPECIFIC modelType the caller passed wins over the manifest
+      // (explicit > manifest, matching `mergeRuntimeDefault`). A real
+      // disagreement is surfaced in a RELEASE-visible note — `gemmaLog` is
+      // debug-only, so it can't be the only channel.
+      final manifestType = r.modelType;
+      if (_modelType == ModelType.general) {
+        resolvedModelType = manifestType; // may be null → stays general
+        resolvedNotes = r.notes;
+      } else if (manifestType != null && manifestType != _modelType) {
+        resolvedModelType = _modelType; // explicit wins
+        final note =
+            'Installed as ${_modelType.name} (your explicit choice); the '
+            'Hugging Face manifest for "$_hfRepo" declares ${manifestType.name}.';
+        resolvedNotes = [...r.notes, note];
+        gemmaLog('ℹ️  $note');
+      } else {
+        resolvedModelType = _modelType; // agrees, or manifest silent
+        resolvedNotes = r.notes;
       }
       for (final note in r.notes) {
         gemmaLog('ℹ️  Hugging Face ($_hfRepo): $note');
       }
-      _modelSource = ModelSource.network(
+
+      source = ModelSource.network(
         r.url,
         authToken: _hfToken,
         foreground: _hfForeground,
       );
-      resolvedModelType = r.modelType;
       resolvedRuntime = r.runtime;
-      resolvedNotes = r.notes;
     }
 
-    if (_modelSource == null) {
+    if (source == null) {
       throw StateError(
         'Model source not configured. Use fromNetwork(), fromAsset(), '
         'fromBundled(), fromFile(), or fromHuggingFace().',
@@ -320,10 +345,10 @@ class InferenceInstallationBuilder {
           'LoRA is not supported for built-in OS models (ModelFileType.builtIn).',
         );
       }
-      final modelFile = InferenceModelFile.fromSource(_modelSource!);
+      final modelFile = InferenceModelFile.fromSource(source);
       final spec = InferenceModelSpec(
         name: FileNameUtils.getBaseName(modelFile.filename),
-        modelSource: _modelSource!,
+        modelSource: source,
         replacePolicy: ModelReplacePolicy.keep,
         modelType: resolvedModelType ?? _modelType,
         fileType: _fileType,
@@ -331,7 +356,11 @@ class InferenceInstallationBuilder {
       final manager = FlutterGemmaPlugin.instance.modelManager;
       manager.setActiveModel(spec);
       gemmaLog('✅ Built-in model set as active: ${spec.name}');
-      return InferenceInstallation(spec: spec);
+      return InferenceInstallation(
+        spec: spec,
+        runtime: resolvedRuntime,
+        notes: resolvedNotes,
+      );
     }
 
     // ONNX on WEB: Transformers.js (@huggingface/transformers) resolves +
@@ -348,10 +377,10 @@ class InferenceInstallationBuilder {
           'LoRA is not supported for ONNX web models (ModelFileType.onnx).',
         );
       }
-      final modelFile = InferenceModelFile.fromSource(_modelSource!);
+      final modelFile = InferenceModelFile.fromSource(source);
       final spec = InferenceModelSpec(
         name: FileNameUtils.getBaseName(modelFile.filename),
-        modelSource: _modelSource!,
+        modelSource: source,
         replacePolicy: ModelReplacePolicy.keep,
         modelType: resolvedModelType ?? _modelType,
         fileType: _fileType,
@@ -362,14 +391,18 @@ class InferenceInstallationBuilder {
         '✅ ONNX web model set as active (Transformers.js owns the weights): '
         '${spec.name}',
       );
-      return InferenceInstallation(spec: spec);
+      return InferenceInstallation(
+        spec: spec,
+        runtime: resolvedRuntime,
+        notes: resolvedNotes,
+      );
     }
 
     // Create spec
-    final modelFile = InferenceModelFile.fromSource(_modelSource!);
+    final modelFile = InferenceModelFile.fromSource(source);
     final spec = InferenceModelSpec(
       name: FileNameUtils.getBaseName(modelFile.filename),
-      modelSource: _modelSource!,
+      modelSource: source,
       loraSource: _loraSource,
       replacePolicy: ModelReplacePolicy.keep,
       modelType: resolvedModelType ?? _modelType,
@@ -396,10 +429,10 @@ class InferenceInstallationBuilder {
     } else {
       // Install model file
       final handlerRegistry = registry.sourceHandlerRegistry;
-      final handler = handlerRegistry.getHandler(_modelSource!);
+      final handler = handlerRegistry.getHandler(source);
       if (_onProgress != null) {
         await for (final progress in handler!.installWithProgress(
-          _modelSource!,
+          source,
           cancelToken: _cancelToken,
           targetFilename: namespacedModelFilename,
         )) {
@@ -407,7 +440,7 @@ class InferenceInstallationBuilder {
         }
       } else {
         await handler!.install(
-          _modelSource!,
+          source,
           cancelToken: _cancelToken,
           targetFilename: namespacedModelFilename,
         );
@@ -457,14 +490,15 @@ class InferenceInstallation {
 
   /// Advisory notes surfaced by the Hugging Face resolver (platform caveats,
   /// known issues); empty for non-HF sources. Also written to the log at
-  /// install time.
+  /// install time. Unmodifiable — the constructor wraps whatever the resolver
+  /// handed over, so this never aliases a list a resolver still holds.
   final List<String> notes;
 
   InferenceInstallation({
     required this.spec,
     this.runtime,
-    this.notes = const [],
-  });
+    List<String> notes = const [],
+  }) : notes = List.unmodifiable(notes);
 
   /// Model ID (filename without extension)
   String get modelId => spec.name;

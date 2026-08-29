@@ -17,8 +17,9 @@ import 'package:flutter_gemma/core/registry/hugging_face_resolver.dart'
 /// Face to resolve. Install a built-in model with `ModelFileType.builtIn`
 /// directly (see `BuiltInAiModels`).
 ///
-/// Register it via `FlutterGemma.initialize(huggingFaceResolvers: [...])`,
-/// alongside `BuiltInAiEngine`.
+/// Auto-registered from `BuiltInAiEngine` (which implements
+/// `HuggingFaceResolverSource`), so registering the engine is enough; pass it in
+/// `FlutterGemma.initialize(huggingFaceResolvers: [...])` only to override.
 class BuiltInAiHuggingFaceResolver implements HuggingFaceResolver {
   const BuiltInAiHuggingFaceResolver();
 

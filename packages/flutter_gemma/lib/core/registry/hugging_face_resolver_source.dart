@@ -30,9 +30,16 @@ import 'package:flutter_gemma/core/registry/hugging_face_resolver.dart'
 /// built-in one at equal priority (the registry breaks ties by
 /// first-registered). Pass the explicit list only to override an engine's
 /// default (e.g. pin a manifest revision or inject a custom fetch).
+///
+/// An engine that has nothing to resolve does NOT implement this interface — or,
+/// if it wants to reserve its `ModelFileType` slot so the caller gets a specific
+/// error instead of core's generic "no resolver registered", returns a resolver
+/// whose `resolve` throws (the pattern `OnnxHuggingFaceResolver` /
+/// `BuiltInAiHuggingFaceResolver` use). Either way is more informative than a
+/// `null`, which is why [huggingFaceResolver] is non-nullable.
 abstract interface class HuggingFaceResolverSource {
-  /// The Hugging Face resolver this engine provides, or `null` if it currently
-  /// has none (e.g. a multi-format engine with no manifest for the active
-  /// configuration).
-  HuggingFaceResolver? get huggingFaceResolver;
+  /// The Hugging Face resolver this engine provides. Non-null: an engine that
+  /// implements this interface always contributes a resolver (see the class doc
+  /// for how to express "no resolver").
+  HuggingFaceResolver get huggingFaceResolver;
 }

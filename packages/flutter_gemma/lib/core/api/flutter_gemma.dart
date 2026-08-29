@@ -489,7 +489,7 @@ class FlutterGemma {
   /// [HuggingFaceResolverSource] (e.g. `LiteRtLmEngine` → `LitertlmManifestResolver`).
   /// [initialize] registers these AFTER the explicit `huggingFaceResolvers:`
   /// list, so an app's explicit resolver wins the equal-priority tie. An engine
-  /// that returns `null` (has no resolver right now) contributes nothing.
+  /// that does not implement [HuggingFaceResolverSource] contributes nothing.
   /// Extracted so the derivation is unit-testable without a full [initialize].
   @visibleForTesting
   static List<HuggingFaceResolver> engineHuggingFaceResolvers(
@@ -500,8 +500,7 @@ class FlutterGemma {
       // Bind via pattern: HuggingFaceResolverSource is not a subtype of
       // InferenceEngineProvider, so a plain `is` check would not promote `e`.
       if (e case final HuggingFaceResolverSource source) {
-        final r = source.huggingFaceResolver;
-        if (r != null) resolvers.add(r);
+        resolvers.add(source.huggingFaceResolver);
       }
     }
     return resolvers;
@@ -550,9 +549,11 @@ class FlutterGemma {
   ///     .fromNetwork(r.url)
   ///     .install();
   /// final model = await FlutterGemma.getActiveModel(defaults: r.runtime);
+  /// // minOutputTokens is a FLOOR, not a cap — leave maxOutputTokens unset (or
+  /// // keep it >= r.runtime.minOutputTokens); passing the floor AS the cap
+  /// // would truncate a reasoning model mid-thought.
   /// final session = await model.createSession(
   ///   enableThinking: r.runtime.isThinking ?? false,
-  ///   maxOutputTokens: r.runtime.minOutputTokens,
   /// );
   /// ```
   ///
@@ -571,9 +572,11 @@ class FlutterGemma {
     );
     if (resolver == null) {
       throw StateError(
-        'No Hugging Face resolver registered for "$repo". Pass one to '
-        'FlutterGemma.initialize(huggingFaceResolvers: [...]) — e.g. the '
-        'litertlm manifest resolver from flutter_gemma_litertlm.',
+        'No Hugging Face resolver registered for "$repo" (fileType: $fileType). '
+        'Register the engine that provides one — its resolver auto-registers via '
+        'HuggingFaceResolverSource (e.g. LiteRtLmEngine ships the litertlm '
+        'manifest resolver) — or pass one explicitly to '
+        'FlutterGemma.initialize(huggingFaceResolvers: [...]).',
       );
     }
     return resolver.resolve(

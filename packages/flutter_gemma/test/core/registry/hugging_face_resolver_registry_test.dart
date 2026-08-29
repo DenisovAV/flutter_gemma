@@ -51,7 +51,7 @@ class _EngineWithResolver
     RuntimeConfig config,
   ) => throw UnimplementedError();
   @override
-  HuggingFaceResolver? get huggingFaceResolver => _resolver;
+  HuggingFaceResolver get huggingFaceResolver => _resolver;
 }
 
 /// Plain engine — no [HuggingFaceResolverSource]. Contributes nothing.
@@ -67,24 +67,6 @@ class _PlainEngine implements InferenceEngineProvider {
     InferenceModelSpec spec,
     RuntimeConfig config,
   ) => throw UnimplementedError();
-}
-
-/// Opts in but has no resolver right now (returns null). Contributes nothing.
-class _EngineNullResolver
-    implements InferenceEngineProvider, HuggingFaceResolverSource {
-  @override
-  String get name => 'null-resolver';
-  @override
-  int get priority => 0;
-  @override
-  bool canHandle(InferenceModelSpec spec) => false;
-  @override
-  Future<InferenceModel> createModel(
-    InferenceModelSpec spec,
-    RuntimeConfig config,
-  ) => throw UnimplementedError();
-  @override
-  HuggingFaceResolver? get huggingFaceResolver => null;
 }
 
 void main() {
@@ -211,18 +193,14 @@ void main() {
       final derived = FlutterGemma.engineHuggingFaceResolvers([
         _EngineWithResolver(r),
         _PlainEngine(), // no HuggingFaceResolverSource → skipped
-        _EngineNullResolver(), // opts in but returns null → skipped
       ]);
       expect(derived, hasLength(1));
       expect(derived.single, same(r));
     });
 
-    test('empty when no engine provides a resolver', () {
+    test('empty when no engine implements HuggingFaceResolverSource', () {
       expect(
-        FlutterGemma.engineHuggingFaceResolvers([
-          _PlainEngine(),
-          _EngineNullResolver(),
-        ]),
+        FlutterGemma.engineHuggingFaceResolvers([_PlainEngine()]),
         isEmpty,
       );
     });

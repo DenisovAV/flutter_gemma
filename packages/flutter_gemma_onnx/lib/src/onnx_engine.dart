@@ -64,7 +64,7 @@ class OnnxEngine implements InferenceEngineProvider, HuggingFaceResolverSource {
   /// yet") instead of core's generic "no resolver registered". Directory-based
   /// `genai_config.json` resolution is a follow-up.
   @override
-  HuggingFaceResolver? get huggingFaceResolver =>
+  HuggingFaceResolver get huggingFaceResolver =>
       const OnnxHuggingFaceResolver();
 
   /// In lockstep with `hook/build.dart`'s `_archivesFor`: every host whose

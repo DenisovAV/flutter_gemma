@@ -161,6 +161,62 @@ void main() {
       },
     );
 
+    test('a SPECIFIC caller modelType wins over a differing manifest, and the '
+        'conflict is surfaced in a release-visible note', () async {
+      await ServiceRegistry.initialize(downloadService: download);
+      HuggingFaceResolverRegistry.instance.registerAll([
+        _ScriptedResolver(
+          forFileType: ModelFileType.litertlm,
+          result: const ResolvedHfModel(
+            file: 'model.litertlm',
+            url: 'https://huggingface.co/org/repo/resolve/main/model.litertlm',
+            fileType: ModelFileType.litertlm,
+            modelType: ModelType.qwen3, // manifest disagrees with the caller
+            notes: ['base note'],
+          ),
+        ),
+      ]);
+
+      // Caller deliberately passed a specific family, not ModelType.general.
+      final install = await FlutterGemma.installModel(
+        modelType: ModelType.gemmaIt,
+        fileType: ModelFileType.litertlm,
+      ).fromHuggingFace('org/repo').install();
+
+      // Explicit specific choice is KEPT, not overridden by the manifest.
+      expect(install.spec.modelType, ModelType.gemmaIt);
+      // The base note survives AND a conflict note naming both families is
+      // appended (release-visible, not just gemmaLog).
+      expect(install.notes, contains('base note'));
+      expect(
+        install.notes.any((n) => n.contains('gemmaIt') && n.contains('qwen3')),
+        isTrue,
+        reason: 'a release-visible conflict note naming both families',
+      );
+    });
+
+    test('install.notes is unmodifiable', () async {
+      await ServiceRegistry.initialize(downloadService: download);
+      HuggingFaceResolverRegistry.instance.registerAll([
+        _ScriptedResolver(
+          forFileType: ModelFileType.litertlm,
+          result: const ResolvedHfModel(
+            file: 'model.litertlm',
+            url: 'https://huggingface.co/org/repo/resolve/main/model.litertlm',
+            fileType: ModelFileType.litertlm,
+            notes: ['a note'],
+          ),
+        ),
+      ]);
+
+      final install = await FlutterGemma.installModel(
+        modelType: ModelType.general,
+        fileType: ModelFileType.litertlm,
+      ).fromHuggingFace('org/repo').install();
+
+      expect(() => install.notes.add('x'), throwsUnsupportedError);
+    });
+
     test('the resolver error surfaces from install BEFORE any download '
         '(.onnx → UnimplementedError)', () async {
       await ServiceRegistry.initialize(downloadService: download);

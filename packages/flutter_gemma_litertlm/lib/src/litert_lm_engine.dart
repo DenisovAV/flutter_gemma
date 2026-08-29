@@ -96,7 +96,7 @@ class LiteRtLmEngine
   /// `LitertlmManifestResolver(revision: …)` to `initialize` only to override
   /// (e.g. pin a revision).
   @override
-  HuggingFaceResolver? get huggingFaceResolver =>
+  HuggingFaceResolver get huggingFaceResolver =>
       const LitertlmManifestResolver();
 
   @override

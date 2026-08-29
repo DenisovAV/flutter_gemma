@@ -38,7 +38,7 @@ class BuiltInAiEngine
   /// reserves the `.builtIn` slot so `resolveHuggingFace(fileType: builtIn)`
   /// throws a clear `UnsupportedError` — the OS owns the weights.
   @override
-  HuggingFaceResolver? get huggingFaceResolver =>
+  HuggingFaceResolver get huggingFaceResolver =>
       const BuiltInAiHuggingFaceResolver();
 
   @override

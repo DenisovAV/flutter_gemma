@@ -231,9 +231,11 @@ final install = await FlutterGemma.installModel(
   .install();
 
 final model = await FlutterGemma.getActiveModel(defaults: install.runtime);
+// `minOutputTokens` is a FLOOR, not a cap — leave `maxOutputTokens` unset (or
+// keep it >= `install.runtime?.minOutputTokens`). Passing the floor as the cap
+// would truncate a reasoning model mid-thought.
 final session = await model.createSession(
   enableThinking: install.runtime?.isThinking ?? false,
-  maxOutputTokens: install.runtime?.minOutputTokens,
 );
 ```
 

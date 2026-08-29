@@ -46,7 +46,7 @@ class OnnxEngine implements InferenceEngineProvider, HuggingFaceResolverSource {
   /// reserves the `.onnx` slot so `resolveHuggingFace(fileType: onnx)` throws a
   /// clear `UnimplementedError` rather than core's generic "no resolver".
   @override
-  HuggingFaceResolver? get huggingFaceResolver =>
+  HuggingFaceResolver get huggingFaceResolver =>
       const OnnxHuggingFaceResolver();
 
   @override

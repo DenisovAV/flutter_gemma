@@ -60,3 +60,8 @@ export 'src/web/onnx_embedding_backend_web.dart'
 // `flutter_gemma_litertlm`'s `litert_bindings_stub.dart`).
 export 'src/native_exports_stub.dart'
     if (dart.library.ffi) 'src/native_exports.dart';
+
+// The Hugging Face resolver (pure Dart, web-safe) — reserves the
+// `ModelFileType.onnx` slot so `resolveHuggingFace(...)` gives a clear
+// ONNX-specific error instead of core's generic "no resolver registered".
+export 'src/onnx_hugging_face_resolver.dart' show OnnxHuggingFaceResolver;

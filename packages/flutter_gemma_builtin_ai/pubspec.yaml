@@ -1,6 +1,6 @@
 name: flutter_gemma_builtin_ai
 description: "Built-in OS AI engine for flutter_gemma: Gemini Nano (ML Kit GenAI, Android), Apple Foundation Models (iOS/macOS), and Gemini Nano via the Chrome Prompt API on Web. Opt-in InferenceEngineProvider for system on-device models."
-version: 0.2.0
+version: 0.2.1
 homepage: https://fluttergemma.dev
 repository: https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_gemma_builtin_ai
 topics: [gemma, llm, gemini-nano, on-device, prompt-api]
@@ -20,7 +20,7 @@ dependencies:
   # dependency managers REJECT an app target below any dependency's floor — so
   # with core <=1.6.3 (still 16.0) an app could never actually reach 15.0.
   # This makes core 1.6.4 a publish PREREQUISITE for this version.
-  flutter_gemma: ^1.6.4
+  flutter_gemma: ^1.7.0
   plugin_platform_interface: ^2.0.2
   meta: ^1.15.0
 

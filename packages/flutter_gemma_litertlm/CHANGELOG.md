@@ -1,3 +1,6 @@
+## 1.6.0
+- Add `LitertlmManifestResolver`: manifest-driven Hugging Face install for repos shipping `litertlm_manifest.json` (#454).
+
 ## 1.5.3
 - Fix a rebuilt native library not reaching the build.
 

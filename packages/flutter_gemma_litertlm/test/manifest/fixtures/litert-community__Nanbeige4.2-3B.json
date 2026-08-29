@@ -1,0 +1,89 @@
+{
+  "manifest_schema": "0.1.0",
+  "repo": "litert-community/Nanbeige4.2-3B",
+  "generated": "2026-08-24",
+  "generator": "make_manifest.py",
+  "model": {
+    "display_name": "Nanbeige4.2-3B",
+    "base_model": "Nanbeige/Nanbeige4.2-3B",
+    "architecture": "Looped transformer: 22 layers run twice per token (num_loops=2), unrolled at export to 44 layer executions over shared weights; reasoning model",
+    "parameters_b": 3,
+    "license": "apache-2.0",
+    "session_defaults": {
+      "max_output_tokens_min": 2048,
+      "notes": "Reasoning model — the chat template auto-opens the <think> block and the visible answer follows </think>. Sampling is required: official recipe temperature 0.6, top_k 20, top_p 0.95; the model collapses under greedy decoding (do not run at temperature 0).",
+      "temperature": 0.6,
+      "top_k": 20,
+      "top_p": 0.95
+    },
+    "context_length": 4096,
+    "capabilities": {
+      "vision": false,
+      "audio": false,
+      "thinking": {
+        "declared": false
+      }
+    }
+  },
+  "variants": [
+    {
+      "file": "model.litertlm",
+      "sha256": "4b4adfe6fd794451116bca61db58f0e2fb9fc3542da8d04d11ba4635693f4533",
+      "size_bytes": 2579277808,
+      "sections": [
+        {
+          "type": "LlmMetadataProto",
+          "size_bytes": 139
+        },
+        {
+          "type": "SP_Tokenizer",
+          "size_bytes": 2783410
+        },
+        {
+          "type": "TFLiteModel",
+          "size_bytes": 2062065968,
+          "model_type": "tf_lite_prefill_decode"
+        },
+        {
+          "type": "TFLiteModel",
+          "size_bytes": 514385904,
+          "model_type": "tf_lite_embedder"
+        }
+      ],
+      "quantization": "int4 weights — blockwise (block 32) + OCTAV optimal-clipping, symmetric; embedding INT8",
+      "backends": [
+        "cpu"
+      ],
+      "default_backend": "cpu",
+      "requirements": {
+        "platform_notes": [
+          "The loop makes this ~2x the per-token compute of a normal 3B — expect roughly 8B-class decode rates on CPU",
+          "Android: push the file and import it in Google AI Edge Gallery (+ -> import, keep CPU)",
+          "Context (KV cache): 4096 (44 KV slots: 22 layers x 2 loops)",
+          "iPhone 17 Pro CPU decode was observed at ~3.2 tok/s in an earlier on-device note; its run log is not retained, so it is not listed as a measured row"
+        ]
+      },
+      "measured": [
+        {
+          "device": "Apple M4 Max",
+          "os": "macOS",
+          "backend": "cpu",
+          "runtime": "litert-lm 0.15.0",
+          "prompt_tokens": 256,
+          "decode_tokens": 256,
+          "prefill_tps": 56,
+          "decode_tps": 12.5,
+          "ttft_s": 4.74,
+          "max_num_tokens": 4096,
+          "runs": 3,
+          "date": "2026-08-24",
+          "source": "model card Performance table (cardbench harness)"
+        }
+      ],
+      "known_issues": [
+        "Sampling is required — the model collapses under greedy decoding (official recipe: temperature 0.6, top_k 20, top_p 0.95)",
+        "The current GPU delegate produces incorrect output on this 44-layer unrolled graph — run on CPU; this build is CPU-only on device"
+      ]
+    }
+  ]
+}

@@ -77,6 +77,17 @@ class ResolvedHfFile {
     this.sha256,
     this.sizeBytes,
   });
+
+  /// Whether [name] is a safe BARE leaf — a single path segment with no
+  /// separators and no `.`/`..`. The installer refuses a directory member whose
+  /// name is not (a `../…` name would escape the model directory). The rule
+  /// lives here so resolvers and the installer share one definition.
+  bool get isBareLeafName =>
+      name.isNotEmpty &&
+      name != '.' &&
+      name != '..' &&
+      !name.contains('/') &&
+      !name.contains(r'\');
 }
 
 /// A model resolved from a Hugging Face repo's deployment metadata into

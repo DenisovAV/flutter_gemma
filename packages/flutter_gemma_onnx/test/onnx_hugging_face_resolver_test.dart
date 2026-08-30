@@ -107,7 +107,8 @@ void main() {
   );
 
   test(
-    'native: GPU request picks the cuda variant and warns execution is CPU',
+    'native: a GPU request still auto-picks the CPU variant (GPU execution is '
+    'not bundled) and notes the CPU EP',
     () async {
       final h = _resolver(_tree);
       final r = await h.make.resolve(
@@ -115,15 +116,51 @@ void main() {
         platform: 'windows',
         preferredBackend: PreferredBackend.gpu,
       );
-      expect(r.directoryName, 'org__repo__cuda__cuda-int4');
-      expect(r.files!.any((f) => f.name == 'model.onnx'), isTrue);
+      // Auto pick is CPU-only in v1 — NOT the cuda folder, which the CPU runtime
+      // could not load.
+      expect(r.directoryName, 'org__repo__cpu_and_mobile__cpu-int4');
       expect(
-        r.notes.any((n) => n.toLowerCase().contains('gpu')),
+        r.notes.any((n) => n.toLowerCase().contains('cpu execution-provider')),
         isTrue,
-        reason: 'a release-visible note that GPU execution is not bundled',
+        reason: 'a release-visible note that the CPU EP variant was installed',
       );
     },
   );
+
+  test(
+    'native: >1000 tree entries is refused (undetectable truncation)',
+    () async {
+      final many = [
+        for (var i = 0; i < 1000; i++) {'type': 'file', 'path': 'f$i.bin'},
+      ];
+      final h = _resolver(jsonEncode(many));
+      await expectLater(
+        h.make.resolve('org/repo', platform: 'macos'),
+        throwsA(isA<StateError>()),
+      );
+    },
+  );
+
+  test('native: a non-array tree response is a clear StateError', () async {
+    final h = _resolver(jsonEncode({'error': 'rate limited'}));
+    await expectLater(
+      h.make.resolve('org/repo', platform: 'macos'),
+      throwsA(isA<StateError>()),
+    );
+  });
+
+  test('native: a folder with genai_config but no .onnx is refused', () async {
+    final h = _resolver(
+      jsonEncode([
+        {'type': 'file', 'path': 'cpu/genai_config.json', 'size': 9},
+        {'type': 'file', 'path': 'cpu/tokenizer.json', 'size': 9},
+      ]),
+    );
+    await expectLater(
+      h.make.resolve('org/repo', platform: 'macos'),
+      throwsA(isA<StateError>()),
+    );
+  });
 
   test('native: an explicit variant overrides the backend heuristic', () async {
     final h = _resolver(_tree, variant: 'cuda/cuda-int4');

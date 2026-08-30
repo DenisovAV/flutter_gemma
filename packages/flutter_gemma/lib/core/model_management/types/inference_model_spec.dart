@@ -90,7 +90,11 @@ class DirectoryBundleFile extends ModelFile {
   final String _filename;
   final String _prefsKey;
 
-  DirectoryBundleFile({
+  // Private: every member MUST come through [DirectoryBundleFile.member] so the
+  // `<modelId>/<bareLeaf>` filename and the primary-vs-sibling prefsKey rule are
+  // never bypassed (a raw ctor could key a sibling on installedModelFileName —
+  // two files fighting for the persist-identity slot).
+  DirectoryBundleFile._({
     required ModelSource source,
     required String filename,
     required String prefsKey,
@@ -110,7 +114,7 @@ class DirectoryBundleFile extends ModelFile {
     required String bareName,
     required String primaryName,
     required ModelSource source,
-  }) => DirectoryBundleFile(
+  }) => DirectoryBundleFile._(
     source: source,
     filename: '$modelId/$bareName',
     prefsKey: bareName == primaryName
@@ -163,13 +167,27 @@ class InferenceModelSpec extends ModelSpec {
     required ModelType modelType,
     ModelFileType fileType = ModelFileType.task,
     List<DirectoryBundleFile>? directoryFiles,
-  }) : _name = name,
+  }) : assert(
+         directoryFiles == null || loraSource == null,
+         'directory (ORT-GenAI) models do not support LoRA',
+       ),
+       assert(
+         directoryFiles == null ||
+             directoryFiles.isEmpty ||
+             modelSource == directoryFiles.first.source,
+         'modelSource must be the primary (first) directory file source',
+       ),
+       _name = name,
        _modelSource = modelSource,
        _loraSource = loraSource,
        _replacePolicy = replacePolicy,
        _modelType = modelType,
        _fileType = fileType,
-       _directoryFiles = directoryFiles;
+       // Defensive copy: every other facet of this immutable spec is protected,
+       // so the bundle must not stay aliased to a list the caller can mutate.
+       _directoryFiles = directoryFiles == null
+           ? null
+           : List<DirectoryBundleFile>.unmodifiable(directoryFiles);
 
   /// Legacy compatibility constructor for String URLs
   factory InferenceModelSpec.fromLegacyUrl({

@@ -212,10 +212,25 @@ class FileNameUtils {
   /// single path segment safe on POSIX and Windows and free of the `/` that the
   /// restore path uses to split `modelId` from the bare leaf. Idempotent for an
   /// already-sanitized id.
+  ///
+  /// Throws [ArgumentError] if [repo]/[variant] sanitize to an empty or
+  /// dot-only name (`.`/`..`): `.` survives the charset filter, so a literal
+  /// `".."` repo would otherwise pass through verbatim and — interpolated as a
+  /// path segment — escape the model storage directory (a `deleteModel` on such
+  /// a spec would recursively delete its PARENT).
   static String sanitizeHfDirName(String repo, {String? variant}) {
     final raw = variant == null || variant.isEmpty ? repo : '$repo/$variant';
     final sanitized = raw.replaceAll(RegExp(r'[^A-Za-z0-9._-]+'), '__');
     // Trim any leading/trailing separators so the id is never empty-segmented.
-    return sanitized.replaceAll(RegExp(r'^_+|_+$'), '');
+    final result = sanitized.replaceAll(RegExp(r'^_+|_+$'), '');
+    if (result.isEmpty || result == '.' || result == '..') {
+      throw ArgumentError.value(
+        raw,
+        'repo/variant',
+        'sanitizes to "$result" — an empty or dot-only directory name that '
+            'would escape the model storage directory',
+      );
+    }
+    return result;
   }
 }

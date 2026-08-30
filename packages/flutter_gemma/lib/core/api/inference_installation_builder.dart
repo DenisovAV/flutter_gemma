@@ -527,19 +527,31 @@ class InferenceInstallationBuilder {
         'got none.',
       );
     }
+    // The subdir name is interpolated as a path segment (`<modelId>/<leaf>`) and
+    // fed to deleteModel's recursive Directory.delete — a traversing modelId
+    // (`..`, or one carrying a separator) would escape the storage dir and could
+    // delete its parent. `sanitizeHfDirName` guards its own output, but a
+    // third-party resolver can supply `directoryName` directly, so re-check here.
+    if (modelId == '.' ||
+        modelId == '..' ||
+        modelId.contains('/') ||
+        modelId.contains(r'\')) {
+      throw ArgumentError.value(
+        modelId,
+        'ResolvedHfModel.directoryName',
+        'must be a single safe path segment (no "/", "\\", "." or ".." ) — a '
+            'traversing name would escape the model storage directory; refusing '
+            '"$_hfRepo"',
+      );
+    }
 
     // A directory member must be a BARE leaf name. A resolver name with a path
     // separator or a "."/".." segment (e.g. "../victim.onnx") would escape the
     // model directory at both install and delete time — refuse it.
     for (final f in hfFiles) {
-      final n = f.name;
-      if (n.isEmpty ||
-          n == '.' ||
-          n == '..' ||
-          n.contains('/') ||
-          n.contains(r'\')) {
+      if (!f.isBareLeafName) {
         throw ArgumentError.value(
-          n,
+          f.name,
           'ResolvedHfFile.name',
           'directory model file names must be bare leaf names (no path '
               'separators or "."/".." segments) — refusing "$_hfRepo" file',
@@ -552,6 +564,18 @@ class InferenceInstallationBuilder {
         'Directory model "$_hfRepo" resolved without its primary file '
         '"$primaryName" in the file list — cannot locate the model directory\'s '
         'entry point.',
+      );
+    }
+
+    // Belt-and-suspenders: a directory with a genai_config.json but no .onnx
+    // weight file installs "successfully" and only fails later inside
+    // OgaCreateModel. The onnx resolver already guards this, but any resolver
+    // could hand us an incomplete set — refuse it here too.
+    if (!hfFiles.any((f) => f.name.endsWith('.onnx'))) {
+      throw StateError(
+        'Directory model "$_hfRepo" has no .onnx weight file among its '
+        '${hfFiles.length} files — it cannot load. The resolver returned an '
+        'incomplete file set.',
       );
     }
 
@@ -589,21 +613,40 @@ class InferenceInstallationBuilder {
     final handlerRegistry = registry.sourceHandlerRegistry;
 
     final files = spec.files;
-    var done = 0;
-    for (final file in files) {
+    final total = files.length;
+    for (var i = 0; i < files.length; i++) {
+      final file = files[i];
       _cancelToken?.throwIfCancelled();
       if (await repository.isInstalled(file.filename)) {
         gemmaLog('ℹ️  Already installed: ${file.filename} (skipping download)');
       } else {
         final handler = handlerRegistry.getHandler(file.source);
-        await handler!.install(
-          file.source,
-          cancelToken: _cancelToken,
-          targetFilename: file.filename,
-        );
+        if (handler == null) {
+          throw StateError(
+            'No source handler for ${file.source.runtimeType} (directory '
+            'member "${file.filename}").',
+          );
+        }
+        if (_onProgress != null) {
+          // Each file owns the slice [i/total, (i+1)/total]; stream WITHIN it so
+          // the bar keeps moving during the multi-GB model.onnx download instead
+          // of freezing between file boundaries (weights dominate total size).
+          await for (final pct in handler.installWithProgress(
+            file.source,
+            cancelToken: _cancelToken,
+            targetFilename: file.filename,
+          )) {
+            _onProgress!((((i + pct / 100) / total) * 100).round());
+          }
+        } else {
+          await handler.install(
+            file.source,
+            cancelToken: _cancelToken,
+            targetFilename: file.filename,
+          );
+        }
       }
-      done++;
-      _onProgress?.call(((done / files.length) * 100).round());
+      _onProgress?.call((((i + 1) / total) * 100).round());
     }
 
     final manager = FlutterGemmaPlugin.instance.modelManager;

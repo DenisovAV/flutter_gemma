@@ -137,31 +137,29 @@ class OnnxEngine implements InferenceEngineProvider, HuggingFaceResolverSource {
       );
     }
 
-    // The install layer hands inference engines a single resolved FILE path
-    // per `InferenceModelSpec` (`RuntimeConfig.modelPath` —
+    // The install layer hands inference engines a single resolved FILE path per
+    // `InferenceModelSpec` (`RuntimeConfig.modelPath` =
     // `manager.getModelFilePaths(...).values.first`, see
-    // `flutter_gemma_mobile.dart`'s createModel preamble). ORT-GenAI models
-    // are whole DIRECTORIES (`genai_config.json` + `.onnx`[+`.onnx_data`] +
-    // tokenizer files); v1 takes that file's PARENT directory as the model
-    // dir. This assumes the whole bundle already lives alongside the one
-    // tracked file on disk — true for the macOS host smoke (which points
-    // `ONNX_SMOKE_GENAI_MODEL_DIR` straight at a pre-populated directory) but
-    // NOT yet true for a real network install, which only downloads that one
-    // tracked file. Multi-file bundle install (mirroring the TTS
-    // `artifactPaths` pattern) is a known gap, left for the device-gated
-    // follow-on — this precheck turns it into a clear, loud error instead of
-    // a confusing native failure.
+    // `flutter_gemma_mobile.dart`'s createModel preamble). ORT-GenAI models are
+    // whole DIRECTORIES (`genai_config.json` + `.onnx`[+`.onnx_data`] +
+    // tokenizer files). The directory install
+    // (`installModel(fileType: onnx).fromHuggingFace(repo)`, wired via
+    // `OnnxHuggingFaceResolver` + core's directory-install path) downloads every
+    // file into a per-model subdirectory and makes the primary
+    // `genai_config.json` the spec's FIRST file — so `modelPath` resolves to
+    // `<dir>/genai_config.json` and its PARENT is exactly the model directory
+    // ORT-GenAI needs. The precheck below stays as a loud guard for a modelPath
+    // whose parent is not a complete ORT-GenAI directory (a directory pointed at
+    // directly, or a partial/incomplete install).
     final modelDir = File(config.modelPath).parent.path;
     final configFile = File('$modelDir/genai_config.json');
     if (!configFile.existsSync()) {
       throw StateError(
         'ONNX GenAI model directory "$modelDir" has no genai_config.json — '
         'expected an ORT-GenAI model directory '
-        '(genai_config.json + .onnx[+.onnx_data] + tokenizer files) '
-        'installed as a single bundle. Multi-file bundle install is not '
-        'yet wired through FlutterGemma.installModel() for ModelFileType.onnx '
-        '(hardened plan Phase 3 Task 2 known gap) — point modelPath at a '
-        'pre-populated directory for now.',
+        '(genai_config.json + .onnx[+.onnx_data] + tokenizer files). Install '
+        'one with installModel(fileType: ModelFileType.onnx).fromHuggingFace('
+        'repo), or point modelPath at a pre-populated ORT-GenAI directory.',
       );
     }
 

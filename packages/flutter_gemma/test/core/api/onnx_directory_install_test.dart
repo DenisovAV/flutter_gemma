@@ -22,6 +22,8 @@ import 'package:flutter_gemma/core/model_management/model_specs.dart'
 import 'package:flutter_gemma/core/registry/hugging_face_resolver.dart';
 import 'package:flutter_gemma/core/registry/hugging_face_resolver_registry.dart';
 import 'package:flutter_gemma/core/services/download_service.dart';
+import 'package:flutter_gemma/core/utils/file_name_utils.dart'
+    show FileNameUtils;
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma/mobile/flutter_gemma_mobile.dart'
     show MobileModelManager;
@@ -215,6 +217,91 @@ void main() {
           fileType: ModelFileType.onnx,
         ).fromHuggingFace('org/repo').install(),
         throwsArgumentError,
+      );
+    });
+
+    test('a traversing directoryName ("..") is rejected before any download '
+        '(would let deleteModel escape the storage dir)', () async {
+      await ServiceRegistry.initialize(downloadService: download);
+      HuggingFaceResolverRegistry.instance.registerAll([
+        _ScriptedResolver(
+          ModelFileType.onnx,
+          const ResolvedHfModel(
+            file: 'genai_config.json',
+            url:
+                'https://huggingface.co/org/repo/resolve/main/genai_config.json',
+            fileType: ModelFileType.onnx,
+            directoryName: '..', // traversal — must be refused
+            files: [
+              ResolvedHfFile(
+                name: 'genai_config.json',
+                url:
+                    'https://huggingface.co/org/repo/resolve/main/genai_config.json',
+              ),
+              ResolvedHfFile(
+                name: 'model.onnx',
+                url: 'https://huggingface.co/org/repo/resolve/main/model.onnx',
+              ),
+            ],
+          ),
+        ),
+      ]);
+      await expectLater(
+        FlutterGemma.installModel(
+          modelType: ModelType.general,
+          fileType: ModelFileType.onnx,
+        ).fromHuggingFace('org/repo').install(),
+        throwsArgumentError,
+      );
+      expect(download.requestedUrls, isEmpty);
+    });
+
+    test('a directory bundle with no .onnx weight is refused', () async {
+      await ServiceRegistry.initialize(downloadService: download);
+      HuggingFaceResolverRegistry.instance.registerAll([
+        _ScriptedResolver(
+          ModelFileType.onnx,
+          const ResolvedHfModel(
+            file: 'genai_config.json',
+            url:
+                'https://huggingface.co/org/repo/resolve/main/cpu/genai_config.json',
+            fileType: ModelFileType.onnx,
+            directoryName: 'org__repo__cpu',
+            files: [
+              ResolvedHfFile(
+                name: 'genai_config.json',
+                url:
+                    'https://huggingface.co/org/repo/resolve/main/cpu/genai_config.json',
+              ),
+              ResolvedHfFile(
+                name: 'tokenizer.json',
+                url:
+                    'https://huggingface.co/org/repo/resolve/main/cpu/tokenizer.json',
+              ),
+            ],
+          ),
+        ),
+      ]);
+      await expectLater(
+        FlutterGemma.installModel(
+          modelType: ModelType.general,
+          fileType: ModelFileType.onnx,
+        ).fromHuggingFace('org/repo').install(),
+        throwsA(isA<StateError>()),
+      );
+    });
+
+    test('sanitizeHfDirName rejects a dot-only / empty result', () {
+      expect(() => FileNameUtils.sanitizeHfDirName('..'), throwsArgumentError);
+      expect(() => FileNameUtils.sanitizeHfDirName('.'), throwsArgumentError);
+      expect(() => FileNameUtils.sanitizeHfDirName('@@'), throwsArgumentError);
+      // A normal repo/variant sanitizes to a safe single segment.
+      expect(
+        FileNameUtils.sanitizeHfDirName(
+          'org/repo',
+          variant: 'cpu_and_mobile/x',
+        ),
+        'org__repo__cpu_and_mobile__x',
       );
     });
 

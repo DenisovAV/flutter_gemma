@@ -54,6 +54,11 @@ class OnnxHuggingFaceResolver implements HuggingFaceResolver {
   final String _revision;
   final HfFetch? _fetch;
 
+  /// Single-page tree-listing budget. A response at this size is treated as
+  /// possibly-truncated and refused (see [resolve]) — full pagination is a
+  /// follow-up.
+  static const _treeLimit = 1000;
+
   @override
   String get name => 'onnx-huggingface';
 
@@ -96,7 +101,7 @@ class OnnxHuggingFaceResolver implements HuggingFaceResolver {
     // of files an ORT-GenAI model ships — limit guards a many-variant repo).
     final treeUrl = Uri.parse(
       'https://huggingface.co/api/models/$repo/tree/$_revision'
-      '?recursive=true&limit=1000',
+      '?recursive=true&limit=$_treeLimit',
     );
     final String body;
     try {
@@ -112,13 +117,36 @@ class OnnxHuggingFaceResolver implements HuggingFaceResolver {
       rethrow;
     }
 
+    final decoded = jsonDecode(body);
+    if (decoded is! List) {
+      throw StateError(
+        'Unexpected Hugging Face tree response for "$repo" — expected a JSON '
+        'array, got ${decoded.runtimeType}. The repo/revision may be wrong or '
+        'the request was rate-limited/redirected to an error page.',
+      );
+    }
+    // A full page means the listing may be TRUNCATED. `HfFetch` returns only the
+    // body, so HF's pagination-continuation header is invisible here — refuse
+    // rather than silently install an incomplete directory (a dropped
+    // `model.onnx_data` past the cutoff would install "successfully" then fail
+    // to load). Full pagination is a follow-up; pin the variant folder to avoid.
+    if (decoded.length >= _treeLimit) {
+      throw StateError(
+        'Hugging Face repo "$repo" has more than $_treeLimit tree entries; '
+        'listing pagination is not supported yet, so a complete model directory '
+        'cannot be guaranteed. Pin the exact variant folder with '
+        'OnnxHuggingFaceResolver(variant: …).',
+      );
+    }
     final filePaths = <String>[
-      for (final e in (jsonDecode(body) as List).cast<Map<String, dynamic>>())
-        if (e['type'] == 'file') e['path'] as String,
+      for (final e in decoded)
+        if (e is Map && e['type'] == 'file' && e['path'] is String)
+          e['path'] as String,
     ];
 
     // Folders that contain a genai_config.json — the ORT-GenAI signal. '' means
-    // the repo root.
+    // the repo root. Sorted so the tie-break in [_pickFolder] is deterministic
+    // (the HF tree order is not).
     const marker = 'genai_config.json';
     final configFolders = <String>[
       for (final p in filePaths)
@@ -126,7 +154,7 @@ class OnnxHuggingFaceResolver implements HuggingFaceResolver {
           ''
         else if (p.endsWith('/$marker'))
           p.substring(0, p.length - marker.length - 1),
-    ];
+    ].toSet().toList()..sort();
     if (configFolders.isEmpty) {
       throw StateError(
         'Hugging Face repo "$repo" has no genai_config.json — it is not an '
@@ -135,19 +163,28 @@ class OnnxHuggingFaceResolver implements HuggingFaceResolver {
       );
     }
 
-    final folder = _pickFolder(
-      configFolders,
-      preferredBackend: preferredBackend,
-      repo: repo,
-    );
+    final folder = _pickFolder(configFolders, repo: repo);
     final prefix = folder.isEmpty ? '' : '$folder/';
 
-    // The chosen folder's DIRECT children (ORT-GenAI folders are flat).
+    // The chosen folder's DIRECT children (ORT-GenAI folders are flat), sorted
+    // for a deterministic file order.
     final members = <String>[
       for (final p in filePaths)
         if (p.startsWith(prefix) && !p.substring(prefix.length).contains('/'))
           p,
-    ];
+    ]..sort();
+
+    // A genai_config.json alone is not a loadable model — require the weights.
+    // Without this an incomplete export (config + tokenizer, no `.onnx`) would
+    // install "successfully" and only fail later inside OgaCreateModel.
+    if (!members.any((p) => p.endsWith('.onnx'))) {
+      throw StateError(
+        'The ORT-GenAI directory '
+        '"${folder.isEmpty ? "(repo root)" : folder}" in "$repo" has a '
+        'genai_config.json but no .onnx model file — it cannot load. The repo '
+        'is likely an incomplete export.',
+      );
+    }
 
     String urlFor(String path) {
       final encoded = path.split('/').map(Uri.encodeComponent).join('/');
@@ -160,16 +197,22 @@ class OnnxHuggingFaceResolver implements HuggingFaceResolver {
     ];
 
     final notes = <String>[
-      'Resolved ORT-GenAI directory "${folder.isEmpty ? "(repo root)" : folder}"'
-          ' (${files.length} files).',
-      if (preferredBackend == PreferredBackend.gpu)
-        'GPU was requested; ORT-GenAI on-device GPU execution is not bundled '
-            'yet — the model runs on CPU regardless of the chosen variant.',
+      'Resolved ORT-GenAI directory '
+          '"${folder.isEmpty ? "(repo root)" : folder}" (${files.length} files).',
+      // v1: the bundled ORT-GenAI runtime is CPU-only, and the automatic EP pick
+      // always chooses a CPU/mobile variant. Surface that on every auto-install
+      // so a GPU-hoping caller is not silently handed CPU. Pin a GPU folder with
+      // OnnxHuggingFaceResolver(variant: …) if you have a GPU runtime.
+      if (_variant == null)
+        'Installed the CPU execution-provider variant; on-device GPU execution '
+            'is not bundled yet.',
     ];
 
     return ResolvedHfModel(
       file: marker, // the primary the engine loads from
-      url: urlFor('${prefix}genai_config.json'),
+      // Reuse the primary's URL from [files] so it can never desync from the
+      // matching ResolvedHfFile.url.
+      url: files.firstWhere((f) => f.name == marker).url,
       fileType: ModelFileType.onnx,
       files: files,
       directoryName: FileNameUtils.sanitizeHfDirName(
@@ -183,11 +226,7 @@ class OnnxHuggingFaceResolver implements HuggingFaceResolver {
   /// Picks the EP folder among [folders] (each a path that holds a
   /// genai_config.json). An explicit [variant] wins; otherwise a GPU folder for
   /// a GPU request, else a CPU/mobile folder, else the sole/first variant.
-  String _pickFolder(
-    List<String> folders, {
-    required PreferredBackend? preferredBackend,
-    required String repo,
-  }) {
+  String _pickFolder(List<String> folders, {required String repo}) {
     if (_variant != null) {
       if (!folders.contains(_variant)) {
         throw ArgumentError.value(
@@ -200,21 +239,15 @@ class OnnxHuggingFaceResolver implements HuggingFaceResolver {
       return _variant;
     }
     if (folders.length == 1) return folders.first;
-
-    final wantGpu = preferredBackend == PreferredBackend.gpu;
-    final preferred = folders.where(wantGpu ? _looksGpu : _looksCpu).toList();
-    if (preferred.isNotEmpty) return preferred.first;
-    // Requested backend has no folder → prefer any CPU/mobile build, else first.
+    // v1: the bundled ORT-GenAI runtime is CPU-only (GPU EP libs are not
+    // shipped), so the automatic pick always prefers a CPU/mobile variant —
+    // auto-picking a CUDA export the CPU runtime can't load would be worse than
+    // useless. Pin a GPU folder explicitly with `variant:` if you have a GPU
+    // runtime. [folders] is already sorted, so both branches are deterministic.
     final cpu = folders.where(_looksCpu).toList();
     return cpu.isNotEmpty ? cpu.first : folders.first;
   }
 
-  static final _gpuRe = RegExp(
-    r'cuda|dml|directml|coreml|gpu',
-    caseSensitive: false,
-  );
   static final _cpuRe = RegExp(r'cpu|mobile', caseSensitive: false);
-
-  static bool _looksGpu(String folder) => _gpuRe.hasMatch(folder);
   static bool _looksCpu(String folder) => _cpuRe.hasMatch(folder);
 }

@@ -18,6 +18,7 @@ import 'package:flutter_gemma/core/registry/tts_registry.dart';
 import 'package:flutter_gemma/core/registry/skill_executor_registry.dart';
 import 'package:flutter_gemma/core/registry/hugging_face_resolver.dart';
 import 'package:flutter_gemma/core/registry/hugging_face_resolver_registry.dart';
+import 'package:flutter_gemma/core/registry/hugging_face_resolver_source.dart';
 import 'package:flutter_gemma/core/registry/inference_engine_provider.dart';
 import 'package:flutter_gemma/core/registry/embedding_backend_provider.dart';
 import 'package:flutter_gemma/core/registry/stt_backend_provider.dart';
@@ -228,6 +229,16 @@ class FlutterGemma {
     }
     if (huggingFaceResolvers.isNotEmpty) {
       HuggingFaceResolverRegistry.instance.registerAll(huggingFaceResolvers);
+    }
+    // Auto-register resolvers that ride on the engines themselves (an engine
+    // that `implements HuggingFaceResolverSource` — LiteRtLmEngine, OnnxEngine,
+    // BuiltInAiEngine). Registered AFTER the explicit list so an app-supplied
+    // resolver wins the equal-priority tie (findFor: first-registered). Dedup
+    // is handled by registerAll (a `const` resolver passed both explicitly and
+    // via its engine is the same instance → registered once).
+    final engineResolvers = engineHuggingFaceResolvers(inferenceEngines);
+    if (engineResolvers.isNotEmpty) {
+      HuggingFaceResolverRegistry.instance.registerAll(engineResolvers);
     }
 
     // Single-flight model-manager init: restore the previously-active model
@@ -474,6 +485,27 @@ class FlutterGemma {
     );
   }
 
+  /// The Hugging Face resolvers contributed by [engines] that implement
+  /// [HuggingFaceResolverSource] (e.g. `LiteRtLmEngine` → `LitertlmManifestResolver`).
+  /// [initialize] registers these AFTER the explicit `huggingFaceResolvers:`
+  /// list, so an app's explicit resolver wins the equal-priority tie. An engine
+  /// that does not implement [HuggingFaceResolverSource] contributes nothing.
+  /// Extracted so the derivation is unit-testable without a full [initialize].
+  @visibleForTesting
+  static List<HuggingFaceResolver> engineHuggingFaceResolvers(
+    List<InferenceEngineProvider> engines,
+  ) {
+    final resolvers = <HuggingFaceResolver>[];
+    for (final e in engines) {
+      // Bind via pattern: HuggingFaceResolverSource is not a subtype of
+      // InferenceEngineProvider, so a plain `is` check would not promote `e`.
+      if (e case final HuggingFaceResolverSource source) {
+        resolvers.add(source.huggingFaceResolver);
+      }
+    }
+    return resolvers;
+  }
+
   /// Three-tier runtime-default merge used by [getActiveModel]: an explicit
   /// argument wins over a manifest [ModelRuntimeDefaults] value, which wins over
   /// the SDK default. Extracted so the precedence rule is stated — and tested —
@@ -483,8 +515,16 @@ class FlutterGemma {
       explicit ?? manifest ?? sdkDefault;
 
   /// Resolves a Hugging Face repo id into a [ResolvedHfModel] by reading that
-  /// repo's deployment metadata (e.g. `litertlm_manifest.json`), using the
-  /// resolver registered via `initialize(huggingFaceResolvers: [...])`.
+  /// repo's deployment metadata (e.g. `litertlm_manifest.json`), using a
+  /// resolver registered via `initialize` — either passed in
+  /// `huggingFaceResolvers:` or auto-derived from a registered engine that ships
+  /// one (LiteRtLmEngine, OnnxEngine, BuiltInAiEngine).
+  ///
+  /// This is the INSPECT-ONLY path (resolve, then install yourself). To resolve
+  /// AND install in one call, use `installModel(...).fromHuggingFace(repo)` with
+  /// no `file:` — it resolves the manifest internally, installs the
+  /// revision-pinned variant, and returns the runtime defaults on
+  /// `InferenceInstallation.runtime`.
   ///
   /// [fileType] tells the registry which resolver to pick (the litertlm
   /// resolver claims `ModelFileType.litertlm`); it is the only deterministic
@@ -509,9 +549,11 @@ class FlutterGemma {
   ///     .fromNetwork(r.url)
   ///     .install();
   /// final model = await FlutterGemma.getActiveModel(defaults: r.runtime);
+  /// // minOutputTokens is a FLOOR, not a cap — leave maxOutputTokens unset (or
+  /// // keep it >= r.runtime.minOutputTokens); passing the floor AS the cap
+  /// // would truncate a reasoning model mid-thought.
   /// final session = await model.createSession(
   ///   enableThinking: r.runtime.isThinking ?? false,
-  ///   maxOutputTokens: r.runtime.minOutputTokens,
   /// );
   /// ```
   ///
@@ -530,9 +572,11 @@ class FlutterGemma {
     );
     if (resolver == null) {
       throw StateError(
-        'No Hugging Face resolver registered for "$repo". Pass one to '
-        'FlutterGemma.initialize(huggingFaceResolvers: [...]) — e.g. the '
-        'litertlm manifest resolver from flutter_gemma_litertlm.',
+        'No Hugging Face resolver registered for "$repo" (fileType: $fileType). '
+        'Register the engine that provides one — its resolver auto-registers via '
+        'HuggingFaceResolverSource (e.g. LiteRtLmEngine ships the litertlm '
+        'manifest resolver) — or pass one explicitly to '
+        'FlutterGemma.initialize(huggingFaceResolvers: [...]).',
       );
     }
     return resolver.resolve(

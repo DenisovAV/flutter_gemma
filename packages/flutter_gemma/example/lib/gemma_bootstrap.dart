@@ -39,19 +39,16 @@ const kExampleSttBackends = [LiteRtSttBackend()];
 /// The opt-in TTS backends the example registers. Single source of truth.
 const kExampleTtsBackends = [LiteRtTtsBackend()];
 
-/// The opt-in Hugging Face resolvers the example registers — one per engine
-/// that ships one. So `FlutterGemma.resolveHuggingFace(repo, fileType:)` gives
-/// a clear result for `.litertlm` / `.onnx` / `.builtIn`, not core's generic
-/// "no resolver registered". (MediaPipe `.task`/`.bin` has no HF resolver, so
-/// `resolveHuggingFace(fileType: task)` still throws that generic error.)
-/// `LitertlmManifestResolver` reads a repo's `litertlm_manifest.json`; ONNX
-/// throws "not implemented yet" (directory install is a follow-up); built-in
-/// throws "not possible" (OS owns the weights, no HF file).
-const kExampleHuggingFaceResolvers = [
-  LitertlmManifestResolver(),
-  OnnxHuggingFaceResolver(),
-  BuiltInAiHuggingFaceResolver(),
-];
+// The Hugging Face resolvers are NOT listed here on purpose: each engine that
+// ships one (LiteRtLmEngine → litertlm_manifest.json, OnnxEngine,
+// BuiltInAiEngine) implements `HuggingFaceResolverSource`, so
+// `FlutterGemma.initialize(inferenceEngines: …)` auto-registers them — no
+// parallel `huggingFaceResolvers:` list to keep in sync. So
+// `FlutterGemma.resolveHuggingFace(repo, fileType:)` gives a clear result for
+// `.litertlm` / `.onnx` / `.builtIn` (MediaPipe `.task`/`.bin` has no resolver,
+// so `fileType: task` still throws the generic "no resolver registered").
+// Pass `huggingFaceResolvers:` to `initialize` only to OVERRIDE an engine's
+// default — e.g. `LitertlmManifestResolver(revision: 'abc123')` to pin a commit.
 
 /// The agentic skill executors the example registers (text / JS / native
 /// intent). Registered through `FlutterGemma.initialize(skillExecutors: …)` —
@@ -114,7 +111,8 @@ Future<void> bootstrapGemma({required RagBackend ragBackend}) {
     embeddingBackends: kExampleEmbeddingBackends,
     sttBackends: kExampleSttBackends,
     ttsBackends: kExampleTtsBackends,
-    huggingFaceResolvers: kExampleHuggingFaceResolvers,
+    // huggingFaceResolvers: omitted — resolvers auto-register from the engines
+    // above (each implements HuggingFaceResolverSource). See the note there.
     skillExecutors: kExampleSkillExecutors,
     vectorStore: vectorStoreFor(ragBackend),
   );

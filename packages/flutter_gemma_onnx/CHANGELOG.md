@@ -1,5 +1,5 @@
 ## 0.3.2
-- Add `OnnxHuggingFaceResolver` so `resolveHuggingFace` gives an ONNX-specific answer; directory-based genai_config install is a follow-up (#454).
+- Add `OnnxHuggingFaceResolver` (auto-registered from `OnnxEngine`) so `resolveHuggingFace` gives an ONNX-specific answer; directory-based genai_config install is a follow-up (#454).
 
 ## 0.3.1
 - Fix a rebuilt native library not reaching the build.

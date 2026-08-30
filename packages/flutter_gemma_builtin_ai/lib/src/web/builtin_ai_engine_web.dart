@@ -1,4 +1,8 @@
 import 'package:flutter_gemma/core/model.dart' show ModelFileType;
+import 'package:flutter_gemma/core/registry/hugging_face_resolver.dart'
+    show HuggingFaceResolver;
+import 'package:flutter_gemma/core/registry/hugging_face_resolver_source.dart'
+    show HuggingFaceResolverSource;
 import 'package:flutter_gemma/core/registry/inference_engine_provider.dart';
 import 'package:flutter_gemma/core/registry/runtime_config.dart';
 import 'package:flutter_gemma/core/model_management/model_specs.dart'
@@ -7,6 +11,8 @@ import 'package:flutter_gemma/flutter_gemma_interface.dart' show InferenceModel;
 
 import '../availability_types.dart'
     show BuiltInAiAvailability, BuiltInAiUnavailableException;
+import '../builtin_ai_hugging_face_resolver.dart'
+    show BuiltInAiHuggingFaceResolver;
 import 'availability_web.dart';
 import 'builtin_ai_model_web.dart';
 
@@ -18,7 +24,8 @@ import 'builtin_ai_model_web.dart';
 /// `priority`, and `canHandle` (routes on `fileType == ModelFileType.builtIn`
 /// regardless of platform; [BuiltInAiModels.geminiNano] just works on both
 /// Android and Web because it carries that fileType).
-class BuiltInAiEngine implements InferenceEngineProvider {
+class BuiltInAiEngine
+    implements InferenceEngineProvider, HuggingFaceResolverSource {
   const BuiltInAiEngine();
 
   @override
@@ -26,6 +33,13 @@ class BuiltInAiEngine implements InferenceEngineProvider {
 
   @override
   int get priority => 0;
+
+  /// The engine's own Hugging Face resolver (same stub as the native arm):
+  /// reserves the `.builtIn` slot so `resolveHuggingFace(fileType: builtIn)`
+  /// throws a clear `UnsupportedError` — the OS owns the weights.
+  @override
+  HuggingFaceResolver get huggingFaceResolver =>
+      const BuiltInAiHuggingFaceResolver();
 
   @override
   bool canHandle(InferenceModelSpec spec) =>

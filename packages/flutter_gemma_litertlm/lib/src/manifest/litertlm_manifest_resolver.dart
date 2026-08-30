@@ -25,10 +25,10 @@ export 'manifest_fetch_types.dart' show ManifestFetch, ManifestFetchException;
 /// wins (core's `explicit arg > manifest > SDK default` merge).
 ///
 /// ```dart
-/// await FlutterGemma.initialize(
-///   inferenceEngines: [LiteRtLmEngine()],
-///   huggingFaceResolvers: [const LitertlmManifestResolver()],
-/// );
+/// // LiteRtLmEngine carries this resolver (HuggingFaceResolverSource), so
+/// // registering the engine auto-registers it — no huggingFaceResolvers: list.
+/// // Pass one explicitly only to override, e.g. LitertlmManifestResolver(revision: …).
+/// await FlutterGemma.initialize(inferenceEngines: [LiteRtLmEngine()]);
 ///
 /// final r = await FlutterGemma.resolveHuggingFace(
 ///     'litert-community/Qwen3-4B-Thinking-2507',

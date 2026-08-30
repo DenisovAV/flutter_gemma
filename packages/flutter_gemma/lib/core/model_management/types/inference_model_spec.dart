@@ -74,6 +74,71 @@ class LoraModelFile extends ModelFile {
   bool get isRequired => false;
 }
 
+/// One file of a DIRECTORY inference model (ORT-GenAI): the model is a set of
+/// files that must live together in a per-model subdirectory with their BARE
+/// leaf names (`genai_config.json` references its siblings by bare name and the
+/// native loader is handed the directory). [filename] is the EXPLICIT install
+/// identity `<modelId>/<bareLeaf>` (a real subpath) — NEVER derived from
+/// [source], so the on-disk id and the repository key always agree (a
+/// `FileSource`-derived basename would drop the subdir and break the repo
+/// lookup on every restore). The PRIMARY file (`genai_config.json`) uses
+/// [PreferencesKeys.installedModelFileName] as its [prefsKey] so the
+/// persist-identity + `modelFilePaths.values.first` both find it; siblings use
+/// their bare leaf name so each maps to a distinct `getModelFilePaths` entry.
+class DirectoryBundleFile extends ModelFile {
+  final ModelSource _source;
+  final String _filename;
+  final String _prefsKey;
+
+  DirectoryBundleFile({
+    required ModelSource source,
+    required String filename,
+    required String prefsKey,
+  }) : _source = source,
+       _filename = filename,
+       _prefsKey = prefsKey;
+
+  /// Builds one bundle member from its [modelId] (the subdirectory), its BARE
+  /// leaf [bareName], and the bundle's [primaryName] (the file the engine loads
+  /// from — for ORT-GenAI, `genai_config.json`). The primary gets
+  /// [PreferencesKeys.installedModelFileName] as its key so persist-identity and
+  /// `getModelFilePaths.values.first` find it; every sibling keys on its bare
+  /// name so each maps to a distinct path entry. Used by both the install path
+  /// and the restore path, so the key rule lives in one place.
+  factory DirectoryBundleFile.member({
+    required String modelId,
+    required String bareName,
+    required String primaryName,
+    required ModelSource source,
+  }) => DirectoryBundleFile(
+    source: source,
+    filename: '$modelId/$bareName',
+    prefsKey: bareName == primaryName
+        ? PreferencesKeys.installedModelFileName
+        : bareName,
+  );
+
+  @override
+  ModelSource get source => _source;
+
+  @override
+  String get filename => _filename;
+
+  @override
+  String get prefsKey => _prefsKey;
+
+  @override
+  bool get isRequired => true;
+
+  /// Directory members (`.onnx_data`, `genai_config.json`, tokenizer json/vocab)
+  /// aren't in `FileNameUtils.supportedExtensions`, so the extension heuristic
+  /// would wrongly impose the 1 MB default on small config files. We only assert
+  /// "a non-empty file landed"; real size/sha verification is a follow-up
+  /// (`ResolvedHfFile.sha256`/`sizeBytes` are carried but not yet checked).
+  @override
+  int? get minimumSizeBytes => 1;
+}
+
 /// Specification for inference models (main model + optional LoRA)
 class InferenceModelSpec extends ModelSpec {
   final String _name;
@@ -83,6 +148,13 @@ class InferenceModelSpec extends ModelSpec {
   final ModelType _modelType;
   final ModelFileType _fileType;
 
+  /// For a DIRECTORY model (ORT-GenAI): the full set of files, primary
+  /// (`genai_config.json`) FIRST. Null for a single-file model — [files] then
+  /// returns the ordinary `[model, lora?]`, byte-for-byte unchanged. When
+  /// non-null [modelSource] is the primary file's source (so single-file
+  /// consumers of [modelSource] still see the entry the engine loads from).
+  final List<DirectoryBundleFile>? _directoryFiles;
+
   InferenceModelSpec({
     required String name,
     required ModelSource modelSource,
@@ -90,12 +162,14 @@ class InferenceModelSpec extends ModelSpec {
     ModelReplacePolicy replacePolicy = ModelReplacePolicy.keep,
     required ModelType modelType,
     ModelFileType fileType = ModelFileType.task,
+    List<DirectoryBundleFile>? directoryFiles,
   }) : _name = name,
        _modelSource = modelSource,
        _loraSource = loraSource,
        _replacePolicy = replacePolicy,
        _modelType = modelType,
-       _fileType = fileType;
+       _fileType = fileType,
+       _directoryFiles = directoryFiles;
 
   /// Legacy compatibility constructor for String URLs
   factory InferenceModelSpec.fromLegacyUrl({
@@ -127,6 +201,11 @@ class InferenceModelSpec extends ModelSpec {
 
   @override
   List<ModelFile> get files {
+    // Directory (ORT-GenAI) model: the explicit bundle IS the file list, in
+    // order (primary first). LoRA is not supported for directory models.
+    final bundle = _directoryFiles;
+    if (bundle != null) return List<ModelFile>.unmodifiable(bundle);
+
     final modelFile = InferenceModelFile.fromSource(_modelSource);
     final result = <ModelFile>[modelFile];
 
@@ -137,6 +216,10 @@ class InferenceModelSpec extends ModelSpec {
 
     return result;
   }
+
+  /// The directory bundle for an ORT-GenAI model, or null for a single-file
+  /// model. Exposed so the restore path can tell a directory model apart.
+  List<DirectoryBundleFile>? get directoryFiles => _directoryFiles;
 
   /// Modern type-safe getters
   ModelSource get modelSource => _modelSource;
@@ -177,6 +260,13 @@ class InferenceModelSpec extends ModelSpec {
     }
   }
 
+  /// Value signature of the directory bundle (ordered member filenames), or
+  /// null for a single-file model. Folded into [==]/[hashCode] so two directory
+  /// specs with the same name/source/type but DIFFERENT members are not treated
+  /// as equal — install-validity depends on every member.
+  String? get _directoryFilesKey =>
+      _directoryFiles?.map((f) => f.filename).join('|');
+
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
@@ -187,7 +277,8 @@ class InferenceModelSpec extends ModelSpec {
         _loraSource == other._loraSource &&
         _replacePolicy == other._replacePolicy &&
         _modelType == other._modelType &&
-        _fileType == other._fileType;
+        _fileType == other._fileType &&
+        _directoryFilesKey == other._directoryFilesKey;
   }
 
   @override
@@ -199,6 +290,7 @@ class InferenceModelSpec extends ModelSpec {
       _replacePolicy,
       _modelType,
       _fileType,
+      _directoryFilesKey,
     );
   }
 }

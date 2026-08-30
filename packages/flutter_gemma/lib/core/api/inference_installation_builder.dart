@@ -321,12 +321,26 @@ class InferenceInstallationBuilder {
         gemmaLog('ℹ️  Hugging Face ($_hfRepo): $note');
       }
 
+      resolvedRuntime = r.runtime;
+
+      // DIRECTORY model (ORT-GenAI): a set of files that must install together
+      // into a per-model subdirectory with bare names (the layout
+      // `OgaCreateModel` needs). Self-contained path — download the bundle and
+      // return; the single-file flow below never runs.
+      if (r.files != null) {
+        return _installDirectory(
+          r,
+          modelType: resolvedModelType ?? _modelType,
+          runtime: resolvedRuntime,
+          notes: resolvedNotes,
+        );
+      }
+
       source = ModelSource.network(
         r.url,
         authToken: _hfToken,
         foreground: _hfForeground,
       );
-      resolvedRuntime = r.runtime;
     }
 
     if (source == null) {
@@ -469,6 +483,134 @@ class InferenceInstallationBuilder {
       runtime: resolvedRuntime,
       notes: resolvedNotes,
     );
+  }
+
+  /// Installs a DIRECTORY (ORT-GenAI) model resolved from a Hugging Face repo:
+  /// every file in [r].files is downloaded into a per-model subdirectory
+  /// (`<modelId>/<bareLeaf>`) with its bare leaf name — the layout
+  /// `OgaCreateModel` needs (`genai_config.json` references its siblings by bare
+  /// name; the native loader is handed the directory). Mirrors the TTS bundle
+  /// install loop, but subdir-namespaced rather than flat. The active spec's
+  /// primary file is `genai_config.json`, so `getModelFilePaths.values.first`
+  /// resolves inside the directory and the engine's `File(modelPath).parent` is
+  /// exactly that directory.
+  Future<InferenceInstallation> _installDirectory(
+    ResolvedHfModel r, {
+    required ModelType modelType,
+    required ModelRuntimeDefaults? runtime,
+    required List<String> notes,
+  }) async {
+    // LoRA rides on a single-file inference model; a directory (ORT-GenAI)
+    // model has no place to attach it. Reject loudly instead of silently
+    // dropping it (mirrors the builtIn / onnx-web paths).
+    if (_loraSource != null) {
+      throw ArgumentError(
+        'LoRA is not supported for directory (ORT-GenAI) models installed via '
+        'fromHuggingFace("$_hfRepo").',
+      );
+    }
+
+    final hfFiles = r.files!;
+    final primaryName = r.file; // bare leaf, e.g. genai_config.json
+
+    // The subdirectory name is REQUIRED and must be variant-inclusive — a
+    // repo-only fallback would let two execution-provider variants of the same
+    // repo (cpu vs cuda) collide in one directory, and the second install's
+    // "already installed" skips would activate a spec backed by the other
+    // variant's files. The resolver supplies it via
+    // FileNameUtils.sanitizeHfDirName(repo, variant: …).
+    final modelId = r.directoryName;
+    if (modelId == null || modelId.isEmpty) {
+      throw ArgumentError(
+        'A directory model resolved from "$_hfRepo" must supply '
+        'ResolvedHfModel.directoryName (a variant-inclusive subdirectory name); '
+        'got none.',
+      );
+    }
+
+    // A directory member must be a BARE leaf name. A resolver name with a path
+    // separator or a "."/".." segment (e.g. "../victim.onnx") would escape the
+    // model directory at both install and delete time — refuse it.
+    for (final f in hfFiles) {
+      final n = f.name;
+      if (n.isEmpty ||
+          n == '.' ||
+          n == '..' ||
+          n.contains('/') ||
+          n.contains(r'\')) {
+        throw ArgumentError.value(
+          n,
+          'ResolvedHfFile.name',
+          'directory model file names must be bare leaf names (no path '
+              'separators or "."/".." segments) — refusing "$_hfRepo" file',
+        );
+      }
+    }
+
+    if (!hfFiles.any((f) => f.name == primaryName)) {
+      throw StateError(
+        'Directory model "$_hfRepo" resolved without its primary file '
+        '"$primaryName" in the file list — cannot locate the model directory\'s '
+        'entry point.',
+      );
+    }
+
+    // Primary first so getModelFilePaths.values.first is the file the engine
+    // loads from (its parent dir is what OgaCreateModel is handed).
+    final ordered = [
+      ...hfFiles.where((f) => f.name == primaryName),
+      ...hfFiles.where((f) => f.name != primaryName),
+    ];
+    final bundle = [
+      for (final f in ordered)
+        DirectoryBundleFile.member(
+          modelId: modelId,
+          bareName: f.name,
+          primaryName: primaryName,
+          source: ModelSource.network(
+            f.url,
+            authToken: _hfToken,
+            foreground: _hfForeground,
+          ),
+        ),
+    ];
+
+    final spec = InferenceModelSpec(
+      name: modelId,
+      modelSource: bundle.first.source, // the primary (genai_config.json)
+      replacePolicy: ModelReplacePolicy.keep,
+      modelType: modelType,
+      fileType: _fileType,
+      directoryFiles: bundle,
+    );
+
+    final registry = ServiceRegistry.instance;
+    final repository = registry.modelRepository;
+    final handlerRegistry = registry.sourceHandlerRegistry;
+
+    final files = spec.files;
+    var done = 0;
+    for (final file in files) {
+      _cancelToken?.throwIfCancelled();
+      if (await repository.isInstalled(file.filename)) {
+        gemmaLog('ℹ️  Already installed: ${file.filename} (skipping download)');
+      } else {
+        final handler = handlerRegistry.getHandler(file.source);
+        await handler!.install(
+          file.source,
+          cancelToken: _cancelToken,
+          targetFilename: file.filename,
+        );
+      }
+      done++;
+      _onProgress?.call(((done / files.length) * 100).round());
+    }
+
+    final manager = FlutterGemmaPlugin.instance.modelManager;
+    manager.setActiveModel(spec);
+    gemmaLog('✅ ONNX directory model installed and set as active: $modelId');
+
+    return InferenceInstallation(spec: spec, runtime: runtime, notes: notes);
   }
 }
 

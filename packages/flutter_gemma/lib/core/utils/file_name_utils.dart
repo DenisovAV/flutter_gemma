@@ -194,4 +194,28 @@ class FileNameUtils {
     if (basename.startsWith(prefix)) return basename;
     return '$prefix$basename';
   }
+
+  /// A filesystem-safe directory name for a DIRECTORY model (ORT-GenAI)
+  /// installed from a Hugging Face repo. Unlike [namespaced] (which produces a
+  /// FLAT `modelId__basename` prefix), a directory model's files must keep their
+  /// BARE leaf names inside a real subdirectory — `genai_config.json` references
+  /// its siblings by bare name and the native loader is handed the directory.
+  ///
+  /// [repo] is the HF `org/name`; [variant] is the resolved execution-provider
+  /// subfolder when the resolver picked one (e.g. `cpu_and_mobile/cpu-int4-…`)
+  /// — it MUST be part of the id, or two EP variants of the same repo would
+  /// share one directory and `OgaCreateModel` could load a `genai_config.json`
+  /// from one against a `model.onnx` from the other.
+  ///
+  /// The `/` separators (repo owner, nested variant) and any other character
+  /// outside `[A-Za-z0-9._-]` collapse to the `__` separator, so the result is a
+  /// single path segment safe on POSIX and Windows and free of the `/` that the
+  /// restore path uses to split `modelId` from the bare leaf. Idempotent for an
+  /// already-sanitized id.
+  static String sanitizeHfDirName(String repo, {String? variant}) {
+    final raw = variant == null || variant.isEmpty ? repo : '$repo/$variant';
+    final sanitized = raw.replaceAll(RegExp(r'[^A-Za-z0-9._-]+'), '__');
+    // Trim any leading/trailing separators so the id is never empty-segmented.
+    return sanitized.replaceAll(RegExp(r'^_+|_+$'), '');
+  }
 }

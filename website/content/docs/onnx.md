@@ -67,9 +67,24 @@ by platform.
 
 **Native — a directory, not a file.** An ORT-GenAI model is a **directory**:
 `genai_config.json`, `model.onnx` (plus `model.onnx_data` for external weights),
-and tokenizer files. `OnnxEngine` takes the tracked file's **parent directory** as
-the model directory, so the whole bundle must already live on disk together
-(e.g. shipped as an asset or pre-populated yourself):
+and tokenizer files. `OnnxEngine` takes the tracked `genai_config.json`'s
+**parent directory** as the model directory.
+
+`fromHuggingFace(repo)` installs that whole directory for you: the ONNX resolver
+(carried by `OnnxEngine`, so registering the engine is enough) lists the repo,
+picks an execution-provider folder, and downloads every file in it. A repo with
+several EP variants resolves to a **CPU/mobile** folder — the bundled runtime is
+CPU-only — unless you pin one with `OnnxHuggingFaceResolver(variant: …)`:
+
+```dart
+await FlutterGemma.installModel(
+  // ONNX repos declare no family — the caller's modelType is used as-is.
+  modelType: ModelType.general,
+  fileType: ModelFileType.onnx,
+).fromHuggingFace('microsoft/Phi-3.5-mini-instruct-onnx').install();
+```
+
+Or ship the bundle yourself and point `fromFile` at its `genai_config.json`:
 
 ```dart
 await FlutterGemma.installModel(

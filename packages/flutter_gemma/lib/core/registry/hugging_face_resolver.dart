@@ -54,6 +54,42 @@ class ModelRuntimeDefaults {
   });
 }
 
+/// One file of a multi-file (directory) model resolved from a Hugging Face
+/// repo — e.g. an ORT-GenAI model is a DIRECTORY (`genai_config.json` +
+/// `model.onnx`[+`model.onnx_data`] + tokenizer files), not a single file.
+///
+/// [name] is the BARE leaf filename as it must appear inside the installed
+/// model directory (ORT-GenAI's `genai_config.json` references its siblings by
+/// bare name, and the native loader is handed the directory). It MUST be a
+/// single path segment — no path separators and no `.`/`..` — or the installer
+/// rejects it (a `../…` name would otherwise escape the model directory). [url]
+/// is the pinned download URL. [sha256]/[sizeBytes] are advisory (carried, not
+/// yet verified — see [ResolvedHfModel.sha256]).
+class ResolvedHfFile {
+  final String name;
+  final String url;
+  final String? sha256;
+  final int? sizeBytes;
+
+  const ResolvedHfFile({
+    required this.name,
+    required this.url,
+    this.sha256,
+    this.sizeBytes,
+  });
+
+  /// Whether [name] is a safe BARE leaf — a single path segment with no
+  /// separators and no `.`/`..`. The installer refuses a directory member whose
+  /// name is not (a `../…` name would escape the model directory). The rule
+  /// lives here so resolvers and the installer share one definition.
+  bool get isBareLeafName =>
+      name.isNotEmpty &&
+      name != '.' &&
+      name != '..' &&
+      !name.contains('/') &&
+      !name.contains(r'\');
+}
+
 /// A model resolved from a Hugging Face repo's deployment metadata into
 /// flutter_gemma's install + runtime vocabulary.
 ///
@@ -98,6 +134,22 @@ class ResolvedHfModel {
   final String? sha256;
   final int? sizeBytes;
 
+  /// For a DIRECTORY model (ORT-GenAI): every file that must be installed into
+  /// the model's directory, each by its BARE leaf [ResolvedHfFile.name]. Null
+  /// for a single-file model (`.litertlm`, `.task`) — that path installs [url]
+  /// alone, unchanged. When non-null, [file]/[url] name the PRIMARY entry the
+  /// engine loads from (for ORT-GenAI: `genai_config.json`) and that entry must
+  /// also appear in this list.
+  final List<ResolvedHfFile>? files;
+
+  /// For a DIRECTORY model: the single filesystem-safe subdirectory name the
+  /// files install into. REQUIRED whenever [files] is non-null (the installer
+  /// throws without it) and MUST include the resolved execution-provider variant
+  /// (e.g. `microsoft__Phi-3.5-mini-instruct-onnx__cpu_and_mobile`) so two EP
+  /// variants of the same repo never share a directory — build it with
+  /// `FileNameUtils.sanitizeHfDirName(repo, variant: …)`. Null for single-file.
+  final String? directoryName;
+
   /// The overridable runtime defaults (see [ModelRuntimeDefaults]).
   final ModelRuntimeDefaults runtime;
 
@@ -112,6 +164,8 @@ class ResolvedHfModel {
     this.modelType,
     this.sha256,
     this.sizeBytes,
+    this.files,
+    this.directoryName,
     this.runtime = const ModelRuntimeDefaults(),
     this.notes = const [],
   });

@@ -113,6 +113,14 @@ class ModelFileSystemManager {
 
     final orphaned = <OrphanedFileInfo>[];
 
+    // v1 limitation: non-recursive + extension-filtered. Directory (ORT-GenAI)
+    // models live under `<storage>/<modelId>/…` with `.onnx`/`.onnx_data`/config
+    // files that are NOT in [supportedExtensions], so this scan — and
+    // getStorageInfo / cleanupStorage, which share it — does NOT see them: it
+    // under-reports their (often multi-GB) size and cannot reclaim an orphaned
+    // ORT subdirectory. getStorageStats (repo-id based) IS directory-aware, so
+    // the two reporting APIs can disagree. A recursive scan is a follow-up; the
+    // direction is safe — a directory model is never wrongly deleted, only unseen.
     final files = directory
         .listSync()
         .whereType<File>()

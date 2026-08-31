@@ -1,5 +1,5 @@
 ## 1.7.0
-- Manifest-driven Hugging Face install (#454): `resolveHuggingFace` / one-call `installModel(…).fromHuggingFace(repo)`, with engines auto-registering their resolver.
+- Hugging Face install (#454): `resolveHuggingFace` / one-call `installModel(…).fromHuggingFace(repo)`, with engines auto-registering their resolver.
 
 ## 1.6.5
 - Tool-declaration injection is a declarative `InferenceChat` flag, not a hardcoded gemma4 check (no behavior change).

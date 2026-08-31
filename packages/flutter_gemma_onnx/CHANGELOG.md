@@ -1,5 +1,5 @@
 ## 0.3.2
-- Add `OnnxHuggingFaceResolver` (auto-registered from `OnnxEngine`) so `resolveHuggingFace` gives an ONNX-specific answer; directory-based genai_config install is a follow-up (#454).
+- `OnnxHuggingFaceResolver` installs an ORT-GenAI model directory from a Hugging Face repo — lists the repo, picks a CPU execution-provider folder, downloads the whole bundle (#454).
 
 ## 0.3.1
 - Fix a rebuilt native library not reaching the build.

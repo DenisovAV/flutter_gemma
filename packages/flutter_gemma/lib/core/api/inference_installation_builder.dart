@@ -126,9 +126,10 @@ class InferenceInstallationBuilder {
   /// - [revision] must be left `'main'`: the registered resolver owns the pin
   ///   (it builds a revision-pinned URL). Passing a non-`'main'` [revision]
   ///   without a [file] throws [ArgumentError].
-  /// - The resolver's own error surfaces from [install]: e.g. `.onnx` throws
-  ///   `UnimplementedError`, `.builtIn` throws `UnsupportedError` (the OS owns
-  ///   the weights) — both naming the repo.
+  /// - The resolver's own behavior surfaces from [install]: `.onnx` resolves
+  ///   and installs an ORT-GenAI model DIRECTORY (via the HF file tree), while
+  ///   `.builtIn` throws `UnsupportedError` (the OS owns the weights — there is
+  ///   no Hugging Face file) — naming the repo.
   /// - Unlike other sources, this requires NETWORK access at [install] even if
   ///   the model is already installed (the variant filename is only known after
   ///   the manifest fetch). For offline-safe idempotent installs, cache the
@@ -282,10 +283,10 @@ class InferenceInstallationBuilder {
     ModelSource? source = _modelSource;
 
     // Deferred Hugging Face resolution runs FIRST — before the builtIn /
-    // onnx-web branches below, which assume a concrete source. For a `.builtIn`
-    // / `.onnx` repo the resolver throws its own clear error here
-    // (UnsupportedError / UnimplementedError, naming the repo) instead of those
-    // branches tripping over a null source.
+    // onnx-web branches below, which assume a concrete source. A `.onnx` repo
+    // resolves to a directory (or a fileless web model) here; a `.builtIn` repo
+    // throws its own clear `UnsupportedError` (the OS owns the weights, no HF
+    // file) — either way, before those branches trip over a null source.
     if (_hfRepo != null) {
       final r = await FlutterGemma.resolveHuggingFace(
         _hfRepo!,
@@ -321,12 +322,26 @@ class InferenceInstallationBuilder {
         gemmaLog('ℹ️  Hugging Face ($_hfRepo): $note');
       }
 
+      resolvedRuntime = r.runtime;
+
+      // DIRECTORY model (ORT-GenAI): a set of files that must install together
+      // into a per-model subdirectory with bare names (the layout
+      // `OgaCreateModel` needs). Self-contained path — download the bundle and
+      // return; the single-file flow below never runs.
+      if (r.files != null) {
+        return _installDirectory(
+          r,
+          modelType: resolvedModelType ?? _modelType,
+          runtime: resolvedRuntime,
+          notes: resolvedNotes,
+        );
+      }
+
       source = ModelSource.network(
         r.url,
         authToken: _hfToken,
         foreground: _hfForeground,
       );
-      resolvedRuntime = r.runtime;
     }
 
     if (source == null) {
@@ -469,6 +484,180 @@ class InferenceInstallationBuilder {
       runtime: resolvedRuntime,
       notes: resolvedNotes,
     );
+  }
+
+  /// Installs a DIRECTORY (ORT-GenAI) model resolved from a Hugging Face repo:
+  /// every file in [r].files is downloaded into a per-model subdirectory
+  /// (`<modelId>/<bareLeaf>`) with its bare leaf name — the layout
+  /// `OgaCreateModel` needs (`genai_config.json` references its siblings by bare
+  /// name; the native loader is handed the directory). Mirrors the TTS bundle
+  /// install loop, but subdir-namespaced rather than flat. The active spec's
+  /// primary file is `genai_config.json`, so `getModelFilePaths.values.first`
+  /// resolves inside the directory and the engine's `File(modelPath).parent` is
+  /// exactly that directory.
+  Future<InferenceInstallation> _installDirectory(
+    ResolvedHfModel r, {
+    required ModelType modelType,
+    required ModelRuntimeDefaults? runtime,
+    required List<String> notes,
+  }) async {
+    // LoRA rides on a single-file inference model; a directory (ORT-GenAI)
+    // model has no place to attach it. Reject loudly instead of silently
+    // dropping it (mirrors the builtIn / onnx-web paths).
+    if (_loraSource != null) {
+      throw ArgumentError(
+        'LoRA is not supported for directory (ORT-GenAI) models installed via '
+        'fromHuggingFace("$_hfRepo").',
+      );
+    }
+
+    final hfFiles = r.files!;
+    final primaryName = r.file; // bare leaf, e.g. genai_config.json
+
+    // The subdirectory name is REQUIRED and must be variant-inclusive — a
+    // repo-only fallback would let two execution-provider variants of the same
+    // repo (cpu vs cuda) collide in one directory, and the second install's
+    // "already installed" skips would activate a spec backed by the other
+    // variant's files. The resolver supplies it via
+    // FileNameUtils.sanitizeHfDirName(repo, variant: …).
+    final modelId = r.directoryName;
+    if (modelId == null || modelId.isEmpty) {
+      throw ArgumentError(
+        'A directory model resolved from "$_hfRepo" must supply '
+        'ResolvedHfModel.directoryName (a variant-inclusive subdirectory name); '
+        'got none.',
+      );
+    }
+    // The subdir name is interpolated as a path segment (`<modelId>/<leaf>`) and
+    // fed to deleteModel's recursive Directory.delete — a traversing modelId
+    // (`..`, or one carrying a separator) would escape the storage dir and could
+    // delete its parent. `sanitizeHfDirName` guards its own output, but a
+    // third-party resolver can supply `directoryName` directly, so re-check here.
+    if (modelId == '.' ||
+        modelId == '..' ||
+        modelId.contains('/') ||
+        modelId.contains(r'\')) {
+      throw ArgumentError.value(
+        modelId,
+        'ResolvedHfModel.directoryName',
+        'must be a single safe path segment (no "/", "\\", "." or ".." ) — a '
+            'traversing name would escape the model storage directory; refusing '
+            '"$_hfRepo"',
+      );
+    }
+
+    // A directory member must be a BARE leaf name. A resolver name with a path
+    // separator or a "."/".." segment (e.g. "../victim.onnx") would escape the
+    // model directory at both install and delete time — refuse it.
+    for (final f in hfFiles) {
+      if (!f.isBareLeafName) {
+        throw ArgumentError.value(
+          f.name,
+          'ResolvedHfFile.name',
+          'directory model file names must be bare leaf names (no path '
+              'separators or "."/".." segments) — refusing "$_hfRepo" file',
+        );
+      }
+    }
+
+    if (!hfFiles.any((f) => f.name == primaryName)) {
+      throw StateError(
+        'Directory model "$_hfRepo" resolved without its primary file '
+        '"$primaryName" in the file list — cannot locate the model directory\'s '
+        'entry point.',
+      );
+    }
+
+    // Belt-and-suspenders: a directory with a genai_config.json but no .onnx
+    // GRAPH file installs "successfully" and only fails later inside
+    // OgaCreateModel. This checks graph PRESENCE only — not that every weight
+    // the graph references (external `.onnx_data`) is included, so a mis-export
+    // can still fail at load. The onnx resolver already guards presence, but any
+    // resolver could hand us an incomplete set — refuse the no-`.onnx` case here
+    // too.
+    if (!hfFiles.any((f) => f.name.endsWith('.onnx'))) {
+      throw StateError(
+        'Directory model "$_hfRepo" has no .onnx graph file among its '
+        '${hfFiles.length} files — it cannot load. The resolver returned an '
+        'incomplete file set.',
+      );
+    }
+
+    // Primary first so getModelFilePaths.values.first is the file the engine
+    // loads from (its parent dir is what OgaCreateModel is handed).
+    final ordered = [
+      ...hfFiles.where((f) => f.name == primaryName),
+      ...hfFiles.where((f) => f.name != primaryName),
+    ];
+    final bundle = [
+      for (final f in ordered)
+        DirectoryBundleFile.member(
+          modelId: modelId,
+          bareName: f.name,
+          primaryName: primaryName,
+          source: ModelSource.network(
+            f.url,
+            authToken: _hfToken,
+            foreground: _hfForeground,
+          ),
+        ),
+    ];
+
+    final spec = InferenceModelSpec(
+      name: modelId,
+      modelSource: bundle.first.source, // the primary (genai_config.json)
+      replacePolicy: ModelReplacePolicy.keep,
+      modelType: modelType,
+      fileType: _fileType,
+      directoryFiles: bundle,
+    );
+
+    final registry = ServiceRegistry.instance;
+    final repository = registry.modelRepository;
+    final handlerRegistry = registry.sourceHandlerRegistry;
+
+    final files = spec.files;
+    final total = files.length;
+    for (var i = 0; i < files.length; i++) {
+      final file = files[i];
+      _cancelToken?.throwIfCancelled();
+      if (await repository.isInstalled(file.filename)) {
+        gemmaLog('ℹ️  Already installed: ${file.filename} (skipping download)');
+      } else {
+        final handler = handlerRegistry.getHandler(file.source);
+        if (handler == null) {
+          throw StateError(
+            'No source handler for ${file.source.runtimeType} (directory '
+            'member "${file.filename}").',
+          );
+        }
+        if (_onProgress != null) {
+          // Each file owns the slice [i/total, (i+1)/total]; stream WITHIN it so
+          // the bar keeps moving during the multi-GB model.onnx download instead
+          // of freezing between file boundaries (weights dominate total size).
+          await for (final pct in handler.installWithProgress(
+            file.source,
+            cancelToken: _cancelToken,
+            targetFilename: file.filename,
+          )) {
+            _onProgress!((((i + pct / 100) / total) * 100).round());
+          }
+        } else {
+          await handler.install(
+            file.source,
+            cancelToken: _cancelToken,
+            targetFilename: file.filename,
+          );
+        }
+      }
+      _onProgress?.call((((i + 1) / total) * 100).round());
+    }
+
+    final manager = FlutterGemmaPlugin.instance.modelManager;
+    manager.setActiveModel(spec);
+    gemmaLog('✅ ONNX directory model installed and set as active: $modelId');
+
+    return InferenceInstallation(spec: spec, runtime: runtime, notes: notes);
   }
 }
 

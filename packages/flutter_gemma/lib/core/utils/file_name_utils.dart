@@ -194,4 +194,52 @@ class FileNameUtils {
     if (basename.startsWith(prefix)) return basename;
     return '$prefix$basename';
   }
+
+  /// A filesystem-safe directory name for a DIRECTORY model (ORT-GenAI)
+  /// installed from a Hugging Face repo. Unlike [namespaced] (which produces a
+  /// FLAT `modelId__basename` prefix), a directory model's files must keep their
+  /// BARE leaf names inside a real subdirectory — `genai_config.json` references
+  /// its siblings by bare name and the native loader is handed the directory.
+  ///
+  /// [repo] is the HF `org/name`; [variant] is the resolved execution-provider
+  /// subfolder when the resolver picked one (e.g. `cpu_and_mobile/cpu-int4-…`)
+  /// — it MUST be part of the id, or two EP variants of the same repo would
+  /// share one directory and `OgaCreateModel` could load a `genai_config.json`
+  /// from one against a `model.onnx` from the other.
+  ///
+  /// The `/` separators (repo owner, nested variant) and any other character
+  /// outside `[A-Za-z0-9._-]` collapse to the `__` separator, so the result is a
+  /// single path segment safe on POSIX and Windows and free of the `/` that the
+  /// restore path uses to split `modelId` from the bare leaf. Idempotent for an
+  /// already-sanitized id.
+  ///
+  /// **v1 limitation — not injective.** A literal `_` passes through while `/`
+  /// and other disallowed runs collapse to `__`, so two distinct
+  /// `(repo, variant)` inputs can map to the same id (e.g.
+  /// `sanitizeHfDirName('a/b__c')` and `sanitizeHfDirName('a/b', variant: 'c')`
+  /// both → `a__b__c`). Collision odds for real ORT-GenAI repo/variant names are
+  /// very low; if two colliding installs did occur, the second would silently
+  /// skip download (its members read as "already installed"). Reserving a
+  /// distinct join token is a follow-up if it ever bites.
+  ///
+  /// Throws [ArgumentError] if [repo]/[variant] sanitize to an empty or
+  /// dot-only name (`.`/`..`): `.` survives the charset filter, so a literal
+  /// `".."` repo would otherwise pass through verbatim and — interpolated as a
+  /// path segment — escape the model storage directory (a `deleteModel` on such
+  /// a spec would recursively delete its PARENT).
+  static String sanitizeHfDirName(String repo, {String? variant}) {
+    final raw = variant == null || variant.isEmpty ? repo : '$repo/$variant';
+    final sanitized = raw.replaceAll(RegExp(r'[^A-Za-z0-9._-]+'), '__');
+    // Trim any leading/trailing separators so the id is never empty-segmented.
+    final result = sanitized.replaceAll(RegExp(r'^_+|_+$'), '');
+    if (result.isEmpty || result == '.' || result == '..') {
+      throw ArgumentError.value(
+        raw,
+        'repo/variant',
+        'sanitizes to "$result" — an empty or dot-only directory name that '
+            'would escape the model storage directory',
+      );
+    }
+    return result;
+  }
 }

@@ -172,13 +172,19 @@ metadata:
 ---
 # Title
 ## Instructions
-Call the `run_js` tool with: script name: index.html, data: { field: Type }
+Call the `run_js` tool with: data: { field: Type }
 ```
 
 JS skills additionally ship `scripts/index.html` exposing
 `window.ai_edge_gallery_get_result(data, secret)` returning a JSON string
 (`{ result | image | webview | error }`). Secrets are injected as the JS
 `secret` argument and **never** placed in the model prompt.
+
+The model does not choose which script runs — `run_js` always runs the skill's
+own `scripts/index.html` (or the `scriptName` its `SKILL.md` declares), resolved
+by `JsSkillExecutor`. Its tool schema therefore takes only `data` (no
+`scriptName`): a required script-name field only made the model invent a
+filename, and honouring one would let it name any file under `scripts/`.
 
 ## Registering executors
 

@@ -113,8 +113,15 @@ final response = await session.getResponse();
 | Audio input | ❌ | ❌ | ❌ |
 | Function calling | ✅ (prompt-based) | ✅ (prompt-based) | ✅ (prompt-based) |
 | Thinking mode | ❌ | ❌ | ❌ |
-| `sizeInTokens` | ✅ native token count | ✅ native token count | ✅ `measureContextUsage` |
+| `sizeInTokens` | ✅ native token count | ✅ on OS 26.4+, built with Xcode 26.4+ (estimate otherwise) | ✅ `measureContextUsage` |
 | LoRA weights | ❌ | ❌ | ❌ |
+
+`sizeInTokens` on Apple needs BOTH conditions. `SystemLanguageModel.tokenCount` is
+`@available(iOS 26.4, macOS 26.4)`, so the declaration is absent from earlier SDKs —
+a package built with Xcode 26.1 cannot call it at all, and one built with 26.4+ still
+falls back when RUNNING on an older OS. The fallback is core's `text.length / 4`
+estimate, reported through a `TOKENIZER_UNAVAILABLE` error that names which of the two
+conditions was missing.
 
 The Chrome Prompt API also supports a web-only JSON-schema `responseConstraint` for structured
 output; it is intentionally **not** part of the cross-platform contract above (native has no

@@ -1,5 +1,6 @@
 ## 0.2.1
 - Add `BuiltInAiHuggingFaceResolver` (auto-registered from `BuiltInAiEngine`) so `resolveHuggingFace` reports that built-in OS models have no Hugging Face file (#454).
+- fix: iOS/macOS builds failed on Xcode below 26.4 — `SystemLanguageModel.tokenCount` is absent from those SDKs and `#available` cannot gate a missing declaration (#460).
 
 ## 0.2.0
 - Web support: Gemini Nano via the Chrome Prompt API (desktop Chrome/Edge).

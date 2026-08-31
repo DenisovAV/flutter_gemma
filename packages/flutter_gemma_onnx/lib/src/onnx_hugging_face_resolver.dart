@@ -133,10 +133,11 @@ class OnnxHuggingFaceResolver implements HuggingFaceResolver {
     // to load). Full pagination is a follow-up; pin the variant folder to avoid.
     if (decoded.length >= _treeLimit) {
       throw StateError(
-        'Hugging Face repo "$repo" has more than $_treeLimit tree entries; '
-        'listing pagination is not supported yet, so a complete model directory '
-        'cannot be guaranteed. Pin the exact variant folder with '
-        'OnnxHuggingFaceResolver(variant: …).',
+        'Hugging Face repo "$repo" returned $_treeLimit or more tree entries; '
+        'the resolver lists the whole repo in one page and does not paginate '
+        'yet, so a complete model directory cannot be guaranteed for a repo this '
+        'large (pinning a variant does not shrink the listing). Install it from '
+        'a local directory with fromFile(genai_config.json) instead.',
       );
     }
     // Keep file entries, skip directories. A `type == 'file'` entry whose

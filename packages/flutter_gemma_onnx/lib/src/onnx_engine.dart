@@ -57,12 +57,13 @@ class OnnxEngine implements InferenceEngineProvider, HuggingFaceResolverSource {
   @override
   int get priority => 0;
 
-  /// The engine's own Hugging Face resolver. Auto-registered by
-  /// `FlutterGemma.initialize(inferenceEngines: …)` so it reserves the `.onnx`
-  /// slot: `resolveHuggingFace(fileType: onnx)` (and the one-call
-  /// `fromHuggingFace`) throws a clear `UnimplementedError` ("not implemented
-  /// yet") instead of core's generic "no resolver registered". Directory-based
-  /// `genai_config.json` resolution is a follow-up.
+  /// The engine's own Hugging Face resolver ([OnnxHuggingFaceResolver]).
+  /// Auto-registered by `FlutterGemma.initialize(inferenceEngines: …)` so it
+  /// owns the `.onnx` slot: `resolveHuggingFace(fileType: onnx)` and the
+  /// one-call `fromHuggingFace(repo)` list the repo's file tree, pick an
+  /// execution-provider folder, and install the whole ORT-GenAI directory
+  /// (`genai_config.json` + `.onnx`[+`.onnx_data`] + tokenizer). On web the
+  /// resolver returns a fileless repo-id model (Transformers.js).
   @override
   HuggingFaceResolver get huggingFaceResolver =>
       const OnnxHuggingFaceResolver();

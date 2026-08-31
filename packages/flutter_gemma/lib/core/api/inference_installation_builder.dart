@@ -126,9 +126,10 @@ class InferenceInstallationBuilder {
   /// - [revision] must be left `'main'`: the registered resolver owns the pin
   ///   (it builds a revision-pinned URL). Passing a non-`'main'` [revision]
   ///   without a [file] throws [ArgumentError].
-  /// - The resolver's own error surfaces from [install]: e.g. `.onnx` throws
-  ///   `UnimplementedError`, `.builtIn` throws `UnsupportedError` (the OS owns
-  ///   the weights) — both naming the repo.
+  /// - The resolver's own behavior surfaces from [install]: `.onnx` resolves
+  ///   and installs an ORT-GenAI model DIRECTORY (via the HF file tree), while
+  ///   `.builtIn` throws `UnsupportedError` (the OS owns the weights — there is
+  ///   no Hugging Face file) — naming the repo.
   /// - Unlike other sources, this requires NETWORK access at [install] even if
   ///   the model is already installed (the variant filename is only known after
   ///   the manifest fetch). For offline-safe idempotent installs, cache the
@@ -282,10 +283,10 @@ class InferenceInstallationBuilder {
     ModelSource? source = _modelSource;
 
     // Deferred Hugging Face resolution runs FIRST — before the builtIn /
-    // onnx-web branches below, which assume a concrete source. For a `.builtIn`
-    // / `.onnx` repo the resolver throws its own clear error here
-    // (UnsupportedError / UnimplementedError, naming the repo) instead of those
-    // branches tripping over a null source.
+    // onnx-web branches below, which assume a concrete source. A `.onnx` repo
+    // resolves to a directory (or a fileless web model) here; a `.builtIn` repo
+    // throws its own clear `UnsupportedError` (the OS owns the weights, no HF
+    // file) — either way, before those branches trip over a null source.
     if (_hfRepo != null) {
       final r = await FlutterGemma.resolveHuggingFace(
         _hfRepo!,

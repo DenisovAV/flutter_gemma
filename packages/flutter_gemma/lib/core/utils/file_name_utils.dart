@@ -213,6 +213,15 @@ class FileNameUtils {
   /// restore path uses to split `modelId` from the bare leaf. Idempotent for an
   /// already-sanitized id.
   ///
+  /// **v1 limitation — not injective.** A literal `_` passes through while `/`
+  /// and other disallowed runs collapse to `__`, so two distinct
+  /// `(repo, variant)` inputs can map to the same id (e.g.
+  /// `sanitizeHfDirName('a/b__c')` and `sanitizeHfDirName('a/b', variant: 'c')`
+  /// both → `a__b__c`). Collision odds for real ORT-GenAI repo/variant names are
+  /// very low; if two colliding installs did occur, the second would silently
+  /// skip download (its members read as "already installed"). Reserving a
+  /// distinct join token is a follow-up if it ever bites.
+  ///
   /// Throws [ArgumentError] if [repo]/[variant] sanitize to an empty or
   /// dot-only name (`.`/`..`): `.` survives the charset filter, so a literal
   /// `".."` repo would otherwise pass through verbatim and — interpolated as a

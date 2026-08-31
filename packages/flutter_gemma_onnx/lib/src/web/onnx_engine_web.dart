@@ -42,9 +42,10 @@ class OnnxEngine implements InferenceEngineProvider, HuggingFaceResolverSource {
   @override
   int get priority => 0;
 
-  /// The engine's own Hugging Face resolver (same stub as the native arm):
-  /// reserves the `.onnx` slot so `resolveHuggingFace(fileType: onnx)` throws a
-  /// clear `UnimplementedError` rather than core's generic "no resolver".
+  /// The engine's own Hugging Face resolver ([OnnxHuggingFaceResolver]), shared
+  /// with the native arm. On web it resolves a repo to a fileless model (the
+  /// repo id Transformers.js fetches and caches itself), so `fromHuggingFace`
+  /// and `resolveHuggingFace(fileType: onnx)` need no directory download.
   @override
   HuggingFaceResolver get huggingFaceResolver =>
       const OnnxHuggingFaceResolver();

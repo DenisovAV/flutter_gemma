@@ -101,8 +101,9 @@ final install = await FlutterGemma.installModel(
 
 A repo that ships several EP variants (`cpu_and_mobile/…`, `cuda/…`) resolves
 to a **CPU/mobile** folder automatically — the bundled ORT-GenAI runtime is
-CPU-only, so a GPU export it can't load is never auto-picked, and `install.notes`
-records which folder was chosen. Pin a specific folder with
+CPU-only, so a CPU/mobile folder is preferred over any GPU export. (A repo that
+ships *only* GPU variants still falls back to its GPU folder — flagged in
+`install.notes`, which records the chosen folder either way.) Pin a specific folder with
 `OnnxHuggingFaceResolver(variant: 'cpu_and_mobile/cpu-int4-…')` passed to
 `initialize(huggingFaceResolvers: [...])`; a pinned GPU variant is installed but
 flagged in `notes` as one the CPU-only runtime may fail to load.

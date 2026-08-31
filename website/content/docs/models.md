@@ -239,7 +239,7 @@ final session = await model.createSession(
 );
 ```
 
-`.onnx` and `.builtIn` repos surface their resolver's status here — ONNX reports that directory-based install is a follow-up, and built-in reports that OS models have no Hugging Face file.
+`.onnx` repos install the whole ORT-GenAI **directory** — the ONNX resolver (carried by `OnnxEngine`) lists the repo, picks a CPU execution-provider folder (the bundled runtime is CPU-only; pin one with `OnnxHuggingFaceResolver(variant: …)`) and downloads every file in it; see [ONNX](/docs/onnx). `.builtIn` repos surface that OS models have no Hugging Face file.
 
 **Explicit file** — pass `file`, and `fromHuggingFace(repo, file:)` resolves `…/resolve/<revision>/<file>` and installs it directly, for any `fileType` (no manifest needed; the HF token is applied to `huggingface.co` automatically):
 

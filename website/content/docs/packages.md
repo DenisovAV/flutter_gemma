@@ -104,9 +104,10 @@ public API as native, no `if (kIsWeb)` needed in app code.
 <Info>
 On native, an ORT-GenAI model installs as a **directory**, not a single file:
 `genai_config.json` + `model.onnx` (+ `model.onnx_data` for external weights)
-+ tokenizer files. `ModelFileType.onnx` models need the whole bundle on disk
-alongside the tracked file (e.g. shipped as an asset) — a real multi-file
-network install is a follow-on. On **Web** this doesn't apply — the model is a
++ tokenizer files. `fromHuggingFace(repo)` downloads the whole bundle (the ONNX
+resolver picks a CPU execution-provider folder), or ship it yourself as an asset
+/ local directory and install with `fromFile(genai_config.json)`. On **Web** this
+doesn't apply — the model is a
 Hugging Face repo id (e.g. `onnx-community/Qwen2.5-0.5B-Instruct`), not a
 directory, and install is fileless: `ModelFileType.onnx` just marks it active,
 and Transformers.js downloads and caches the repo itself.

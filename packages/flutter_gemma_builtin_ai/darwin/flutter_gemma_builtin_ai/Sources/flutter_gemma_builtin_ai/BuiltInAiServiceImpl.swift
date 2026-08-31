@@ -387,34 +387,65 @@ public class BuiltInAiServiceImpl: NSObject, BuiltInAiService, FlutterStreamHand
     completion(.success(()))
   }
 
+  /// Reported when the native tokenizer cannot be reached, so Dart falls back
+  /// to its `text.length / 4` heuristic. Two distinct causes, one signal: the
+  /// SDK we were BUILT against has no `tokenCount`, or the OS we are RUNNING on
+  /// is older than 26.4.
+  private static func tokenizerUnavailable(_ why: String) -> PigeonError {
+    PigeonError(
+      code: "TOKENIZER_UNAVAILABLE",
+      message: "Token counting is unavailable: \(why)",
+      details: nil)
+  }
+
   func countTokens(text: String, completion: @escaping (Result<Int64, Error>) -> Void) {
-    // `SystemLanguageModel.tokenCount(for:)` is gated to iOS 26.4 / macOS 26.4
-    // (stricter than the 26.0 floor of the rest of the framework). On any OS
-    // below that — including 26.0–26.3, where the model exists but the tokenizer
-    // API does not — we return a pigeon error so Dart falls back to its
-    // (text.length / 4) char heuristic.
-    guard #available(iOS 26.4, macOS 26.4, *) else {
+    // `SystemLanguageModel.tokenCount(for:)` is `@available(iOS 26.4, macOS
+    // 26.4, visionOS 26.4, *)`, stricter than the 26.0 floor of the rest of the
+    // framework.
+    //
+    // `#available` alone is NOT enough, and that is what broke #460. It is a
+    // RUNTIME check: it permits CALLING a newer API, but the declaration still
+    // has to exist in the SDK being compiled against. It does not exist in the
+    // 26.0–26.3 SDKs, so Xcode 26.1 fails the build outright with "Value of
+    // type 'SystemLanguageModel' has no member 'tokenCount'" — for every
+    // consumer of this package, whether or not they ever call countTokens.
+    //
+    // Swift has no SDK-version conditional to gate on. `canImport(_version:)`
+    // reads the module's user-module-version and FoundationModels declares
+    // none: measured against the 26.5 SDK it answers YES to `_version: 1` and
+    // NO to `_version: 26.4`, so it cannot express "this SDK has tokenCount".
+    //
+    // The toolchain ships WITH the SDK, so the compiler version is the usable
+    // proxy — Xcode 26.5 carries Swift 6.3.2 (verified locally, and the SDK's
+    // own .swiftinterface records `-interface-compiler-version 6.3.2`), while
+    // the Xcode 26.1 in the report carries 6.2.1. The gate is deliberately
+    // biased toward the fallback: an SDK that HAS the API but ships an older
+    // compiler loses exact counts, which is a worse NUMBER, not a broken build.
+    #if compiler(>=6.3)
+      guard #available(iOS 26.4, macOS 26.4, *) else {
+        completion(.failure(Self.tokenizerUnavailable("requires iOS/macOS 26.4 or newer")))
+        return
+      }
+      Task {
+        do {
+          let count = try await SystemLanguageModel.default.tokenCount(for: text)
+          completion(.success(Int64(count)))
+        } catch {
+          completion(
+            .failure(
+              PigeonError(
+                code: "TOKENIZER_ERROR",
+                message: error.localizedDescription,
+                details: nil)))
+        }
+      }
+    #else
       completion(
         .failure(
-          PigeonError(
-            code: "TOKENIZER_UNAVAILABLE",
-            message: "Token counting requires iOS 26.4 / macOS 26.4 or newer.",
-            details: nil)))
-      return
-    }
-    Task {
-      do {
-        let count = try await SystemLanguageModel.default.tokenCount(for: text)
-        completion(.success(Int64(count)))
-      } catch {
-        completion(
-          .failure(
-            PigeonError(
-              code: "TOKENIZER_ERROR",
-              message: error.localizedDescription,
-              details: nil)))
-      }
-    }
+          Self.tokenizerUnavailable(
+            "this package was built against an SDK without "
+              + "SystemLanguageModel.tokenCount (Xcode 26.4+ provides it)")))
+    #endif
   }
 
   // MARK: - Error mapping

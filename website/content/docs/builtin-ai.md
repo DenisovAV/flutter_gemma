@@ -141,7 +141,7 @@ final response = await session.getResponse();
 | Function calling | ✅ prompt-based | ✅ prompt-based | ✅ prompt-based |
 | Vision (image input) | ✅ | ✅ on OS 27+ (text-only on OS 26) | ❌ (v1, tracked) |
 | Audio · Thinking · LoRA | ❌ | ❌ | ❌ |
-| `sizeInTokens` | ✅ native count | ✅ native count | ✅ `measureContextUsage` |
+| `sizeInTokens` | ✅ native count | ✅ on OS 26.4+, built with Xcode 26.4+ (estimate otherwise) | ✅ `measureContextUsage` |
 
 - **Function calling is prompt-based** — tool definitions are woven into the
   prompt by core `InferenceChat`; the OS models don't expose a usable native
@@ -149,6 +149,12 @@ final response = await session.getResponse();
   and not production-usable (Chrome 151), so it too goes through the prompt-based
   path. Gemini Nano handles single-turn calls; multi-turn agent chaining is not
   supported on Web (see [Agent Skills](/docs/agent)).
+- **`sizeInTokens` on Apple needs two things at once.**
+  `SystemLanguageModel.tokenCount` is `@available(iOS 26.4, macOS 26.4)`, so the
+  declaration is missing from earlier SDKs entirely — a build on Xcode 26.1
+  cannot reference it, and a build on 26.4+ still falls back when running on an
+  older OS. Either way the count comes from core's `text.length / 4` estimate.
+
 - **Web is text-only in this release** (image/audio dropped with a one-time log).
 
 ## Web setup

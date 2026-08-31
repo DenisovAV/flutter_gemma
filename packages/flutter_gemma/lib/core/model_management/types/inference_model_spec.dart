@@ -167,17 +167,7 @@ class InferenceModelSpec extends ModelSpec {
     required ModelType modelType,
     ModelFileType fileType = ModelFileType.task,
     List<DirectoryBundleFile>? directoryFiles,
-  }) : assert(
-         directoryFiles == null || loraSource == null,
-         'directory (ORT-GenAI) models do not support LoRA',
-       ),
-       assert(
-         directoryFiles == null ||
-             directoryFiles.isEmpty ||
-             modelSource == directoryFiles.first.source,
-         'modelSource must be the primary (first) directory file source',
-       ),
-       _name = name,
+  }) : _name = name,
        _modelSource = modelSource,
        _loraSource = loraSource,
        _replacePolicy = replacePolicy,
@@ -187,7 +177,36 @@ class InferenceModelSpec extends ModelSpec {
        // so the bundle must not stay aliased to a list the caller can mutate.
        _directoryFiles = directoryFiles == null
            ? null
-           : List<DirectoryBundleFile>.unmodifiable(directoryFiles);
+           : List<DirectoryBundleFile>.unmodifiable(directoryFiles) {
+    // Enforced in RELEASE too — an `assert` is compiled out, so a mis-built
+    // directory spec would otherwise surface far downstream as
+    // "Bad state: No element" on `files.first`, not here. The install path
+    // rejects these earlier; this guards direct construction of the public ctor.
+    final bundle = _directoryFiles;
+    if (bundle != null) {
+      if (loraSource != null) {
+        throw ArgumentError.value(
+          loraSource,
+          'loraSource',
+          'directory (ORT-GenAI) models do not support LoRA',
+        );
+      }
+      if (bundle.isEmpty) {
+        throw ArgumentError.value(
+          directoryFiles,
+          'directoryFiles',
+          'a directory model needs at least one file (primary first)',
+        );
+      }
+      if (modelSource != bundle.first.source) {
+        throw ArgumentError.value(
+          modelSource,
+          'modelSource',
+          'must be the primary (first) directory file source',
+        );
+      }
+    }
+  }
 
   /// Legacy compatibility constructor for String URLs
   factory InferenceModelSpec.fromLegacyUrl({

@@ -390,6 +390,23 @@ void main() {
       expect(a.hashCode == b.hashCode, isFalse);
       expect(a == dir(['genai_config.json', 'model.onnx']), isTrue);
     });
+
+    test('an empty directory bundle is rejected by InferenceModelSpec — a '
+        'release guard, not a debug-only assert (else files.first throws far '
+        'downstream)', () {
+      expect(
+        () => InferenceModelSpec(
+          name: 'm',
+          modelSource: ModelSource.network(
+            'https://huggingface.co/o/r/resolve/main/m/genai_config.json',
+          ),
+          modelType: ModelType.general,
+          fileType: ModelFileType.onnx,
+          directoryFiles: const [],
+        ),
+        throwsArgumentError,
+      );
+    });
   });
 }
 

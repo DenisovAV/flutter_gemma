@@ -128,6 +128,63 @@ void main() {
   );
 
   test(
+    'native: a GPU-only repo (no CPU folder) picks the GPU variant and WARNS '
+    'the CPU-only runtime may not load it — not a false "CPU variant" note',
+    () async {
+      final h = _resolver(
+        jsonEncode([
+          {'type': 'file', 'path': 'cuda/cuda-int4/genai_config.json'},
+          {'type': 'file', 'path': 'cuda/cuda-int4/model.onnx'},
+          {'type': 'file', 'path': 'cuda/cuda-int4/tokenizer.json'},
+        ]),
+      );
+      final r = await h.make.resolve('org/repo', platform: 'macos');
+      expect(r.directoryName, 'org__repo__cuda__cuda-int4');
+      expect(
+        r.notes.any((n) => n.toLowerCase().contains('may fail to load')),
+        isTrue,
+        reason: 'a GPU export must be flagged, not silently claimed as CPU',
+      );
+      expect(
+        r.notes.any((n) => n.toLowerCase().contains('cpu execution-provider')),
+        isFalse,
+      );
+    },
+  );
+
+  test(
+    'native: pinning a GPU variant WARNS the CPU-only runtime may not load it',
+    () async {
+      final h = _resolver(_tree, variant: 'cuda/cuda-int4');
+      final r = await h.make.resolve('org/repo', platform: 'macos');
+      expect(r.directoryName, 'org__repo__cuda__cuda-int4');
+      expect(
+        r.notes.any((n) => n.toLowerCase().contains('may fail to load')),
+        isTrue,
+      );
+      expect(
+        r.notes.any((n) => n.toLowerCase().contains('cpu execution-provider')),
+        isFalse,
+      );
+    },
+  );
+
+  test('native: a file entry with a non-string path is refused (not silently '
+      'dropped, which would install an incomplete directory)', () async {
+    final h = _resolver(
+      jsonEncode([
+        {'type': 'file', 'path': 'cpu/genai_config.json'},
+        {'type': 'file', 'path': 'cpu/model.onnx'},
+        {'type': 'file', 'path': 12345}, // malformed: path is not a string
+      ]),
+    );
+    await expectLater(
+      h.make.resolve('org/repo', platform: 'macos'),
+      throwsA(isA<StateError>()),
+    );
+  });
+
+  test(
     'native: >1000 tree entries is refused (undetectable truncation)',
     () async {
       final many = [

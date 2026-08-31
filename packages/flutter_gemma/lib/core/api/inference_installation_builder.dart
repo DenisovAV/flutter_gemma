@@ -568,12 +568,15 @@ class InferenceInstallationBuilder {
     }
 
     // Belt-and-suspenders: a directory with a genai_config.json but no .onnx
-    // weight file installs "successfully" and only fails later inside
-    // OgaCreateModel. The onnx resolver already guards this, but any resolver
-    // could hand us an incomplete set — refuse it here too.
+    // GRAPH file installs "successfully" and only fails later inside
+    // OgaCreateModel. This checks graph PRESENCE only — not that every weight
+    // the graph references (external `.onnx_data`) is included, so a mis-export
+    // can still fail at load. The onnx resolver already guards presence, but any
+    // resolver could hand us an incomplete set — refuse the no-`.onnx` case here
+    // too.
     if (!hfFiles.any((f) => f.name.endsWith('.onnx'))) {
       throw StateError(
-        'Directory model "$_hfRepo" has no .onnx weight file among its '
+        'Directory model "$_hfRepo" has no .onnx graph file among its '
         '${hfFiles.length} files — it cannot load. The resolver returned an '
         'incomplete file set.',
       );

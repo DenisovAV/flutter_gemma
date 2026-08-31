@@ -27,11 +27,12 @@ import 'hf/hf_fetch_web.dart' if (dart.library.io) 'hf/hf_fetch_io.dart';
 /// handles it, no filesystem needed.
 ///
 /// EP selection: pass [variant] (the exact folder, e.g.
-/// `cpu_and_mobile/cpu-int4-…`) to pin one; otherwise it is chosen from
-/// `preferredBackend` — a GPU folder (`cuda`/`dml`/`coreml`) when GPU is
-/// requested and present, else a CPU/mobile folder, else the sole variant.
-/// **v1 note:** GPU-EP *selection* is wired, but on-device GPU execution is not
-/// bundled yet — the model still runs on CPU.
+/// `cpu_and_mobile/cpu-int4-…`) to pin one; otherwise the resolver auto-picks a
+/// CPU/mobile folder, falling back to the sole/first variant when none looks
+/// CPU. The bundled ORT-GenAI runtime is CPU-only, so GPU execution-provider
+/// folders are NOT auto-selected and `preferredBackend` is ignored. Pinning a
+/// GPU [variant] is allowed but flagged in the result notes — it will likely
+/// fail to load until a GPU runtime is bundled.
 ///
 /// Auto-registered from `OnnxEngine` (which implements
 /// `HuggingFaceResolverSource`), so registering the engine is enough; pass an
@@ -138,11 +139,24 @@ class OnnxHuggingFaceResolver implements HuggingFaceResolver {
         'OnnxHuggingFaceResolver(variant: …).',
       );
     }
-    final filePaths = <String>[
-      for (final e in decoded)
-        if (e is Map && e['type'] == 'file' && e['path'] is String)
-          e['path'] as String,
-    ];
+    // Keep file entries, skip directories. A `type == 'file'` entry whose
+    // `path` is missing/non-string is a MALFORMED listing, not a directory —
+    // surface it loudly rather than silently dropping what might be a required
+    // model file (a silent drop installs an incomplete directory that only
+    // fails later inside OgaCreateModel).
+    final filePaths = <String>[];
+    for (final e in decoded) {
+      if (e is! Map || e['type'] != 'file') continue;
+      final path = e['path'];
+      if (path is! String) {
+        throw StateError(
+          'Malformed Hugging Face tree entry for "$repo": a file entry has no '
+          'string "path" ($e). The listing is corrupt; refusing to install a '
+          'possibly incomplete model directory.',
+        );
+      }
+      filePaths.add(path);
+    }
 
     // Folders that contain a genai_config.json — the ORT-GenAI signal. '' means
     // the repo root. Sorted so the tie-break in [_pickFolder] is deterministic
@@ -174,9 +188,13 @@ class OnnxHuggingFaceResolver implements HuggingFaceResolver {
           p,
     ]..sort();
 
-    // A genai_config.json alone is not a loadable model — require the weights.
-    // Without this an incomplete export (config + tokenizer, no `.onnx`) would
-    // install "successfully" and only fail later inside OgaCreateModel.
+    // A genai_config.json alone is not a loadable model — require a `.onnx`
+    // graph. This checks the graph file is PRESENT; it does NOT parse
+    // genai_config to verify every weight it references (external `.onnx_data`,
+    // tokenizer aux) is in the folder, so a mis-export can still fail inside
+    // OgaCreateModel. It catches the common incomplete case: config + tokenizer,
+    // no `.onnx` at all. (`.onnx_data` ends in `.onnx_data`, not `.onnx`, so an
+    // external-data blob without its graph does not satisfy this.)
     if (!members.any((p) => p.endsWith('.onnx'))) {
       throw StateError(
         'The ORT-GenAI directory '
@@ -196,14 +214,20 @@ class OnnxHuggingFaceResolver implements HuggingFaceResolver {
         ResolvedHfFile(name: p.substring(prefix.length), url: urlFor(p)),
     ];
 
+    // Base the EP note on the folder actually PICKED, not merely on whether a
+    // variant was pinned: `_pickFolder`'s fallback (a repo with no CPU/mobile
+    // folder) and an explicit GPU `variant:` both land on a non-CPU folder while
+    // `_variant == null`/`!= null` says nothing about it. Warn only when the
+    // pick looks GPU (the bundled runtime is CPU-only → it will likely not
+    // load); a CPU/mobile, root, or unlabeled export runs on CPU as expected.
     final notes = <String>[
       'Resolved ORT-GenAI directory '
           '"${folder.isEmpty ? "(repo root)" : folder}" (${files.length} files).',
-      // v1: the bundled ORT-GenAI runtime is CPU-only, and the automatic EP pick
-      // always chooses a CPU/mobile variant. Surface that on every auto-install
-      // so a GPU-hoping caller is not silently handed CPU. Pin a GPU folder with
-      // OnnxHuggingFaceResolver(variant: …) if you have a GPU runtime.
-      if (_variant == null)
+      if (_looksGpu(folder))
+        'Selected the GPU execution-provider variant "$folder", but the bundled '
+            'ORT-GenAI runtime is CPU-only — it may fail to load. Pin a '
+            'CPU/mobile variant with OnnxHuggingFaceResolver(variant: …).'
+      else
         'Installed the CPU execution-provider variant; on-device GPU execution '
             'is not bundled yet.',
     ];
@@ -224,8 +248,9 @@ class OnnxHuggingFaceResolver implements HuggingFaceResolver {
   }
 
   /// Picks the EP folder among [folders] (each a path that holds a
-  /// genai_config.json). An explicit [variant] wins; otherwise a GPU folder for
-  /// a GPU request, else a CPU/mobile folder, else the sole/first variant.
+  /// genai_config.json). An explicit [variant] wins; otherwise a CPU/mobile
+  /// folder is preferred (the bundled runtime is CPU-only), falling back to the
+  /// sole/first variant when none looks CPU.
   String _pickFolder(List<String> folders, {required String repo}) {
     if (_variant != null) {
       if (!folders.contains(_variant)) {
@@ -250,4 +275,13 @@ class OnnxHuggingFaceResolver implements HuggingFaceResolver {
 
   static final _cpuRe = RegExp(r'cpu|mobile', caseSensitive: false);
   static bool _looksCpu(String folder) => _cpuRe.hasMatch(folder);
+
+  // GPU/NPU execution-provider folder labels the bundled CPU-only runtime
+  // cannot load. Used only to phrase the result note honestly — NOT for
+  // selection (auto-pick never chooses these; only an explicit `variant:` does).
+  static final _gpuRe = RegExp(
+    r'cuda|dml|directml|tensorrt|rocm|coreml|webgpu|gpu|npu|qnn',
+    caseSensitive: false,
+  );
+  static bool _looksGpu(String folder) => _gpuRe.hasMatch(folder);
 }

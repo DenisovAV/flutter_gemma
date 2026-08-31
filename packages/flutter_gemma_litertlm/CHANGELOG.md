@@ -1,3 +1,6 @@
+## 1.6.1
+- Docs: the README and library docs show the engine-carried resolver and the one-call `fromHuggingFace(repo)` install.
+
 ## 1.6.0
 - Add `LitertlmManifestResolver`: manifest-driven Hugging Face install for repos shipping `litertlm_manifest.json`, auto-registered from `LiteRtLmEngine` (#454).
 

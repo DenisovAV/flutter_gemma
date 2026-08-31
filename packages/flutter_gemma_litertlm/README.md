@@ -39,10 +39,10 @@ app installs "the right file for this device" without hardcoding filenames:
 ```dart
 import 'dart:math' show max;
 
-await FlutterGemma.initialize(
-  inferenceEngines: [LiteRtLmEngine()],
-  huggingFaceResolvers: [const LitertlmManifestResolver()],
-);
+// LiteRtLmEngine carries this resolver, so registering the engine registers
+// it too. Pass huggingFaceResolvers: only to override — e.g.
+// [LitertlmManifestResolver(revision: 'abc123')] to pin a commit.
+await FlutterGemma.initialize(inferenceEngines: [LiteRtLmEngine()]);
 
 final r = await FlutterGemma.resolveHuggingFace(
     'litert-community/Qwen3-4B-Thinking-2507',
@@ -66,6 +66,12 @@ Everything the manifest returns is an overridable default (explicit argument >
 manifest > SDK default); `r.notes` carries platform caveats and known issues
 worth surfacing to developers. Repos without a manifest keep working through
 `installModel(...).fromHuggingFace(repo, file: ...)`.
+
+To resolve and install in one step, omit `file`: `fromHuggingFace(repo)` reads
+the manifest at install time, installs the revision-pinned variant, and returns
+the same defaults on `InferenceInstallation.runtime` (plus `notes`). The
+two-step form above stays the offline-safe one — manifest mode needs the network
+on every install, because the variant's filename is only known after the fetch.
 
 ## Embeddings
 

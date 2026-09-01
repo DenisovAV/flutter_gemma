@@ -1,6 +1,6 @@
 # genkit_flutter_gemma
 
-Genkit Dart plugin for [flutter_gemma](https://pub.dev/packages/flutter_gemma) — local on-device AI inference via Google Gemma and other supported models.
+Genkit Dart plugin for [flutter_gemma](https://pub.dev/packages/flutter_gemma) — local, on-device LLM inference (Gemma, Qwen, Phi, DeepSeek, and more), fully offline.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/DenisovAV/flutter_gemma/main/packages/genkit_flutter_gemma/assets/cover.jpeg" alt="genkit_flutter_gemma_cover">

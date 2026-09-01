@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.0
+
+- Add `CapabilityStrategy` (route by request-required vision/audio/tools/json), `CostStrategy` (budget-gate a premium branch), and `cascadeModel` (escalate to a premium branch when a developer `accept` predicate rejects the cheap response; non-streaming in v1).
+
 ## 0.1.1
 
 - Bump `genkit` to `^0.15.1` (from `^0.14.1`). No API or behavioral changes; 32 tests green.

@@ -191,6 +191,35 @@ void main() {
     expect(strat.route(_ctx(req)), ['vision']);
   });
 
+  test('an extension only in a query value is NOT treated as image '
+      '(query/fragment stripped before the path-extension match)', () {
+    final req = ModelRequest(
+      messages: [
+        Message(
+          role: Role.user,
+          content: [
+            MediaPart(media: Media(url: 'https://api/webhook?event=x.png')),
+          ],
+        ),
+      ],
+    );
+    // `.png` is a query value, not the path -> vision is NOT required, so the
+    // text branch stays in. (Pre-fix this matched and forced ['vision'].)
+    expect(strat.route(_ctx(req)), ['text', 'vision']);
+  });
+
+  test('a real path extension survives a trailing query string', () {
+    final req = ModelRequest(
+      messages: [
+        Message(
+          role: Role.user,
+          content: [MediaPart(media: Media(url: 'https://cdn/cat.png?w=200'))],
+        ),
+      ],
+    );
+    expect(strat.route(_ctx(req)), ['vision']);
+  });
+
   test(
     'multi-capability request requires ALL capabilities (containsAll, not any-match)',
     () {

@@ -76,11 +76,11 @@ class CapabilityStrategy implements RoutingStrategy {
   }
 
   static final _imageExt = RegExp(
-    r'\.(jpe?g|png|gif|webp|bmp|heic|heif|avif)(\?|#|$)',
+    r'\.(jpe?g|png|gif|webp|bmp|heic|heif|avif)$',
     caseSensitive: false,
   );
   static final _audioExt = RegExp(
-    r'\.(wav|mp3|m4a|aac|ogg|opus|flac|weba)(\?|#|$)',
+    r'\.(wav|mp3|m4a|aac|ogg|opus|flac|weba)$',
     caseSensitive: false,
   );
 
@@ -93,6 +93,11 @@ class CapabilityStrategy implements RoutingStrategy {
     final url = media.url.toLowerCase();
     if (ct != null && ct.startsWith('$kind/')) return true;
     if (url.startsWith('data:$kind/')) return true;
-    return kind == 'image' ? _imageExt.hasMatch(url) : _audioExt.hasMatch(url);
+    // Match the extension against the URL PATH only — strip any query/fragment
+    // so a `?x=photo.png` query value is not mistaken for a media extension.
+    final path = url.split('?').first.split('#').first;
+    return kind == 'image'
+        ? _imageExt.hasMatch(path)
+        : _audioExt.hasMatch(path);
   }
 }

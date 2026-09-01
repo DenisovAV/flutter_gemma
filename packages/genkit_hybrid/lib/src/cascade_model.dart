@@ -42,6 +42,7 @@ Model cascadeModel({
     }
   }
   final frozen = Map<String, Model>.unmodifiable(branches);
+  final frozenOrder = List<String>.unmodifiable(order);
   return Model(
     name: name,
     fn: (request, context) async {
@@ -54,7 +55,7 @@ Model cascadeModel({
         init: null,
       );
       final resp = await runInOrder(
-        order,
+        frozenOrder,
         frozen,
         request,
         blocking,

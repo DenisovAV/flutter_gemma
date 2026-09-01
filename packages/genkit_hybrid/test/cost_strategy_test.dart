@@ -1,4 +1,3 @@
-import 'package:genkit/genkit.dart';
 import 'package:genkit_hybrid/src/routing_context.dart';
 import 'package:genkit_hybrid/src/strategies/cost.dart';
 import 'package:test/test.dart';

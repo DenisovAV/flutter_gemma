@@ -13,12 +13,10 @@ import '../routing_strategy.dart';
 /// strategy — keep the signal a bare `bool Function()`.
 class CostStrategy implements RoutingStrategy {
   CostStrategy({
-    required bool Function() budgetAvailable,
-    required String premium,
-    required String cheap,
-  }) : _budgetAvailable = budgetAvailable,
-       _premium = premium,
-       _cheap = cheap;
+    required this._budgetAvailable,
+    required this._premium,
+    required this._cheap,
+  });
 
   final bool Function() _budgetAvailable;
   final String _premium;

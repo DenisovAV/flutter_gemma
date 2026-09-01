@@ -96,6 +96,36 @@ void main() {
     expect(s.route(_ctx(req)), ['j']);
   });
 
+  test('json required via output.schema', () {
+    final s = CapabilityStrategy(
+      supports: {
+        'a': {},
+        'j': {ModelCapability.json},
+      },
+      order: ['a', 'j'],
+    );
+    final req = ModelRequest(
+      messages: [],
+      output: OutputConfig(schema: {'type': 'object'}),
+    );
+    expect(s.route(_ctx(req)), ['j']);
+  });
+
+  test('json required via output.contentType', () {
+    final s = CapabilityStrategy(
+      supports: {
+        'a': {},
+        'j': {ModelCapability.json},
+      },
+      order: ['a', 'j'],
+    );
+    final req = ModelRequest(
+      messages: [],
+      output: OutputConfig(contentType: 'application/json'),
+    );
+    expect(s.route(_ctx(req)), ['j']);
+  });
+
   test(
     'WithFallback rescues when nothing is capable (try-anyway is composition)',
     () {

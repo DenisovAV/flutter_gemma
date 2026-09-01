@@ -893,6 +893,24 @@ Future<void> _processBundle({
     }
   }
 
+  // A bundle that skips its companions on this OS (see [skipCompanionsOn])
+  // leaves them for the app's own build phase to stage. Ship that phase its
+  // script through the one path it can already find.
+  if (bundle.skipCompanionsOn.contains(os) && bundle.companions.isNotEmpty) {
+    final staged = _shipCompanionStager(
+      input.packageRoot,
+      Directory('${bundle.cacheRoot().path}/$dirName'),
+    );
+    if (staged != null) {
+      output.dependencies.add(staged.source);
+      // The destination too: the cache is shared across checkouts, so an app
+      // on an older plugin version can overwrite this file. Its content hash
+      // is what makes this hook re-run and put its own version back, instead
+      // of the Xcode phase silently executing the other checkout's script.
+      output.dependencies.add(staged.destination);
+    }
+  }
+
   output.dependencies.add(prebuiltDir);
   output.dependencies.addAll(consumed);
   // And the branch that did NOT win. The entries above describe the directory
@@ -967,6 +985,40 @@ bool _sameBytes(File a, File b) {
     if (x[i] != y[i]) return false;
   }
   return true;
+}
+
+/// Name of the companion-staging script, in `tool/` here and copied into the
+/// native cache dir next to the dylibs it stages.
+const _stagerFileName = 'stage_macos_companions.sh';
+
+/// Source and destination of the shipped staging script.
+typedef _StagedScript = ({Uri source, Uri destination});
+
+/// Copy `tool/[_stagerFileName]` next to the dylibs it stages.
+///
+/// The app's Xcode build phase cannot locate a file inside this package:
+/// `flutter_gemma_litertlm` declares no macOS plugin, so Flutter creates no
+/// `.symlinks/plugins/` entry for it, and the pub-cache path is not knowable
+/// from a Podfile. The flat native cache dir is the one location the phase
+/// already resolves — it reads the companion dylibs from there — so the script
+/// travels with them.
+///
+/// Returns null when the script is absent (a consumer on an older plugin
+/// version), leaving the phase to report the missing file itself.
+_StagedScript? _shipCompanionStager(Uri packageRoot, Directory cacheDir) {
+  final src = File.fromUri(packageRoot.resolve('tool/$_stagerFileName'));
+  if (!src.existsSync()) return null;
+  final dst = File('${cacheDir.path}/$_stagerFileName');
+  // Content-compare, not the bundle `.version` marker: the script's version is
+  // the PACKAGE's, so a plugin-only patch release must be able to replace it
+  // without a native re-tag.
+  if (!dst.existsSync() || !_sameBytes(src, dst)) {
+    dst.parent.createSync(recursive: true);
+    src.copySync(dst.path);
+  }
+  // `copySync` does not carry the executable bit — callers invoke it as
+  // `sh <path>` rather than executing it directly.
+  return (source: src.uri, destination: dst.uri);
 }
 
 /// The nearest ancestor of [dir] that exists — or [dir] itself when it does.

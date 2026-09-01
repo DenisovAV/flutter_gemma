@@ -1,26 +1,9 @@
 import 'package:genkit/genkit.dart';
 import 'package:genkit/plugin.dart';
 
+import 'attempts.dart';
 import 'routing_context.dart';
 import 'routing_strategy.dart';
-
-/// Whether [error] is a transient/availability failure that justifies trying
-/// the next branch. Permanent errors (bad request, bad auth) must NOT trigger
-/// fallback — the next branch would get the same bad request and also fail,
-/// masking the real cause. Non-GenkitException throwables (network, timeout,
-/// OOM) are treated as transient.
-bool _isTransient(Object error) {
-  if (error is! GenkitException) return true;
-  switch (error.status) {
-    case StatusCodes.UNAVAILABLE:
-    case StatusCodes.DEADLINE_EXCEEDED:
-    case StatusCodes.RESOURCE_EXHAUSTED:
-    case StatusCodes.INTERNAL:
-      return true;
-    default:
-      return false;
-  }
-}
 
 /// Branch key for the on-device model in the binary façade.
 const String kOnDevice = 'onDevice';
@@ -72,16 +55,7 @@ Model hybridModel({
 
       // Non-streaming: try each branch, fall back on transient failure.
       if (!context.streamingRequested) {
-        for (var i = 0; i < order.length; i++) {
-          final key = order[i];
-          final isLast = i == order.length - 1;
-          try {
-            return await frozenBranches[key]!.fn(request, context);
-          } catch (e) {
-            if (isLast || !_isTransient(e)) rethrow;
-          }
-        }
-        throw StateError('unreachable'); // loop always returns or rethrows.
+        return runInOrder(order, frozenBranches, request, context);
       }
 
       // Streaming: fall back ONLY before the first token is emitted.
@@ -106,7 +80,7 @@ Model hybridModel({
         } catch (e) {
           // Once a token is out, we cannot re-route — propagate.
           // Before the first token, fall back on transient failures only.
-          if (firstTokenSent || isLast || !_isTransient(e)) rethrow;
+          if (firstTokenSent || isLast || !isTransient(e)) rethrow;
         }
       }
       throw StateError('unreachable'); // loop always returns or rethrows.

@@ -1,7 +1,7 @@
 {
   "manifest_schema": "0.1.0",
   "repo": "litert-community/DeepSeek-R1-Distill-Qwen-7B",
-  "generated": "2026-08-24",
+  "generated": "2026-08-31",
   "generator": "make_manifest.py",
   "model": {
     "display_name": "DeepSeek-R1-Distill-Qwen-7B",
@@ -18,19 +18,23 @@
       "vision": false,
       "audio": false,
       "thinking": {
-        "declared": false
+        "declared": true,
+        "channel": {
+          "start": "<think>\n",
+          "end": "\n</think>"
+        }
       }
     }
   },
   "variants": [
     {
       "file": "DeepSeek-R1-Distill-Qwen-7B_q4_block32_ekv4096.litertlm",
-      "sha256": "8eb98a628709eb02e31c2880fc4d2e2b78746f289bd6ffaf373a142412a54502",
+      "sha256": "511d59c11704f7ab39b9cb3a0eef1a88f8c05673d0b74bcb4b19c15845ab4a7f",
       "size_bytes": 4531978224,
       "sections": [
         {
           "type": "LlmMetadataProto",
-          "size_bytes": 566
+          "size_bytes": 598
         },
         {
           "type": "HF_Tokenizer_Zlib",

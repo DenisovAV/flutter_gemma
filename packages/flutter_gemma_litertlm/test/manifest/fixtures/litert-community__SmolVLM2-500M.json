@@ -1,7 +1,7 @@
 {
   "manifest_schema": "0.1.0",
   "repo": "litert-community/SmolVLM2-500M",
-  "generated": "2026-08-24",
+  "generated": "2026-08-30",
   "generator": "make_manifest.py",
   "model": {
     "display_name": "SmolVLM2-500M",
@@ -21,16 +21,16 @@
   "variants": [
     {
       "file": "SmolVLM2-500M.litertlm",
-      "sha256": "0dfb6fb881eb16e5ef2b2be04de5476caf939b7d9ae601fdee308bbc5462fd55",
-      "size_bytes": 361052336,
+      "sha256": "b808b328d845a600a33c5295f93d9217487317bd334dbc91b2a8d50e26e60ad0",
+      "size_bytes": 360822960,
       "sections": [
         {
           "type": "LlmMetadataProto",
-          "size_bytes": 663
+          "size_bytes": 647
         },
         {
-          "type": "SP_Tokenizer",
-          "size_bytes": 881974
+          "type": "HF_Tokenizer_Zlib",
+          "size_bytes": 644845
         },
         {
           "type": "TFLiteModel",

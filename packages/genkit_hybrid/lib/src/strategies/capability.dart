@@ -17,14 +17,29 @@ enum ModelCapability { vision, audio, tools, json }
 /// [order] is `supports.keys` in insertion order. `ModelCapability` is safe to
 /// grow (callers build sets, never `switch`).
 ///
-/// v1 blind spots: `video/*` media, PDFs, and `request.docs` map to no required
-/// capability.
+/// v1 blind spots: `video/*` media, PDFs, `request.docs`, and a hosted media
+/// URL with neither a `contentType` nor a recognized file extension all map to
+/// no required capability.
 class CapabilityStrategy implements RoutingStrategy {
   CapabilityStrategy({
     required Map<String, Set<ModelCapability>> supports,
     List<String>? order,
-  }) : _supports = supports,
-       _order = order ?? supports.keys.toList();
+  }) : _supports = {
+         for (final e in supports.entries) e.key: Set.unmodifiable(e.value),
+       },
+       _order = List.unmodifiable(order ?? supports.keys) {
+    if (order != null) {
+      for (final k in order) {
+        if (!supports.containsKey(k)) {
+          throw ArgumentError.value(
+            order,
+            'order',
+            'key "$k" is not in supports (${supports.keys.join(', ')})',
+          );
+        }
+      }
+    }
+  }
 
   final Map<String, Set<ModelCapability>> _supports;
   final List<String> _order;
@@ -60,9 +75,24 @@ class CapabilityStrategy implements RoutingStrategy {
     return caps;
   }
 
+  static final _imageExt = RegExp(
+    r'\.(jpe?g|png|gif|webp|bmp|heic|heif|avif)(\?|#|$)',
+    caseSensitive: false,
+  );
+  static final _audioExt = RegExp(
+    r'\.(wav|mp3|m4a|aac|ogg|opus|flac|weba)(\?|#|$)',
+    caseSensitive: false,
+  );
+
   // contentType is nullable; the Flutter image-picker path carries the type in
-  // a `data:<kind>/...` url, so check both.
-  bool _is(Media media, String kind) =>
-      (media.contentType?.startsWith('$kind/') ?? false) ||
-      media.url.startsWith('data:$kind/');
+  // a `data:<kind>/...` url, so check contentType, the data: url, and now the
+  // URL extension (case-insensitively) — a hosted URL with neither a
+  // contentType nor a recognized media extension is still undetected (v1).
+  bool _is(Media media, String kind) {
+    final ct = media.contentType?.toLowerCase();
+    final url = media.url.toLowerCase();
+    if (ct != null && ct.startsWith('$kind/')) return true;
+    if (url.startsWith('data:$kind/')) return true;
+    return kind == 'image' ? _imageExt.hasMatch(url) : _audioExt.hasMatch(url);
+  }
 }

@@ -123,6 +123,35 @@ void main() {
     );
   });
 
+  test(
+    'a throwing accept propagates — not treated as a transient branch failure',
+    () async {
+      var bCalls = 0;
+      final m = cascadeModel(
+        branches: {
+          'a': _model('a', text: 'A'),
+          'b': Model(
+            name: 'b',
+            fn: (req, ctx) async {
+              bCalls++;
+              return ModelResponse(
+                finishReason: FinishReason.stop,
+                message: Message(
+                  role: Role.model,
+                  content: [TextPart(text: 'B')],
+                ),
+              );
+            },
+          ),
+        },
+        order: ['a', 'b'],
+        accept: (r) => throw StateError('judge bug'),
+      );
+      await expectLater(m.fn(_req(), _blockingCtx), throwsA(isA<StateError>()));
+      expect(bCalls, 0); // did NOT silently escalate to b
+    },
+  );
+
   test('streaming caller gets one final chunk (non-streaming v1)', () async {
     final received = <String>[];
     final streamingCtx = (

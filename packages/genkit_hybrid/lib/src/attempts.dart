@@ -31,18 +31,23 @@ Future<ModelResponse> runInOrder(
   List<String> order,
   Map<String, Model> branches,
   ModelRequest? request,
-  dynamic context, {
+  ActionFnArg<ModelResponseChunk, ModelRequest, void> context, {
   FutureOr<bool> Function(ModelResponse)? accept,
 }) async {
   for (var i = 0; i < order.length; i++) {
     final isLast = i == order.length - 1;
+    ModelResponse resp;
     try {
-      final resp = await branches[order[i]]!.fn(request, context);
-      if (isLast || accept == null || await accept(resp)) return resp;
-      // accepted == false and not last -> escalate to the next branch.
+      resp = await branches[order[i]]!.fn(request, context);
     } catch (e) {
       if (isLast || !isTransient(e)) rethrow;
+      continue; // transient failure, not the last branch -> try the next one
     }
+    // accept is evaluated OUTSIDE the branch-error catch: a throwing predicate
+    // is a caller bug, not a branch failure, and must propagate — never be
+    // mistaken for a transient branch error and silently escalate.
+    if (isLast || accept == null || await accept(resp)) return resp;
+    // accepted == false and not last -> escalate to the next branch.
   }
   throw StateError('unreachable'); // loop always returns or rethrows.
 }

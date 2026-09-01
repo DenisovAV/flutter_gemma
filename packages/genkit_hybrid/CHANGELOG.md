@@ -2,7 +2,9 @@
 
 ## 0.2.0
 
-- Add `CapabilityStrategy` (route by request-required vision/audio/tools/json), `CostStrategy` (budget-gate a premium branch), and `cascadeModel` (escalate to a premium branch when a developer `accept` predicate rejects the cheap response; non-streaming in v1).
+- Add `CapabilityStrategy`: route by request-required capabilities (vision/audio/tools/json).
+- Add `CostStrategy`: budget-gate a premium branch against an app-supplied signal.
+- Add `cascadeModel`: escalate to a premium branch when an `accept` predicate rejects the cheap response (non-streaming v1).
 
 ## 0.1.1
 

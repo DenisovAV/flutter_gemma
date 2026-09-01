@@ -136,4 +136,105 @@ void main() {
       expect(s.route(_ctx(_imageByContentType())), ['text']);
     },
   );
+
+  test('audio via contentType -> only the audio branch', () {
+    final s = CapabilityStrategy(
+      supports: {
+        'text': {},
+        'audio': {ModelCapability.audio},
+      },
+      order: ['text', 'audio'],
+    );
+    final req = ModelRequest(
+      messages: [
+        Message(
+          role: Role.user,
+          content: [
+            MediaPart(
+              media: Media(contentType: 'audio/wav', url: 'https://x/y.wav'),
+            ),
+          ],
+        ),
+      ],
+    );
+    expect(s.route(_ctx(req)), ['audio']);
+  });
+
+  test('audio via data: url (contentType null) -> only the audio branch', () {
+    final s = CapabilityStrategy(
+      supports: {
+        'text': {},
+        'audio': {ModelCapability.audio},
+      },
+      order: ['text', 'audio'],
+    );
+    final req = ModelRequest(
+      messages: [
+        Message(
+          role: Role.user,
+          content: [MediaPart(media: Media(url: 'data:audio/wav;base64,AA'))],
+        ),
+      ],
+    );
+    expect(s.route(_ctx(req)), ['audio']);
+  });
+
+  test('bare-URL image (no contentType) is detected via file extension', () {
+    final req = ModelRequest(
+      messages: [
+        Message(
+          role: Role.user,
+          content: [MediaPart(media: Media(url: 'https://cdn/x/cat.jpg'))],
+        ),
+      ],
+    );
+    expect(strat.route(_ctx(req)), ['vision']);
+  });
+
+  test(
+    'multi-capability request requires ALL capabilities (containsAll, not any-match)',
+    () {
+      final s = CapabilityStrategy(
+        supports: {
+          'a': {ModelCapability.vision},
+          'b': {ModelCapability.vision, ModelCapability.tools},
+        },
+        order: ['a', 'b'],
+      );
+      final req = ModelRequest(
+        messages: [
+          Message(
+            role: Role.user,
+            content: [
+              MediaPart(
+                media: Media(contentType: 'image/png', url: 'https://x/y.png'),
+              ),
+            ],
+          ),
+        ],
+        tools: [ToolDefinition(name: 'get', description: 'd', inputSchema: {})],
+      );
+      expect(s.route(_ctx(req)), ['b']);
+    },
+  );
+
+  test(
+    'an explicit order naming a key absent from supports throws ArgumentError',
+    () {
+      expect(
+        () => CapabilityStrategy(supports: {'a': {}}, order: ['a', 'missing']),
+        throwsArgumentError,
+      );
+    },
+  );
+
+  test('default order (omitted) is supports insertion order', () {
+    final s = CapabilityStrategy(
+      supports: {
+        'a': {},
+        'b': {ModelCapability.vision},
+      },
+    );
+    expect(s.route(_ctx(ModelRequest(messages: []))), ['a', 'b']);
+  });
 }

@@ -17,9 +17,9 @@ import 'attempts.dart';
 /// **NON-STREAMING in v1.** A quality verdict needs the full response, and a
 /// streamed response cannot be un-sent. For a streaming request this runs the
 /// attempts non-streamed and emits the accepted response as a SINGLE chunk —
-/// a streaming UI will see no intermediate tokens and sits idle for one or two
-/// full sequential model runs. (Streaming the accepted branch after a buffered
-/// verdict is a non-breaking follow-up.)
+/// a streaming UI will see no intermediate tokens and sits idle for up to one
+/// full sequential model run per branch in `order`. (Streaming the accepted
+/// branch after a buffered verdict is a non-breaking follow-up.)
 Model cascadeModel({
   required Map<String, Model> branches,
   required List<String> order,
@@ -52,6 +52,8 @@ Model cascadeModel({
         sendChunk: (ModelResponseChunk _) {},
         context: context.context,
         inputStream: context.inputStream,
+        // Safe because Model fixes Init = void; revisit if cascadeModel is
+        // ever generalized to a non-void Init.
         init: null,
       );
       final resp = await runInOrder(
@@ -65,8 +67,9 @@ Model cascadeModel({
       if (context.streamingRequested) {
         context.sendChunk(
           ModelResponseChunk(
-            role: Role.model,
+            role: resp.message?.role ?? Role.model,
             content: resp.message?.content ?? const [],
+            aggregated: true,
           ),
         );
       }

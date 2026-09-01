@@ -111,15 +111,18 @@ silently re-routed).
 
 > **`cascadeModel` is non-streaming in v1.** A quality verdict needs the full response before
 > deciding whether to escalate, so a streaming caller receives the accepted branch's response as
-> ONE final chunk — no intermediate tokens, and the UI sits idle for one or two full sequential
-> model runs while the cascade plays out underneath.
+> ONE final chunk — no intermediate tokens, and the UI sits idle for up to one full sequential
+> model run per branch in `order` while the cascade plays out underneath.
 
 ## Error policy
 
 Fallback fires on **transient/availability** failures (network/timeout/OOM, or `GenkitException`
 with `UNAVAILABLE` / `DEADLINE_EXCEEDED` / `RESOURCE_EXHAUSTED` / `INTERNAL`). **Permanent**
 errors (`INVALID_ARGUMENT`, `PERMISSION_DENIED`, `UNAUTHENTICATED`, `FAILED_PRECONDITION`,
-`NOT_FOUND`) propagate immediately — they would fail the same way on every branch.
+`NOT_FOUND`) propagate immediately — they would fail the same way on every branch. Note: a branch
+that throws a `GenkitException` without setting `status` (it defaults to `INTERNAL`) — or any
+non-`GenkitException` error — is treated as transient and retried, so a truly permanent failure
+surfaced that way will be re-attempted on the next branch.
 
 ## Not in v1
 

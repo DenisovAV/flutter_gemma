@@ -55,6 +55,15 @@ a different reason (so a catch-all embedding backend like
 `LiteRtEmbeddingBackend` never silently claims an `.onnx`/`.ort` file); its
 platform gate lives in `createModel` instead, as a loud `StateError`.
 
+### Which output the embedding path reads
+
+A session's outputs are preferred in the order `sentence_embedding` >
+`pooler_output` > `last_hidden_state` > first declared. The first two are
+already-pooled `[1, dim]` sentence embeddings and are copied verbatim; only
+`last_hidden_state` is per-token and gets mean-pooled. A graph exposing both
+`pooler_output` and `last_hidden_state` — SigLIP2's text tower does — would
+otherwise fall through to the per-token output and be pooled a second time.
+
 Android needs **`minSdk 24`** — both the ORT and ORT-GenAI AARs declare
 `minSdkVersion=24`; raise your app's `android/app/build.gradle(.kts)`
 `minSdk` to 24 or higher if it's lower today. The device-verified Android

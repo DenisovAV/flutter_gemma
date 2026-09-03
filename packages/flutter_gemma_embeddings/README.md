@@ -61,6 +61,26 @@ time by `flutter_gemma_litertlm`'s Native-Assets hook.
 This package itself is pure Dart with no native/FFI code — the concrete
 backend (and its native library) is owned by whichever engine package you add.
 
+## Tokenizer profiles
+
+Three adapters, picked by the model you load — a model's special-token
+convention is not negotiable, and using the wrong one corrupts the vector
+silently rather than failing:
+
+| profile | convention | loader |
+|---|---|---|
+| Gemma (SentencePiece) | BOS 2, EOS 1, TaskType prefix | `loadSentencePieceEmbeddingTokenizer` |
+| WordPiece (BERT / MiniLM) | `[CLS]` … `[SEP]` | `WordPieceEmbeddingTokenizer.fromJsonString` / `.fromPath` |
+| SigLIP2 text tower | no BOS, one trailing EOS, lowercased, fixed 64-token width | `loadSiglipSentencePieceEmbeddingTokenizer` |
+
+SigLIP2's ONNX export carries no `attention_mask` and its pooling head reads all
+64 positions, so the width has to live in the ids — the adapter pads (and
+truncates) to exactly 64 itself rather than leaving it to the forward pass.
+
+`WordPieceEmbeddingTokenizer.fromPath` reads from disk and is **native only**;
+on web it throws `UnsupportedError` — fetch the `tokenizer.json` yourself there
+and use `fromJsonString`.
+
 ## Building a new engine backend
 
 Implement `EmbeddingForwardPass` (`load`/`run`/`close`/`outputDimension`/

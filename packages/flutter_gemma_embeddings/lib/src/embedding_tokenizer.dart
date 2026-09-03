@@ -85,9 +85,10 @@ class _GemmaSentencePieceEmbeddingTokenizer implements EmbeddingTokenizer {
 // SigLIP2's text tower uses a DIFFERENT special-token convention from Gemma:
 // NO leading BOS, a SINGLE trailing EOS (id 1), and its canonical preprocessing
 // lowercases the text. The model's ONNX graph has a FIXED `input_ids [1, 64]`
-// input, so padding to 64 (pad id 0) is the forward pass's job — the tokenizer
-// emits the unpadded `[...ids, EOS]` and the forward pass's `staticSeqLen` path
-// pads it. This is a SEPARATE adapter from the Gemma one (which hardcodes
+// input, so the ids must carry the width. The SigLIP int8 export reads as
+// DYNAMIC-shape, so the forward pass's `staticSeqLen` path does NOT pad it —
+// [encodeForSiglipEmbedding] pads here instead. This is a SEPARATE adapter from
+// the Gemma one (which hardcodes
 // BOS=2/EOS=1) — routing the SigLIP profile here instead of to the Gemma adapter
 // is what avoids the silent BOS-injection corruption; the Gemma path is
 // untouched (non-regressing).
@@ -109,7 +110,13 @@ const int siglipPadId = 0;
 /// Tokenizes [text] with SigLIP2's convention: `[...encode(text.toLowerCase()).ids, siglipEosId]`,
 /// then RIGHT-PADS (or truncates) to exactly [siglipSeqLen] with [siglipPadId] —
 /// SigLIP needs the fixed width baked into the ids (see [siglipSeqLen]). NO BOS,
-/// NO task-type prefix, single trailing EOS, lowercased.
+/// single trailing EOS, lowercased.
+///
+/// SigLIP has no task-type prefix vocabulary of its own, so the adapter passes
+/// whatever [EmbeddingTokenizer.encode] was handed straight through as leading
+/// text (`prefix + text`, pinned by `siglip_tokenizer_test.dart`). Callers that
+/// do not want one pass an empty prefix — a TaskType prefix here becomes part of
+/// the embedded string rather than being interpreted.
 List<int> encodeForSiglipEmbedding(
   SentencePieceTokenizer tokenizer,
   String text,

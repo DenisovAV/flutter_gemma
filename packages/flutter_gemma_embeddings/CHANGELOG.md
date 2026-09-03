@@ -1,3 +1,8 @@
+## 2.1.0
+- Add a SigLIP2 text-embedding profile (no BOS, single trailing EOS, lowercased, fixed 64-token width).
+- Restore `WordPieceEmbeddingTokenizer.fromPath`, dropped from `main` after 2.0.0 shipped; it reads through a web-safe seam now.
+- Require `dart_sentencepiece_tokenizer` 1.3.3 for HuggingFace list-form `merges`.
+
 ## 2.0.0
 - BREAKING: runtime-agnostic embedder; `LiteRtEmbeddingBackend` moved to flutter_gemma_litertlm.
 - Add tokenizer-factory seam (`ForwardPassDescriptor.tokenizerFactory`) so engines can bring WordPiece too.

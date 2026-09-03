@@ -1,6 +1,6 @@
 name: flutter_gemma_embeddings
 description: "Runtime-agnostic on-device text embedding pipeline (tokenization, isolate worker, pooling/normalization) for flutter_gemma. Pair with an engine package (e.g. flutter_gemma_litertlm) for a concrete EmbeddingBackendProvider."
-version: 2.0.0
+version: 2.1.0
 homepage: https://fluttergemma.dev
 repository: https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_gemma_embeddings
 topics: [embeddings, gemma, litert, rag, on-device]
@@ -26,7 +26,7 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_gemma: ^1.5.9
-  dart_sentencepiece_tokenizer: ^1.3.0
+  dart_sentencepiece_tokenizer: ^1.3.3
 
 dev_dependencies:
   flutter_test:

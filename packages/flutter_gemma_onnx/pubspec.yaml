@@ -1,6 +1,6 @@
 name: flutter_gemma_onnx
 description: "ONNX Runtime engine for flutter_gemma: GenAI inference on 5 native platforms + web generation (Transformers.js) & embeddings (onnxruntime-web)."
-version: 0.3.2
+version: 0.3.3
 homepage: https://fluttergemma.dev
 repository: https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_gemma_onnx
 topics: [gemma, llm, onnx, onnxruntime, on-device]

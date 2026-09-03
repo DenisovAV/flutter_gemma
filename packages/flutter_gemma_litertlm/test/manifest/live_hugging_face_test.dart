@@ -24,9 +24,12 @@
 //   end-to-end test needs the binding (initialize() does), so this file
 //   resets `HttpOverrides.global = null` right after initializing it — for
 //   the whole file, because the override is process-global.
-// - `initialize()` completes headless only after
-//   `SharedPreferences.setMockInitialValues({})` — see
-//   resolver_registration_test.dart.
+// - `initialize()` ends in the model manager's restore, which reads
+//   shared_preferences; under `flutter test` that plugin has no host, so
+//   `SharedPreferences.setMockInitialValues({})` must run first (the in-memory
+//   store). This is the only suite in the package that drives `initialize()`
+//   — the registration contract itself is tested in core
+//   (flutter_gemma/test/core/registry/resolver_registration_test.dart).
 @TestOn('vm')
 @Timeout(Duration(minutes: 10))
 library;

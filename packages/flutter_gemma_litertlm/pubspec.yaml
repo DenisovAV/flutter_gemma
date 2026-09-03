@@ -38,8 +38,9 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
-  # The manifest resolver suites run the full FlutterGemma.initialize() path
-  # headless; that needs shared_preferences' in-memory mock store.
+  # Only live_hugging_face_test.dart (opt-in) drives the full
+  # FlutterGemma.initialize() path; headless that needs shared_preferences'
+  # in-memory mock store. The registration contract is tested in core.
   shared_preferences: ^2.5.2
 
 # No flutter: plugin/asset block — the native lib is delivered as a CodeAsset by

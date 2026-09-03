@@ -39,6 +39,17 @@ const kExampleSttBackends = [LiteRtSttBackend()];
 /// The opt-in TTS backends the example registers. Single source of truth.
 const kExampleTtsBackends = [LiteRtTtsBackend()];
 
+// The Hugging Face resolvers are NOT listed here on purpose: each engine that
+// ships one (LiteRtLmEngine → litertlm_manifest.json, OnnxEngine,
+// BuiltInAiEngine) implements `HuggingFaceResolverSource`, so
+// `FlutterGemma.initialize(inferenceEngines: …)` auto-registers them — no
+// parallel `huggingFaceResolvers:` list to keep in sync. So
+// `FlutterGemma.resolveHuggingFace(repo, fileType:)` gives a clear result for
+// `.litertlm` / `.onnx` / `.builtIn` (MediaPipe `.task`/`.bin` has no resolver,
+// so `fileType: task` still throws the generic "no resolver registered").
+// Pass `huggingFaceResolvers:` to `initialize` only to OVERRIDE an engine's
+// default — e.g. `LitertlmManifestResolver(revision: 'abc123')` to pin a commit.
+
 /// The agentic skill executors the example registers (text / JS / native
 /// intent). Registered through `FlutterGemma.initialize(skillExecutors: …)` —
 /// the recommended global path — so any [AgentSession.fromModel] built without
@@ -100,6 +111,8 @@ Future<void> bootstrapGemma({required RagBackend ragBackend}) {
     embeddingBackends: kExampleEmbeddingBackends,
     sttBackends: kExampleSttBackends,
     ttsBackends: kExampleTtsBackends,
+    // huggingFaceResolvers: omitted — resolvers auto-register from the engines
+    // above (each implements HuggingFaceResolverSource). See the note there.
     skillExecutors: kExampleSkillExecutors,
     vectorStore: vectorStoreFor(ragBackend),
   );

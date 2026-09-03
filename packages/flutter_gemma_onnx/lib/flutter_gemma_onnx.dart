@@ -60,3 +60,11 @@ export 'src/web/onnx_embedding_backend_web.dart'
 // `flutter_gemma_litertlm`'s `litert_bindings_stub.dart`).
 export 'src/native_exports_stub.dart'
     if (dart.library.ffi) 'src/native_exports.dart';
+
+// The Hugging Face resolver (pure Dart, web-safe) — owns the
+// `ModelFileType.onnx` slot so `fromHuggingFace(repo)` installs an ORT-GenAI
+// directory (native) or a fileless repo-id model (web). `HfFetch` /
+// `HfFetchException` are its injectable HTTP seam (test/app fakes), mirroring
+// litertlm's exported `ManifestFetch` / `ManifestFetchException`.
+export 'src/onnx_hugging_face_resolver.dart' show OnnxHuggingFaceResolver;
+export 'src/hf/hf_fetch_types.dart' show HfFetch, HfFetchException;

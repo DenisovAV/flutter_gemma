@@ -35,5 +35,29 @@ void main() {
     );
     expect(hybridModel, isNotNull);
     expect(hybridModelOnDeviceCloud, isNotNull);
+
+    // new in 0.2.0
+    expect(ModelCapability.vision, isNotNull);
+    expect(
+      CapabilityStrategy(supports: {'a': {}}).route(
+        const RoutingContext(
+          request: null,
+          branchKeys: {'a'},
+          isStreaming: false,
+        ),
+      ),
+      ['a'],
+    );
+    expect(
+      CostStrategy(budgetAvailable: () => true, premium: 'c', cheap: 'd').route(
+        const RoutingContext(
+          request: null,
+          branchKeys: {'c', 'd'},
+          isStreaming: false,
+        ),
+      ),
+      ['c', 'd'],
+    );
+    expect(cascadeModel, isNotNull); // tear-off reference proves the export
   });
 }

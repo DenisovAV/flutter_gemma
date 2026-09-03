@@ -191,6 +191,18 @@ class MobileModelManager extends ModelFileManager {
       return;
     }
 
+    // DIRECTORY model (ORT-GenAI): the persisted primary filename is the
+    // subpath `<modelId>/genai_config.json`. Rebuild the whole bundle from the
+    // repository records under that subdir — the repository is the single
+    // source of truth `_isModelInstalled` also checks, so restore and
+    // install-check cannot desync. Reconstructing via `FileSource(path)` (the
+    // single-file path below) would re-derive a BARE leaf filename, missing the
+    // subpath repo key, and `isModelInstalled` would be false every launch.
+    if (fileType == ModelFileType.onnx && filename.contains('/')) {
+      await _restoreActiveInferenceDirectory(filename, modelType, fileType);
+      return;
+    }
+
     final filePath = await ServiceRegistry.instance.fileSystemService
         .getTargetPath(filename);
     if (!File(filePath).existsSync()) {
@@ -207,6 +219,70 @@ class MobileModelManager extends ModelFileManager {
       fileType: fileType,
     );
     gemmaLog('[ModelManager] restored active inference model: $filename');
+  }
+
+  /// Restores a DIRECTORY (ORT-GenAI) active model from the repository records
+  /// under `<modelId>/`. [primaryFilename] is the persisted subpath
+  /// `<modelId>/<primaryBareLeaf>` (the file the engine loads from). Every
+  /// member is rebuilt with an EXPLICIT subpath filename (never derived from a
+  /// source), primary first, so `getModelFilePaths.values.first` resolves inside
+  /// the model directory.
+  Future<void> _restoreActiveInferenceDirectory(
+    String primaryFilename,
+    ModelType modelType,
+    ModelFileType fileType,
+  ) async {
+    final slash = primaryFilename.indexOf('/');
+    final modelId = primaryFilename.substring(0, slash);
+    final primaryBare = primaryFilename.substring(slash + 1);
+
+    final repository = ServiceRegistry.instance.modelRepository;
+    final members = (await repository.listInstalled())
+        .where((m) => m.id.startsWith('$modelId/'))
+        .toList();
+    if (!members.any((m) => m.id == primaryFilename)) {
+      gemmaLog(
+        '[ModelManager] active directory model restore: no primary record '
+        '"$primaryFilename" — skipping',
+      );
+      return;
+    }
+
+    // Every member must be physically present, or the model cannot load.
+    for (final m in members) {
+      final p = await ModelFileSystemManager.getModelFilePath(m.id);
+      if (!File(p).existsSync()) {
+        gemmaLog(
+          '[ModelManager] active directory model restore: missing file $p '
+          '— skipping',
+        );
+        return;
+      }
+    }
+
+    DirectoryBundleFile toMember(repo.ModelInfo m) =>
+        DirectoryBundleFile.member(
+          modelId: modelId,
+          bareName: m.id.substring(modelId.length + 1),
+          primaryName: primaryBare,
+          source: m.source,
+        );
+    final bundle = <DirectoryBundleFile>[
+      ...members.where((m) => m.id == primaryFilename).map(toMember),
+      ...members.where((m) => m.id != primaryFilename).map(toMember),
+    ];
+
+    _activeInferenceModel = InferenceModelSpec(
+      name: modelId,
+      modelSource: bundle.first.source,
+      modelType: modelType,
+      fileType: fileType,
+      directoryFiles: bundle,
+    );
+    gemmaLog(
+      '[ModelManager] restored active directory model: $modelId '
+      '(${bundle.length} files)',
+    );
   }
 
   /// One-time migration of a pre-refactor (plain-named) COMPANION file to its
@@ -819,6 +895,18 @@ class MobileModelManager extends ModelFileManager {
         await repository.deleteModel(file.filename);
       }
 
+      // Directory (ORT-GenAI) model: its members lived in a per-model
+      // subdirectory. Remove the now-empty subdir so it doesn't accumulate
+      // (deleteModelFile only removes the individual files inside it).
+      if (spec is InferenceModelSpec && spec.directoryFiles != null) {
+        final dirName = spec.directoryFiles!.first.filename.split('/').first;
+        final dirPath = await ModelFileSystemManager.getModelFilePath(dirName);
+        final dir = Directory(dirPath);
+        if (await dir.exists()) {
+          await dir.delete(recursive: true);
+        }
+      }
+
       gemmaLog('UnifiedModelManager: Model deleted - ${spec.name}');
     } catch (e) {
       gemmaLog(
@@ -966,7 +1054,14 @@ class MobileModelManager extends ModelFileManager {
       for (final file in spec.files) {
         // Get path based on source type
         final String path;
-        if (file.source is FileSource) {
+        if (file is DirectoryBundleFile) {
+          // Directory (ORT-GenAI) member: its identity is the explicit subpath
+          // `<modelId>/<bareLeaf>` under the model storage dir — resolve by
+          // filename regardless of the carrier source type (a restored bundle
+          // may carry a network/file source, but the on-disk location is always
+          // the subdir).
+          path = await ModelFileSystemManager.getModelFilePath(file.filename);
+        } else if (file.source is FileSource) {
           // External file - use path from source
           path = (file.source as FileSource).path;
         } else if (file.source is BundledSource) {

@@ -7,12 +7,17 @@ import 'package:flutter_gemma/core/domain/platform_types.dart'
 import 'package:flutter_gemma/core/model.dart' show ModelFileType;
 import 'package:flutter_gemma/core/model_management/model_specs.dart'
     show InferenceModelSpec;
+import 'package:flutter_gemma/core/registry/hugging_face_resolver.dart'
+    show HuggingFaceResolver;
+import 'package:flutter_gemma/core/registry/hugging_face_resolver_source.dart'
+    show HuggingFaceResolverSource;
 import 'package:flutter_gemma/core/registry/inference_engine_provider.dart';
 import 'package:flutter_gemma/core/registry/runtime_config.dart';
 import 'package:flutter_gemma/core/utils/gemma_log.dart' show gemmaLog;
 import 'package:flutter_gemma/flutter_gemma_interface.dart' show InferenceModel;
 
 import 'ffi/gen_ai_client.dart';
+import 'onnx_hugging_face_resolver.dart' show OnnxHuggingFaceResolver;
 import 'onnx_inference_model.dart';
 
 /// ONNX Runtime GenAI on-device inference engine.
@@ -34,7 +39,7 @@ import 'onnx_inference_model.dart';
 /// Mirrors [LiteRtLmEngine] from `flutter_gemma_litertlm`: a pure factory
 /// that core probes via [canHandle] and calls to build a bare
 /// [InferenceModel]; core owns the singleton lifecycle.
-class OnnxEngine implements InferenceEngineProvider {
+class OnnxEngine implements InferenceEngineProvider, HuggingFaceResolverSource {
   /// [clientFactory] is the injection seam for tests — defaults to the real
   /// `dart:ffi` worker-isolate client. Never override it in production code;
   /// it exists so `test/onnx_engine_test.dart` can inject a fake with zero
@@ -51,6 +56,17 @@ class OnnxEngine implements InferenceEngineProvider {
 
   @override
   int get priority => 0;
+
+  /// The engine's own Hugging Face resolver ([OnnxHuggingFaceResolver]).
+  /// Auto-registered by `FlutterGemma.initialize(inferenceEngines: …)` so it
+  /// owns the `.onnx` slot: `resolveHuggingFace(fileType: onnx)` and the
+  /// one-call `fromHuggingFace(repo)` list the repo's file tree, pick an
+  /// execution-provider folder, and install the whole ORT-GenAI directory
+  /// (`genai_config.json` + `.onnx`[+`.onnx_data`] + tokenizer). On web the
+  /// resolver returns a fileless repo-id model (Transformers.js).
+  @override
+  HuggingFaceResolver get huggingFaceResolver =>
+      const OnnxHuggingFaceResolver();
 
   /// In lockstep with `hook/build.dart`'s `_archivesFor`: every host whose
   /// archive the hook bundles AND whose engine path is verified on a real
@@ -122,31 +138,29 @@ class OnnxEngine implements InferenceEngineProvider {
       );
     }
 
-    // The install layer hands inference engines a single resolved FILE path
-    // per `InferenceModelSpec` (`RuntimeConfig.modelPath` —
+    // The install layer hands inference engines a single resolved FILE path per
+    // `InferenceModelSpec` (`RuntimeConfig.modelPath` =
     // `manager.getModelFilePaths(...).values.first`, see
-    // `flutter_gemma_mobile.dart`'s createModel preamble). ORT-GenAI models
-    // are whole DIRECTORIES (`genai_config.json` + `.onnx`[+`.onnx_data`] +
-    // tokenizer files); v1 takes that file's PARENT directory as the model
-    // dir. This assumes the whole bundle already lives alongside the one
-    // tracked file on disk — true for the macOS host smoke (which points
-    // `ONNX_SMOKE_GENAI_MODEL_DIR` straight at a pre-populated directory) but
-    // NOT yet true for a real network install, which only downloads that one
-    // tracked file. Multi-file bundle install (mirroring the TTS
-    // `artifactPaths` pattern) is a known gap, left for the device-gated
-    // follow-on — this precheck turns it into a clear, loud error instead of
-    // a confusing native failure.
+    // `flutter_gemma_mobile.dart`'s createModel preamble). ORT-GenAI models are
+    // whole DIRECTORIES (`genai_config.json` + `.onnx`[+`.onnx_data`] +
+    // tokenizer files). The directory install
+    // (`installModel(fileType: onnx).fromHuggingFace(repo)`, wired via
+    // `OnnxHuggingFaceResolver` + core's directory-install path) downloads every
+    // file into a per-model subdirectory and makes the primary
+    // `genai_config.json` the spec's FIRST file — so `modelPath` resolves to
+    // `<dir>/genai_config.json` and its PARENT is exactly the model directory
+    // ORT-GenAI needs. The precheck below stays as a loud guard for a modelPath
+    // whose parent is not a complete ORT-GenAI directory (a directory pointed at
+    // directly, or a partial/incomplete install).
     final modelDir = File(config.modelPath).parent.path;
     final configFile = File('$modelDir/genai_config.json');
     if (!configFile.existsSync()) {
       throw StateError(
         'ONNX GenAI model directory "$modelDir" has no genai_config.json — '
         'expected an ORT-GenAI model directory '
-        '(genai_config.json + .onnx[+.onnx_data] + tokenizer files) '
-        'installed as a single bundle. Multi-file bundle install is not '
-        'yet wired through FlutterGemma.installModel() for ModelFileType.onnx '
-        '(hardened plan Phase 3 Task 2 known gap) — point modelPath at a '
-        'pre-populated directory for now.',
+        '(genai_config.json + .onnx[+.onnx_data] + tokenizer files). Install '
+        'one with installModel(fileType: ModelFileType.onnx).fromHuggingFace('
+        'repo), or point modelPath at a pre-populated ORT-GenAI directory.',
       );
     }
 

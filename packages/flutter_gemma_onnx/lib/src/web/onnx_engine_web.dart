@@ -11,10 +11,15 @@
 import 'package:flutter_gemma/core/model.dart' show ModelFileType;
 import 'package:flutter_gemma/core/model_management/model_specs.dart'
     show InferenceModelSpec;
+import 'package:flutter_gemma/core/registry/hugging_face_resolver.dart'
+    show HuggingFaceResolver;
+import 'package:flutter_gemma/core/registry/hugging_face_resolver_source.dart'
+    show HuggingFaceResolverSource;
 import 'package:flutter_gemma/core/registry/inference_engine_provider.dart';
 import 'package:flutter_gemma/core/registry/runtime_config.dart';
 import 'package:flutter_gemma/flutter_gemma_interface.dart' show InferenceModel;
 
+import '../onnx_hugging_face_resolver.dart' show OnnxHuggingFaceResolver;
 import 'onnx_web_inference_model.dart';
 import 'transformers_web_resolver.dart';
 
@@ -28,7 +33,7 @@ import 'transformers_web_resolver.dart';
 /// [OnnxWebInferenceModel]'s module doc for how that changes model identity
 /// and the generation loop. Use `OnnxEmbeddingBackend` for the web
 /// embeddings arm (onnxruntime-web).
-class OnnxEngine implements InferenceEngineProvider {
+class OnnxEngine implements InferenceEngineProvider, HuggingFaceResolverSource {
   const OnnxEngine();
 
   @override
@@ -36,6 +41,14 @@ class OnnxEngine implements InferenceEngineProvider {
 
   @override
   int get priority => 0;
+
+  /// The engine's own Hugging Face resolver ([OnnxHuggingFaceResolver]), shared
+  /// with the native arm. On web it resolves a repo to a fileless model (the
+  /// repo id Transformers.js fetches and caches itself), so `fromHuggingFace`
+  /// and `resolveHuggingFace(fileType: onnx)` need no directory download.
+  @override
+  HuggingFaceResolver get huggingFaceResolver =>
+      const OnnxHuggingFaceResolver();
 
   @override
   bool canHandle(InferenceModelSpec spec) =>

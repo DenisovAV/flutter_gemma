@@ -833,6 +833,24 @@ Each `DownloadError` exposes `toUserMessage()`, `toTitle()`, `isRetryable`, and
 ## Installation Sources
 
 ```dart
+// Hugging Face repo — the engine's resolver picks the right file/variant.
+// One call: omit `file` and the resolver reads the repo (a litertlm manifest,
+// or the ONNX file tree) at install time and installs the right variant.
+await FlutterGemma.installModel(
+  modelType: ModelType.general, // a resolver may override (e.g. litertlm manifest)
+  fileType: ModelFileType.litertlm,
+)
+  .fromHuggingFace('litert-community/Qwen3-4B-Thinking-2507')
+  .install();
+
+// Or pin an explicit file (any fileType; no manifest needed):
+await FlutterGemma.installModel(
+  modelType: ModelType.gemmaIt,
+  fileType: ModelFileType.litertlm,
+)
+  .fromHuggingFace('litert-community/Gemma3-1B-IT', file: 'model.litertlm')
+  .install();
+
 // Network — .litertlm is the cross-platform default (Android/iOS/Desktop).
 // For mobile-only or web-only apps you can substitute a .task URL of the
 // same model — and drop the fileType, which defaults to ModelFileType.task.
@@ -867,6 +885,14 @@ await FlutterGemma.installModel(
   .fromFile('/path/to/model.litertlm')
   .install();
 ```
+
+`fromHuggingFace` needs the matching engine's resolver, which the engine
+registers itself: `LiteRtLmEngine` reads `litertlm_manifest.json`, `OnnxEngine`
+resolves an ORT-GenAI directory (auto-picking a CPU execution-provider folder).
+`resolveHuggingFace(repo, fileType:)` returns the resolved identity and
+overridable runtime defaults *without* installing, so you can inspect the variant
+and its `notes` first. See each engine package's README for the resolver
+specifics.
 
 ## Modern API vs Legacy API
 

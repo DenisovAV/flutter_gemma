@@ -40,7 +40,27 @@ const _hfToken = String.fromEnvironment('HUGGINGFACE_TOKEN');
 
 InferenceModel? _model;
 
+/// Guards [registerTestEngines] so it can be called from every test body.
+bool _enginesRegistered = false;
+
 Future<InferenceModel> _ensureModel() async {
+  // Engine registration lives HERE, not in a setUpAll, and that is not style.
+  //
+  // Under `flutter drive` a setUp/setUpAll that THROWS is reported as "All
+  // tests passed": package:integration_test only ever writes a result from
+  // inside `runTest`, and a failed setUp means `runTest` never runs, so the
+  // test is absent from the report rather than failed — and an absent test
+  // reads as no failure. Measured; `flutter test -d <device>` does NOT have
+  // this problem (package:test's own reporter sees the error), which is why the
+  // 42 native suites here can keep their setUp.
+  //
+  // This suite is the one that runs under drive, so anything that can fail has
+  // to fail inside a test body.
+  if (!_enginesRegistered) {
+    await registerTestEngines();
+    _enginesRegistered = true;
+  }
+
   if (_model != null) return _model!;
 
   // Install via the network path — `WebStorageMode.cacheApi` (default) puts
@@ -67,9 +87,6 @@ void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   group('LiteRT-LM web (.litertlm via @litert-lm/core)', () {
-    setUpAll(() async {
-      await registerTestEngines();
-    });
     tearDownAll(_disposeModel);
 
     testWidgets('text generation produces a non-empty response', (

@@ -1,3 +1,6 @@
+## 0.3.2
+- `OnnxHuggingFaceResolver` installs an ORT-GenAI model directory from a Hugging Face repo — lists the repo, picks a CPU execution-provider folder, downloads the whole bundle (#454).
+
 ## 0.3.1
 - Fix a rebuilt native library not reaching the build.
 - Fail the build on an unusable runtime — a failed download, a checksum mismatch, or an Android minSdk below 24 — instead of bundling nothing.

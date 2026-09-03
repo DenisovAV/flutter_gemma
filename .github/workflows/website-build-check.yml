@@ -37,6 +37,19 @@ jobs:
           dart pub get
           jaspr build --sitemap-domain "https://fluttergemma.dev"
 
+      - name: Export codelabs (claat static export → /codelabs)
+        # Same claat export the merge workflow runs, so a broken codelab source
+        # is caught on the PR instead of on the live deploy.
+        working-directory: website
+        run: |
+          curl -fL -o "$RUNNER_TEMP/claat" https://github.com/googlecodelabs/tools/releases/download/v2.2.6/claat-linux-amd64
+          chmod +x "$RUNNER_TEMP/claat"
+          mkdir -p build/jaspr/codelabs
+          for src in codelabs/*/index.md; do
+            [ -e "$src" ] || continue
+            "$RUNNER_TEMP/claat" export -o build/jaspr/codelabs "$src"
+          done
+
       - name: Build Flutter web example (live demo at /try)
         working-directory: packages/flutter_gemma/example
         run: |

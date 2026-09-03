@@ -40,6 +40,21 @@ jobs:
           dart pub get
           jaspr build --sitemap-domain "https://fluttergemma.dev"
 
+      - name: Export codelabs (claat static export → /codelabs)
+        # Codelab sources: website/codelabs/<id>/index.md → self-contained HTML
+        # under /codelabs/<id>/, served static (NOT rendered through Jaspr, so
+        # bash/yaml/xml fences that break Jaspr's CodeBlock are fine). Native
+        # linux claat from the official release (ubuntu runner is x64).
+        working-directory: website
+        run: |
+          curl -fL -o "$RUNNER_TEMP/claat" https://github.com/googlecodelabs/tools/releases/download/v2.2.6/claat-linux-amd64
+          chmod +x "$RUNNER_TEMP/claat"
+          mkdir -p build/jaspr/codelabs
+          for src in codelabs/*/index.md; do
+            [ -e "$src" ] || continue
+            "$RUNNER_TEMP/claat" export -o build/jaspr/codelabs "$src"
+          done
+
       - name: Build Flutter web example (live demo at /try)
         working-directory: packages/flutter_gemma/example
         run: |

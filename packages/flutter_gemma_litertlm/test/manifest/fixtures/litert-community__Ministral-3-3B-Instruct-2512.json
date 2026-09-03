@@ -1,7 +1,7 @@
 {
   "manifest_schema": "0.1.0",
   "repo": "litert-community/Ministral-3-3B-Instruct-2512",
-  "generated": "2026-08-24",
+  "generated": "2026-08-29",
   "generator": "make_manifest.py",
   "model": {
     "display_name": "Ministral-3-3B-Instruct-2512",
@@ -21,12 +21,12 @@
   "variants": [
     {
       "file": "Ministral-3-3B-Instruct-2512_q4_block32_ekv4096.litertlm",
-      "sha256": "e68fcf0d52e5e9d86663c819b8ab53998694a633190b9102b456e12de4f16270",
+      "sha256": "df5f84608e8db475edb74cac2549eb03727e4941b65980c1d95e310bad996ada",
       "size_bytes": 2340982768,
       "sections": [
         {
           "type": "LlmMetadataProto",
-          "size_bytes": 87
+          "size_bytes": 3542
         },
         {
           "type": "HF_Tokenizer_Zlib",

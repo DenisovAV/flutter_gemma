@@ -1,7 +1,7 @@
 {
   "manifest_schema": "0.1.0",
   "repo": "litert-community/VibeThinker-3B",
-  "generated": "2026-08-24",
+  "generated": "2026-08-29",
   "generator": "make_manifest.py",
   "model": {
     "display_name": "VibeThinker-3B (LiteRT-LM)",
@@ -29,12 +29,12 @@
   "variants": [
     {
       "file": "model.litertlm",
-      "sha256": "27878159e84014b66709b5b26ac204ff74dc1e87134eeb4bccb8c6146c16ca38",
+      "sha256": "df27fe62ddcec6ef8220bbd7d6998a65cff550719dbc4eeb7d26a5056f4f8c18",
       "size_bytes": 2057106352,
       "sections": [
         {
           "type": "LlmMetadataProto",
-          "size_bytes": 181
+          "size_bytes": 1318
         },
         {
           "type": "HF_Tokenizer_Zlib",

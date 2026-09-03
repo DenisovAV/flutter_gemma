@@ -1,7 +1,7 @@
 {
   "manifest_schema": "0.1.0",
   "repo": "litert-community/Qwen3-4B-Thinking-2507",
-  "generated": "2026-08-24",
+  "generated": "2026-08-31",
   "generator": "make_manifest.py",
   "model": {
     "display_name": "Qwen3-4B-Thinking-2507",
@@ -29,12 +29,12 @@
   "variants": [
     {
       "file": "Qwen3_4b_thinking_dynamic_wi4b32_afp32.litertlm",
-      "sha256": "a1efbbd887016ec3e930cf24a97d6590bffbbc155b3b3e8600ae647884bc1ebd",
+      "sha256": "a412d77da3a15047232ce525d126a8cdb803691d29df791f13a9ef4cffab309a",
       "size_bytes": 2274193168,
       "sections": [
         {
           "type": "LlmMetadataProto",
-          "size_bytes": 3321
+          "size_bytes": 3228
         },
         {
           "type": "ExecutorMetadataProto",
@@ -55,20 +55,20 @@
         "cpu",
         "gpu"
       ],
-      "default_backend": "gpu",
+      "default_backend": "cpu",
       "min_runtime_version": "0.15.0",
       "known_issues": [
-        "Block-32 int4 can corrupt output on iPhone Metal while staying coherent on desktop verify paths — device-verify before recommending iPhone GPU; the block-128 file is the iPhone-safe choice"
+        "Block-32 int4 corrupts GPU output beyond iPhone: macOS Metal also degenerates (question-echo loops, truncated reasoning; measured 2026-08-31 before and after the metadata repair, pre-existing). Use this file on CPU; it delegated and generated on the Galaxy S26 Android GPU gate (2026-08-24). The block-128 file is the GPU-safe choice"
       ]
     },
     {
       "file": "model.litertlm",
-      "sha256": "647730a8723ee4ee218d67c4cb1c1d219d221ebb3d0679606271dca29669a911",
+      "sha256": "356b2d7778d27d55fbb0d2e0c5e8801e9de136db59849c41c882bd97333840d5",
       "size_bytes": 2474357680,
       "sections": [
         {
           "type": "LlmMetadataProto",
-          "size_bytes": 183
+          "size_bytes": 191
         },
         {
           "type": "HF_Tokenizer_Zlib",

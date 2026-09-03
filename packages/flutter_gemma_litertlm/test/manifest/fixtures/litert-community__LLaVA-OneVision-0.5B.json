@@ -1,7 +1,7 @@
 {
   "manifest_schema": "0.1.0",
   "repo": "litert-community/LLaVA-OneVision-0.5B",
-  "generated": "2026-08-24",
+  "generated": "2026-08-31",
   "generator": "make_manifest.py",
   "model": {
     "display_name": "LLaVA-OneVision-0.5B (LiteRT-LM)",
@@ -21,16 +21,16 @@
   "variants": [
     {
       "file": "LLaVA-OneVision-0.5B.litertlm",
-      "sha256": "7311912ada952c1905de6496193678117abd3b88fc82c319a30c167eb47ba97c",
-      "size_bytes": 829262144,
+      "sha256": "7f7cd7ae3d2ae435a1f69651de02a9d51e916be60fdfef5cadc721725310971a",
+      "size_bytes": 828590400,
       "sections": [
         {
           "type": "LlmMetadataProto",
-          "size_bytes": 1090
+          "size_bytes": 1885
         },
         {
-          "type": "SP_Tokenizer",
-          "size_bytes": 2647700
+          "type": "HF_Tokenizer_Zlib",
+          "size_bytes": 1967910
         },
         {
           "type": "TFLiteModel",

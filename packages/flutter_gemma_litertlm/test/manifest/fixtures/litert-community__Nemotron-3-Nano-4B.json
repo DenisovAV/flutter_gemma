@@ -1,7 +1,7 @@
 {
   "manifest_schema": "0.1.0",
   "repo": "litert-community/Nemotron-3-Nano-4B",
-  "generated": "2026-08-27",
+  "generated": "2026-08-31",
   "generator": "make_manifest.py",
   "model": {
     "display_name": "Nemotron-3-Nano-4B",
@@ -14,19 +14,23 @@
       "vision": false,
       "audio": false,
       "thinking": {
-        "declared": false
+        "declared": true,
+        "channel": {
+          "start": "<think>\n",
+          "end": "\n</think>"
+        }
       }
     }
   },
   "variants": [
     {
       "file": "Nemotron-3-Nano-4B_int8.litertlm",
-      "sha256": "3696e8934b2b1fc61abba0a3a7507189ce5f9894c57c11e27917e4c07125ee77",
+      "sha256": "ba73d2ad1d878bc2b796eb3a1d993eb1b3bd5105743cd85bd6fa9d86e58a013d",
       "size_bytes": 4126697184,
       "sections": [
         {
           "type": "LlmMetadataProto",
-          "size_bytes": 10543
+          "size_bytes": 10575
         },
         {
           "type": "ExecutorMetadataProto",

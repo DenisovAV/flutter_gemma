@@ -96,21 +96,37 @@ class _GemmaSentencePieceEmbeddingTokenizer implements EmbeddingTokenizer {
 /// SigLIP2's trailing end-of-sequence id. No BOS is prepended.
 const int siglipEosId = 1;
 
-/// SigLIP2's fixed context width and pad id. Unlike Gemma/MiniLM (whose ONNX
-/// graphs declare a static seq-len the forward pass detects and pads to), the
-/// SigLIP int8 export reads as DYNAMIC-shape (`OrtIoSpec.staticSeqLen == null`),
-/// yet the model was trained/exported for EXACTLY 64 tokens and carries NO
-/// attention_mask input — its pooling head sees all 64 positions, so a short,
-/// unpadded input yields a DIFFERENT `pooler_output` (measured: cosine 0.69 vs
-/// the glasses' 64-padded reference). The glasses pad in their tokenizer (DJL
-/// `MAX_LENGTH`/64); this Dart profile must do the same to reach parity.
+/// SigLIP2's fixed context width and pad id, both taken from the model's own
+/// `tokenizer.json`, which bakes them in:
+///
+/// ```json
+/// "padding": {"strategy": {"Fixed": 64}, "direction": "Right",
+///             "pad_id": 0, "pad_token": "<pad>"}
+/// ```
+///
+/// The width has to live in the ids. The int8 export reads as DYNAMIC-shape
+/// (`OrtIoSpec.staticSeqLen == null`), so the forward pass never pads, and the
+/// graph carries NO `attention_mask`. Worse, the head does not pool over the
+/// sequence at all — `Siglip2TextModel` takes `last_hidden_state[:, -1, :]`
+/// ("the last token's hidden state, which may be padding", upstream's own
+/// comment). With right-padding the pooled vector therefore IS the pad
+/// position, which is why the pad id is first-order: measured against a correct
+/// vector, padding with 1 instead of 0 gives cosine 0.81-0.90 and reorders
+/// retrieval; not padding at all gives 0.58-0.69.
+///
+/// SigLIP **2** only. SigLIP 1 is a different tokenizer entirely (T5 Unigram,
+/// 32k vocab, pad = `</s>` = 1); SigLIP 2 uses the Gemma BPE tokenizer (256k,
+/// `<pad>` = 0, `<eos>` = 1). Pointing this profile at a SigLIP 1 file
+/// silently produces wrong vectors.
 const int siglipSeqLen = 64;
 const int siglipPadId = 0;
 
-/// Tokenizes [text] with SigLIP2's convention: `[...encode(text.toLowerCase()).ids, siglipEosId]`,
-/// then RIGHT-PADS (or truncates) to exactly [siglipSeqLen] with [siglipPadId] —
-/// SigLIP needs the fixed width baked into the ids (see [siglipSeqLen]). NO BOS,
-/// single trailing EOS, lowercased.
+/// Tokenizes [text] with SigLIP2's convention and returns exactly [siglipSeqLen]
+/// ids: no BOS, lowercased content truncated to `siglipSeqLen - 1`, one trailing
+/// [siglipEosId], then right-padding with [siglipPadId].
+///
+/// The EOS survives truncation — content of 63 tokens or more yields
+/// `[...first 63, EOS]` with no padding, matching the reference.
 ///
 /// SigLIP has no task-type prefix vocabulary of its own, so the adapter passes
 /// whatever [EmbeddingTokenizer.encode] was handed straight through as leading
@@ -121,9 +137,13 @@ List<int> encodeForSiglipEmbedding(
   SentencePieceTokenizer tokenizer,
   String text,
 ) {
-  final encoded = tokenizer.encode(text.toLowerCase());
-  final ids = <int>[...encoded.ids, siglipEosId];
-  if (ids.length >= siglipSeqLen) return ids.sublist(0, siglipSeqLen);
+  // Truncate the CONTENT to leave room for the EOS, rather than appending it
+  // and cutting it back off — the reference (`tokenizers` with
+  // `enable_truncation(64)`, and DJL's `LONGEST_FIRST` default, which is what
+  // the glasses run) keeps `<eos>` at index 63 on a long input. Appending first
+  // silently dropped it and cost cosine 0.9683 on inputs over the width.
+  final content = tokenizer.encode(text.toLowerCase()).ids;
+  final ids = <int>[...content.take(siglipSeqLen - 1), siglipEosId];
   return [...ids, ...List<int>.filled(siglipSeqLen - ids.length, siglipPadId)];
 }
 
@@ -134,7 +154,31 @@ Future<EmbeddingTokenizer> loadSiglipSentencePieceEmbeddingTokenizer(
   String tokenizerPath,
 ) async {
   final tokenizer = await loadEmbeddingTokenizer(tokenizerPath);
+  _assertSiglip2Vocab(tokenizer, tokenizerPath);
   return _SiglipSentencePieceEmbeddingTokenizer(tokenizer);
+}
+
+/// Fails loudly when [tokenizer] is not the SigLIP **2** (Gemma BPE) vocabulary.
+///
+/// Everything this profile hardcodes — [siglipPadId] 0, [siglipEosId] 1, no BOS
+/// — is SigLIP 2's convention. SigLIP 1 ships a different tokenizer entirely
+/// (T5 Unigram, 32k, pad = `</s>` = 1), and running it through here produces a
+/// plausible vector that is simply wrong: the ids stay in range, nothing
+/// throws, and the error only shows up as degraded retrieval. Since the model
+/// pools the LAST position (see [siglipSeqLen]), a wrong pad id is the single
+/// biggest way to get that silently.
+void _assertSiglip2Vocab(SentencePieceTokenizer tokenizer, String path) {
+  final pieces = tokenizer.convertIdsToTokens([siglipPadId, siglipEosId]);
+  if (pieces[0] == '<pad>' && pieces[1] == '<eos>') return;
+  throw ArgumentError.value(
+    path,
+    'tokenizerPath',
+    'not a SigLIP 2 tokenizer: expected id $siglipPadId = <pad> and '
+        'id $siglipEosId = <eos> (the Gemma BPE vocabulary SigLIP 2 uses), '
+        'got ${pieces[0]} and ${pieces[1]}. SigLIP 1 uses a T5 Unigram vocab '
+        'where id 1 is </s> and is NOT interchangeable — its embeddings would '
+        'come out wrong rather than fail.',
+  );
 }
 
 class _SiglipSentencePieceEmbeddingTokenizer implements EmbeddingTokenizer {

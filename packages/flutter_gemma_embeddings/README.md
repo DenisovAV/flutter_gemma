@@ -81,6 +81,19 @@ truncates) to exactly 64 itself rather than leaving it to the forward pass.
 on web it throws `UnsupportedError` — fetch the `tokenizer.json` yourself there
 and use `fromJsonString`.
 
+**The SigLIP2 profile must be selected explicitly.** `flutter_gemma_onnx`'s
+default tokenizer loader sends any non-WordPiece `.json` to the Gemma adapter,
+which injects BOS, skips the lowercasing and does not pad to 64 — a SigLIP2
+model loaded that way returns a plausible vector that is simply wrong. Pass
+`loadSiglipSentencePieceEmbeddingTokenizer` as the descriptor's tokenizer
+factory yourself, and pass an **empty** task-type prefix: SigLIP has no prefix
+vocabulary, so a `TaskType` prefix would be embedded as literal text.
+
+Auto-detection is not possible from the tokenizer file: SigLIP2 uses the Gemma
+tokenizer verbatim, so a SigLIP text tower and a Gemma embedder are
+indistinguishable by their `tokenizer.json`. The discriminator has to come from
+the model (e.g. a `pooler_output` in the ONNX graph) or from the caller.
+
 ## Building a new engine backend
 
 Implement `EmbeddingForwardPass` (`load`/`run`/`close`/`outputDimension`/

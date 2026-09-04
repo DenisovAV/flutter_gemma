@@ -141,8 +141,8 @@ dependencies:
   cupertino_icons: ^1.0.8
 
   # Step 2: Cloud AI
-  genkit: ^0.13.0
-  genkit_google_genai: ^0.2.7
+  genkit: ^0.16.0
+  genkit_google_genai: ^0.3.1
 ```
 
 Run `flutter pub get`.
@@ -250,9 +250,12 @@ Minimum deployment target: iOS 16+.
 Add `genkit_flutter_gemma` and `flutter_gemma`:
 
 ```yaml
-  # Step 3: On-device AI
-  genkit_flutter_gemma: ^0.3.1
-  flutter_gemma: ^0.15.1
+  # Step 3: On-device AI (LiteRT-LM engine)
+  genkit_flutter_gemma: ^0.6.0
+  flutter_gemma: ^1.7.0
+  # flutter_gemma 1.x registers no engine by default — opt into LiteRT-LM
+  # (.litertlm inference) here.
+  flutter_gemma_litertlm: ^1.6.1
 ```
 
 Run `flutter pub get`.
@@ -269,12 +272,14 @@ Create `lib/services/local_ai_service.dart`:
 ```dart
 import 'package:flutter/material.dart' show WidgetsFlutterBinding;
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 import 'package:genkit/genkit.dart';
 import 'package:genkit_flutter_gemma/genkit_flutter_gemma.dart';
 import 'ai_service.dart';
 
-const String _modelUrl =
-    'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/gemma3-1b-it-int4.task';
+// The on-device LLM installs straight from Hugging Face by repo + file.
+const String _hfRepo = 'litert-community/Gemma3-1B-IT';
+const String _hfModelFile = 'Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm';
 const String _hfToken = String.fromEnvironment('HF_TOKEN');
 const String _modelName = 'gemma-3-1b-it';
 
@@ -285,14 +290,23 @@ class LocalAIService implements AIService {
   bool get isInitialized => _isInitialized;
 
   @override
-  Future<void> initialize({void Function(double)? onProgress}) async {
+  Future<void> initialize({void Function(int)? onProgress}) async {
     WidgetsFlutterBinding.ensureInitialized();
-    await FlutterGemma.initialize();
 
-    // Download the model (skipped if already installed)
-    await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
-        .fromNetwork(_modelUrl, token: _hfToken.isNotEmpty ? _hfToken : null)
-        .withProgress((p) => onProgress?.call(p / 100))
+    // flutter_gemma 1.x registers no engine by default — opt into LiteRT-LM.
+    await FlutterGemma.initialize(inferenceEngines: [LiteRtLmEngine()]);
+
+    // Download the .litertlm model (skipped if already installed).
+    await FlutterGemma.installModel(
+      modelType: ModelType.gemmaIt,
+      fileType: ModelFileType.litertlm,
+    )
+        .fromHuggingFace(
+          _hfRepo,
+          file: _hfModelFile,
+          token: _hfToken.isEmpty ? null : _hfToken,
+        )
+        .withProgress((p) => onProgress?.call(p)) // p is int 0..100
         .install();
 
     // Register the model with Genkit
@@ -302,6 +316,7 @@ class LocalAIService implements AIService {
           FlutterGemmaModelConfig(
             name: _modelName,
             modelType: ModelType.gemmaIt,
+            fileType: ModelFileType.litertlm,
           ),
         ],
       ),
@@ -339,7 +354,7 @@ class LocalAIService implements AIService {
 flutter run --dart-define=GEMINI_API_KEY=your_key --dart-define=HF_TOKEN=hf_xxx
 ```
 
-The first run downloads ~600 MB. Subsequent runs use the cached model.
+The first run downloads ~550 MB. Subsequent runs use the cached model.
 
 > **Key insight**: Notice that `generateResponseStream` looks identical to
 > `CloudAIService` — only the `model:` parameter changes. Genkit decouples
@@ -366,58 +381,15 @@ Duration: 15
 
 ### Update dependencies
 
-Bump the existing Genkit packages to the 0.15.1 line (`genkit_hybrid` needs
-it), add `genkit_hybrid` itself, and add `flutter_gemma_litertlm` — the
-LiteRT-LM inference engine (see below for why it's now required):
+Add `genkit_hybrid` — the routing layer. Everything else (the cloud + on-device
+plugins and `flutter_gemma_litertlm`) is already in place from Steps 2–3:
 
 ```yaml
-dependencies:
-  flutter:
-    sdk: flutter
-  cupertino_icons: ^1.0.8
-
-  # Cloud AI via Gemini API (Genkit)
-  genkit: ^0.15.1
-  genkit_google_genai: ^0.2.12
-
-  # On-device AI via genkit_flutter_gemma
-  genkit_flutter_gemma: ^0.5.0
-  flutter_gemma: ^1.7.0
-  # LiteRT-LM engine (.litertlm inference) + LiteRT embedding backend —
-  # flutter_gemma 1.x registers no engines by default; opt in here.
-  flutter_gemma_litertlm: ^1.6.1
-
   # Hybrid on-device ↔ cloud routing
-  genkit_hybrid: ^0.2.0
+  genkit_hybrid: ^0.2.1
 ```
 
 Run `flutter pub get`.
-
-### flutter_gemma 1.x ships no engine by default
-
-Step 3 got a working on-device model out of a bare `FlutterGemma.initialize()`
-on `flutter_gemma: ^0.15.1`. Starting at `flutter_gemma: ^1.7.0` that call
-registers **no** inference engine and **no** embedding backend by default —
-core only owns the registry and the install plumbing; every runtime is now an
-opt-in sibling package. This workshop opts into LiteRT-LM
-(`flutter_gemma_litertlm`, `.litertlm` model files) for both the LLM and the
-embedder:
-
-```dart
-await FlutterGemma.initialize(
-  inferenceEngines: [LiteRtLmEngine()],
-  embeddingBackends: [LiteRtEmbeddingBackend()],
-);
-```
-
-That also changes which model file gets installed. `installModel(...)`
-defaults `fileType` to `ModelFileType.task` (MediaPipe) — with no MediaPipe
-engine registered here, `.litertlm` must be declared explicitly via
-`fileType: ModelFileType.litertlm`, and the install source becomes a
-`.litertlm` file (via `fromHuggingFace`) instead of the `.task` file Step 3
-downloaded with `fromNetwork`. `FlutterGemmaModelConfig` needs the same
-`fileType: ModelFileType.litertlm` so `genkit_flutter_gemma` resolves the
-model against the right runtime.
 
 ### Retire CloudAIService, LocalAIService
 
@@ -549,8 +521,8 @@ class AiEngine {
         embeddingBackends: [LiteRtEmbeddingBackend()],
       );
 
-      // fileType MUST be litertlm — installModel defaults to task
-      // (MediaPipe), which no registered engine would handle here.
+      // fileType MUST be litertlm to match the LiteRT-LM engine registered
+      // above.
       await FlutterGemma.installModel(
         modelType: ModelType.gemmaIt,
         fileType: ModelFileType.litertlm,

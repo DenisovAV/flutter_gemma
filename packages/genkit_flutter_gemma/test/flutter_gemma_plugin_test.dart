@@ -8,17 +8,19 @@ void main() {
     late GenkitFlutterGemmaPlugin plugin;
 
     setUp(() {
-      plugin = GenkitFlutterGemmaPlugin(models: [
-        FlutterGemmaModelConfig(
-          name: 'gemma-3-nano',
-          modelType: gemma.ModelType.gemmaIt,
-        ),
-        FlutterGemmaModelConfig(
-          name: 'deepseek-r1',
-          modelType: gemma.ModelType.deepSeek,
-          fileType: gemma.ModelFileType.binary,
-        ),
-      ]);
+      plugin = GenkitFlutterGemmaPlugin(
+        models: [
+          FlutterGemmaModelConfig(
+            name: 'gemma-3-nano',
+            modelType: gemma.ModelType.gemmaIt,
+          ),
+          FlutterGemmaModelConfig(
+            name: 'deepseek-r1',
+            modelType: gemma.ModelType.deepSeek,
+            fileType: gemma.ModelFileType.binary,
+          ),
+        ],
+      );
     });
 
     test('has correct plugin name', () {
@@ -30,7 +32,7 @@ void main() {
 
       expect(metadata, hasLength(2));
       expect(metadata[0].name, 'flutter-gemma/gemma-3-nano');
-      expect(metadata[0].actionType, 'model');
+      expect(metadata[0].actionType, ActionType.model);
       expect(metadata[1].name, 'flutter-gemma/deepseek-r1');
 
       final supports =
@@ -39,31 +41,31 @@ void main() {
     });
 
     test('resolve() returns null for non-model action types', () {
-      final result = plugin.resolve('flow', 'gemma-3-nano');
+      final result = plugin.resolve(ActionType.flow, 'gemma-3-nano');
       expect(result, isNull);
     });
 
     test('resolve() returns null for unknown model name', () {
-      final result = plugin.resolve('model', 'unknown');
+      final result = plugin.resolve(ActionType.model, 'unknown');
       expect(result, isNull);
     });
 
     test('resolve() returns Model for known model', () {
-      final result = plugin.resolve('model', 'gemma-3-nano');
+      final result = plugin.resolve(ActionType.model, 'gemma-3-nano');
       expect(result, isNotNull);
       expect(result, isA<Model>());
     });
 
     test('resolve() caches actions and returns same instance', () {
-      final first = plugin.resolve('model', 'gemma-3-nano');
-      final second = plugin.resolve('model', 'gemma-3-nano');
+      final first = plugin.resolve(ActionType.model, 'gemma-3-nano');
+      final second = plugin.resolve(ActionType.model, 'gemma-3-nano');
       expect(identical(first, second), isTrue);
     });
 
     test('dispose() clears cached actions', () {
-      final before = plugin.resolve('model', 'gemma-3-nano');
+      final before = plugin.resolve(ActionType.model, 'gemma-3-nano');
       plugin.dispose();
-      final after = plugin.resolve('model', 'gemma-3-nano');
+      final after = plugin.resolve(ActionType.model, 'gemma-3-nano');
       expect(identical(before, after), isFalse);
     });
   });
@@ -79,9 +81,7 @@ void main() {
             modelType: gemma.ModelType.gemmaIt,
           ),
         ],
-        embedders: [
-          FlutterGemmaEmbedderConfig(name: 'embedding-gemma-300m'),
-        ],
+        embedders: [FlutterGemmaEmbedderConfig(name: 'embedding-gemma-300m')],
       );
     });
 
@@ -89,19 +89,22 @@ void main() {
       final metadata = await plugin.list();
 
       expect(metadata, hasLength(2));
-      expect(metadata[0].actionType, 'model');
-      expect(metadata[1].actionType, 'embedder');
+      expect(metadata[0].actionType, ActionType.model);
+      expect(metadata[1].actionType, ActionType.embedder);
       expect(metadata[1].name, 'flutter-gemma/embedding-gemma-300m');
     });
 
     test('resolve() returns Embedder for known embedder', () {
-      final result = plugin.resolve('embedder', 'embedding-gemma-300m');
+      final result = plugin.resolve(
+        ActionType.embedder,
+        'embedding-gemma-300m',
+      );
       expect(result, isNotNull);
       expect(result, isA<Embedder>());
     });
 
     test('resolve() returns null for unknown embedder', () {
-      final result = plugin.resolve('embedder', 'unknown');
+      final result = plugin.resolve(ActionType.embedder, 'unknown');
       expect(result, isNull);
     });
   });
@@ -191,10 +194,7 @@ void main() {
 
       expect(schema['type'], 'object');
       expect(schema['properties'], isA<Map>());
-      expect(
-        (schema['properties'] as Map).containsKey('maxTokens'),
-        isTrue,
-      );
+      expect((schema['properties'] as Map).containsKey('maxTokens'), isTrue);
     });
   });
 }

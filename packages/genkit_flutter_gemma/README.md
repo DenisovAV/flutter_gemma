@@ -12,7 +12,7 @@ Genkit Dart plugin for [flutter_gemma](https://pub.dev/packages/flutter_gemma) �
 - Supports text generation (blocking and streaming)
 - Embeddings via `FlutterGemmaEmbedder`
 - Multimodal input (images, audio) — supports `data:` URIs, `file://` paths, and `http(s)://` URLs
-- Function calling / tool use with `toolChoice` control (`auto`, `required`, `none`) — honors Genkit 0.15's native top-level `toolChoice`
+- Function calling / tool use with `toolChoice` control (`auto`, `required`, `none`) — honors Genkit's native top-level `toolChoice`
 - Parallel tool calls — multiple function calls in a single model response
 - Structured JSON output — pass an `outputSchema`, read the parsed object from `response.output`
 - Context-window trimmer middleware (`trimContext`) — drops oldest turns to fit the on-device KV budget

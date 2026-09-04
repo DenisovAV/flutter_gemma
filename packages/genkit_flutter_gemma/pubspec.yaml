@@ -1,6 +1,6 @@
 name: genkit_flutter_gemma
 description: Genkit Dart plugin for flutter_gemma — on-device LLM inference (Gemma, Qwen, Phi, DeepSeek, and more) with streaming, tools, JSON output, and embeddings.
-version: 0.5.0
+version: 0.6.0
 homepage: https://github.com/DenisovAV/flutter_gemma/tree/main/packages/genkit_flutter_gemma
 repository: https://github.com/DenisovAV/flutter_gemma
 issue_tracker: https://github.com/DenisovAV/flutter_gemma/issues
@@ -20,7 +20,7 @@ resolution: workspace
 dependencies:
   flutter:
     sdk: flutter
-  genkit: ^0.15.1
+  genkit: ^0.16.0
   flutter_gemma: ^1.5.9
   http: ^1.2.0
   schemantic: ^0.2.2

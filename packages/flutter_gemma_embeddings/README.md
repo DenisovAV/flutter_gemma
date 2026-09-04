@@ -69,30 +69,43 @@ silently rather than failing:
 
 | profile | convention | loader |
 |---|---|---|
-| Gemma (SentencePiece) | BOS 2, EOS 1, TaskType prefix | `loadSentencePieceEmbeddingTokenizer` |
+| Gemma (SentencePiece) | BOS 2, EOS 1, TaskType prefix | `loadGemmaSentencePieceEmbeddingTokenizer` |
 | WordPiece (BERT / MiniLM) | `[CLS]` … `[SEP]` | `WordPieceEmbeddingTokenizer.fromJsonString` / `.fromPath` |
 | SigLIP2 text tower | no BOS, one trailing EOS, lowercased, fixed 64-token width | `loadSiglipSentencePieceEmbeddingTokenizer` |
 
-SigLIP2's ONNX export carries no `attention_mask` and its pooling head reads all
-64 positions, so the width has to live in the ids — the adapter pads (and
-truncates) to exactly 64 itself rather than leaving it to the forward pass.
+SigLIP2's ONNX export carries no `attention_mask`, and its head does not pool
+over the sequence at all — `Siglip2TextModel` takes `last_hidden_state[:, -1, :]`,
+the LAST position, which with right-padding is a pad token. So the 64-token width
+has to live in the ids: the adapter pads (and truncates) to exactly 64 itself
+rather than leaving it to the forward pass, and the pad id is first-order rather
+than cosmetic.
 
 `WordPieceEmbeddingTokenizer.fromPath` reads from disk and is **native only**;
 on web it throws `UnsupportedError` — fetch the `tokenizer.json` yourself there
 and use `fromJsonString`.
 
-**The SigLIP2 profile must be selected explicitly.** `flutter_gemma_onnx`'s
-default tokenizer loader sends any non-WordPiece `.json` to the Gemma adapter,
-which injects BOS, skips the lowercasing and does not pad to 64 — a SigLIP2
-model loaded that way returns a plausible vector that is simply wrong. Pass
-`loadSiglipSentencePieceEmbeddingTokenizer` as the descriptor's tokenizer
-factory yourself, and pass an **empty** task-type prefix: SigLIP has no prefix
-vocabulary, so a `TaskType` prefix would be embedded as literal text.
+### Known limitation: the SigLIP2 profile is not selected automatically
 
-Auto-detection is not possible from the tokenizer file: SigLIP2 uses the Gemma
-tokenizer verbatim, so a SigLIP text tower and a Gemma embedder are
-indistinguishable by their `tokenizer.json`. The discriminator has to come from
-the model (e.g. a `pooler_output` in the ONNX graph) or from the caller.
+`flutter_gemma_onnx`'s tokenizer loader has two branches — WordPiece, or Gemma —
+so a SigLIP2 `tokenizer.json` (BPE, not WordPiece) falls through to the **Gemma**
+adapter, which injects BOS, skips the lowercasing and does not pad to 64. Nothing
+throws; the vectors are just wrong. Until a profile selector lands, reach the
+SigLIP2 adapter by building the `ForwardPassDescriptor` yourself with
+`loadSiglipSentencePieceEmbeddingTokenizer` as its tokenizer factory.
+
+Two things this does NOT mean:
+
+- **Not undetectable.** SigLIP2 and Gemma share a vocabulary, but their
+  `tokenizer.json` files differ where it counts: SigLIP2 declares
+  `"padding": {"strategy": {"Fixed": 64}, "pad_id": 0}` and a `post_processor`
+  of `[Sequence A, <eos>]`, while a Gemma tokenizer has `"padding": null` and
+  `[<bos>, Sequence A]`. The loader simply does not read those blocks yet.
+- **The task-type prefix is not something you can switch off today.** `TaskType`
+  has two values and both prefixes are non-empty, so every embedding — SigLIP2
+  and MiniLM alike — currently carries `task: search result | query: ` or
+  `title: none | text: ` as literal text. For Gemma/Gecko that is the intended
+  contract; for the other two it is not, and fixing it belongs with the
+  selector rather than here.
 
 ## Building a new engine backend
 

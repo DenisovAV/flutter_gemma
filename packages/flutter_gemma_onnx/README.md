@@ -64,6 +64,16 @@ already-pooled `[1, dim]` sentence embeddings and are copied verbatim; only
 `pooler_output` and `last_hidden_state` — SigLIP2's text tower does — would
 otherwise fall through to the per-token output and be pooled a second time.
 
+This is a heuristic on a name, and it is worth knowing where it stops being one.
+Optimum `feature-extraction` exports (`sentence-transformers/`, `Xenova/` MiniLM
+and friends) declare no `pooler_output` at all, so they are unaffected. A graph
+produced by exporting `BertModel` directly does declare one — BERT's tanh NSP
+pooler — and this preference will now read that instead of mean-pooling the
+hidden states. That head is not a sentence embedding and is not L2-normalized;
+if you export a BERT encoder yourself, export it for feature extraction, or
+strip the pooler. Which output to read is really a property of the model
+profile, not of the output's name, and should move there.
+
 Android needs **`minSdk 24`** — both the ORT and ORT-GenAI AARs declare
 `minSdkVersion=24`; raise your app's `android/app/build.gradle(.kts)`
 `minSdk` to 24 or higher if it's lower today. The device-verified Android

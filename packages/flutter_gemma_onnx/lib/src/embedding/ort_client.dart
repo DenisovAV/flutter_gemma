@@ -84,8 +84,13 @@ class OrtRunResult {
 /// ranks with `sentence_embedding` (both `pooledFinal`, copied verbatim),
 /// ABOVE `last_hidden_state`. Without this, a graph exposing BOTH
 /// `pooler_output` and `last_hidden_state` (SigLIP does) would fall through to
-/// `last_hidden_state` and get wrongly mean-pooled. WordPiece / EmbeddingGemma
-/// models expose no `pooler_output`, so this is inert for them (non-regressing).
+/// `last_hidden_state` and get wrongly mean-pooled. Optimum's
+/// `feature-extraction` exports (sentence-transformers / Xenova MiniLM,
+/// EmbeddingGemma) declare no `pooler_output`, so they are unaffected — but a
+/// graph exported straight from `BertModel` does declare one (the tanh NSP
+/// pooler, not a sentence embedding and not L2-normalized) and would now be
+/// read instead of the hidden states. Which output to read belongs to the model
+/// profile; this name-based order is a stand-in until that exists.
 ///
 /// A pure function — no FFI, no session — so it's unit-testable directly
 /// (design D-T4's "zero dlopen" bar) without a fake [OrtClient] at all;

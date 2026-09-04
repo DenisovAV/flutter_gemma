@@ -61,5 +61,13 @@ Future<EmbeddingTokenizer> loadOnnxEmbeddingTokenizer(
       // will surface a clearer error if it's not SentencePiece either.
     }
   }
+  // NOTE: everything that is not WordPiece lands here, including a SigLIP2
+  // `tokenizer.json` — which is BPE, and needs the SigLIP profile (no BOS,
+  // lowercased, padded to 64), not this one. Nothing throws in that case; the
+  // vectors are simply wrong. There is no third branch yet because selection
+  // needs a signal this function is not given; the two files DO differ in their
+  // `padding` / `post_processor` blocks, which is where a selector should look.
+  // See flutter_gemma_embeddings' README, "the SigLIP2 profile is not selected
+  // automatically".
   return loadGemmaSentencePieceEmbeddingTokenizer(tokenizerPath);
 }

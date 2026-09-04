@@ -617,6 +617,14 @@ class AiEngine {
       return cascadeModel(
         branches: _branches,
         order: const [kOnDevice, kCloud],
+        // DEMO PROXY — not a real quality signal. A production cascade
+        // escalates on model *confidence*; the best training-free signal is
+        // the reply's average token log-probability. We can't use it here:
+        // LiteRT-LM gives `accept` only decoded text (no per-token
+        // probabilities), and asking a ~1B model to self-rate confidence is
+        // unreliable — small models are confidently wrong. So we escalate on a
+        // crude "too short to be a real answer" check. See the "A real cascade
+        // signal" note below.
         accept: (r) => r.text.trim().length > 20,
         name: 'cascade',
       );
@@ -932,6 +940,21 @@ case PolicyMode.budget:
   every `cloud`/`budget` call (see the `_sendMessage` snippet above) and
   compares against `budgetCap` (3 by default). `genkit_hybrid` has no billing
   SDK — it only ever sees the resulting `bool`.
+
+> **A real cascade signal.** That `accept` predicate is a *deliberately crude*
+> demo proxy — "long enough" is a poor stand-in for "good enough" (a correct
+> `"Paris."` escalates needlessly; 25 characters of nonsense passes). A
+> production cascade escalates on model **confidence**, and the strongest
+> training-free signal is the reply's **average token log-probability** — how
+> surprised the model was by its own tokens; it decisively beats other
+> zero-shot signals and holds up out-of-distribution. We fall back to a length
+> check for one honest reason: the on-device runtime (LiteRT-LM) returns only
+> decoded text, so `accept` never sees per-token probabilities. And resist the
+> obvious shortcut of asking the model to score its own confidence — a ~1B
+> model is badly calibrated and *confidently wrong*, which makes verbalized
+> self-confidence a worse signal than the crude length check. (See
+> [Zero-Shot Confidence for Small LLMs](https://arxiv.org/abs/2605.02241) and
+> [Do Small LMs Know When They're Wrong?](https://arxiv.org/abs/2604.19781).)
 
 > **Smart + image on a cloud outage**: with an attached image, Smart routes
 > to cloud for vision — but if that cloud call itself fails, `WithFallback`

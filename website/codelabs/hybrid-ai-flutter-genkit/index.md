@@ -569,7 +569,7 @@ class AiEngine {
   // A plugin model is registered by name; genkit's `Model` is an `Action`, so
   // look the concrete model up from the registry and cast.
   Future<Model> _resolve(ModelRef ref) async {
-    final action = await ai.registry.lookupAction('model', ref.name);
+    final action = await ai.registry.lookupAction(ActionType.model, ref.name);
     if (action == null) {
       throw StateError('model "${ref.name}" is not registered');
     }

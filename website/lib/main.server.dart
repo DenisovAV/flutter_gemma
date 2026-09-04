@@ -98,6 +98,17 @@ void main() {
                   ],
                 ),
                 SidebarGroup(
+                  title: 'Workshop',
+                  links: [
+                    // Static claat export under /codelabs/ (see deploy.sh), not a
+                    // Jaspr route — a plain href leaves the SPA into the codelab.
+                    SidebarLink(
+                      text: 'Hybrid AI Codelab',
+                      href: '/codelabs/hybrid-ai-flutter-genkit/',
+                    ),
+                  ],
+                ),
+                SidebarGroup(
                   title: 'Guide',
                   links: [
                     SidebarLink(text: 'Getting Started', href: '/docs/getting-started'),

@@ -4,6 +4,7 @@
 # Ships two artifacts on one hosting site:
 #   /            + /docs/*   -> Jaspr static site (this package)
 #   /try/...                 -> the Flutter web example app (live demo)
+#   /codelabs/...            -> Google Codelabs (claat static export)
 #
 # Usage:  ./deploy.sh            (build both + deploy)
 #         ./deploy.sh --no-example   (skip rebuilding the example app)
@@ -40,7 +41,38 @@ rm -rf build/jaspr/try
 mkdir -p build/jaspr/try
 cp -R "$EXAMPLE_DIR/build/web/." build/jaspr/try/
 
+echo "==> Exporting codelabs (claat static export)…"
+# Codelab sources live under website/codelabs/<id>/index.md. Each is claat-exported
+# to self-contained HTML under /codelabs/<id>/ and served as STATIC — not rendered
+# through Jaspr, so the bash/yaml/xml code fences that break Jaspr's CodeBlock
+# grammar are fine here. Runs after the `rm -rf build/jaspr` wipe above.
+CLAAT="$(command -v claat || echo "$HOME/.local/bin/claat")"
+if [[ -x "$CLAAT" ]]; then
+  mkdir -p build/jaspr/codelabs
+  for src in codelabs/*/index.md; do
+    [[ -e "$src" ]] || continue
+    "$CLAAT" export -o build/jaspr/codelabs "$src"
+  done
+  # A Firebase deploy is a full-site REPLACE (public=build/jaspr, no /codelabs
+  # rewrite) — so "no HTML produced" (empty glob, wrong cwd, or claat emitted
+  # nothing) would silently 404 the live codelab. Fail instead.
+  if [[ -z "$(find build/jaspr/codelabs -name index.html -print -quit)" ]]; then
+    echo "ERROR: no codelab HTML produced under build/jaspr/codelabs." >&2
+    exit 1
+  fi
+elif [[ "${SKIP_CODELABS:-}" == "1" ]]; then
+  echo "    WARNING: claat missing and SKIP_CODELABS=1 — this deploy REMOVES the live /codelabs (404)."
+else
+  # Fail closed: build/jaspr was already wiped above, so continuing to
+  # `firebase deploy` would delete the live /codelabs. CI has no such escape
+  # hatch; the human-run path must not be the fail-open one.
+  echo "ERROR: claat not found; deploying now would DELETE the live /codelabs (404)." >&2
+  echo "Install claat-darwin-amd64 from https://github.com/googlecodelabs/tools/releases" >&2
+  echo "into ~/.local/bin/claat (chmod +x), or re-run with SKIP_CODELABS=1 to deploy without codelabs." >&2
+  exit 1
+fi
+
 echo "==> Deploying to Firebase Hosting ($TARGET)…"
 firebase deploy --only "hosting:$TARGET" --project "$PROJECT"
 
-echo "==> Done. https://fluttergemma.web.app  (live demo at /try)"
+echo "==> Done. https://fluttergemma.web.app  (demo at /try, codelabs at /codelabs)"

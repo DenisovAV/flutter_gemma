@@ -19,23 +19,25 @@ void main() {
     await initializeGemmaForTest();
     await ensureModelInstalled();
 
-    plugin = GenkitFlutterGemmaPlugin(models: [
-      FlutterGemmaModelConfig(
-        name: kTestModelName,
-        modelType: ModelType.functionGemma,
-        fileType: TestModelConfig.forCurrentPlatform().fileType,
-      ),
-    ]);
+    plugin = GenkitFlutterGemmaPlugin(
+      models: [
+        FlutterGemmaModelConfig(
+          name: kTestModelName,
+          modelType: ModelType.functionGemma,
+          fileType: TestModelConfig.forCurrentPlatform().fileType,
+        ),
+      ],
+    );
   }, timeout: const Timeout(kInstallTimeout));
 
   testWidgets('DirectAction: plugin resolve returns Model', (tester) async {
-    final action = plugin.resolve('model', kTestModelName);
+    final action = plugin.resolve(ActionType.model, kTestModelName);
     expect(action, isNotNull, reason: 'resolve() should return a Model action');
     print('[DirectAction] Resolved action: ${action.runtimeType}');
   });
 
   testWidgets('DirectAction: direct model call', (tester) async {
-    final action = plugin.resolve('model', kTestModelName);
+    final action = plugin.resolve(ActionType.model, kTestModelName);
     expect(action, isNotNull);
 
     final request = ModelRequest(
@@ -63,8 +65,11 @@ void main() {
     }
 
     final modelMeta = metadata.where((m) => m.actionType == 'model');
-    expect(modelMeta, isNotEmpty,
-        reason: 'Should have at least one model action');
+    expect(
+      modelMeta,
+      isNotEmpty,
+      reason: 'Should have at least one model action',
+    );
     expect(modelMeta.first.name, contains(kTestModelName));
   });
 }

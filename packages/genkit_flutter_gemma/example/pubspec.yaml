@@ -16,7 +16,7 @@ dependencies:
   # dependency needed here anymore.
   flutter_gemma_litertlm: ^1.5.0
   flutter_gemma_mediapipe: ^1.0.0
-  genkit: ^0.15.1
+  genkit: ^0.16.0
   genkit_flutter_gemma:
     path: ../
 

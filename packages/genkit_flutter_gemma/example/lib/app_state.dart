@@ -308,7 +308,7 @@ class AppState extends ChangeNotifier {
         description: 'Get current weather for a city',
         fn: (input, _) async {
           final city = input['city'] ?? 'unknown';
-          return 'Weather in $city: 18°C, partly cloudy';
+          return ToolResult.response('Weather in $city: 18°C, partly cloudy');
         },
       );
 
@@ -317,7 +317,7 @@ class AppState extends ChangeNotifier {
         description: 'Calculate a mathematical expression',
         fn: (input, _) async {
           final expr = input['expression'] ?? '';
-          return 'Result of $expr = 42';
+          return ToolResult.response('Result of $expr = 42');
         },
       );
 

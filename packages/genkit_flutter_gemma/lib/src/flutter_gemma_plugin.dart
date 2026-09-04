@@ -122,7 +122,7 @@ class GenkitFlutterGemmaPlugin extends GenkitPlugin {
     for (final config in models) {
       metadata.add(
         ActionMetadata(
-          actionType: 'model',
+          actionType: ActionType.model,
           name: '$prefix/${config.name}',
           metadata: {
             'model': {
@@ -140,7 +140,7 @@ class GenkitFlutterGemmaPlugin extends GenkitPlugin {
     for (final config in embedders) {
       metadata.add(
         ActionMetadata(
-          actionType: 'embedder',
+          actionType: ActionType.embedder,
           name: '$prefix/${config.name}',
           metadata: {
             'embedder': {
@@ -156,12 +156,12 @@ class GenkitFlutterGemmaPlugin extends GenkitPlugin {
   }
 
   @override
-  Action? resolve(String actionType, String name) {
-    final cacheKey = '$actionType:$name';
+  Action? resolve(ActionType actionType, String name) {
+    final cacheKey = '${actionType.value}:$name';
     final cached = _resolvedActions[cacheKey];
     if (cached != null) return cached;
 
-    if (actionType == 'model') {
+    if (actionType == ActionType.model) {
       // Registry strips prefix before calling resolve(), so `name` is just
       // the model name (e.g. 'function-gemma-270m-it'), not the full
       // 'flutter-gemma/function-gemma-270m-it'.
@@ -179,7 +179,7 @@ class GenkitFlutterGemmaPlugin extends GenkitPlugin {
       return action;
     }
 
-    if (actionType == 'embedder') {
+    if (actionType == ActionType.embedder) {
       final config = embedders.where((c) => c.name == name).firstOrNull;
       if (config == null) return null;
 

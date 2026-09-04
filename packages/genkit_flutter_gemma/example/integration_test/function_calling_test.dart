@@ -29,13 +29,12 @@ void main() {
       description: 'Get current weather for a given city',
       fn: (input, _) async {
         final city = input['city'] as String? ?? 'unknown';
-        return 'Weather in $city: 15C, cloudy';
+        return ToolResult.response('Weather in $city: 15C, cloudy');
       },
     );
   }, timeout: const Timeout(kInstallTimeout));
 
-  testWidgets('FunctionCalling: generate with tool — no crash',
-      (tester) async {
+  testWidgets('FunctionCalling: generate with tool — no crash', (tester) async {
     // The model may or may not invoke the tool — we just verify:
     // 1. No crash
     // 2. Response is structurally valid

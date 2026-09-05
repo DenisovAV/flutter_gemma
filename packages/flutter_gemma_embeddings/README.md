@@ -61,6 +61,73 @@ time by `flutter_gemma_litertlm`'s Native-Assets hook.
 This package itself is pure Dart with no native/FFI code — the concrete
 backend (and its native library) is owned by whichever engine package you add.
 
+## Tokenizer profiles
+
+Three adapters, picked by the model you load — a model's special-token
+convention is not negotiable, and using the wrong one corrupts the vector
+silently rather than failing:
+
+| profile | convention | loader |
+|---|---|---|
+| Gemma (SentencePiece) | BOS 2, EOS 1, TaskType prefix | `loadGemmaSentencePieceEmbeddingTokenizer` |
+| WordPiece (BERT / MiniLM) | `[CLS]` … `[SEP]` | `WordPieceEmbeddingTokenizer.fromJsonString` / `.fromPath` |
+| SigLIP2 text tower | no BOS, one trailing EOS, lowercased, fixed 64-token width | `loadSiglipSentencePieceEmbeddingTokenizer` |
+
+SigLIP2's ONNX export carries no `attention_mask`, and its head does not pool
+over the sequence at all — `Siglip2TextModel` takes `last_hidden_state[:, -1, :]`,
+the LAST position, which with right-padding is a pad token. So the 64-token width
+has to live in the ids: the adapter pads (and truncates) to exactly 64 itself
+rather than leaving it to the forward pass, and the pad id is first-order rather
+than cosmetic.
+
+`WordPieceEmbeddingTokenizer.fromPath` reads from disk and is **native only**;
+on web it throws `UnsupportedError` — fetch the `tokenizer.json` yourself there
+and use `fromJsonString`.
+
+### Known limitation: the SigLIP2 profile is not selected automatically
+
+`flutter_gemma_onnx`'s tokenizer loader has two branches — WordPiece, or Gemma.
+A SigLIP2 `tokenizer.json` is BPE, so it would fall through to the **Gemma**
+adapter, which injects BOS, skips the lowercasing and does not pad to 64: every
+id in range, nothing thrown, and a vector that is quietly the wrong point in the
+embedding space. The loader therefore **refuses** such a file rather than
+embedding it wrongly.
+
+Until a profile selector lands, reach the adapter by building the
+`ForwardPassDescriptor` yourself, with
+`loadSiglipSentencePieceEmbeddingTokenizer` as its tokenizer factory:
+
+```dart
+import 'package:flutter_gemma_embeddings/embedding_tokenizer.dart'
+    show loadSiglipSentencePieceEmbeddingTokenizer;
+```
+
+That library is native-only, which is why it sits outside the package barrel.
+
+**How the file is recognised.** SigLIP2 and Gemma share a vocabulary, but their
+`tokenizer.json` files differ where it counts: SigLIP2 declares
+`"padding": {"strategy": {"Fixed": 64}, "pad_id": 0}` and a `post_processor` of
+`[Sequence A, <eos>]`, while a Gemma tokenizer has `"padding": null` and
+`[<bos>, Sequence A]`. `isSiglip2TokenizerJson`
+(`package:flutter_gemma_embeddings/tokenizer_convention.dart` — web-safe, so an
+engine's web arm can apply the same rule) reads exactly those two blocks, and
+requires both: plenty of models declare one alone.
+
+### The task-type prefix
+
+`TaskType` has two values and both prefixes are non-empty, and
+`generateEmbedding` defaults to `TaskType.retrievalQuery` — so no caller can
+embed without one. That is the intended contract for Gemma/Gecko.
+
+It is not for a CLIP-family tower, whose vision side encodes an image with no
+prefix at all, so **the SigLIP2 profile drops it**. Honoring one would put query
+and document of the same string on two different points, both off the space the
+two towers exist to share.
+
+`WordPieceEmbeddingTokenizer` (MiniLM and other BERT-style models) still
+concatenates the prefix. Those models are not trained with EmbeddingGemma's
+prefixes either; making that configurable belongs with the profile selector.
+
 ## Building a new engine backend
 
 Implement `EmbeddingForwardPass` (`load`/`run`/`close`/`outputDimension`/

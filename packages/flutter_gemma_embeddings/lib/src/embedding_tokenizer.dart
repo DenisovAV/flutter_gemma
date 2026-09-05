@@ -119,6 +119,10 @@ const int siglipEosId = 1;
 /// `<pad>` = 0, `<eos>` = 1). Pointing this profile at a SigLIP 1 file
 /// silently produces wrong vectors.
 const int siglipSeqLen = 64;
+
+/// The id every position past the content is filled with — `<pad>`, id 0 in the
+/// SigLIP 2 vocabulary. See [siglipSeqLen] for why this one is not cosmetic:
+/// with right-padding it is the position the head actually pools.
 const int siglipPadId = 0;
 
 /// Tokenizes [text] with SigLIP2's convention and returns exactly [siglipSeqLen]
@@ -128,11 +132,8 @@ const int siglipPadId = 0;
 /// The EOS survives truncation — content of 63 tokens or more yields
 /// `[...first 63, EOS]` with no padding, matching the reference.
 ///
-/// SigLIP has no task-type prefix vocabulary of its own, so the adapter passes
-/// whatever [EmbeddingTokenizer.encode] was handed straight through as leading
-/// text (`prefix + text`, pinned by `siglip_tokenizer_test.dart`). Callers that
-/// do not want one pass an empty prefix — a TaskType prefix here becomes part of
-/// the embedded string rather than being interpreted.
+/// Takes the content text ALONE. The adapter deliberately does not hand a
+/// TaskType prefix through — see [loadSiglipSentencePieceEmbeddingTokenizer].
 List<int> encodeForSiglipEmbedding(
   SentencePieceTokenizer tokenizer,
   String text,
@@ -150,6 +151,17 @@ List<int> encodeForSiglipEmbedding(
 /// [EmbeddingTokenizerFactory] tear-off for the SigLIP2 text tower — reuses the
 /// same base [loadEmbeddingTokenizer] (`.json`/`.model` branch) as Gemma, but
 /// wraps it with SigLIP's no-BOS/single-EOS/lowercase convention instead.
+///
+/// The returned tokenizer **ignores the TaskType prefix**. `TaskType` is an
+/// EmbeddingGemma convention (`'task: search result | query: '`), and SigLIP's
+/// text tower has no vocabulary for it: a prefix would be embedded as literal
+/// leading text and move the vector off the space it shares with the vision
+/// tower, which encodes an image with no prefix at all. Dropping it is not a
+/// silent liberty — [CommonEmbeddingModel.generateEmbedding] DEFAULTS to
+/// `TaskType.retrievalQuery`, so rejecting a non-empty prefix would make this
+/// profile unreachable through the only public API, and honoring one would make
+/// `retrievalQuery` and `retrievalDocument` of the same string two different
+/// points.
 Future<EmbeddingTokenizer> loadSiglipSentencePieceEmbeddingTokenizer(
   String tokenizerPath,
 ) async {
@@ -187,6 +199,32 @@ class _SiglipSentencePieceEmbeddingTokenizer implements EmbeddingTokenizer {
   final SentencePieceTokenizer _tokenizer;
 
   @override
-  TokenizedInput encode(String prefix, String text) =>
-      TokenizedInput(ids: encodeForSiglipEmbedding(_tokenizer, prefix + text));
+  TokenizedInput encode(String prefix, String text) {
+    // [prefix] is deliberately dropped — see the factory's doc for why a
+    // TaskType prefix is meaningless here and why throwing is not an option.
+    final ids = encodeForSiglipEmbedding(_tokenizer, text);
+    // This adapter BUILT the padding, so it is the only thing that knows which
+    // positions are real. Reporting the mask matters even though the head pools
+    // the last position rather than averaging: when the graph declares an
+    // `attention_mask` input, the forward pass otherwise fabricates an all-ones
+    // one over the pad tail, and a graph that falls through to
+    // `last_hidden_state` would mean-pool 63 pads into the vector.
+    // Counted from the END rather than by locating the EOS. Equivalent today —
+    // 1.3.3 does not match added tokens inside content, so `encode('a<eos>a')`
+    // yields `<unk>`s, never a mid-content id 1 — but `indexOf(siglipEosId)`
+    // would rely on that staying true of the dependency. The tail does not:
+    // everything past the EOS is padding by construction, and the EOS itself is
+    // never [siglipPadId].
+    var realTokens = siglipSeqLen;
+    while (realTokens > 0 && ids[realTokens - 1] == siglipPadId) {
+      realTokens--;
+    }
+    return TokenizedInput(
+      ids: ids,
+      attentionMask: [
+        ...List<int>.filled(realTokens, 1),
+        ...List<int>.filled(siglipSeqLen - realTokens, 0),
+      ],
+    );
+  }
 }

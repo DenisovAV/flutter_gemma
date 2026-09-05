@@ -104,8 +104,41 @@ void main() {
       expect(siglip.encode('', 'AB').ids, siglip.encode('', 'ab').ids);
     });
 
-    test('prefix is prepended to the text (then lowercased)', () {
-      expect(siglip.encode('a', 'b').ids, siglip.encode('', 'ab').ids);
+    test('the TaskType prefix is DROPPED, not embedded as leading text', () {
+      // Every production call arrives with one: CommonEmbeddingModel passes
+      // `taskType.prefix`, and generateEmbedding DEFAULTS to
+      // TaskType.retrievalQuery — no caller can pass an empty prefix. An
+      // earlier revision concatenated it (and a test pinned that as the
+      // contract), so every SigLIP vector was the embedding of
+      // "task: search result | query: " + text: shifted off the space the
+      // vision tower shares, and different for query vs document of one string.
+      const query = 'task: search result | query: ';
+      const document = 'title: none | text: ';
+      final bare = siglip.encode('', 'ab').ids;
+
+      expect(siglip.encode(query, 'ab').ids, bare);
+      expect(siglip.encode(document, 'ab').ids, bare);
+    });
+
+    test('reports the pad tail in the attention mask', () {
+      // The adapter builds the padding itself, so it is the only thing that
+      // knows which positions are real. With a null mask the ONNX forward pass
+      // fabricates an all-ones one over the pad tail.
+      final out = siglip.encode('', 'ab');
+
+      expect(out.attentionMask, isNotNull);
+      expect(out.attentionMask!.length, siglipSeqLen);
+      // 'a', 'b', EOS are real; the remaining 61 positions are padding.
+      expect(out.attentionMask!.sublist(0, 3), everyElement(1));
+      expect(out.attentionMask!.sublist(3), everyElement(0));
+    });
+
+    test('a full-width input reports an all-real mask', () {
+      // The boundary the trailing-pad count has to get right: no padding at all.
+      final out = siglip.encode('', 'a' * 63);
+
+      expect(out.attentionMask!.length, siglipSeqLen);
+      expect(out.attentionMask, everyElement(1));
     });
 
     // The three boundary cases, against the reference (`tokenizers` with

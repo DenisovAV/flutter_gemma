@@ -59,14 +59,15 @@ class CodelabsPage extends StatelessComponent {
       accent: Brand.blue,
     ),
     _Codelab(
-      title: 'Swapping Inference Engines in Flutter: LiteRT-LM, MediaPipe, and ONNX',
+      title: 'Inference Engines in Flutter: From a Downloaded Model to Built-in AI',
       blurb:
-          'Engines are opt-in packages registered at startup. Declare a file '
-          'type, let the registry pick the runtime, and run the same '
-          'inference code on a different engine — or on no model file at all.',
+          'LiteRT-LM runs a .litertlm file you ship or download. Built-in AI '
+          'runs Gemini Nano and Apple Foundation Models with nothing to '
+          'download at all — the OS owns the weights. Register either engine '
+          'at startup; the inference code never changes.',
       duration: '45 min',
       level: 'Intermediate',
-      tags: ['engines', 'MediaPipe', 'ONNX'],
+      tags: ['LiteRT-LM', 'built-in AI', 'Gemini Nano'],
       accent: Brand.green,
     ),
     _Codelab(

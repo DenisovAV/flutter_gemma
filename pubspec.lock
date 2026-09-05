@@ -33,14 +33,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.3.2+1"
-  antlr4:
-    dependency: transitive
-    description:
-      name: antlr4
-      sha256: "752b4a6e4ad97953652a2b2bbf5377f46c94b579d3372b50080c7e5858234a05"
-      url: "https://pub.dev"
-    source: hosted
-    version: "4.13.2"
   args:
     dependency: transitive
     description:
@@ -277,10 +269,10 @@ packages:
     dependency: transitive
     description:
       name: dotprompt
-      sha256: d2bc4b143566e424d881db36e6357cbc9140304624c2f8f77d225d783847b4ca
+      sha256: "69872a007fa115dee4c35241b85c46b477a638fc81e5c6a7f55d5c13023b045c"
       url: "https://pub.dev"
     source: hosted
-    version: "0.0.1"
+    version: "1.0.1"
   email_validator:
     dependency: transitive
     description:
@@ -468,10 +460,10 @@ packages:
     dependency: transitive
     description:
       name: genkit
-      sha256: "6ba891c5d04e3d628676181494244b307efa3eaeef9daf118675a0b95e0a7680"
+      sha256: c97f77d2336b8e06eed6325a1f109d89a5f27f404f2cbe002be64d756f11a319
       url: "https://pub.dev"
     source: hosted
-    version: "0.15.1"
+    version: "0.16.1"
   glob:
     dependency: transitive
     description:
@@ -492,10 +484,10 @@ packages:
     dependency: transitive
     description:
       name: handlebars_dart
-      sha256: "016a072264069ff879db1de710f535934dd4526c4770cb592d12b1da79876be9"
+      sha256: "267f946bae6b46be5f80150a4572740098a460866ee2b6cb7ac39cd463eb7562"
       url: "https://pub.dev"
     source: hosted
-    version: "0.0.1"
+    version: "1.0.0"
   hooks:
     dependency: transitive
     description:

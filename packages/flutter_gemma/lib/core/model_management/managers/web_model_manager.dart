@@ -1191,19 +1191,31 @@ class WebModelManager extends ModelFileManager {
           )
           .filename;
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(
-        PreferencesKeys.activeInferenceModelType,
-        spec.modelType.name,
-      );
-      await prefs.setString(
-        PreferencesKeys.activeInferenceFileType,
-        spec.fileType.name,
-      );
-      await prefs.setString(PreferencesKeys.activeInferenceFilename, filename);
-      await prefs.setString(
-        PreferencesKeys.activeInferenceSource,
-        spec.modelSource.encode(),
-      );
+      // Issued together, with no `await` between them, and that is the whole
+      // fix for #468. `SharedPreferences._setValue` is not async: it writes
+      // `_preferenceCache[key]` synchronously and only then starts the platform
+      // write, and `getInstance()` memoises one instance per isolate — so every
+      // reader, on any manager instance, shares that map. Awaiting each call in
+      // turn yielded between them, and a reader that interleaved saw a partial
+      // identity (measured: one key of four) or, on a re-install, a mixed one:
+      // the new modelType with the old filename, which is well-formed, passes
+      // `isInstalled`, and loads the wrong weights silently. Written in one
+      // uninterrupted burst, neither state can be observed at all.
+      await Future.wait([
+        prefs.setString(
+          PreferencesKeys.activeInferenceModelType,
+          spec.modelType.name,
+        ),
+        prefs.setString(
+          PreferencesKeys.activeInferenceFileType,
+          spec.fileType.name,
+        ),
+        prefs.setString(PreferencesKeys.activeInferenceFilename, filename),
+        prefs.setString(
+          PreferencesKeys.activeInferenceSource,
+          spec.modelSource.encode(),
+        ),
+      ]);
     } catch (e) {
       gemmaLog('[WebModelManager] persistActiveInferenceIdentity failed: $e');
     }
@@ -1218,22 +1230,25 @@ class WebModelManager extends ModelFileManager {
         (f) => f.prefsKey == PreferencesKeys.embeddingTokenizerFile,
       );
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(
-        PreferencesKeys.activeEmbeddingFilename,
-        modelFile.filename,
-      );
-      await prefs.setString(
-        PreferencesKeys.activeEmbeddingTokenizerFilename,
-        tokenizerFile.filename,
-      );
-      await prefs.setString(
-        PreferencesKeys.activeEmbeddingSource,
-        spec.modelSource.encode(),
-      );
-      await prefs.setString(
-        PreferencesKeys.activeEmbeddingTokenizerSource,
-        spec.tokenizerSource.encode(),
-      );
+      // One burst — see _persistActiveInferenceIdentity for why (#468).
+      await Future.wait([
+        prefs.setString(
+          PreferencesKeys.activeEmbeddingFilename,
+          modelFile.filename,
+        ),
+        prefs.setString(
+          PreferencesKeys.activeEmbeddingTokenizerFilename,
+          tokenizerFile.filename,
+        ),
+        prefs.setString(
+          PreferencesKeys.activeEmbeddingSource,
+          spec.modelSource.encode(),
+        ),
+        prefs.setString(
+          PreferencesKeys.activeEmbeddingTokenizerSource,
+          spec.tokenizerSource.encode(),
+        ),
+      ]);
     } catch (e) {
       gemmaLog('[WebModelManager] persistActiveEmbeddingIdentity failed: $e');
     }
@@ -1248,26 +1263,26 @@ class WebModelManager extends ModelFileManager {
         (f) => f.prefsKey == PreferencesKeys.sttTokenizerFile,
       );
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(
-        PreferencesKeys.activeSttFilename,
-        modelFile.filename,
-      );
-      await prefs.setString(
-        PreferencesKeys.activeSttTokenizerFilename,
-        tokenizerFile.filename,
-      );
-      await prefs.setString(
-        PreferencesKeys.activeSttModelType,
-        spec.sttModelType.name,
-      );
-      await prefs.setString(
-        PreferencesKeys.activeSttSource,
-        spec.modelSource.encode(),
-      );
-      await prefs.setString(
-        PreferencesKeys.activeSttTokenizerSource,
-        spec.tokenizerSource.encode(),
-      );
+      // One burst — see _persistActiveInferenceIdentity for why (#468).
+      await Future.wait([
+        prefs.setString(PreferencesKeys.activeSttFilename, modelFile.filename),
+        prefs.setString(
+          PreferencesKeys.activeSttTokenizerFilename,
+          tokenizerFile.filename,
+        ),
+        prefs.setString(
+          PreferencesKeys.activeSttModelType,
+          spec.sttModelType.name,
+        ),
+        prefs.setString(
+          PreferencesKeys.activeSttSource,
+          spec.modelSource.encode(),
+        ),
+        prefs.setString(
+          PreferencesKeys.activeSttTokenizerSource,
+          spec.tokenizerSource.encode(),
+        ),
+      ]);
     } catch (e) {
       gemmaLog('[WebModelManager] persistActiveSttIdentity failed: $e');
     }

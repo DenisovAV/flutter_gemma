@@ -80,7 +80,11 @@ echo "[flutter_gemma] Using companion dylibs from: ${PLUGIN_PREBUILT}"
 for base in ${COMPANIONS}; do
   src="${PLUGIN_PREBUILT}/lib${base}.dylib"
   if [ ! -f "${src}" ]; then
-    echo "[flutter_gemma] WARNING: ${src} not found — runtime dlopen will fail"
+    # Not every companion ships on every platform (the macOS bundle carries no
+    # TopK Metal sampler), so this is a note, not a failure. The one that MUST
+    # be present is whichever LiteRtLm names in its load commands, and the
+    # post-condition at the end fails the build if that one is missing.
+    echo "[flutter_gemma] note: ${src} not found — ${base}.framework not staged"
     continue
   fi
   fw_dir="${FRAMEWORKS}/${base}.framework"
@@ -108,8 +112,10 @@ EOF
   # Re-sign the framework binary: install_name_tool above invalidated its code
   # signature, and unlike LiteRtLm these hand-copied companion frameworks are
   # not re-signed by Xcode — an unsigned/modified page trips CODESIGNING
-  # "Invalid Page" at dlopen. Ad-hoc sign like LiteRtLm.
-  codesign --force --sign - "${fw_dir}/Versions/A/${base}" 2>/dev/null || true
+  # "Invalid Page" at dlopen. Ad-hoc sign like LiteRtLm. Deliberately NOT
+  # silenced: a failed re-sign is a bundle that dies at launch, and `set -e`
+  # turning it into a build error is the whole point of this script.
+  codesign --force --sign - "${fw_dir}/Versions/A/${base}"
   echo "[flutter_gemma] copied ${base}.framework"
 done
 
@@ -148,5 +154,7 @@ if [ -f "${LITERTLM}" ]; then
     exit 1
   fi
 
-  codesign --force --sign - "${LITERTLM}" 2>/dev/null || true
+  # install_name_tool above invalidated LiteRtLm's signature; re-sign it, and
+  # let a failure fail the build for the same reason as the companions above.
+  codesign --force --sign - "${LITERTLM}"
 fi

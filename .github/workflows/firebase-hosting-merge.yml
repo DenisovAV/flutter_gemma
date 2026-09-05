@@ -62,7 +62,10 @@ jobs:
           done
           # Guard against an empty glob / wrong cwd / claat emitting nothing —
           # a green build that shipped zero codelabs would 404 the live page.
-          if [ -z "$(find build/jaspr/codelabs -name index.html -print -quit)" ]; then
+          # `-mindepth 2` is load-bearing: the catalogue route writes
+          # build/jaspr/codelabs/index.html itself, which would match at depth 1
+          # and pass this guard on zero codelabs. Only claat writes <id>/.
+          if [ -z "$(find build/jaspr/codelabs -mindepth 2 -name index.html -print -quit)" ]; then
             echo "ERROR: no codelab HTML produced under build/jaspr/codelabs" >&2
             exit 1
           fi

@@ -2,9 +2,10 @@
 # Build + deploy the flutter_gemma website to Firebase Hosting.
 #
 # Ships two artifacts on one hosting site:
-#   /            + /docs/*   -> Jaspr static site (this package)
-#   /try/...                 -> the Flutter web example app (live demo)
-#   /codelabs/...            -> Google Codelabs (claat static export)
+#   /  + /docs/*  + /codelabs -> Jaspr static site (this package); the Jaspr
+#                                route owns codelabs/index.html (the catalogue)
+#   /try/...                  -> the Flutter web example app (live demo)
+#   /codelabs/<id>/...        -> Google Codelabs (claat static export)
 #
 # Usage:  ./deploy.sh            (build both + deploy)
 #         ./deploy.sh --no-example   (skip rebuilding the example app)
@@ -45,7 +46,9 @@ echo "==> Exporting codelabs (claat static export)…"
 # Codelab sources live under website/codelabs/<id>/index.md. Each is claat-exported
 # to self-contained HTML under /codelabs/<id>/ and served as STATIC — not rendered
 # through Jaspr, so the bash/yaml/xml code fences that break Jaspr's CodeBlock
-# grammar are fine here. Runs after the `rm -rf build/jaspr` wipe above.
+# grammar are fine here. Runs after the `rm -rf build/jaspr` wipe above, and
+# after `jaspr build` wrote the catalogue at codelabs/index.html — claat only
+# ever writes into codelabs/<id>/, so the two never collide.
 CLAAT="$(command -v claat || echo "$HOME/.local/bin/claat")"
 if [[ -x "$CLAAT" ]]; then
   mkdir -p build/jaspr/codelabs
@@ -56,7 +59,10 @@ if [[ -x "$CLAAT" ]]; then
   # A Firebase deploy is a full-site REPLACE (public=build/jaspr, no /codelabs
   # rewrite) — so "no HTML produced" (empty glob, wrong cwd, or claat emitted
   # nothing) would silently 404 the live codelab. Fail instead.
-  if [[ -z "$(find build/jaspr/codelabs -name index.html -print -quit)" ]]; then
+  # `-mindepth 2` is load-bearing: the catalogue route writes
+  # build/jaspr/codelabs/index.html itself, which would match at depth 1 and
+  # make this guard pass on zero codelabs. Only claat writes <id>/index.html.
+  if [[ -z "$(find build/jaspr/codelabs -mindepth 2 -name index.html -print -quit)" ]]; then
     echo "ERROR: no codelab HTML produced under build/jaspr/codelabs." >&2
     exit 1
   fi

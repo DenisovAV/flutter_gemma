@@ -22,6 +22,9 @@
 -keep class com.google.protobuf.** { *; }
 -dontwarn com.google.protobuf.**
 
-# Kotlinx coroutines
--keep class kotlinx.coroutines.** { *; }
+# Kotlinx coroutines — no wholesale keep, on purpose. The artifact ships its own
+# R8 rules (META-INF/com.android.tools/r8/coroutines.pro) and they are complete;
+# a package-wide keep here would pin ~920 classes against shrinking, which is
+# what #486 reported against the plugin's consumer rules. This file is the
+# app-side example people copy, so it should not teach the pattern back.
 -dontwarn kotlinx.coroutines.**

@@ -1,5 +1,6 @@
 ## 1.7.1
 - macOS setup snippet is now a thin shim; the staging logic ships with `flutter_gemma_litertlm` (#457).
+- Drop the package-wide `kotlinx.coroutines` keep from the Android consumer rules so R8 can shrink them (#486).
 
 ## 1.7.0
 - Hugging Face install (#454): `resolveHuggingFace` / one-call `installModel(…).fromHuggingFace(repo)`, with engines auto-registering their resolver.

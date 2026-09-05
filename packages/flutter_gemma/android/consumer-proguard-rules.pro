@@ -1,8 +1,28 @@
 # MediaPipe (.task) + protobuf proguard rules moved to the
 # flutter_gemma_mediapipe package (android/consumer-proguard-rules.pro).
 
-# Kotlinx coroutines (used by .litertlm FFI dispatch)
--keep class kotlinx.coroutines.** { *; }
+# Kotlinx coroutines — deliberately NOT kept wholesale here.
+#
+# A `-keep class kotlinx.coroutines.** { *; }` used to sit on this line, labelled
+# "used by .litertlm FFI dispatch". That was already untrue: .litertlm runs
+# through Dart FFI, and this plugin's Kotlin (FlutterGemmaPlugin.kt, the bundled
+# channel) references no coroutine at all. It came across from the pre-monorepo
+# monolith and never got re-examined.
+#
+# A consumer rule merges into EVERY app that enables R8, and this one pinned
+# ~920 coroutine classes by name, so none of them could be shrunk, optimized or
+# renamed — enough to drag an app's Play Console DEX quality percentages (#486).
+#
+# Nothing needs it. kotlinx-coroutines ships its own rules inside the artifact
+# (META-INF/com.android.tools/r8/coroutines.pro), which R8 applies on its own:
+# the volatile fields updated through AtomicFieldUpdater, SafeContinuation, and
+# the Job GC anchors in ReadonlySharedFlow/ReadonlyStateFlow. That is the
+# complete set upstream declares necessary. flutter_gemma_mediapipe and
+# flutter_gemma_builtin_ai DO use coroutines heavily and keep none of them
+# either, for the same reason.
+#
+# The -dontwarn stays: it costs nothing at shrink time and only silences
+# references, never preserves classes.
 -dontwarn kotlinx.coroutines.**
 
 # okhttp optional TLS providers — referenced reflectively, never present at

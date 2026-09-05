@@ -26,63 +26,6 @@ import 'package:flutter_gemma/core/utils/file_name_utils.dart';
 /// - No code duplication
 /// - Platform-agnostic (same pattern as MobileModelManager)
 /// - Easier to maintain and test
-/// Process-wide barrier for the identity writes [WebModelManager.setActiveModel]
-/// starts.
-///
-/// `setActiveModel` is `void` in `ModelFileManager`, so it cannot await the
-/// persistence it kicks off — it can only start it. That was fine until
-/// something read the result back: `WebModelSourceResolver.forActiveModel()`
-/// builds a FRESH WebModelManager and rehydrates the active identity from
-/// prefs, and a session opened right after an install did exactly that. The
-/// four `setString` calls had not all run yet, so the reader saw a partial
-/// identity — measured: one key of four — and threw "No active inference model
-/// set" over a model that had just been installed successfully.
-///
-/// It is a library-level field, not an instance one, precisely because the
-/// reader is a DIFFERENT instance. Writes chain, so the barrier also preserves
-/// their order.
-///
-/// Note this is about ORDERING, not durability: `shared_preferences` updates
-/// its in-memory cache synchronously inside `setString` and only the platform
-/// write is async, so once these futures have RUN, any reader in this isolate
-/// sees the values.
-Future<void>? _identityWriteBarrier;
-
-/// The last identity write that failed, if any — see [_persistFailure].
-Object? _identityWriteFailure;
-
-/// Starts [write] and folds it into [_identityWriteBarrier].
-///
-/// Errors are recorded rather than rethrown: the barrier is awaited by every
-/// later `ensureInitialized`, and an error future there would surface as an
-/// unrelated failure far from its cause. [webIdentityWriteFailure] is what
-/// turns it back into a diagnosis.
-void _startIdentityWrite(Future<void> Function() write) {
-  final previous = _identityWriteBarrier;
-  Future<void> run() async {
-    try {
-      await write();
-      // Cleared on success. The marker answers "why is the identity missing
-      // NOW", so a failure from an earlier install must not keep explaining a
-      // later one -- writes are chained, so this one is the current answer.
-      _identityWriteFailure = null;
-    } catch (e) {
-      _identityWriteFailure = e;
-      gemmaLog('[WebModelManager] persisting the active identity failed: $e');
-    }
-  }
-
-  _identityWriteBarrier = previous == null
-      ? run()
-      : previous.then((_) => run());
-}
-
-/// Why the active identity may be missing from prefs, or null if nothing failed.
-///
-/// Read by the resolver so "No active inference model set" can say whether the
-/// identity was never written rather than merely not found.
-String? get webIdentityWriteFailure => _identityWriteFailure?.toString();
-
 class WebModelManager extends ModelFileManager {
   /// Single-flight init guard. Cached so concurrent callers share one
   /// initialization; a restore failure degrades to "no active model" rather
@@ -98,10 +41,6 @@ class WebModelManager extends ModelFileManager {
 
   Future<void> _doInit() async {
     try {
-      // Before reading prefs, let any in-flight identity write finish. Without
-      // this a manager built right after an install reads a partially written
-      // identity — see [_identityWriteBarrier].
-      await _identityWriteBarrier;
       await _restoreActiveInferenceModel();
       await _restoreActiveEmbeddingModel();
       await _restoreActiveSttModel();
@@ -1225,15 +1164,15 @@ class WebModelManager extends ModelFileManager {
     if (spec is InferenceModelSpec) {
       _activeInferenceModel = spec;
       gemmaLog('✅ Set active inference model: ${spec.name}');
-      _startIdentityWrite(() => _persistActiveInferenceIdentity(spec));
+      unawaited(_persistActiveInferenceIdentity(spec));
     } else if (spec is EmbeddingModelSpec) {
       _activeEmbeddingModel = spec;
       gemmaLog('✅ Set active embedding model: ${spec.name}');
-      _startIdentityWrite(() => _persistActiveEmbeddingIdentity(spec));
+      unawaited(_persistActiveEmbeddingIdentity(spec));
     } else if (spec is SttModelSpec) {
       _activeSttModel = spec;
       gemmaLog('✅ Set active STT model: ${spec.name}');
-      _startIdentityWrite(() => _persistActiveSttIdentity(spec));
+      unawaited(_persistActiveSttIdentity(spec));
     } else if (spec is TtsModelSpec) {
       // TTS is native-only; on web we keep the in-memory reference so the API
       // doesn't throw, but do not persist/restore (its backend is a stub).
@@ -1252,26 +1191,33 @@ class WebModelManager extends ModelFileManager {
           )
           .filename;
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(
-        PreferencesKeys.activeInferenceModelType,
-        spec.modelType.name,
-      );
-      await prefs.setString(
-        PreferencesKeys.activeInferenceFileType,
-        spec.fileType.name,
-      );
-      await prefs.setString(PreferencesKeys.activeInferenceFilename, filename);
-      await prefs.setString(
-        PreferencesKeys.activeInferenceSource,
-        spec.modelSource.encode(),
-      );
-    } on Object {
-      // Deliberately NOT swallowed. _startIdentityWrite records the
-      // failure and logs it once; rethrowing here is what lets it do
-      // that. Swallowing here left an install reporting success with
-      // the identity unwritten, and nothing said so in a release build
-      // where gemmaLog does not exist.
-      rethrow;
+      // Issued together, with no `await` between them, and that is the whole
+      // fix for #468. `SharedPreferences._setValue` is not async: it writes
+      // `_preferenceCache[key]` synchronously and only then starts the platform
+      // write, and `getInstance()` memoises one instance per isolate — so every
+      // reader, on any manager instance, shares that map. Awaiting each call in
+      // turn yielded between them, and a reader that interleaved saw a partial
+      // identity (measured: one key of four) or, on a re-install, a mixed one:
+      // the new modelType with the old filename, which is well-formed, passes
+      // `isInstalled`, and loads the wrong weights silently. Written in one
+      // uninterrupted burst, neither state can be observed at all.
+      await Future.wait([
+        prefs.setString(
+          PreferencesKeys.activeInferenceModelType,
+          spec.modelType.name,
+        ),
+        prefs.setString(
+          PreferencesKeys.activeInferenceFileType,
+          spec.fileType.name,
+        ),
+        prefs.setString(PreferencesKeys.activeInferenceFilename, filename),
+        prefs.setString(
+          PreferencesKeys.activeInferenceSource,
+          spec.modelSource.encode(),
+        ),
+      ]);
+    } catch (e) {
+      gemmaLog('[WebModelManager] persistActiveInferenceIdentity failed: $e');
     }
   }
 
@@ -1284,29 +1230,27 @@ class WebModelManager extends ModelFileManager {
         (f) => f.prefsKey == PreferencesKeys.embeddingTokenizerFile,
       );
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(
-        PreferencesKeys.activeEmbeddingFilename,
-        modelFile.filename,
-      );
-      await prefs.setString(
-        PreferencesKeys.activeEmbeddingTokenizerFilename,
-        tokenizerFile.filename,
-      );
-      await prefs.setString(
-        PreferencesKeys.activeEmbeddingSource,
-        spec.modelSource.encode(),
-      );
-      await prefs.setString(
-        PreferencesKeys.activeEmbeddingTokenizerSource,
-        spec.tokenizerSource.encode(),
-      );
-    } on Object {
-      // Deliberately NOT swallowed. _startIdentityWrite records the
-      // failure and logs it once; rethrowing here is what lets it do
-      // that. Swallowing here left an install reporting success with
-      // the identity unwritten, and nothing said so in a release build
-      // where gemmaLog does not exist.
-      rethrow;
+      // One burst — see _persistActiveInferenceIdentity for why (#468).
+      await Future.wait([
+        prefs.setString(
+          PreferencesKeys.activeEmbeddingFilename,
+          modelFile.filename,
+        ),
+        prefs.setString(
+          PreferencesKeys.activeEmbeddingTokenizerFilename,
+          tokenizerFile.filename,
+        ),
+        prefs.setString(
+          PreferencesKeys.activeEmbeddingSource,
+          spec.modelSource.encode(),
+        ),
+        prefs.setString(
+          PreferencesKeys.activeEmbeddingTokenizerSource,
+          spec.tokenizerSource.encode(),
+        ),
+      ]);
+    } catch (e) {
+      gemmaLog('[WebModelManager] persistActiveEmbeddingIdentity failed: $e');
     }
   }
 
@@ -1319,33 +1263,28 @@ class WebModelManager extends ModelFileManager {
         (f) => f.prefsKey == PreferencesKeys.sttTokenizerFile,
       );
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(
-        PreferencesKeys.activeSttFilename,
-        modelFile.filename,
-      );
-      await prefs.setString(
-        PreferencesKeys.activeSttTokenizerFilename,
-        tokenizerFile.filename,
-      );
-      await prefs.setString(
-        PreferencesKeys.activeSttModelType,
-        spec.sttModelType.name,
-      );
-      await prefs.setString(
-        PreferencesKeys.activeSttSource,
-        spec.modelSource.encode(),
-      );
-      await prefs.setString(
-        PreferencesKeys.activeSttTokenizerSource,
-        spec.tokenizerSource.encode(),
-      );
-    } on Object {
-      // Deliberately NOT swallowed. _startIdentityWrite records the
-      // failure and logs it once; rethrowing here is what lets it do
-      // that. Swallowing here left an install reporting success with
-      // the identity unwritten, and nothing said so in a release build
-      // where gemmaLog does not exist.
-      rethrow;
+      // One burst — see _persistActiveInferenceIdentity for why (#468).
+      await Future.wait([
+        prefs.setString(PreferencesKeys.activeSttFilename, modelFile.filename),
+        prefs.setString(
+          PreferencesKeys.activeSttTokenizerFilename,
+          tokenizerFile.filename,
+        ),
+        prefs.setString(
+          PreferencesKeys.activeSttModelType,
+          spec.sttModelType.name,
+        ),
+        prefs.setString(
+          PreferencesKeys.activeSttSource,
+          spec.modelSource.encode(),
+        ),
+        prefs.setString(
+          PreferencesKeys.activeSttTokenizerSource,
+          spec.tokenizerSource.encode(),
+        ),
+      ]);
+    } catch (e) {
+      gemmaLog('[WebModelManager] persistActiveSttIdentity failed: $e');
     }
   }
 

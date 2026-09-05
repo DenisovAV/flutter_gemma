@@ -81,16 +81,8 @@ class WebModelSourceResolver {
     await _modelManager.ensureInitialized();
     final active = _modelManager.activeInferenceModel;
     if (active == null) {
-      // Say WHY when we know. A failed identity write leaves prefs without the
-      // model even though installModel() reported success, and this message
-      // then blamed the caller for not installing one.
-      final why = webIdentityWriteFailure;
       throw StateError(
-        why == null
-            ? 'No active inference model set. Use FlutterGemma.installModel() first.'
-            : 'No active inference model set: persisting the active identity failed '
-                  'after install ($why). The model is installed but its identity was '
-                  'not recorded, so a fresh resolver cannot find it.',
+        'No active inference model set. Use FlutterGemma.installModel() first.',
       );
     }
     final paths = await _modelManager.getModelFilePaths(active);

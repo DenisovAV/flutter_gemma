@@ -55,13 +55,17 @@ Object? _identityWriteFailure;
 ///
 /// Errors are recorded rather than rethrown: the barrier is awaited by every
 /// later `ensureInitialized`, and an error future there would surface as an
-/// unrelated failure far from its cause. [_persistFailure] is what turns it
-/// back into a diagnosis.
+/// unrelated failure far from its cause. [webIdentityWriteFailure] is what
+/// turns it back into a diagnosis.
 void _startIdentityWrite(Future<void> Function() write) {
   final previous = _identityWriteBarrier;
   Future<void> run() async {
     try {
       await write();
+      // Cleared on success. The marker answers "why is the identity missing
+      // NOW", so a failure from an earlier install must not keep explaining a
+      // later one -- writes are chained, so this one is the current answer.
+      _identityWriteFailure = null;
     } catch (e) {
       _identityWriteFailure = e;
       gemmaLog('[WebModelManager] persisting the active identity failed: $e');

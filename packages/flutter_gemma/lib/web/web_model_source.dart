@@ -89,7 +89,7 @@ class WebModelSourceResolver {
         why == null
             ? 'No active inference model set. Use FlutterGemma.installModel() first.'
             : 'No active inference model set: persisting the active identity failed '
-                  'after install (\$why). The model is installed but its identity was '
+                  'after install ($why). The model is installed but its identity was '
                   'not recorded, so a fresh resolver cannot find it.',
       );
     }

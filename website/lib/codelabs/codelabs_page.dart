@@ -39,9 +39,11 @@ class _Codelab {
 
 /// `/codelabs` — the catalogue that the nav's "Codelabs" link opens.
 ///
-/// The codelabs themselves are static claat exports living at
-/// `/codelabs/<id>/`; this page is a plain Jaspr route rendered into
-/// `codelabs/index.html`, so the two never collide.
+/// The codelabs themselves are static claat exports written to the directory
+/// `codelabs/<id>/`; this page is a plain Jaspr route rendered into
+/// `codelabs/index.html`, so the two never collide. Their [href]s are
+/// slash-less all the same — `cleanUrls` serves the directory index at
+/// `/codelabs/<id>` and `trailingSlash: false` 301s the slashed form.
 class CodelabsPage extends StatelessComponent {
   const CodelabsPage({super.key});
 
@@ -121,7 +123,7 @@ class CodelabsPage extends StatelessComponent {
       level: 'Advanced',
       tags: ['Genkit', 'hybrid routing', 'RAG'],
       accent: Brand.blue,
-      href: '/codelabs/hybrid-ai-flutter-genkit/',
+      href: '/codelabs/hybrid-ai-flutter-genkit',
     ),
   ];
 

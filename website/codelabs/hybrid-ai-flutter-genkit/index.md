@@ -104,10 +104,10 @@ plugins registered, resolves the cloud and on-device models once, and hands
 them to `genkit_hybrid` as a `Map<String, Model>` of branches. For each
 `PolicyMode` it composes one branch map into an ordinary Genkit `Model` and
 registers it on `ai.registry` — once, during `initialize()`. `engine.modelFor(policy)`
-just returns that already-registered `Model`. The chat screen always calls
-the same
-`ai.generateStream(model: engine.modelFor(policy), messages: [...])`; only
-which `Model` `modelFor` returns changes with the policy.
+just returns that already-registered `Model`. Every turn goes through the same
+`ai.generateStream(model: engine.modelFor(policy), messages: [...])` inside
+`AiEngine.send`; only which `Model` `modelFor` returns changes with the
+policy, and the chat screen never learns which branch answered.
 
 ## Step 1: Starter Project
 Duration: 5
@@ -473,8 +473,35 @@ const kCloudModel = 'gemini-3.7-flash';
 const kEmbedder = 'embedding-gemma-300m';
 
 /// The five routing policies the chat exposes. Each maps to one genkit_hybrid
-/// construct (see [modelFor] / [strategyFor]).
-enum PolicyMode { cloud, local, smart, cascade, budget }
+/// construct (see [modelFor] / [strategyFor]) and carries the two facts the
+/// rest of the app keeps asking about it: which branches it needs before it
+/// can be offered at all, and whether an attached image can survive it.
+enum PolicyMode {
+  cloud('Cloud', needsLocal: false),
+  local('Local', needsCloud: false, textOnly: true),
+  smart('Smart (image-aware)'),
+  cascade('Cascade (escalate on quality)', textOnly: true),
+  budget('Budget (cost-gated)');
+
+  const PolicyMode(
+    this.label, {
+    this.needsCloud = true,
+    this.needsLocal = true,
+    this.textOnly = false,
+  });
+
+  /// What the policy picker shows for this mode.
+  final String label;
+  final bool needsCloud;
+  final bool needsLocal;
+
+  /// True when this mode's primary route starts on the text-only on-device
+  /// model, so an attached image cannot be handled.
+  final bool textOnly;
+
+  bool availableWith({required bool cloud, required bool local}) =>
+      (!needsCloud || cloud) && (!needsLocal || local);
+}
 
 /// Owns a single Genkit instance with both plugins (cloud + on-device),
 /// resolves the two base models, and composes them via genkit_hybrid per the
@@ -616,10 +643,7 @@ class AiEngine {
     return action as Model;
   }
 
-  Map<String, Model> get _branches => {
-    if (_local != null) kOnDevice: _local!,
-    if (_cloud != null) kCloud: _cloud!,
-  };
+  Map<String, Model> get _branches => {kOnDevice: ?_local, kCloud: ?_cloud};
 
   /// Builds AND registers one composite [Model] per [PolicyMode] whose
   /// required branches are available. A mode that needs `kCloud` (every mode
@@ -627,25 +651,13 @@ class AiEngine {
   /// a half-built `cascadeModel` (its `order` validates eagerly against
   /// `branches`, unlike `hybridModel`).
   void _registerPolicyModels() {
-    final branches = _branches;
     for (final mode in PolicyMode.values) {
-      if (!_hasRequiredBranches(mode, branches)) continue;
+      if (!mode.availableWith(cloud: _cloud != null, local: _local != null)) {
+        continue;
+      }
       final model = _buildModel(mode);
       ai.registry.register(model);
       _models[mode] = model;
-    }
-  }
-
-  bool _hasRequiredBranches(PolicyMode mode, Map<String, Model> branches) {
-    switch (mode) {
-      case PolicyMode.cloud:
-        return branches.containsKey(kCloud);
-      case PolicyMode.local:
-        return branches.containsKey(kOnDevice);
-      case PolicyMode.smart:
-      case PolicyMode.cascade:
-      case PolicyMode.budget:
-        return branches.containsKey(kOnDevice) && branches.containsKey(kCloud);
     }
   }
 
@@ -699,17 +711,17 @@ class AiEngine {
       case PolicyMode.local:
         return PreRoutingStrategy((_) => kOnDevice);
       case PolicyMode.smart:
-        // Image → cloud (only it declares vision). Text → cloud-first (kCloud
-        // listed first), on-device as the transient-failure fallback (an
-        // offline cloud call throws → hybridModel falls to on-device).
-        return WithFallback(
-          CapabilityStrategy(
-            supports: {
-              kCloud: {ModelCapability.vision},
-              kOnDevice: <ModelCapability>{},
-            },
-          ),
-          fallbackOrder: const [kOnDevice],
+        // Image → cloud only (only it declares vision). Text → both qualify,
+        // cloud-first in `supports` insertion order, on-device as the tail.
+        // No WithFallback: CapabilityStrategy already yields the on-device
+        // tail for text, and for an image a forced on-device tail would hand
+        // the picture to a model that cannot see it. Offline + image should
+        // fail loudly, not silently degrade to text-only.
+        return CapabilityStrategy(
+          supports: {
+            kCloud: {ModelCapability.vision},
+            kOnDevice: <ModelCapability>{},
+          },
         );
       case PolicyMode.budget:
         return CostStrategy(
@@ -722,12 +734,7 @@ class AiEngine {
     }
   }
 
-  /// True when [mode]'s primary route starts on the text-only on-device model,
-  /// so an attached image cannot be handled (used to block send with a hint).
-  bool requiresTextOnly(PolicyMode mode) =>
-      mode == PolicyMode.local || mode == PolicyMode.cascade;
-
-  Future<void> dispose() async {
+  void dispose() {
     _ai = null;
     _local = null;
     _cloud = null;
@@ -769,8 +776,10 @@ directly.
 ### Add the policy picker
 
 In `chat_screen.dart`, replace the strategy toggle with a `DropdownButton`
-over all five `PolicyMode` values (options are disabled until their
-prerequisite is ready — `smart`/`cascade`/`budget` need both cloud and local):
+over all five `PolicyMode` values. There's nothing to hand-write per mode:
+the enum already knows its own label and its own prerequisites, so the item
+list is a loop and a new policy shows up in the picker the moment you add it
+to the enum.
 
 ```dart
 Padding(
@@ -779,31 +788,15 @@ Padding(
     value: _policy,
     isExpanded: true,
     items: [
-      DropdownMenuItem(
-        value: PolicyMode.cloud,
-        enabled: _cloudReady,
-        child: const Text('Cloud'),
-      ),
-      DropdownMenuItem(
-        value: PolicyMode.local,
-        enabled: _localReady,
-        child: const Text('Local'),
-      ),
-      DropdownMenuItem(
-        value: PolicyMode.smart,
-        enabled: _cloudReady && _localReady,
-        child: const Text('Smart (image-aware)'),
-      ),
-      DropdownMenuItem(
-        value: PolicyMode.cascade,
-        enabled: _cloudReady && _localReady,
-        child: const Text('Cascade (escalate on quality)'),
-      ),
-      DropdownMenuItem(
-        value: PolicyMode.budget,
-        enabled: _cloudReady && _localReady,
-        child: const Text('Budget (cost-gated)'),
-      ),
+      for (final mode in PolicyMode.values)
+        DropdownMenuItem(
+          value: mode,
+          enabled: mode.availableWith(
+            cloud: _engine.cloudReady,
+            local: _engine.localReady,
+          ),
+          child: Text(mode.label),
+        ),
     ],
     onChanged: (m) {
       if (m != null) setState(() => _policy = m);
@@ -812,39 +805,60 @@ Padding(
 ),
 ```
 
+`availableWith` is what keeps a half-ready app honest: with no API key only
+**Local** is selectable, and until the on-device model finishes downloading
+only **Cloud** is.
+
 ### Drive generateStream from modelFor
 
-`_sendMessage()` no longer picks between two services — it always calls the
-same `Genkit`, and lets `AiEngine.modelFor(_policy)` decide who answers:
+One chat turn — build the message, stream it through the policy's model,
+settle the budget — is engine work, not widget work. It lives on `AiEngine`
+as `send`, so the widget never touches `ai.generateStream` and never has to
+know which branch answered:
 
 ```dart
-final userMessage = Message(
-  role: Role.user,
-  content: [TextPart(text: prompt)],
-);
+  /// One chat turn on [mode]'s composite model. Yields the reply in chunks.
+  Stream<String> send(PolicyMode mode, String prompt) async* {
+    final userMessage = Message(
+      role: Role.user,
+      content: [TextPart(text: prompt)],
+    );
 
-// Captured before the call: genkit_hybrid doesn't report which branch
-// actually ran, so this is a best-effort demo counter, not an exact count
-// of cloud calls — see the accounting comment below.
-final wasBudgetAvailable = _engine.budgetAvailable;
+    // Captured before the call: genkit_hybrid doesn't report which branch
+    // actually ran, so this is a best-effort demo counter, not an exact
+    // count of cloud calls — see the accounting comment below.
+    final wasBudgetAvailable = budgetAvailable;
 
-final stream = _engine.ai.generateStream(
-  model: _engine.modelFor(_policy),
-  messages: [userMessage],
-);
-await for (final chunk in stream) {
-  buffer.write(chunk.text);
+    final stream = ai.generateStream(
+      model: modelFor(mode),
+      messages: [userMessage],
+    );
+    await for (final chunk in stream) {
+      yield chunk.text;
+    }
+
+    // Best-effort demo counter for CostStrategy: genkit_hybrid exposes no
+    // "which branch ran" signal, so a Budget call that transiently fell back
+    // to on-device still counts here as spent; Budget stops climbing once the
+    // cap is hit either way. Only after the stream completes — a call that
+    // threw mid-generation never spent anything.
+    if (mode == PolicyMode.cloud) {
+      cloudCallsSpent++;
+    } else if (mode == PolicyMode.budget && wasBudgetAvailable) {
+      cloudCallsSpent++;
+    }
+  }
+```
+
+`_sendMessage()` no longer picks between two services, and no longer talks to
+Genkit at all. What's left of it is UI: the placeholder bubble, a throttled
+`setState` over the chunks, and the error paths.
+
+```dart
+final buffer = StringBuffer();
+await for (final chunk in _engine.send(_policy, prompt)) {
+  buffer.write(chunk);
   // ... same throttled setState loop as Step 2/3
-}
-
-// Best-effort demo counter for CostStrategy: genkit_hybrid exposes no
-// "which branch ran" signal, so a Budget call that transiently fell back
-// to on-device still counts here as spent; Budget stops climbing once the
-// cap is hit either way.
-if (_policy == PolicyMode.cloud) {
-  _engine.cloudCallsSpent++;
-} else if (_policy == PolicyMode.budget && wasBudgetAvailable) {
-  _engine.cloudCallsSpent++;
 }
 ```
 
@@ -883,7 +897,6 @@ Run `flutter pub get`.
 In `chat_screen.dart`, add the picker and its state:
 
 ```dart
-import 'dart:convert';
 import 'dart:typed_data';
 import 'package:image_picker/image_picker.dart';
 
@@ -910,22 +923,47 @@ button that calls `_attachImage`, and a small thumbnail preview (`Image.memory`
 
 ### Build a multimodal message
 
-`_sendMessage()` now builds a `content` list instead of a single `TextPart`:
+`AiEngine.send` takes two more optional arguments and builds a `content` list
+instead of a single `TextPart`. The widget stays out of it — it just hands the
+bytes it picked to the engine (`ai_engine.dart` gains `dart:convert` and
+`dart:typed_data` for this):
 
 ```dart
-final content = <Part>[TextPart(text: prompt)];
-if (_attachedImage != null) {
-  final mime = _attachedMime ?? 'image/jpeg';
-  final dataUri = 'data:$mime;base64,${base64Encode(_attachedImage!)}';
-  // contentType MUST be set: the on-device plugin drops media without an
-  // image/* contentType, and CapabilityStrategy reads it to detect vision.
-  content.add(
-    MediaPart(
-      media: Media(contentType: mime, url: dataUri),
-    ),
-  );
+  Stream<String> send(
+    PolicyMode mode,
+    String prompt, {
+    Uint8List? imageBytes,
+    String? imageMime,
+  }) async* {
+    final content = <Part>[TextPart(text: prompt)];
+    if (imageBytes != null) {
+      final mime = imageMime ?? 'image/jpeg';
+      final dataUri = 'data:$mime;base64,${base64Encode(imageBytes)}';
+      // contentType MUST be set: the on-device plugin drops media without an
+      // image/* contentType, and CapabilityStrategy reads it to detect vision.
+      content.add(
+        MediaPart(
+          media: Media(contentType: mime, url: dataUri),
+        ),
+      );
+    }
+    final userMessage = Message(role: Role.user, content: content);
+    // ... unchanged from Step 4: stream through modelFor(mode), then account
+  }
+```
+
+and `_sendMessage()` passes what the picker gave it:
+
+```dart
+await for (final chunk in _engine.send(
+  _policy,
+  prompt,
+  imageBytes: _attachedImage,
+  imageMime: _attachedMime,
+)) {
+  buffer.write(chunk);
+  // ... same throttled setState loop
 }
-final userMessage = Message(role: Role.user, content: content);
 ```
 
 `contentType` is the load-bearing detail: `CapabilityStrategy` (below) only
@@ -939,17 +977,17 @@ Back in `AiEngine.strategyFor`, the three remaining cases:
 
 ```dart
 case PolicyMode.smart:
-  // Image → cloud (only it declares vision). Text → cloud-first (kCloud
-  // listed first), on-device as the transient-failure fallback (an
-  // offline cloud call throws → hybridModel falls to on-device).
-  return WithFallback(
-    CapabilityStrategy(
-      supports: {
-        kCloud: {ModelCapability.vision},
-        kOnDevice: <ModelCapability>{},
-      },
-    ),
-    fallbackOrder: const [kOnDevice],
+  // Image → cloud only (only it declares vision). Text → both qualify,
+  // cloud-first in `supports` insertion order, on-device as the tail.
+  // No WithFallback: CapabilityStrategy already yields the on-device
+  // tail for text, and for an image a forced on-device tail would hand
+  // the picture to a model that cannot see it. Offline + image should
+  // fail loudly, not silently degrade to text-only.
+  return CapabilityStrategy(
+    supports: {
+      kCloud: {ModelCapability.vision},
+      kOnDevice: <ModelCapability>{},
+    },
   );
 case PolicyMode.budget:
   return CostStrategy(
@@ -960,13 +998,13 @@ case PolicyMode.budget:
 ```
 
 - **Smart** — `CapabilityStrategy` inspects the outgoing `ModelRequest` for
-  media parts. A text-only request has no required capability, so both
-  branches qualify and it returns `[kCloud, kOnDevice]` (cloud-first, in
-  `supports`' insertion order). An image request requires `vision`, which
-  only `kCloud` declares, so `CapabilityStrategy` alone returns `[kCloud]`.
-  `WithFallback` then appends `kOnDevice` as a tail either way — that tail
-  exists for a *transient* cloud failure (offline, timeout), not to hand the
-  image to a model that can't see it.
+  media parts and keeps the branches that declare what the request needs. A
+  text-only request needs nothing, so both branches qualify and it returns
+  `[kCloud, kOnDevice]` (cloud-first, in `supports`' insertion order) — the
+  on-device tail is already there, for free, and `hybridModel` uses it when
+  the cloud call throws. An image request requires `vision`, which only
+  `kCloud` declares, so it returns `[kCloud]` and nothing else: there is no
+  second branch to fall to, by design.
 - **Cascade** — built in `_buildModel`, not `strategyFor`:
   `cascadeModel(branches: _branches, order: [kOnDevice, kCloud], accept: (r) => r.text.trim().length > 20)`.
   It tries the on-device model first; if the response passes `accept` (here,
@@ -976,10 +1014,10 @@ case PolicyMode.budget:
   response and emits it as a single chunk.
 - **Budget** — `CostStrategy` returns `[premium, cheap]` while
   `budgetAvailable()` is true, `[cheap]` once it isn't. `AiEngine` owns the
-  budget itself: `cloudCallsSpent` is a plain int the app increments after
-  every `cloud`/`budget` call (see the `_sendMessage` snippet above) and
-  compares against `budgetCap` (3 by default). `genkit_hybrid` has no billing
-  SDK — it only ever sees the resulting `bool`.
+  budget itself: `cloudCallsSpent` is a plain int `send` increments once the
+  stream completes (see the `send` snippet in Step 4) and compares against
+  `budgetCap` (3 by default). `genkit_hybrid` has no billing SDK — it only
+  ever sees the resulting `bool`.
 
 > **A real cascade signal.** That `accept` predicate is a *deliberately crude*
 > demo proxy — "long enough" is a poor stand-in for "good enough" (a correct
@@ -996,11 +1034,18 @@ case PolicyMode.budget:
 > [Zero-Shot Confidence for Small LLMs](https://arxiv.org/abs/2605.02241) and
 > [Do Small LMs Know When They're Wrong?](https://arxiv.org/abs/2604.19781).)
 
-> **Smart + image on a cloud outage**: with an attached image, Smart routes
-> to cloud for vision — but if that cloud call itself fails, `WithFallback`
-> still falls back to on-device, which can't see the image and answers from
-> the text alone. Smart silently degrades to text-only on a cloud outage; it
-> doesn't surface that degradation to the user.
+> **Smart + image on a cloud outage fails, and that's the point**: with an
+> attached image, `CapabilityStrategy` returns `[kCloud]` — the only branch
+> that declares vision — and nothing behind it. Offline, that call throws and
+> the error reaches the chat as `Error: ...`. An earlier version of this app
+> wrapped Smart in `WithFallback(..., fallbackOrder: [kOnDevice])`, which
+> appended the on-device model as a tail for *both* shapes of request; the
+> picture then went to a model that can't see it and got answered from the
+> question's text alone — a confident, plausible reply about a photo nobody
+> read. A wrong answer nobody flags is worse than a visible failure, so the
+> wrapper is gone. Text is unaffected: `CapabilityStrategy` puts `kOnDevice`
+> behind `kCloud` on its own, so an offline text question still lands on the
+> phone.
 >
 > **Budget shares its counter with Cloud**: `cloudCallsSpent` is one counter,
 > not one per policy — a Cloud-mode send also spends the Budget allowance.
@@ -1010,17 +1055,12 @@ case PolicyMode.budget:
 ### The capability block
 
 An image can't reach a policy whose primary route is the text-only on-device
-model. `AiEngine.requiresTextOnly` flags that:
+model — which is exactly the `textOnly` flag each `PolicyMode` already
+carries, so there's no helper to write and no second list of modes to keep in
+sync. `_sendMessage()` checks it before doing anything else:
 
 ```dart
-bool requiresTextOnly(PolicyMode mode) =>
-    mode == PolicyMode.local || mode == PolicyMode.cascade;
-```
-
-`_sendMessage()` checks it before doing anything else:
-
-```dart
-if (_attachedImage != null && _engine.requiresTextOnly(_policy)) {
+if (_attachedImage != null && _policy.textOnly) {
   ScaffoldMessenger.of(context).showSnackBar(
     const SnackBar(
       content: Text(
@@ -1033,12 +1073,13 @@ if (_attachedImage != null && _engine.requiresTextOnly(_policy)) {
 ```
 
 `local` always starts on-device; `cascade`'s first hop is always on-device
-too — both are blocked. `smart` and `cloud` always keep `kCloud` reachable
-(as the primary route or the `WithFallback` tail), so they're let through.
+too — both are declared `textOnly: true` and blocked. `smart` and `cloud`
+send an image to `kCloud` and nowhere else, so they're let through.
 `budget` is let through as well, but that's the one optimistic case: once
 `cloudCallsSpent` hits `budgetCap`, `CostStrategy` routes to `[kOnDevice]`
-only — `requiresTextOnly` checks the policy, not its current spend, so an
-image sent on a spent budget still isn't guaranteed a vision-capable branch.
+only — `textOnly` is a fact about the policy, not about its current spend, so
+an image sent on a spent budget still isn't guaranteed a vision-capable
+branch.
 
 ### Manual runbook
 
@@ -1048,8 +1089,11 @@ image sent on a spent budget still isn't guaranteed a vision-capable branch.
    Gemini (`CapabilityStrategy` routes the vision request straight to
    `kCloud`).
 3. Turn off WiFi, stay on **Smart**, and send a text message — the cloud
-   attempt fails transiently and `WithFallback` reroutes to the on-device
-   model (slower, but it answers).
+   attempt fails and `hybridModel` moves on to `kOnDevice`, the tail
+   `CapabilityStrategy` returned for a text request (slower, but it answers).
+   Now attach an image and send that instead: this one fails with
+   `Error: ...`, because a vision request has no on-device tail to move on
+   to.
 4. Turn WiFi back on, switch to **Budget**, and keep sending text messages.
    `cloudCallsSpent` counts every completed Cloud- or Budget-mode call
    cumulatively for the whole session — including the Cloud-mode message
@@ -1061,7 +1105,7 @@ image sent on a spent budget still isn't guaranteed a vision-capable branch.
    request goes out, with the "can't see images" snackbar.
 
 `flutter test test/ai_engine_policy_test.dart` exercises the same
-`strategyFor`/`requiresTextOnly` decisions as a fast, deviceless unit test —
+`strategyFor` routes and `PolicyMode` facts as a fast, deviceless unit test —
 useful to rerun after touching routing logic instead of redoing the whole
 runbook by hand.
 
@@ -1135,7 +1179,7 @@ Duration: 20
 ### Wire RagService to AiEngine
 
 `RagService` doesn't manage its own `Genkit` instance or model installation —
-it takes both from `AiEngine`, the same way `_sendMessage` does:
+the chat screen takes both from `AiEngine` and hands them over:
 
 ```dart
 final rag = RagService(
@@ -1154,9 +1198,17 @@ _ragReady = true;
 ### Semantic search
 
 When the user sends a query, embed it and find the closest city documents
-using cosine similarity:
+using cosine similarity. The two retrieval numbers get names — they're the
+knobs you'll actually reach for, and one of them decides how much text the
+on-device model has to swallow:
 
 ```dart
+/// Below this a "match" is noise, not a source.
+const kMinSimilarity = 0.5;
+
+/// How many guides go into the prompt.
+const kTopK = 3;
+
 Future<RagResult> searchAndBuildContext(String query) async {
   // 1. Embed the query
   final queryEmbeddings = await _ai.embed(
@@ -1168,12 +1220,12 @@ Future<RagResult> searchAndBuildContext(String query) async {
   // 2. Score all documents
   final scored = _store
       .map((doc) => (doc: doc, score: _cosine(queryVector, doc.embedding)))
-      .where((r) => r.score >= 0.5)
+      .where((r) => r.score >= kMinSimilarity)
       .toList()
     ..sort((a, b) => b.score.compareTo(a.score));
 
-  // 3. Build augmented prompt with top 3 results
-  final topK = scored.take(3);
+  // 3. Build augmented prompt with the top kTopK results
+  final topK = scored.take(kTopK);
   final context = topK.map((r) => r.doc.content).join('\n\n');
   final augmentedPrompt =
       'Based on the following travel information:\n\n$context\n\n'
@@ -1182,6 +1234,64 @@ Future<RagResult> searchAndBuildContext(String query) async {
   return RagResult(augmentedPrompt: augmentedPrompt, ...);
 }
 ```
+
+`_cosine` throws an `ArgumentError` when the two vectors' lengths disagree
+rather than asserting it — an `assert` is compiled out of a release build,
+which is precisely where a mismatched embedder would otherwise return
+silent nonsense.
+
+### Give the on-device branch room to read
+
+`kTopK` is the first knob in this codelab that can break a working app.
+Retrieval doesn't just improve the prompt, it *inflates* it — and the
+on-device branch is answering inside a fixed window.
+
+> **`maxTokens` is the whole context window, not the reply length.** It is the
+> KV-cache budget: everything the model reads *plus* everything it writes.
+> `genkit_flutter_gemma` defaults it to 1024, which is fine for the chat we've
+> had so far and not fine the moment RAG lands. Three city guides at ~600
+> tokens each is ~1.7k of prompt before the model has said a word, so the
+> first RAG question on **Local** dies during prefill with
+> `Input token ids are too long ... 1713 >= 1024` — a native error, not a bad
+> answer. The fix isn't a smaller `kTopK`: the bundled Gemma 3 1B was built
+> for a 4096-token window, which is what the `ekv4096` in its file name means.
+> Give the on-device branch the window it already has.
+
+Back in `AiEngine`, wrap the resolved on-device model so every request it
+receives carries that budget:
+
+```dart
+/// Context window for the on-device branch, in tokens.
+const kOnDeviceContextTokens = 4096;
+
+// ...in initialize(), where the on-device model is resolved:
+_local = _withContextBudget(await _resolve(flutterGemma.model(kLocalModel)));
+
+/// [inner] with a context budget merged into any request that doesn't set
+/// one itself. Copies the request instead of editing it in place:
+/// genkit_hybrid hands the *same* ModelRequest to the next branch when a
+/// cascade escalates, and a Gemma-sized `maxTokens` must not leak into the
+/// Gemini call.
+Model _withContextBudget(Model inner) => Model(
+  name: inner.name,
+  fn: (request, context) {
+    final config = request.config ?? const <String, dynamic>{};
+    if (config.containsKey('maxTokens')) {
+      return inner.fn(request, context);
+    }
+    return inner.fn(
+      ModelRequest.fromJson({
+        ...request.toJson(),
+        'config': {...config, 'maxTokens': kOnDeviceContextTokens},
+      }),
+      context,
+    );
+  },
+);
+```
+
+The cloud branch is untouched — Gemini's window is orders of magnitude
+larger, and the wrapper only ever sees requests already routed on-device.
 
 ### Add RAG toggle to the UI
 
@@ -1203,7 +1313,10 @@ Duration: 10
 ### Error handling and loading states
 
 - Show download progress during model installation
-- Disable strategy buttons when a service fails to initialize
+- Disable a policy the app can't serve — that's `mode.availableWith(...)` in
+  the picker
+- Gate *every* send entry point, the button and `TextField.onSubmitted` alike,
+  on the same condition — nothing in flight, and at least one branch ready
 - Show "Generating..." indicator during streaming
 - Graceful error messages in the chat
 

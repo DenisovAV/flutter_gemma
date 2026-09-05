@@ -104,10 +104,10 @@ plugins registered, resolves the cloud and on-device models once, and hands
 them to `genkit_hybrid` as a `Map<String, Model>` of branches. For each
 `PolicyMode` it composes one branch map into an ordinary Genkit `Model` and
 registers it on `ai.registry` — once, during `initialize()`. `engine.modelFor(policy)`
-just returns that already-registered `Model`. Every turn goes through the same
-`ai.generateStream(model: engine.modelFor(policy), messages: [...])` inside
-`AiEngine.send`; only which `Model` `modelFor` returns changes with the
-policy, and the chat screen never learns which branch answered.
+just returns that already-registered `Model`. The chat screen always calls
+the same
+`ai.generateStream(model: engine.modelFor(policy), messages: [...])`; only
+which `Model` `modelFor` returns changes with the policy.
 
 ## Step 1: Starter Project
 Duration: 5
@@ -811,54 +811,37 @@ only **Cloud** is.
 
 ### Drive generateStream from modelFor
 
-One chat turn — build the message, stream it through the policy's model,
-settle the budget — is engine work, not widget work. It lives on `AiEngine`
-as `send`, so the widget never touches `ai.generateStream` and never has to
-know which branch answered:
+`_sendMessage()` no longer picks between two services — it always calls the
+same `Genkit`, and lets `AiEngine.modelFor(_policy)` decide who answers:
 
 ```dart
-  /// One chat turn on [mode]'s composite model. Yields the reply in chunks.
-  Stream<String> send(PolicyMode mode, String prompt) async* {
-    final userMessage = Message(
-      role: Role.user,
-      content: [TextPart(text: prompt)],
-    );
+final userMessage = Message(
+  role: Role.user,
+  content: [TextPart(text: prompt)],
+);
 
-    // Captured before the call: genkit_hybrid doesn't report which branch
-    // actually ran, so this is a best-effort demo counter, not an exact
-    // count of cloud calls — see the accounting comment below.
-    final wasBudgetAvailable = budgetAvailable;
+// Captured before the call: genkit_hybrid doesn't report which branch
+// actually ran, so this is a best-effort demo counter, not an exact count
+// of cloud calls — see the accounting comment below.
+final wasBudgetAvailable = _engine.budgetAvailable;
 
-    final stream = ai.generateStream(
-      model: modelFor(mode),
-      messages: [userMessage],
-    );
-    await for (final chunk in stream) {
-      yield chunk.text;
-    }
-
-    // Best-effort demo counter for CostStrategy: genkit_hybrid exposes no
-    // "which branch ran" signal, so a Budget call that transiently fell back
-    // to on-device still counts here as spent; Budget stops climbing once the
-    // cap is hit either way. Only after the stream completes — a call that
-    // threw mid-generation never spent anything.
-    if (mode == PolicyMode.cloud) {
-      cloudCallsSpent++;
-    } else if (mode == PolicyMode.budget && wasBudgetAvailable) {
-      cloudCallsSpent++;
-    }
-  }
-```
-
-`_sendMessage()` no longer picks between two services, and no longer talks to
-Genkit at all. What's left of it is UI: the placeholder bubble, a throttled
-`setState` over the chunks, and the error paths.
-
-```dart
-final buffer = StringBuffer();
-await for (final chunk in _engine.send(_policy, prompt)) {
-  buffer.write(chunk);
+final stream = _engine.ai.generateStream(
+  model: _engine.modelFor(_policy),
+  messages: [userMessage],
+);
+await for (final chunk in stream) {
+  buffer.write(chunk.text);
   // ... same throttled setState loop as Step 2/3
+}
+
+// Best-effort demo counter for CostStrategy: genkit_hybrid exposes no
+// "which branch ran" signal, so a Budget call that transiently fell back
+// to on-device still counts here as spent; Budget stops climbing once the
+// cap is hit either way.
+if (_policy == PolicyMode.cloud) {
+  _engine.cloudCallsSpent++;
+} else if (_policy == PolicyMode.budget && wasBudgetAvailable) {
+  _engine.cloudCallsSpent++;
 }
 ```
 
@@ -897,6 +880,7 @@ Run `flutter pub get`.
 In `chat_screen.dart`, add the picker and its state:
 
 ```dart
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:image_picker/image_picker.dart';
 
@@ -923,47 +907,22 @@ button that calls `_attachImage`, and a small thumbnail preview (`Image.memory`
 
 ### Build a multimodal message
 
-`AiEngine.send` takes two more optional arguments and builds a `content` list
-instead of a single `TextPart`. The widget stays out of it — it just hands the
-bytes it picked to the engine (`ai_engine.dart` gains `dart:convert` and
-`dart:typed_data` for this):
+`_sendMessage()` now builds a `content` list instead of a single `TextPart`:
 
 ```dart
-  Stream<String> send(
-    PolicyMode mode,
-    String prompt, {
-    Uint8List? imageBytes,
-    String? imageMime,
-  }) async* {
-    final content = <Part>[TextPart(text: prompt)];
-    if (imageBytes != null) {
-      final mime = imageMime ?? 'image/jpeg';
-      final dataUri = 'data:$mime;base64,${base64Encode(imageBytes)}';
-      // contentType MUST be set: the on-device plugin drops media without an
-      // image/* contentType, and CapabilityStrategy reads it to detect vision.
-      content.add(
-        MediaPart(
-          media: Media(contentType: mime, url: dataUri),
-        ),
-      );
-    }
-    final userMessage = Message(role: Role.user, content: content);
-    // ... unchanged from Step 4: stream through modelFor(mode), then account
-  }
-```
-
-and `_sendMessage()` passes what the picker gave it:
-
-```dart
-await for (final chunk in _engine.send(
-  _policy,
-  prompt,
-  imageBytes: _attachedImage,
-  imageMime: _attachedMime,
-)) {
-  buffer.write(chunk);
-  // ... same throttled setState loop
+final content = <Part>[TextPart(text: prompt)];
+if (_attachedImage != null) {
+  final mime = _attachedMime ?? 'image/jpeg';
+  final dataUri = 'data:$mime;base64,${base64Encode(_attachedImage!)}';
+  // contentType MUST be set: the on-device plugin drops media without an
+  // image/* contentType, and CapabilityStrategy reads it to detect vision.
+  content.add(
+    MediaPart(
+      media: Media(contentType: mime, url: dataUri),
+    ),
+  );
 }
+final userMessage = Message(role: Role.user, content: content);
 ```
 
 `contentType` is the load-bearing detail: `CapabilityStrategy` (below) only
@@ -1014,10 +973,10 @@ case PolicyMode.budget:
   response and emits it as a single chunk.
 - **Budget** — `CostStrategy` returns `[premium, cheap]` while
   `budgetAvailable()` is true, `[cheap]` once it isn't. `AiEngine` owns the
-  budget itself: `cloudCallsSpent` is a plain int `send` increments once the
-  stream completes (see the `send` snippet in Step 4) and compares against
-  `budgetCap` (3 by default). `genkit_hybrid` has no billing SDK — it only
-  ever sees the resulting `bool`.
+  budget itself: `cloudCallsSpent` is a plain int the app increments after
+  every `cloud`/`budget` call (see the `_sendMessage` snippet above) and
+  compares against `budgetCap` (3 by default). `genkit_hybrid` has no billing
+  SDK — it only ever sees the resulting `bool`.
 
 > **A real cascade signal.** That `accept` predicate is a *deliberately crude*
 > demo proxy — "long enough" is a poor stand-in for "good enough" (a correct
@@ -1179,7 +1138,7 @@ Duration: 20
 ### Wire RagService to AiEngine
 
 `RagService` doesn't manage its own `Genkit` instance or model installation —
-the chat screen takes both from `AiEngine` and hands them over:
+it takes both from `AiEngine`, the same way `_sendMessage` does:
 
 ```dart
 final rag = RagService(

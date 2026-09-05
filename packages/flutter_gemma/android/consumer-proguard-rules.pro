@@ -9,9 +9,11 @@
 # channel) references no coroutine at all. It came across from the pre-monorepo
 # monolith and never got re-examined.
 #
-# A consumer rule merges into EVERY app that enables R8, and this one pinned
-# ~920 coroutine classes by name, so none of them could be shrunk, optimized or
-# renamed — enough to drag an app's Play Console DEX quality percentages (#486).
+# A consumer rule merges into EVERY app that enables R8, so it is not ours to
+# spend. This one pinned 874 coroutine classes by name in this repo's own
+# example (measured off R8's mapping.txt, release build; #486 reports 920 in a
+# different app) — none of them shrinkable, optimizable or renameable, enough to
+# drag an app's Play Console DEX quality percentages.
 #
 # Nothing needs it. kotlinx-coroutines ships its own rules inside the artifact
 # (META-INF/com.android.tools/r8/coroutines.pro), which R8 applies on its own:

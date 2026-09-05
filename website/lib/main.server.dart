@@ -39,6 +39,22 @@ const String _codelabsDescription =
     'Flutter app — on-device inference, multimodal input, function calling, '
     'RAG, voice, and hybrid cloud/on-device routing with Genkit.';
 
+/// JSON-LD for `/codelabs`.
+///
+/// Without this the route falls back to `seo.dart`'s site-wide
+/// `SoftwareApplication` schema, whose `url` is the site origin — publishing
+/// the same package entity from two different pages. A `CollectionPage` is what
+/// this page actually is: a listing whose items are the codelabs. Deliberately
+/// minimal — no `ItemList`, because six of the seven entries have no URL yet
+/// and listing them would assert pages that do not exist.
+const Map<String, Object?> _codelabsCollectionSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'CollectionPage',
+  'name': 'flutter_gemma Codelabs',
+  'description': _codelabsDescription,
+  'url': '$kSiteOrigin/codelabs',
+};
+
 void main() {
   // Initializes the server environment with the generated default options.
   Jaspr.initializeApp(
@@ -106,12 +122,12 @@ void main() {
                 SidebarGroup(
                   title: 'Workshop',
                   links: [
-                    // Static claat export under /codelabs/ (see deploy.sh), not a
-                    // Jaspr route — a plain href leaves the SPA into the codelab.
-                    SidebarLink(
-                      text: 'Hybrid AI Codelab',
-                      href: '/codelabs/hybrid-ai-flutter-genkit/',
-                    ),
+                    // Points at the catalogue, the same place the nav's
+                    // "Codelabs" link goes — the two surfaces must not disagree.
+                    // `/codelabs` is a Jaspr route (it owns codelabs/index.html);
+                    // the codelabs themselves are static claat exports under
+                    // codelabs/<id>/ (see deploy.sh).
+                    SidebarLink(text: 'Codelabs', href: '/codelabs'),
                   ],
                 ),
                 SidebarGroup(
@@ -217,6 +233,8 @@ void main() {
           // The codelab catalogue. The codelabs themselves are static claat
           // exports dropped into `codelabs/<id>/` after `jaspr build`, so this
           // route owns only `codelabs/index.html` and the two never collide.
+          // Path is slash-less to agree with `trailingSlash: false`
+          // (firebase.json), the generated sitemap, and the nav link.
           Route(
             path: '/codelabs',
             builder: (context, state) => Document(
@@ -226,7 +244,8 @@ void main() {
               head: seoHead(
                 title: 'Codelabs — flutter_gemma',
                 description: _codelabsDescription,
-                path: '/codelabs/',
+                path: '/codelabs',
+                structuredData: _codelabsCollectionSchema,
               ),
               body: const CodelabsPage(),
             ),

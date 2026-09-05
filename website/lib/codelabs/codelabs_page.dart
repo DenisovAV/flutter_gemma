@@ -45,8 +45,10 @@ class _Codelab {
 class CodelabsPage extends StatelessComponent {
   const CodelabsPage({super.key});
 
-  /// Ordered as a learning path, not a feature list: start, then model
-  /// capabilities, then the pipelines that combine them.
+  /// Ordered as a learning path, not a feature list: first run, then the
+  /// engines that run a model, then the model capabilities built on top
+  /// (multimodal, function calling), then the pipelines that combine several
+  /// of them (RAG, voice, hybrid routing).
   static const _items = <_Codelab>[
     _Codelab(
       title: 'Getting Started with On-Device LLMs in Flutter',
@@ -125,7 +127,9 @@ class CodelabsPage extends StatelessComponent {
 
   @override
   Component build(BuildContext context) {
-    return main_(classes: 'landing-root codelabs-root', [
+    // `.landing-root` supplies the navy canvas, `min-height: 100vh` and the
+    // element resets the NavBar/SiteFooter styles are scoped to.
+    return main_(classes: 'landing-root', [
       const NavBar(),
       section(classes: 'cl-head', [
         div(classes: 'cl-head-inner', [
@@ -184,11 +188,6 @@ class CodelabsPage extends StatelessComponent {
 
   @css
   static List<StyleRule> get styles => [
-    css('.codelabs-root').styles(
-      backgroundColor: Brand.navy,
-      minHeight: 100.vh,
-    ),
-
     // ---- header ----
     css('.cl-head').styles(
       padding: Padding.symmetric(horizontal: 2.rem, vertical: 4.rem),
@@ -238,8 +237,18 @@ class CodelabsPage extends StatelessComponent {
       maxWidth: 1100.px,
       margin: Margin.symmetric(horizontal: Unit.auto),
       display: Display.grid,
+      // 280px matches `.features-grid` — an auto-fit track cannot shrink below
+      // its minimum, so a larger floor makes the page scroll sideways on a
+      // ≤360px viewport (iPhone SE 1st gen, Galaxy Fold cover screen).
+      gridTemplate: GridTemplate(
+        columns: GridTracks([
+          GridTrack.repeat(
+            TrackRepeat.autoFit,
+            [GridTrack(TrackSize.minmax(TrackSize(280.px), TrackSize.fr(1)))],
+          ),
+        ]),
+      ),
       gap: Gap.all(1.25.rem),
-      raw: {'grid-template-columns': 'repeat(auto-fit, minmax(320px, 1fr))'},
     ),
 
     // ---- card ----
@@ -259,7 +268,12 @@ class CodelabsPage extends StatelessComponent {
       transform: Transform.translate(y: (-3).px),
       border: Border.all(color: Color('rgba(147,197,253,0.55)'), width: 1.px),
     ),
-    css('.cl-card--soon').styles(raw: {'opacity': '0.62'}),
+    // The unwritten state used to be carried by `opacity: 0.62` on the whole
+    // card, which composited the white70 blurb down to ~3.6:1 against the navy
+    // page — below the 4.5:1 WCAG AA floor for normal text, on six of seven
+    // cards. Only the decorative accent bar is dimmed now; the "Coming soon"
+    // pill and the absent "Start codelab →" carry the signal in text.
+    css('.cl-card--soon .cl-accent').styles(opacity: 0.45),
     css('.cl-accent').styles(height: 3.px, width: 100.percent),
     css('.cl-card-body').styles(
       display: Display.flex,
@@ -269,9 +283,15 @@ class CodelabsPage extends StatelessComponent {
     ),
 
     // ---- meta row ----
+    // Wraps on purpose: `.cl-card` is `overflow: hidden`, so a non-wrapping row
+    // clipped the "Coming soon" pill off a narrow card — and that pill is the
+    // only signal that the codelab does not exist yet.
+    // white70, not white50: at 0.75rem this is normal-size text, and white50 on
+    // the card sits at ~4.2:1, under the 4.5:1 AA floor.
     css('.cl-meta').styles(
       display: Display.flex,
       flexDirection: FlexDirection.row,
+      flexWrap: FlexWrap.wrap,
       alignItems: AlignItems.center,
       gap: Gap.all(0.45.rem),
       fontFamily: Brand.fontSans,
@@ -279,9 +299,9 @@ class CodelabsPage extends StatelessComponent {
       fontWeight: FontWeight.w600,
       letterSpacing: 0.06.em,
       textTransform: TextTransform.upperCase,
-      color: Brand.white50,
+      color: Brand.white70,
     ),
-    css('.cl-dot').styles(color: Brand.white50),
+    css('.cl-dot').styles(color: Brand.white70),
     css('.cl-soon').styles(
       margin: Margin.only(left: Unit.auto),
       padding: Padding.symmetric(horizontal: 0.5.rem, vertical: 0.15.rem),

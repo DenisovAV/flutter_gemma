@@ -28,7 +28,13 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_gemma: ^1.7.0
-  flutter_gemma_embeddings: ^2.0.0
+  # 2.1.0, not 2.0.0: this package's WEB embedding arm imports
+  # `flutter_gemma_embeddings/wordpiece_embedding_tokenizer.dart`, and in
+  # published 2.0.0 that library carries an unconditional `import 'dart:io'`,
+  # which makes `flutter build web` fail for any app pairing the two. 2.1.0
+  # moves the file read behind a conditional-import seam. Leaving `^2.0.0` here
+  # would let pub keep resolving the broken version and defeat the seam.
+  flutter_gemma_embeddings: ^2.1.0
   ffi: ^2.1.0
   mutex: ^3.1.0
   hooks: ^2.0.0

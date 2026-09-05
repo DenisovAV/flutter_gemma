@@ -8,11 +8,51 @@ status: Published
 # Hybrid AI in Flutter: From Cloud to On-Device with Genkit Dart
 
 ## Overview
-Duration: 5
+Duration: 7
 
 ### What you'll build
 
-A Flutter chat application that progressively integrates AI capabilities using Genkit Dart:
+**An offline travel guide.** You are abroad, roaming is expensive or missing
+entirely, and you still want to ask "what should I see in Prague?" That is the
+reason this app is hybrid rather than one more chat with Gemini — the phone has
+to be able to answer on its own.
+
+It is a single screen: a chat that streams its replies. Everything else on that
+screen exists to make *where the answer came from* visible.
+
+- A **policy picker** — Cloud, Local, Smart (image-aware), Cascade (escalate on
+  quality), Budget (cost-gated). The conversation and its history never change;
+  only the brain behind them does.
+- A **RAG toggle**. Off, the model answers from memory. On, your question is
+  embedded **on the phone** and matched against ten city guides shipped inside
+  the app — Paris, Tokyo, Barcelona, Istanbul, Marrakech, New York, Prague,
+  Rio, Singapore, Sydney. A `Sources: Paris` line under the reply is the only
+  place you can see that the answer was grounded in a guide rather than
+  invented.
+- **Image attachment** — a photo goes to the cloud, the only branch that
+  declares vision; on the text-only policies the send is blocked with a hint.
+- A **budget counter** that spends three cloud calls, then quietly drops to the
+  device.
+
+### The finished app in 30 seconds
+
+When you reach the end, this is the demo — worth reading now, so you know what
+you are building toward:
+
+1. On **Cloud**, ask "what should I see in Paris?" — an ordinary cloud answer,
+   tokens streaming in.
+2. Turn **RAG** on and ask the same question: a `Sources: Paris` line appears,
+   and the answer now leans on the bundled guide instead of the model's memory.
+3. Switch to **Local** and turn off wi-fi. The phone answers. This is the moment
+   the whole codelab exists for.
+4. Attach a photo while still on **Local** — the send is blocked with a hint.
+   Switch to **Smart** and the same photo goes to the cloud.
+5. Select **Budget** and send four messages: on the fourth the counter reaches
+   its cap of three and the answer quietly arrives from the device.
+
+### How we get there
+
+Six increments, one per branch of the workshop repository:
 
 1. **Cloud Chat** — Streaming responses from Gemini via `genkit_google_genai`
 2. **Local Inference** — On-device AI with Gemma 3 1B via `genkit_flutter_gemma`

@@ -16,7 +16,7 @@ class NavBar extends StatelessComponent {
 
   static const _links = <({String text, String href, bool external, bool cta})>[
     (text: 'Docs', href: '/docs/getting-started', external: false, cta: false),
-    (text: 'Codelabs', href: '/codelabs/hybrid-ai-flutter-genkit/', external: false, cta: false),
+    (text: 'Codelabs', href: '/codelabs/', external: false, cta: false),
     (text: 'Models', href: '#models', external: false, cta: false),
     (
       text: 'GitHub',

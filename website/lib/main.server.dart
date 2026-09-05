@@ -19,6 +19,7 @@ import 'package:jaspr_content/jaspr_content.dart';
 import 'package:jaspr_content/theme.dart';
 import 'package:jaspr_router/jaspr_router.dart';
 
+import 'codelabs/codelabs_page.dart';
 import 'components/clicker.dart';
 import 'landing/landing_page.dart';
 import 'seo.dart';
@@ -32,6 +33,11 @@ const String _landingDescription =
     'Android, iOS, Web, and Desktop. Multimodal vision & audio, '
     'function calling, on-device agent skills, thinking mode, '
     'GPU acceleration, embeddings, and RAG.';
+
+const String _codelabsDescription =
+    'Hands-on, step-by-step guides for running language models inside a '
+    'Flutter app — on-device inference, multimodal input, function calling, '
+    'RAG, voice, and hybrid cloud/on-device routing with Genkit.';
 
 void main() {
   // Initializes the server environment with the generated default options.
@@ -206,6 +212,23 @@ void main() {
                 path: '/',
               ),
               body: const LandingPage(),
+            ),
+          ),
+          // The codelab catalogue. The codelabs themselves are static claat
+          // exports dropped into `codelabs/<id>/` after `jaspr build`, so this
+          // route owns only `codelabs/index.html` and the two never collide.
+          Route(
+            path: '/codelabs',
+            builder: (context, state) => Document(
+              title: 'Codelabs — flutter_gemma',
+              lang: 'en',
+              meta: const {'description': _codelabsDescription},
+              head: seoHead(
+                title: 'Codelabs — flutter_gemma',
+                description: _codelabsDescription,
+                path: '/codelabs/',
+              ),
+              body: const CodelabsPage(),
             ),
           ),
           for (final group in routes) ...group,

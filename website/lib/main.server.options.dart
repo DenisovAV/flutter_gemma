@@ -5,6 +5,8 @@
 // Generated with jaspr_builder
 
 import 'package:jaspr/server.dart';
+import 'package:fluttergemma_website/codelabs/codelabs_page.dart'
+    as _codelabs_page;
 import 'package:fluttergemma_website/components/clicker.dart' as _clicker;
 import 'package:fluttergemma_website/landing/sections/cta_section.dart'
     as _cta_section;
@@ -81,6 +83,7 @@ ServerOptions get defaultServerOptions => ServerOptions(
     ),
   },
   styles: () => [
+    ..._codelabs_page.CodelabsPage.styles,
     ..._clicker.ClickerState.styles,
     ..._landing_page.LandingPage.styles,
     ..._cta_section.CtaSection.styles,

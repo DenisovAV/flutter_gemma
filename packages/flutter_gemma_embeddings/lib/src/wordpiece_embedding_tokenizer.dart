@@ -104,8 +104,13 @@ class WordPieceEmbeddingTokenizer implements EmbeddingTokenizer {
     return model is Map && model['type'] == 'WordPiece';
   }
 
-  /// Parse a WordPiece tokenizer from the raw `tokenizer.json` [content].
   /// Load a WordPiece tokenizer from a HuggingFace `tokenizer.json` at [path].
+  ///
+  /// [path] must be an ABSOLUTE filesystem path — not a Flutter asset key
+  /// (`File` knows nothing about `AssetBundle`) and not a bundle-relative name.
+  /// Under the macOS/iOS App Sandbox a path outside the app container needs an
+  /// active security-scoped bookmark, or the read fails with a permission error
+  /// for a file the user can see in Finder.
   ///
   /// Native only — on web this throws [UnsupportedError], because a browser has
   /// no on-disk path to read. Fetch the file yourself there and use
@@ -113,6 +118,7 @@ class WordPieceEmbeddingTokenizer implements EmbeddingTokenizer {
   static Future<WordPieceEmbeddingTokenizer> fromPath(String path) async =>
       fromJsonString(await readTextFile(path));
 
+  /// Parse a WordPiece tokenizer from the raw `tokenizer.json` [content].
   static WordPieceEmbeddingTokenizer fromJsonString(String content) {
     final json = jsonDecode(content) as Map<String, dynamic>;
     final model = json['model'] as Map<String, dynamic>?;

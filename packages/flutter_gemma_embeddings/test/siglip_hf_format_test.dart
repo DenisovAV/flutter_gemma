@@ -15,9 +15,10 @@ library;
 // loader a HuggingFace file.
 //
 // This fixture is that file in miniature: same `model.type`, same `Split`
-// pre-tokenizer (`pattern: {String: " "}`, `MergedWithPrevious`), same
-// `post_processor` and `padding` blocks as the real SigLIP2 tokenizer, with a
-// three-token vocabulary instead of 256k.
+// pre-tokenizer (`pattern: {String: " "}`, `MergedWithPrevious`), same list-form
+// `merges` and `added_tokens`, with an eight-token vocabulary instead of 256k.
+// Its `post_processor` and `padding` blocks mirror the real file for fidelity,
+// but the loader discards them — see the note in the test body.
 
 import 'dart:convert';
 import 'dart:io';
@@ -120,30 +121,34 @@ void main() {
   setUp(() => dir = Directory.systemTemp.createTempSync('siglip_hf_'));
   tearDown(() => dir.deleteSync(recursive: true));
 
-  test(
-    'the SigLIP2 profile loads a HuggingFace-format tokenizer.json',
-    () async {
-      final path = await _writeHfTokenizer(dir);
+  test('the SigLIP2 profile loads a HuggingFace-format tokenizer.json', () async {
+    final path = await _writeHfTokenizer(dir);
 
-      // The assertion is that this does not throw. A dependency that rejects the
-      // `Split` pre-tokenizer, the list-form `merges`, or the BOS-less
-      // `post_processor` fails right here — which is what a version range that
-      // admits such a release would otherwise ship to users unnoticed.
-      final tok = await loadSiglipSentencePieceEmbeddingTokenizer(path);
+    // The first assertion is that this does not throw: a dependency that
+    // rejects the `Split` pre-tokenizer or the list-form `merges` fails right
+    // here, which is what a version range admitting such a release would
+    // otherwise ship to users unnoticed.
+    final tok = await loadSiglipSentencePieceEmbeddingTokenizer(path);
 
-      final ids = tok.encode('', 'a b').ids;
-      expect(ids.length, siglipSeqLen, reason: 'padded to the fixed width');
-      expect(ids.last, siglipPadId, reason: 'right-padded with <pad>');
-      expect(
-        ids.contains(siglipEosId),
-        isTrue,
-        reason: 'the trailing EOS survives',
-      );
-      expect(
-        ids.first,
-        isNot(2),
-        reason: 'no BOS — that is the Gemma convention, not SigLIP2',
-      );
-    },
-  );
+    // Then a canary on the result: the two pieces, the EOS, then padding — and
+    // no BOS (id 2), which is the Gemma convention rather than SigLIP2's.
+    final ids = tok.encode('', 'a b').ids;
+    expect(ids.take(3), [4, 5, siglipEosId]);
+    expect(ids.skip(3), everyElement(siglipPadId));
+
+    // What this fixture does NOT prove, established by mutating it: under 1.3.3
+    // the `pre_tokenizer`, `post_processor` and `padding` blocks are ALL inert.
+    // 1.3.3 has no pre-tokenizer parsing at all, so flipping `Split` from
+    // `MergedWithPrevious` to `Isolated` changes no id — 1.4.0's contribution
+    // was to start reading that block and throw on the `Split` case.
+    // `loadEmbeddingTokenizer` passes an explicit `SentencePieceConfig`, so the
+    // file's post-processor metadata is discarded (flipping the template to
+    // `[<bos>, Sequence A]` changes no id). And `enablePadding` is a 1.4.0
+    // addition (width 64 -> 8 changes no id). Every id above comes from the BPE
+    // vocabulary plus `encodeForSiglipEmbedding`, never from those blocks.
+    //
+    // So the LOAD is the load-bearing assertion here, and what it guards is
+    // exactly the version range: 1.3.2 cannot read the list-form `merges`,
+    // 1.4.0 rejects the `Split` block.
+  });
 }

@@ -1,5 +1,7 @@
 ## 0.3.3
-- Prefer `pooler_output` over `last_hidden_state`, so a pre-pooled embedding is no longer mean-pooled.
+- Prefer `pooler_output` over `last_hidden_state`; re-index corpora from any graph exposing both.
+- Refuse a SigLIP2 `tokenizer.json` instead of embedding it with Gemma's convention.
+- Require `flutter_gemma_embeddings` 2.1.0, which fixes `flutter build web` for the web embedding arm.
 
 ## 0.3.2
 - `OnnxHuggingFaceResolver` installs an ORT-GenAI model directory from a Hugging Face repo — lists the repo, picks a CPU execution-provider folder, downloads the whole bundle (#454).

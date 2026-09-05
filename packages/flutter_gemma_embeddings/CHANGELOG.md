@@ -1,7 +1,7 @@
 ## 2.1.0
 - Add a SigLIP2 text-embedding profile (no BOS, single trailing EOS, lowercased, fixed 64-token width).
-- Restore `WordPieceEmbeddingTokenizer.fromPath`, dropped from `main` after 2.0.0 shipped; it reads through a web-safe seam now.
-- Pin `dart_sentencepiece_tokenizer` to `>=1.3.3 <1.4.0`: 1.3.3 parses SigLIP2's list-form `merges`, 1.4.0 rejects its `pre_tokenizer`.
+- No longer pulls `dart:io` into the web graph; `fromPath` throws `UnsupportedError` there.
+- Cap `dart_sentencepiece_tokenizer` below 1.4.0, which rejects EmbeddingGemma's and SigLIP2's `tokenizer.json`.
 
 ## 2.0.0
 - BREAKING: runtime-agnostic embedder; `LiteRtEmbeddingBackend` moved to flutter_gemma_litertlm.

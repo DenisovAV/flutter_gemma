@@ -66,7 +66,10 @@ Future<String> _writeTinyTokenizer(
     'config': {'add_bos_token': false, 'add_eos_token': false},
     'byte_fallback': false,
   };
-  final file = File('${dir.path}/tiny_tokenizer.json');
+  // Distinct names per layout: both fixtures share `tmpDir`, and a single name
+  // meant the SigLIP-1 variant overwrote the file the suite loaded in setUpAll.
+  final name = siglip1Layout ? 'tiny_siglip1.json' : 'tiny_tokenizer.json';
+  final file = File('${dir.path}/$name');
   await file.writeAsString(jsonEncode(json));
   return file.path;
 }

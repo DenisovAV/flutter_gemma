@@ -136,6 +136,12 @@ model-dependent** (not a fixed 768):
   WordPiece/BERT-style only in this release (a pure-Dart SentencePiece parser is
   pending).
 
+A SigLIP 2 `tokenizer.json` is a third convention the factory does **not**
+select yet, and it is BPE — so it would otherwise be read as Gemma and return a
+plausible but wrong vector. The loader refuses it instead, with a message
+pointing at `loadSiglipSentencePieceEmbeddingTokenizer`, which you can wire into
+a `ForwardPassDescriptor` yourself.
+
 The output contract and mask requirements are discovered from the session's
 actual graph once it opens — no per-model configuration. It registers at
 priority 10 (above `LiteRtEmbeddingBackend`'s catch-all priority 0), so with

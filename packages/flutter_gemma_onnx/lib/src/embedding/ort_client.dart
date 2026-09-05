@@ -24,8 +24,9 @@ class OrtInputTensor {
 }
 
 /// What [OrtClient.load] learns about a session's IO once it opens — the
-/// output layout (`sentence_embedding` vs `last_hidden_state` vs a first-output
-/// fallback) is only knowable after the graph is parsed, which is why
+/// output layout (a pre-pooled `sentence_embedding`/`pooler_output` vs
+/// per-token `last_hidden_state` vs a first-output fallback) is only knowable
+/// after the graph is parsed, which is why
 /// `OnnxEmbeddingForwardPass.outputContract` reports it via an override
 /// (design D-T2) rather than the descriptor declaring it upfront.
 class OrtIoSpec {
@@ -42,7 +43,9 @@ class OrtIoSpec {
   final List<String> inputNames;
 
   /// The output tensor name [OrtClient.run] reads. Preference order:
-  /// `sentence_embedding` > `last_hidden_state` > the first declared output.
+  /// `sentence_embedding` > `pooler_output` > `last_hidden_state` > the first
+  /// declared output. See [pickOnnxOutputIndex] for why `pooler_output` ranks
+  /// above the hidden states, and what that costs a BertModel export.
   final String outputName;
 
   /// True when [outputName] is `last_hidden_state` (rank-3 per-token hidden

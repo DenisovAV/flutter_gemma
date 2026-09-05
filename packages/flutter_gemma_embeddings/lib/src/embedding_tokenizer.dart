@@ -141,8 +141,9 @@ List<int> encodeForSiglipEmbedding(
   // Truncate the CONTENT to leave room for the EOS, rather than appending it
   // and cutting it back off — the reference (`tokenizers` with
   // `enable_truncation(64)`, and DJL's `LONGEST_FIRST` default, which is what
-  // the glasses run) keeps `<eos>` at index 63 on a long input. Appending first
-  // silently dropped it and cost cosine 0.9683 on inputs over the width.
+  // the reference Android app runs) keeps `<eos>` at index 63 on a long input.
+  // Appending first silently dropped it and cost cosine 0.9683 on inputs over
+  // the width.
   final content = tokenizer.encode(text.toLowerCase()).ids;
   final ids = <int>[...content.take(siglipSeqLen - 1), siglipEosId];
   return [...ids, ...List<int>.filled(siglipSeqLen - ids.length, siglipPadId)];

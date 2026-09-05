@@ -59,6 +59,17 @@ class CodelabsPage extends StatelessComponent {
       accent: Brand.blue,
     ),
     _Codelab(
+      title: 'Swapping Inference Engines in Flutter: LiteRT-LM, MediaPipe, and ONNX',
+      blurb:
+          'Engines are opt-in packages registered at startup. Declare a file '
+          'type, let the registry pick the runtime, and run the same '
+          'inference code on a different engine — or on no model file at all.',
+      duration: '45 min',
+      level: 'Intermediate',
+      tags: ['engines', 'MediaPipe', 'ONNX'],
+      accent: Brand.green,
+    ),
+    _Codelab(
       title: 'Multimodal Inference in Flutter: Vision and Audio on Device',
       blurb:
           'Send images and audio to Gemma 3n and Gemma 4, and learn which '

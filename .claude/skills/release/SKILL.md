@@ -44,6 +44,8 @@ silently do the other thing.
 [ ] 5b  manifest gate RUN and printed "N platform(s) compared" — N == number of tarballs
 [ ] 1e  core public API changed? → upgrade-genkit (realign + version), else N/A
 [ ] 1f  shared code duplicated across satellites patched everywhere (grep the pattern)
+[ ] 1f-bis  tool/check_macos_podfile_snippet.sh passes (5 copies of the macOS
+        post_install snippet identical) — RUN it, do not eyeball
 [ ] 1g  each changed satellite's flutter_gemma: floor >= the core version it now needs
 [ ] 2   versions bumped: pubspec + podspec (if any) + CLAUDE.md Current-Version line
 [ ] 7   CHANGELOG: one short line per package, every published package
@@ -197,6 +199,24 @@ Shared-code hotspots to sweep, per fix type:
   `s.version`, min-iOS/osx, dep pins, `vtool` minos on any bundled dylib — and the
   three `Package.swift` (core ios, core macos, builtin_ai darwin), whose platform
   floors must match their podspec.
+- **macOS `post_install` snippet** — the SAME block lives in FIVE places: the
+  three `packages/*/example/macos/Podfile`, the core `README.md` (the pub.dev
+  page users copy from) and `website/content/docs/desktop.md`. Do not diff them
+  by eye:
+  ```bash
+  tool/check_macos_podfile_snippet.sh   # exits 1 and names the odd copy
+  ```
+  Why this one bites harder than the others: `pod install` freezes the block
+  into every app's `project.pbxproj`, and upgrading `flutter_gemma_litertlm`
+  does NOT re-run `pod install` (the package declares no macOS plugin, so
+  Flutter's tracked plugin set never changes). A fix landed in one copy never
+  reaches users who pasted another. When the check was added the copies had
+  already split into three vintages — the genkit example predated all of the
+  #300/#368 fixes, and the README copy was missing `input_paths`, so every app
+  built from it carried the #368 incremental-build bug. Keep the block a thin
+  shim that only locates and runs
+  `flutter_gemma_litertlm/tool/stage_macos_companions.sh`: logic that lives in
+  the snippet cannot be fixed by publishing a package (#457).
 - **FFI / web stubs** — `lib/**/*_stub.dart`: conditional-import signatures that
   `analyze`/`test` can't catch (web stub drift).
 

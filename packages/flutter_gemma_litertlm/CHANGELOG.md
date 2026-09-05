@@ -1,3 +1,6 @@
+## 1.6.2
+- Fix macOS companion staging: repoint the load command LiteRtLm actually carries instead of a hardcoded one (#457).
+
 ## 1.6.1
 - Docs: the README and library docs show the engine-carried resolver and the one-call `fromHuggingFace(repo)` install.
 

@@ -145,6 +145,17 @@ jobs:
         working-directory: packages/flutter_gemma/example
         run: flutter pub get
 
+      # The companion-staging script is covered by hermetic tests that are
+      # @TestOn('mac-os'): they build throwaway Mach-O files with clang and
+      # assert bundle closure. analyze-and-test runs on ubuntu and skips them,
+      # and the example builds below do NOT reproduce #457 — the example's
+      # build order never relocates the dependency before the phase runs, so
+      # the old hardcoded logic passed there too. This step is the only place
+      # in CI where the fix is actually executed.
+      - name: Test flutter_gemma_litertlm (macOS-only suites included)
+        working-directory: packages/flutter_gemma_litertlm
+        run: flutter test
+
       # Build twice: the macOS companion-dylib staging is patched by a
       # CocoaPods build phase that the always-out-of-date Flutter embed phase
       # clobbers. A single build masks the bug (the phase runs last on a clean

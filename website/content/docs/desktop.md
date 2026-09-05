@@ -151,13 +151,26 @@ post_install do |installer|
     flutter_additional_macos_build_settings(target)
   end
 
-  # flutter_gemma: bundle Apple accelerator dylibs as .framework bundles into
-  # Contents/Frameworks/ and re-point LiteRtLm.dylib's LC_LOAD_DYLIB reference.
+  # flutter_gemma: stage the upstream Apple companion dylibs into the built
+  # .app. `hook/build.dart` deliberately skips them from Native Assets on macOS
+  # (#247 — Google ships them without `-Wl,-headerpad_max_install_names`, so the
+  # JIT bundling path cannot rewrite their install_name), which leaves this
+  # build phase to stage them.
+  #
+  # The phase only LOCATES and RUNS a script; the staging logic itself lives in
+  # flutter_gemma_litertlm and is delivered next to the dylibs it stages. That
+  # is deliberate: this block is frozen into your Xcode project, and a copy of
+  # the logic frozen there cannot be fixed by upgrading the package.
   installer.aggregate_targets.each do |aggregate_target|
     aggregate_target.user_targets.each do |user_target|
       phase_name = '[flutter_gemma] Setup LiteRT-LM macOS'
 
       # Only the app target embeds the Frameworks/ this phase patches.
+      # RunnerTests inherits Runner's framework search paths and has no
+      # Contents/Frameworks of its own — having the phase there creates a
+      # cross-target dependency on Runner's framework output that Xcode reports
+      # as "Cycle inside Flutter Assemble" (#300). Remove any stale copy from
+      # non-app targets and skip them.
       unless user_target.name == 'Runner'
         user_target.build_phases
           .select { |p| p.respond_to?(:name) && p.name == phase_name }
@@ -167,64 +180,28 @@ post_install do |installer|
 
       existing = user_target.shell_script_build_phases.find { |p| p.name == phase_name }
       phase = existing || user_target.new_shell_script_build_phase(phase_name)
+      # The embedded LiteRtLm binary is an INPUT so the phase re-runs whenever
+      # Flutter's always-out-of-date `embed` phase re-copies the raw, unpatched
+      # binary over the patched one. Without it Xcode caches the phase after the
+      # first build and the second incremental build ships an unpatched
+      # LiteRtLm that fails dlopen at runtime (#368).
+      phase.input_paths = [
+        '$(BUILT_PRODUCTS_DIR)/$(PRODUCT_NAME).app/Contents/Frameworks/LiteRtLm.framework/Versions/A/LiteRtLm',
+      ]
+      # A declared output lets Xcode order the phase in its dependency graph
+      # instead of treating it as "runs every build with no outputs" — the other
+      # half of the cycle warning (#300). The script touches this file.
       phase.output_paths = ['$(DERIVED_FILE_DIR)/flutter_gemma_litertlm_macos.stamp']
       phase.shell_script = <<~SHELL
         set -e
-        FRAMEWORKS="${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Frameworks"
-        if [ ! -d "${FRAMEWORKS}" ]; then
-          exit 0
-        fi
-        for base in LiteRtMetalAccelerator LiteRtTopKMetalSampler GemmaModelConstraintProvider; do
-          rm -f "${FRAMEWORKS}/lib${base}.dylib"
-        done
-        # The Native Assets cache is where hook/build.dart puts these on
-        # `flutter pub get`, and it is the only source an app ever sees —
-        # the in-repo prebuilt/ ships in no package and is gitignored.
-        PLUGIN_PREBUILT="${HOME}/Library/Caches/flutter_gemma/native/macos_arm64"
-        if [ ! -f "${PLUGIN_PREBUILT}/libGemmaModelConstraintProvider.dylib" ]; then
-          echo "[flutter_gemma] ERROR: macOS companion dylibs not found at ${PLUGIN_PREBUILT}."
-          echo "  Run 'flutter clean && flutter pub get' to repopulate the Native Assets cache."
+        STAGER="${HOME}/Library/Caches/flutter_gemma/native/macos_arm64/stage_macos_companions.sh"
+        if [ ! -f "${STAGER}" ]; then
+          echo "[flutter_gemma] ERROR: ${STAGER} not found." >&2
+          echo "  flutter_gemma_litertlm 1.6.2+ installs it there from its build hook." >&2
+          echo "  Upgrade the package, then: flutter clean && flutter pub get" >&2
           exit 1
         fi
-        for base in GemmaModelConstraintProvider LiteRtMetalAccelerator LiteRtTopKMetalSampler; do
-          src="${PLUGIN_PREBUILT}/lib${base}.dylib"
-          if [ ! -f "${src}" ]; then
-            echo "[flutter_gemma] WARNING: ${src} not found — runtime dlopen will fail"
-            continue
-          fi
-          fw_dir="${FRAMEWORKS}/${base}.framework"
-          mkdir -p "${fw_dir}/Versions/A/Resources"
-          cp "${src}" "${fw_dir}/Versions/A/${base}"
-          install_name_tool -id "@rpath/${base}.framework/Versions/A/${base}" \\
-            "${fw_dir}/Versions/A/${base}" 2>/dev/null || true
-          (cd "${fw_dir}" && ln -sfh A Versions/Current && ln -sfh "Versions/Current/${base}" "${base}" && ln -sfh "Versions/Current/Resources" Resources)
-          cat > "${fw_dir}/Versions/A/Resources/Info.plist" <<EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>CFBundleExecutable</key><string>${base}</string>
-  <key>CFBundleIdentifier</key><string>dev.flutterberlin.flutter_gemma.${base}</string>
-  <key>CFBundleVersion</key><string>1</string>
-  <key>CFBundleShortVersionString</key><string>1.0</string>
-  <key>CFBundlePackageType</key><string>FMWK</string>
-</dict>
-</plist>
-EOF
-          # Re-sign the framework binary: install_name_tool invalidated its
-          # code signature, and unlike LiteRtLm these companion frameworks are
-          # not re-signed by Xcode — an unsigned/modified page trips CODESIGNING
-          # "Invalid Page" at dlopen. Ad-hoc sign like LiteRtLm below.
-          codesign --force --sign - "${fw_dir}/Versions/A/${base}" 2>/dev/null || true
-        done
-        LITERTLM="${FRAMEWORKS}/LiteRtLm.framework/Versions/A/LiteRtLm"
-        if [ -f "${LITERTLM}" ]; then
-          install_name_tool -change \\
-            @rpath/libGemmaModelConstraintProvider.dylib \\
-            @rpath/GemmaModelConstraintProvider.framework/Versions/A/GemmaModelConstraintProvider \\
-            "${LITERTLM}" 2>/dev/null || true
-          codesign --force --sign - "${LITERTLM}" 2>/dev/null || true
-        fi
+        sh "${STAGER}" "${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Frameworks"
         mkdir -p "$(dirname "${SCRIPT_OUTPUT_FILE_0}")"
         touch "${SCRIPT_OUTPUT_FILE_0}"
       SHELL

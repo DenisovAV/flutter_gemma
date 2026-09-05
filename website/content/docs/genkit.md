@@ -20,13 +20,13 @@ with the on-device model exactly as it would with any cloud provider.
 
 ```
 dependencies:
-  genkit_flutter_gemma: ^0.5.0
+  genkit_flutter_gemma: ^0.6.0
   flutter_gemma: ^1.7.1
   # Add the inference engine(s) you need:
   flutter_gemma_litertlm: ^1.6.2   # .litertlm models (mobile + desktop) + LiteRtEmbeddingBackend
   flutter_gemma_mediapipe: ^1.0.5  # .task / .bin models (mobile + web)
   # Optional — for embeddings (needs a backend, e.g. flutter_gemma_litertlm above):
-  flutter_gemma_embeddings: ^2.0.0
+  flutter_gemma_embeddings: ^2.1.0
 ```
 
 ### Setup
@@ -183,8 +183,8 @@ flutter_gemma and works with **any** pair of Genkit models.
 
 ```
 dependencies:
-  genkit_hybrid: ^0.2.0
-  genkit: ^0.15.1
+  genkit_hybrid: ^0.2.1
+  genkit: ^0.16.0
 ```
 
 ### Basic usage

@@ -1,7 +1,7 @@
 {
   "manifest_schema": "0.1.0",
   "repo": "litert-community/SmolLM3-3B",
-  "generated": "2026-08-24",
+  "generated": "2026-08-31",
   "generator": "make_manifest.py",
   "model": {
     "display_name": "SmolLM3-3B",
@@ -14,23 +14,27 @@
       "vision": false,
       "audio": false,
       "thinking": {
-        "declared": false
+        "declared": true,
+        "channel": {
+          "start": "<think>\n",
+          "end": "\n</think>"
+        }
       }
     }
   },
   "variants": [
     {
       "file": "SmolLM3-3B.litertlm",
-      "sha256": "a34da46f5697896c98a4d3b3dacddbc50487f8e35432b37b72e4fe38ed264bb4",
-      "size_bytes": 3108978688,
+      "sha256": "f9aa844c27f5ccfae9cb701c7ca63f2faba501ed187aacc85044b6200df15a37",
+      "size_bytes": 3109328112,
       "sections": [
         {
           "type": "LlmMetadataProto",
-          "size_bytes": 268
+          "size_bytes": 3318
         },
         {
-          "type": "SP_Tokenizer",
-          "size_bytes": 2260840
+          "type": "HF_Tokenizer_Zlib",
+          "size_bytes": 2608153
         },
         {
           "type": "TFLiteModel",
@@ -50,12 +54,12 @@
     },
     {
       "file": "SmolLM3-3B_q4_block32_ekv4096.litertlm",
-      "sha256": "38d7bf55e243f5a95d8b16c21b1f7ef7debe6ce6bb2ddb66eb54f4bc2be8e6eb",
+      "sha256": "2d989ddf434a25682e580eb45dcf65c2cbd6a57f76278b8f651a8cf195c2273e",
       "size_bytes": 2002257840,
       "sections": [
         {
           "type": "LlmMetadataProto",
-          "size_bytes": 142
+          "size_bytes": 2580
         },
         {
           "type": "HF_Tokenizer_Zlib",

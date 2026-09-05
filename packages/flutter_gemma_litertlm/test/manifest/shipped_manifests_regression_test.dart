@@ -1,11 +1,17 @@
 // Runs the resolver over a snapshot of EVERY live manifest the
-// hf-to-litertlm converter had shipped as of 2026-08-27 (21 repos, 35
+// hf-to-litertlm converter had shipped as of 2026-09-02 (28 repos, 51
 // variants — fixtures/README.md regenerates it), across every platform key
 // core can send and every backend hint. Guards the resolver against the real
-// published data: the invariants hold for all ~670 combinations, the golden
-// rows pin the v0.1 selection algorithm to the reference readers' output, and
-// the dataset-shape counts fail loudly if regenerated fixtures change the
-// distributions the mapping decisions were made against.
+// published data: the invariants hold for all 896 combinations, every one of
+// them is pinned to the reference reader's selection
+// (fixtures/reference_goldens.json), and the dataset-shape counts fail loudly
+// if regenerated fixtures change the distributions the mapping decisions were
+// made against.
+//
+// Offline by design: the fixtures are committed and the resolver's fetch seam
+// is fed from them, so nothing here touches the network. The opt-in live leg
+// (live_hugging_face_test.dart) is what checks the snapshot against Hugging
+// Face.
 @TestOn('vm')
 library;
 
@@ -45,13 +51,22 @@ String _wire(PreferredBackend b) => switch (b) {
   PreferredBackend.npu => 'npu',
 };
 
+/// Key of a row in fixtures/reference_goldens.json — same shape the
+/// regeneration dump in fixtures/README.md writes.
+String _goldenKey(String repo, String? platform, PreferredBackend? hint) =>
+    '$repo|${platform ?? "-"}|${hint == null ? "-" : _wire(hint)}';
+
 void main() {
   final dir = Directory('test/manifest/fixtures');
   final fixtures =
       dir
           .listSync()
           .whereType<File>()
-          .where((f) => f.path.endsWith('.json'))
+          .where(
+            (f) =>
+                f.path.endsWith('.json') &&
+                !f.path.endsWith('reference_goldens.json'),
+          )
           .toList()
         ..sort((a, b) => a.path.compareTo(b.path));
 
@@ -69,16 +84,16 @@ void main() {
     fetch: (url, headers) async => jsonEncode(byRepo[repo]),
   ).resolve(repo, platform: platform, preferredBackend: hint);
 
-  test('the snapshot has the documented shape (21 repos, 35 variants)', () {
-    expect(byRepo.length, 21);
+  test('the snapshot has the documented shape (28 repos, 51 variants)', () {
+    expect(byRepo.length, 28);
     final variants = byRepo.values
         .expand((m) => m['variants'] as List)
         .cast<Map<String, dynamic>>()
         .toList();
-    expect(variants.length, 35);
-    // The common case is NO recommended rows — 21 of 35 variants — so the
+    expect(variants.length, 51);
+    // The common case is NO recommended rows — 32 of 51 variants — so the
     // default_backend fallback is the resolver's main path, not an edge.
-    expect(variants.where((v) => v['recommended'] == null).length, 21);
+    expect(variants.where((v) => v['recommended'] == null).length, 32);
     // Every published variant carries the integrity pair.
     for (final v in variants) {
       expect(v['sha256'], matches(RegExp(r'^[0-9a-f]{64}$')));
@@ -109,13 +124,14 @@ void main() {
           final where = '$repo p=$platform hint=$hint';
 
           // The chosen file is one of the repo's variants, addressed at the
-          // repo's own /resolve/ path.
+          // repo's own /resolve/ path (encoded per segment, as core's
+          // fromHuggingFace does).
           final variant = variantsByFile[r.file];
           expect(variant, isNotNull, reason: where);
           expect(
             r.url,
             'https://huggingface.co/$repo/resolve/main/'
-            '${Uri.encodeComponent(r.file)}',
+            '${r.file.split('/').map(Uri.encodeComponent).join('/')}',
             reason: where,
           );
 
@@ -187,73 +203,63 @@ void main() {
         }
       }
     }
-    expect(combinations, 21 * _platforms.length * _hints.length);
+    expect(combinations, 28 * _platforms.length * _hints.length);
   });
 
-  test(
-    'golden selections match the reference readers (v0.1 algorithm)',
-    () async {
-      // Derived by running the hf-to-litertlm readers/dart reference reader
-      // over the same fixtures. Notable: Qwen3-4B on android has NO android
-      // recommendation, so it falls through to smallest-file + default_backend
-      // — while ios/macos rows pick the recommended block-128 file.
-      const goldens = {
-        ('litert-community/LFM2.5-1.2B-Instruct', 'android'): (
-          'LFM2.5-1.2B-Instruct_int4.litertlm',
-          PreferredBackend.cpu,
-        ),
-        ('litert-community/LFM2.5-1.2B-Instruct', 'ios'): (
-          'LFM2.5-1.2B-Instruct_int4.litertlm',
-          PreferredBackend.cpu,
-        ),
-        ('litert-community/LFM2.5-1.2B-Instruct', 'macos'): (
-          'LFM2.5-1.2B-Instruct_int4_gpu.litertlm',
-          PreferredBackend.gpu,
-        ),
-        ('litert-community/Qwen3-4B-Thinking-2507', 'android'): (
-          'Qwen3_4b_thinking_dynamic_wi4b32_afp32.litertlm',
-          PreferredBackend.gpu,
-        ),
-        ('litert-community/Qwen3-4B-Thinking-2507', 'ios'): (
-          'model.litertlm',
-          PreferredBackend.gpu,
-        ),
-        ('litert-community/Qwen3-4B-Thinking-2507', 'macos'): (
-          'model.litertlm',
-          PreferredBackend.gpu,
-        ),
-        ('litert-community/SmolLM3-3B', 'android'): (
-          'SmolLM3-3B_q4_block32_ekv4096.litertlm',
-          PreferredBackend.gpu,
-        ),
-        ('mlboydaisuke/S1-mini-LiteRT', 'macos'): (
-          'S1-mini_int8.litertlm',
-          PreferredBackend.cpu,
-        ),
-      };
-      for (final entry in goldens.entries) {
-        final (repo, platform) = entry.key;
-        final (file, backend) = entry.value;
-        final r = await resolve(repo, platform: platform);
-        expect(r.file, file, reason: '$repo on $platform');
-        expect(
-          r.runtime.preferredBackend,
-          backend,
-          reason: '$repo on $platform',
-        );
+  test('every combination matches the reference reader '
+      '(fixtures/reference_goldens.json)', () async {
+    // Generated by running the hf-to-litertlm readers/dart reference reader
+    // over the same fixtures (fixtures/README.md). Two rows worth knowing
+    // when reading a mismatch: Qwen3-4B-Thinking has NO android
+    // recommendation, so android falls through to smallest-file +
+    // default_backend — (block-32 file, cpu) since the 08-31 reship moved
+    // that file's default off GPU — while ios/macos pick the recommended
+    // block-128 file on gpu.
+    final goldens =
+        jsonDecode(
+              File(
+                'test/manifest/fixtures/reference_goldens.json',
+              ).readAsStringSync(),
+            )
+            as Map<String, dynamic>;
+    expect(goldens.length, 28 * _platforms.length * _hints.length);
+
+    final mismatches = <String>[];
+    for (final repo in byRepo.keys) {
+      for (final platform in _platforms) {
+        for (final hint in _hints) {
+          final key = _goldenKey(repo, platform, hint);
+          final golden = goldens[key] as Map<String, dynamic>?;
+          expect(
+            golden,
+            isNotNull,
+            reason: 'no reference row for $key — regenerate the goldens',
+          );
+          final r = await resolve(repo, platform: platform, hint: hint);
+          final backend = _wire(r.runtime.preferredBackend!);
+          if (r.file != golden!['file'] || backend != golden['backend']) {
+            mismatches.add(
+              '$key: resolver=(${r.file}, $backend) '
+              'reference=(${golden['file']}, ${golden['backend']})',
+            );
+          }
+        }
       }
-    },
-  );
+    }
+    expect(mismatches, isEmpty, reason: mismatches.join('\n'));
+  });
 
   test('session_defaults distribution: the floor is set exactly where the '
       'published data sets it', () async {
     const withFloor = {
       'litert-community/DeepSeek-R1-Distill-Qwen-7B',
+      'litert-community/Falcon-H1-Tiny-R-0.6B',
       'litert-community/LFM2.5-1.2B-Thinking',
       'litert-community/LFM2.5-2.6B',
       'litert-community/Nanbeige4.2-3B',
       'litert-community/Qwen3-4B-Thinking-2507',
       'litert-community/VibeThinker-3B',
+      'litert-community/granite-4.2-3b',
     };
     for (final repo in byRepo.keys) {
       final r = await resolve(repo);
@@ -282,19 +288,31 @@ void main() {
       // Qwen2ForCausalLM class token.
       'litert-community/VibeThinker-3B': ModelType.qwen,
       // Everything else — LFM2.5, granite, SmolLM/SmolVLM, Ministral,
-      // Nanbeige, Nemotron — has no ModelType, and prose like
-      // "Llama-architecture granite decoder" must not create one.
+      // Nanbeige, Nemotron, Falcon-H1, HunYuan-MT, Shieldstral — has no
+      // ModelType, and prose like "Llama-architecture granite decoder" must
+      // not create one.
       'litert-community/LFM2.5-1.2B-Instruct': null,
       'litert-community/LFM2.5-1.2B-JP': null,
       'litert-community/LFM2.5-1.2B-Thinking': null,
       'litert-community/LFM2.5-2.6B': null,
+      'litert-community/LFM2.5-230M': null,
       'litert-community/Ministral-3-3B-Instruct-2512': null,
       'litert-community/Nanbeige4.2-3B': null,
       'litert-community/Nemotron-3-Nano-4B': null,
       'litert-community/SmolLM3-3B': null,
       'litert-community/SmolVLM2-500M': null,
+      'litert-community/Falcon-H1-Tiny-R-0.6B': null,
+      'litert-community/Hy-MT2-1.8B': null,
+      'litert-community/Shieldstral-1.0-3B': null,
+      'litert-community/granite-4.0-h-350m': null,
+      'litert-community/granite-4.2-3b': null,
       'litert-community/granite-docling-258M': null,
       'mlboydaisuke/Mordant-3B-Think-LiteRT': null,
+      // A Qwen3.5 finetune whose id drops the family and whose architecture
+      // names it only in prose ("Qwen3.5-0.8B gated-delta hybrid …"): the
+      // conservative mapping returns null rather than guess — the app
+      // supplies the type (`r.modelType ?? ModelType.general`).
+      'mlboydaisuke/OvisOCR2-LiteRT': null,
       'mlboydaisuke/Tashkeel-350M-v2-LiteRT': null,
     };
     expect(expected.length, byRepo.length);
@@ -304,15 +322,22 @@ void main() {
     }
   });
 
-  test('thinking is declared by exactly the 8 repos that declare it, with '
+  test('thinking is declared by exactly the 15 repos that declare it, with '
       'their markers intact in the manifest', () async {
     const thinkingRepos = {
+      'litert-community/DeepSeek-R1-Distill-Qwen-7B',
+      'litert-community/Falcon-H1-Tiny-R-0.6B',
       'litert-community/LFM2.5-1.2B-Instruct',
       'litert-community/LFM2.5-1.2B-JP',
       'litert-community/LFM2.5-1.2B-Thinking',
       'litert-community/LFM2.5-2.6B',
+      'litert-community/LFM2.5-230M',
+      'litert-community/Nanbeige4.2-3B',
+      'litert-community/Nemotron-3-Nano-4B',
       'litert-community/Qwen3-4B-Thinking-2507',
+      'litert-community/SmolLM3-3B',
       'litert-community/VibeThinker-3B',
+      'litert-community/granite-4.2-3b',
       'mlboydaisuke/Mordant-3B-Think-LiteRT',
       'mlboydaisuke/S1-mini-LiteRT',
     };

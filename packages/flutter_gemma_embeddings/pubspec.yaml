@@ -1,6 +1,6 @@
 name: flutter_gemma_embeddings
 description: "Runtime-agnostic on-device text embedding pipeline (tokenization, isolate worker, pooling/normalization) for flutter_gemma. Pair with an engine package (e.g. flutter_gemma_litertlm) for a concrete EmbeddingBackendProvider."
-version: 2.0.0
+version: 2.1.0
 homepage: https://fluttergemma.dev
 repository: https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_gemma_embeddings
 topics: [embeddings, gemma, litert, rag, on-device]
@@ -26,7 +26,13 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_gemma: ^1.5.9
-  dart_sentencepiece_tokenizer: ^1.3.0
+  # Upper bound is deliberate, not laziness. 1.3.3 carries the list-form
+  # `merges` parser SigLIP2's tokenizer.json needs (upstream #26). 1.4.0 then
+  # ADDED `pre_tokenizer` validation without a `Split` case and now rejects that
+  # same file — a compatibility regression, reported upstream. `^1.3.3` would
+  # resolve to it and break the SigLIP2 profile on any fresh `pub get`. Relax to
+  # `^1.3.3` once a release accepts `Split` again.
+  dart_sentencepiece_tokenizer: ">=1.3.3 <1.4.0"
 
 dev_dependencies:
   flutter_test:

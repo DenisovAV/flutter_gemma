@@ -37,15 +37,20 @@
 // ignore_for_file: prefer_initializing_formals
 //
 // Deliberately NO `dart:io` import: this file is web-safe (imported directly
-// by `flutter_gemma_onnx`'s web embedding arm — ONNX web PR, `feat/onnx-web`
-// — which cannot pull in `dart:io` at all). The `fromPath` File-based loader
-// that used to live here was unused anywhere in the repo (only
-// `fromJsonString`/`isWordPieceJson` are called, by
-// `flutter_gemma_onnx`'s `onnx_tokenizer_loader.dart`) and was removed for
-// exactly that reason — a native caller with an on-disk path reads the file
-// itself (`File(path).readAsString()`) and calls [fromJsonString].
+// by `flutter_gemma_onnx`'s web embedding arm), and an unconditional
+// `import 'dart:io'` makes a whole library uncompilable for web. [fromPath]
+// still needs to read a file, so it goes through the `readTextFile` seam below
+// — the same `if (dart.library.…)` technique the ONNX web PR used for its own
+// barrel split.
+//
+// #449 solved the same problem by DELETING `fromPath`, which silently removed a
+// method that had already shipped in published 2.0.0 two days earlier. The seam
+// is what that deletion should have been.
 
 import 'dart:convert';
+
+import 'io/read_text_file_stub.dart'
+    if (dart.library.io) 'io/read_text_file_io.dart';
 
 import 'tokenizer_adapter.dart';
 
@@ -98,6 +103,20 @@ class WordPieceEmbeddingTokenizer implements EmbeddingTokenizer {
     final model = json['model'];
     return model is Map && model['type'] == 'WordPiece';
   }
+
+  /// Load a WordPiece tokenizer from a HuggingFace `tokenizer.json` at [path].
+  ///
+  /// [path] must be an ABSOLUTE filesystem path — not a Flutter asset key
+  /// (`File` knows nothing about `AssetBundle`) and not a bundle-relative name.
+  /// Under the macOS/iOS App Sandbox a path outside the app container needs an
+  /// active security-scoped bookmark, or the read fails with a permission error
+  /// for a file the user can see in Finder.
+  ///
+  /// Native only — on web this throws [UnsupportedError], because a browser has
+  /// no on-disk path to read. Fetch the file yourself there and use
+  /// [fromJsonString].
+  static Future<WordPieceEmbeddingTokenizer> fromPath(String path) async =>
+      fromJsonString(await readTextFile(path));
 
   /// Parse a WordPiece tokenizer from the raw `tokenizer.json` [content].
   static WordPieceEmbeddingTokenizer fromJsonString(String content) {

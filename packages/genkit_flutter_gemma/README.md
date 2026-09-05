@@ -1,6 +1,6 @@
 # genkit_flutter_gemma
 
-Genkit Dart plugin for [flutter_gemma](https://pub.dev/packages/flutter_gemma) — local on-device AI inference via Google Gemma and other supported models.
+Genkit Dart plugin for [flutter_gemma](https://pub.dev/packages/flutter_gemma) — local, on-device LLM inference (Gemma, Qwen, Phi, DeepSeek, and more), fully offline.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/DenisovAV/flutter_gemma/main/packages/genkit_flutter_gemma/assets/cover.jpeg" alt="genkit_flutter_gemma_cover">
@@ -12,7 +12,7 @@ Genkit Dart plugin for [flutter_gemma](https://pub.dev/packages/flutter_gemma) �
 - Supports text generation (blocking and streaming)
 - Embeddings via `FlutterGemmaEmbedder`
 - Multimodal input (images, audio) — supports `data:` URIs, `file://` paths, and `http(s)://` URLs
-- Function calling / tool use with `toolChoice` control (`auto`, `required`, `none`) — honors Genkit 0.15's native top-level `toolChoice`
+- Function calling / tool use with `toolChoice` control (`auto`, `required`, `none`) — honors Genkit's native top-level `toolChoice`
 - Parallel tool calls — multiple function calls in a single model response
 - Structured JSON output — pass an `outputSchema`, read the parsed object from `response.output`
 - Context-window trimmer middleware (`trimContext`) — drops oldest turns to fit the on-device KV budget

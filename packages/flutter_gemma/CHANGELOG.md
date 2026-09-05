@@ -1,5 +1,12 @@
-## 1.6.6
+## 1.7.2
 - Fix web sessions failing right after install because the active model was only half-saved.
+
+## 1.7.1
+- macOS setup snippet is now a thin shim; the staging logic ships with `flutter_gemma_litertlm` (#457).
+- Drop the package-wide `kotlinx.coroutines` keep from the Android consumer rules so R8 can shrink them (#486).
+
+## 1.7.0
+- Hugging Face install (#454): `resolveHuggingFace` / one-call `installModel(…).fromHuggingFace(repo)`, with engines auto-registering their resolver.
 
 ## 1.6.5
 - Tool-declaration injection is a declarative `InferenceChat` flag, not a hardcoded gemma4 check (no behavior change).

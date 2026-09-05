@@ -40,6 +40,33 @@ jobs:
           dart pub get
           jaspr build --sitemap-domain "https://fluttergemma.dev"
 
+      - name: Export codelabs (claat static export → /codelabs)
+        # Codelab sources: website/codelabs/<id>/index.md → self-contained HTML
+        # under /codelabs/<id>/, served static (NOT rendered through Jaspr, so
+        # bash/yaml/xml fences that break Jaspr's CodeBlock are fine). Native
+        # linux claat from the official release, PINNED BY SHA-256: a git tag is
+        # mutable, and this job holds the Firebase deploy secret, so the bytes
+        # are verified before the binary is made executable or run.
+        working-directory: website
+        env:
+          CLAAT_URL: https://github.com/googlecodelabs/tools/releases/download/v2.2.6/claat-linux-amd64
+          CLAAT_SHA256: b7415471bd823562ebd9e6015e267a12fbf9340dfe839f8e2a175b6c7c0f397a
+        run: |
+          curl -fL --retry 3 -o "$RUNNER_TEMP/claat" "$CLAAT_URL"
+          echo "$CLAAT_SHA256  $RUNNER_TEMP/claat" | sha256sum -c -
+          chmod +x "$RUNNER_TEMP/claat"
+          mkdir -p build/jaspr/codelabs
+          for src in codelabs/*/index.md; do
+            [ -e "$src" ] || continue
+            "$RUNNER_TEMP/claat" export -o build/jaspr/codelabs "$src"
+          done
+          # Guard against an empty glob / wrong cwd / claat emitting nothing —
+          # a green build that shipped zero codelabs would 404 the live page.
+          if [ -z "$(find build/jaspr/codelabs -name index.html -print -quit)" ]; then
+            echo "ERROR: no codelab HTML produced under build/jaspr/codelabs" >&2
+            exit 1
+          fi
+
       - name: Build Flutter web example (live demo at /try)
         working-directory: packages/flutter_gemma/example
         run: |

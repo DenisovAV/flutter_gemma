@@ -355,6 +355,39 @@ void main() {
       await modelA.close();
     },
   );
+
+  test(
+    'getActiveModel(defaults:) threads the merged runtime into RuntimeConfig',
+    () async {
+      // Guards the actual wiring, not just the pure mergeRuntimeDefault helper:
+      // a refactor that computes eff* and then passes the raw params to
+      // createModel would keep the unit test green but be caught here.
+      final engine = await installWithGatedEngine();
+      engine.release();
+
+      // Manifest defaults with no explicit args → merged values reach the engine.
+      final m1 = await FlutterGemma.getActiveModel(
+        defaults: const ModelRuntimeDefaults(
+          maxTokens: 2048,
+          supportImage: true,
+          preferredBackend: PreferredBackend.gpu,
+        ),
+      );
+      expect(engine.configs.last.maxTokens, 2048);
+      expect(engine.configs.last.supportImage, isTrue);
+      expect(engine.configs.last.preferredBackend, PreferredBackend.gpu);
+
+      // Explicit argument wins over the manifest default (and rebuilds).
+      final m2 = await FlutterGemma.getActiveModel(
+        maxTokens: 512,
+        defaults: const ModelRuntimeDefaults(maxTokens: 2048),
+      );
+      expect(engine.configs.last.maxTokens, 512);
+      expect(identical(m1, m2), isFalse);
+
+      await FlutterGemmaPlugin.instance.initializedModel?.close();
+    },
+  );
 }
 
 /// An engine whose createModel blocks until [release] is called, so a test can

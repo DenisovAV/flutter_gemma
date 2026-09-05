@@ -20,13 +20,13 @@ with the on-device model exactly as it would with any cloud provider.
 
 ```
 dependencies:
-  genkit_flutter_gemma: ^0.5.0
-  flutter_gemma: ^1.6.5
+  genkit_flutter_gemma: ^0.6.0
+  flutter_gemma: ^1.7.1
   # Add the inference engine(s) you need:
-  flutter_gemma_litertlm: ^1.5.3   # .litertlm models (mobile + desktop) + LiteRtEmbeddingBackend
+  flutter_gemma_litertlm: ^1.6.2   # .litertlm models (mobile + desktop) + LiteRtEmbeddingBackend
   flutter_gemma_mediapipe: ^1.0.5  # .task / .bin models (mobile + web)
   # Optional — for embeddings (needs a backend, e.g. flutter_gemma_litertlm above):
-  flutter_gemma_embeddings: ^2.0.0
+  flutter_gemma_embeddings: ^2.1.0
 ```
 
 ### Setup
@@ -183,8 +183,8 @@ flutter_gemma and works with **any** pair of Genkit models.
 
 ```
 dependencies:
-  genkit_hybrid: ^0.1.1
-  genkit: ^0.15.1
+  genkit_hybrid: ^0.2.1
+  genkit: ^0.16.0
 ```
 
 ### Basic usage
@@ -220,6 +220,8 @@ final response = await ai.generate(model: smart, prompt: 'Hello!');
 | `FallbackStrategy(order)` | fixed priority order — `kOnDevice` first or `kCloud` first |
 | `ConnectivityStrategy(...)` | network availability |
 | `InputSizeStrategy(...)` | prompt length |
+| `CapabilityStrategy(supports: {...})` | the capabilities a request needs — vision / audio / tools / json — routing to branches that declare them |
+| `CostStrategy(budgetAvailable:, premium:, cheap:)` | a budget signal — the premium branch while the budget holds, the cheap branch once it's spent |
 | `FirstMatch([...])` | first child strategy that decides (chain of rules) |
 | `WithFallback(s, fallbackOrder: order)` | any strategy's pick + a guaranteed fallback tail |
 
@@ -253,12 +255,79 @@ hybridModelOnDeviceCloud(
 );
 ```
 
+### Route by required capabilities
+
+`CapabilityStrategy` inspects what the request actually needs — an image or
+audio part, tool definitions, or JSON output — and keeps only the branches that
+declare those capabilities (or `[]` when none qualifies, so compose it with
+`WithFallback`). Capabilities are declared explicitly per branch; nothing is
+inferred from model metadata.
+
+```dart
+final smart = hybridModel(
+  branches: {'onDevice': onDeviceModel, 'cloud': cloudModel},
+  strategy: WithFallback(
+    CapabilityStrategy(supports: {
+      'onDevice': {},                                   // text only
+      'cloud': {ModelCapability.vision, ModelCapability.tools},
+    }),
+    fallbackOrder: ['cloud'],
+  ),
+);
+```
+
+A plain-text request can use either branch; a request carrying an image or tool
+definitions is routed to `cloud`, the only branch that declares those
+capabilities.
+
+### Budget-gate a paid branch
+
+`CostStrategy` sends traffic to a premium branch only while an app-supplied
+budget signal holds, and falls back to the cheap branch once it's spent. Your
+app owns the accounting (running spend, a daily cap, a quota) and reduces it to
+one `bool` — the package depends on no billing SDK.
+
+```dart
+hybridModel(
+  branches: {'onDevice': onDeviceModel, 'cloud': cloudModel},
+  strategy: CostStrategy(
+    budgetAvailable: () => spend.today < dailyCap,
+    premium: 'cloud',
+    cheap: 'onDevice',
+  ),
+);
+```
+
 ### Streaming and fallback
 
 Fallback during streaming happens **only before the first token**. If a branch
 fails before emitting any output, the next branch is tried transparently. Once
 the first token has streamed, a later failure propagates as an error — a
 partially delivered response cannot be silently re-routed.
+
+### Escalate on a quality check with `cascadeModel`
+
+`cascadeModel` is a `Model` (not a strategy): it runs branches in order and
+escalates to the next one only when your `accept` predicate rejects the
+response — "try the cheap on-device model; go to the cloud only if the answer
+isn't good enough". `accept` is any check you like (a length or regex test, a
+JSON-parses check) and may be async, e.g. an LLM-as-judge.
+
+```dart
+import 'package:genkit_hybrid/genkit_hybrid.dart';
+
+final smart = cascadeModel(
+  branches: {'onDevice': onDeviceModel, 'cloud': cloudModel},
+  order: ['onDevice', 'cloud'],
+  accept: (r) => r.text.trim().length > 20,
+);
+
+final response = await ai.generate(model: smart, prompt: 'Explain quantum tunnelling.');
+```
+
+> **`cascadeModel` is non-streaming in v1.** A quality verdict needs the whole
+> response, and a streamed response can't be un-sent, so a streaming request is
+> run non-streamed and the accepted response is emitted as a single final chunk.
 
 <Info>
 `genkit_hybrid` works with **any** Genkit models, not just flutter_gemma. You

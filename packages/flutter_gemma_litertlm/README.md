@@ -27,6 +27,52 @@ await FlutterGemma.initialize(
 other engines (e.g. `MediaPipeEngine` from `flutter_gemma_mediapipe`) if your app
 uses both formats.
 
+## Install from a Hugging Face repo (`litertlm_manifest.json`)
+
+Repos that ship a
+[`litertlm_manifest.json`](https://github.com/john-rocky/hf-to-litertlm/blob/main/manifest/SCHEMA.md)
+deployment manifest describe every `.litertlm` file they contain — which
+backends each is verified on, which file a given platform should pick, sha256/
+size identity, and session guidance. `LitertlmManifestResolver` reads it so an
+app installs "the right file for this device" without hardcoding filenames:
+
+```dart
+import 'dart:math' show max;
+
+// LiteRtLmEngine carries this resolver, so registering the engine registers
+// it too. Pass huggingFaceResolvers: only to override — e.g.
+// [LitertlmManifestResolver(revision: 'abc123')] to pin a commit.
+await FlutterGemma.initialize(inferenceEngines: [LiteRtLmEngine()]);
+
+final r = await FlutterGemma.resolveHuggingFace(
+    'litert-community/Qwen3-4B-Thinking-2507',
+    fileType: ModelFileType.litertlm);
+await FlutterGemma.installModel(
+      modelType: r.modelType ?? ModelType.general,
+      fileType: r.fileType,
+    )
+    .fromNetwork(r.url) // authoritative: carries the resolver's revision pin
+    .install();
+final model = await FlutterGemma.getActiveModel(defaults: r.runtime);
+final session = await model.createSession(
+  enableThinking: r.runtime.isThinking ?? false,
+  // minOutputTokens is a floor, not a cap: keep the app's own budget unless
+  // the manifest asks for more.
+  maxOutputTokens: max(1024, r.runtime.minOutputTokens ?? 0),
+);
+```
+
+Everything the manifest returns is an overridable default (explicit argument >
+manifest > SDK default); `r.notes` carries platform caveats and known issues
+worth surfacing to developers. Repos without a manifest keep working through
+`installModel(...).fromHuggingFace(repo, file: ...)`.
+
+To resolve and install in one step, omit `file`: `fromHuggingFace(repo)` reads
+the manifest at install time, installs the revision-pinned variant, and returns
+the same defaults on `InferenceInstallation.runtime` (plus `notes`). The
+two-step form above stays the offline-safe one — manifest mode needs the network
+on every install, because the variant's filename is only known after the fetch.
+
 ## Embeddings
 
 ```dart

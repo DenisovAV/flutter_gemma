@@ -55,6 +55,25 @@ a different reason (so a catch-all embedding backend like
 `LiteRtEmbeddingBackend` never silently claims an `.onnx`/`.ort` file); its
 platform gate lives in `createModel` instead, as a loud `StateError`.
 
+### Which output the embedding path reads
+
+A session's outputs are preferred in the order `sentence_embedding` >
+`pooler_output` > `last_hidden_state` > first declared. The first two are
+already-pooled `[1, dim]` sentence embeddings and are copied verbatim; only
+`last_hidden_state` is per-token and gets mean-pooled. A graph exposing both
+`pooler_output` and `last_hidden_state` — SigLIP2's text tower does — would
+otherwise fall through to the per-token output and be pooled a second time.
+
+This is a heuristic on a name, and it is worth knowing where it stops being one.
+Optimum `feature-extraction` exports (`sentence-transformers/`, `Xenova/` MiniLM
+and friends) declare no `pooler_output` at all, so they are unaffected. A graph
+produced by exporting `BertModel` directly does declare one — BERT's tanh NSP
+pooler — and this preference will now read that instead of mean-pooling the
+hidden states. That head is not a sentence embedding and is not L2-normalized;
+if you export a BERT encoder yourself, export it for feature extraction, or
+strip the pooler. Which output to read is really a property of the model
+profile, not of the output's name, and should move there.
+
 Android needs **`minSdk 24`** — both the ORT and ORT-GenAI AARs declare
 `minSdkVersion=24`; raise your app's `android/app/build.gradle(.kts)`
 `minSdk` to 24 or higher if it's lower today. The device-verified Android
@@ -79,15 +98,48 @@ my-model/
 └── tokenizer files (tokenizer.json, tokenizer_config.json, …)
 ```
 
-`FlutterGemma.installModel()` currently downloads and tracks exactly one
-file per spec. `OnnxEngine.createModel` takes that tracked file's **parent
-directory** as the model directory, so v1 only works when the whole bundle
-already lives alongside it on disk (e.g. a directory you ship as an asset or
-pre-populate yourself) — not yet a real multi-file network install. Pointing
-`modelPath` at a directory missing `genai_config.json` fails loudly with a
-`StateError` naming the gap, rather than a confusing native error. Wiring a
-real multi-file bundle install (mirroring the TTS package's `artifactPaths`
-pattern) is a known follow-on.
+`OnnxEngine.createModel` takes that directory's `genai_config.json` and loads
+the **parent directory** as the model. There are two ways to get the directory
+onto the device.
+
+**From a Hugging Face repo (one call).** `OnnxHuggingFaceResolver` lists the
+repo's file tree, picks an execution-provider folder, and installs every file
+in it into a per-model subdirectory — so `fromHuggingFace(repo)` downloads the
+whole ORT-GenAI bundle. The resolver rides on `OnnxEngine` via
+`HuggingFaceResolverSource`, so registering the engine is enough:
+
+```dart
+await FlutterGemma.initialize(inferenceEngines: [OnnxEngine()]);
+
+final install = await FlutterGemma.installModel(
+  // ONNX repos declare no model family — the caller's modelType is used as-is.
+  modelType: ModelType.general,
+  fileType: ModelFileType.onnx, // selects the ONNX resolver
+).fromHuggingFace('microsoft/Phi-3.5-mini-instruct-onnx').install();
+```
+
+A repo that ships several EP variants (`cpu_and_mobile/…`, `cuda/…`) resolves
+to a **CPU/mobile** folder automatically — the bundled ORT-GenAI runtime is
+CPU-only, so a CPU/mobile folder is preferred over any GPU export. (A repo that
+ships *only* GPU variants still falls back to its GPU folder — flagged in
+`install.notes`, which records the chosen folder either way.) Pin a specific folder with
+`OnnxHuggingFaceResolver(variant: 'cpu_and_mobile/cpu-int4-…')` passed to
+`initialize(huggingFaceResolvers: [...])`; a pinned GPU variant is installed but
+flagged in `notes` as one the CPU-only runtime may fail to load.
+
+**From a local directory.** If you ship the bundle yourself (an asset, or a
+directory you pre-populate), point `fromFile` at its `genai_config.json`:
+
+```dart
+await FlutterGemma.installModel(
+  modelType: ModelType.general,
+  fileType: ModelFileType.onnx,
+).fromFile('/path/to/my-model/genai_config.json').install();
+```
+
+Either way, pointing `modelPath` at a directory missing `genai_config.json`
+fails loudly with a `StateError` naming the gap, rather than a confusing native
+error.
 
 ### `ORT_LIB_PATH` — you don't need to configure anything
 

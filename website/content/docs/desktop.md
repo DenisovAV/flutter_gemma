@@ -151,13 +151,26 @@ post_install do |installer|
     flutter_additional_macos_build_settings(target)
   end
 
-  # flutter_gemma: bundle Apple accelerator dylibs as .framework bundles into
-  # Contents/Frameworks/ and re-point LiteRtLm.dylib's LC_LOAD_DYLIB reference.
+  # flutter_gemma: stage the upstream Apple companion dylibs into the built
+  # .app. `hook/build.dart` deliberately skips them from Native Assets on macOS
+  # (#247 — Google ships them without `-Wl,-headerpad_max_install_names`, so the
+  # JIT bundling path cannot rewrite their install_name), which leaves this
+  # build phase to stage them.
+  #
+  # The phase only LOCATES and RUNS a script; the staging logic itself lives in
+  # flutter_gemma_litertlm and is delivered next to the dylibs it stages. That
+  # is deliberate: this block is frozen into your Xcode project, and a copy of
+  # the logic frozen there cannot be fixed by upgrading the package.
   installer.aggregate_targets.each do |aggregate_target|
     aggregate_target.user_targets.each do |user_target|
       phase_name = '[flutter_gemma] Setup LiteRT-LM macOS'
 
       # Only the app target embeds the Frameworks/ this phase patches.
+      # RunnerTests inherits Runner's framework search paths and has no
+      # Contents/Frameworks of its own — having the phase there creates a
+      # cross-target dependency on Runner's framework output that Xcode reports
+      # as "Cycle inside Flutter Assemble" (#300). Remove any stale copy from
+      # non-app targets and skip them.
       unless user_target.name == 'Runner'
         user_target.build_phases
           .select { |p| p.respond_to?(:name) && p.name == phase_name }
@@ -167,64 +180,28 @@ post_install do |installer|
 
       existing = user_target.shell_script_build_phases.find { |p| p.name == phase_name }
       phase = existing || user_target.new_shell_script_build_phase(phase_name)
+      # The embedded LiteRtLm binary is an INPUT so the phase re-runs whenever
+      # Flutter's always-out-of-date `embed` phase re-copies the raw, unpatched
+      # binary over the patched one. Without it Xcode caches the phase after the
+      # first build and the second incremental build ships an unpatched
+      # LiteRtLm that fails dlopen at runtime (#368).
+      phase.input_paths = [
+        '$(BUILT_PRODUCTS_DIR)/$(PRODUCT_NAME).app/Contents/Frameworks/LiteRtLm.framework/Versions/A/LiteRtLm',
+      ]
+      # A declared output lets Xcode order the phase in its dependency graph
+      # instead of treating it as "runs every build with no outputs" — the other
+      # half of the cycle warning (#300). The script touches this file.
       phase.output_paths = ['$(DERIVED_FILE_DIR)/flutter_gemma_litertlm_macos.stamp']
       phase.shell_script = <<~SHELL
         set -e
-        FRAMEWORKS="${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Frameworks"
-        if [ ! -d "${FRAMEWORKS}" ]; then
-          exit 0
-        fi
-        for base in LiteRtMetalAccelerator LiteRtTopKMetalSampler GemmaModelConstraintProvider; do
-          rm -f "${FRAMEWORKS}/lib${base}.dylib"
-        done
-        # The Native Assets cache is where hook/build.dart puts these on
-        # `flutter pub get`, and it is the only source an app ever sees —
-        # the in-repo prebuilt/ ships in no package and is gitignored.
-        PLUGIN_PREBUILT="${HOME}/Library/Caches/flutter_gemma/native/macos_arm64"
-        if [ ! -f "${PLUGIN_PREBUILT}/libGemmaModelConstraintProvider.dylib" ]; then
-          echo "[flutter_gemma] ERROR: macOS companion dylibs not found at ${PLUGIN_PREBUILT}."
-          echo "  Run 'flutter clean && flutter pub get' to repopulate the Native Assets cache."
+        STAGER="${HOME}/Library/Caches/flutter_gemma/native/macos_arm64/stage_macos_companions.sh"
+        if [ ! -f "${STAGER}" ]; then
+          echo "[flutter_gemma] ERROR: ${STAGER} not found." >&2
+          echo "  flutter_gemma_litertlm 1.6.2+ installs it there from its build hook." >&2
+          echo "  Upgrade the package, then: flutter clean && flutter pub get" >&2
           exit 1
         fi
-        for base in GemmaModelConstraintProvider LiteRtMetalAccelerator LiteRtTopKMetalSampler; do
-          src="${PLUGIN_PREBUILT}/lib${base}.dylib"
-          if [ ! -f "${src}" ]; then
-            echo "[flutter_gemma] WARNING: ${src} not found — runtime dlopen will fail"
-            continue
-          fi
-          fw_dir="${FRAMEWORKS}/${base}.framework"
-          mkdir -p "${fw_dir}/Versions/A/Resources"
-          cp "${src}" "${fw_dir}/Versions/A/${base}"
-          install_name_tool -id "@rpath/${base}.framework/Versions/A/${base}" \\
-            "${fw_dir}/Versions/A/${base}" 2>/dev/null || true
-          (cd "${fw_dir}" && ln -sfh A Versions/Current && ln -sfh "Versions/Current/${base}" "${base}" && ln -sfh "Versions/Current/Resources" Resources)
-          cat > "${fw_dir}/Versions/A/Resources/Info.plist" <<EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>CFBundleExecutable</key><string>${base}</string>
-  <key>CFBundleIdentifier</key><string>dev.flutterberlin.flutter_gemma.${base}</string>
-  <key>CFBundleVersion</key><string>1</string>
-  <key>CFBundleShortVersionString</key><string>1.0</string>
-  <key>CFBundlePackageType</key><string>FMWK</string>
-</dict>
-</plist>
-EOF
-          # Re-sign the framework binary: install_name_tool invalidated its
-          # code signature, and unlike LiteRtLm these companion frameworks are
-          # not re-signed by Xcode — an unsigned/modified page trips CODESIGNING
-          # "Invalid Page" at dlopen. Ad-hoc sign like LiteRtLm below.
-          codesign --force --sign - "${fw_dir}/Versions/A/${base}" 2>/dev/null || true
-        done
-        LITERTLM="${FRAMEWORKS}/LiteRtLm.framework/Versions/A/LiteRtLm"
-        if [ -f "${LITERTLM}" ]; then
-          install_name_tool -change \\
-            @rpath/libGemmaModelConstraintProvider.dylib \\
-            @rpath/GemmaModelConstraintProvider.framework/Versions/A/GemmaModelConstraintProvider \\
-            "${LITERTLM}" 2>/dev/null || true
-          codesign --force --sign - "${LITERTLM}" 2>/dev/null || true
-        fi
+        sh "${STAGER}" "${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Frameworks"
         mkdir -p "$(dirname "${SCRIPT_OUTPUT_FILE_0}")"
         touch "${SCRIPT_OUTPUT_FILE_0}"
       SHELL
@@ -373,17 +350,33 @@ on `getActiveModel(...)`.
 - **macOS, Windows** — upstream `libLiteRtTopKMetalSampler` / `libLiteRtTopKWebGpuSampler` ship with incomplete C ABI exports (3 of 7 functions); the factory falls back to the CPU chain. ([#1990](https://github.com/google-ai-edge/LiteRT-LM/issues/1990), [#2073](https://github.com/google-ai-edge/LiteRT-LM/issues/2073))
 - **Linux** — the prebuilt sampler `.so` holds a process-static `wgpu::Instance` that any second `engine_create` rejects. Since runtime model swap matters more than the few ms saved, the plugin doesn't preload it and lets the factory fall back to CPU.
 
-### `randomSeed` / `temperature` / `topK` / `topP`
+### `randomSeed` / `temperature` / `topK` / `topP` — only the first session's values apply
 
-As of litertlm 1.2.0 (LiteRT-LM **v0.14.0**), per-session sampler params
-(seed / temperature / topK / topP) are honored **natively** by the upstream
-runtime through its opaque session config — no downstream patch. Each session
-carries its own sampler params, so two sessions with different seeds produce
-independent, seed-reproducible output. Verified on CPU and GPU across macOS,
-iOS, Linux, Windows (CPU/NPU), and Android. (Earlier releases needed a build-time
-patch offered upstream as [#2080](https://github.com/google-ai-edge/LiteRT-LM/issues/2080) /
-[PR #2081](https://github.com/google-ai-edge/LiteRT-LM/pull/2081); v0.14.0 lands the native
-session-config sampler, so that patch is no longer applied.)
+<Warning>
+**Only the first generation on an engine sets the sampler.** Every later session
+on that same engine keeps those values, whatever it asks for. Upstream defect
+([LiteRT-LM #2080](https://github.com/google-ai-edge/LiteRT-LM/issues/2080),
+open), reproducing on v0.14.0, v0.15.0 and v0.16.0, on CPU as well as GPU.
+</Warning>
+
+`topK` defaults to `1`, which is greedy — so the common shape is: an app loads a
+model, runs one generation with defaults, and from then on the engine is locked
+greedy. A later `temperature: 1.5` changes nothing, with no error and no warning.
+It runs the other way too: an engine whose first session is stochastic keeps
+sampling, and a later `topK: 1` will not give you argmax. The seed is not
+re-applied either — the sampler keeps its RNG state across sessions, so two
+identical requests on one engine produce different text.
+
+**Workaround:** close and recreate the engine when you need different sampler
+settings — `model.close()` then `FlutterGemma.getActiveModel(...)` — at the cost
+of a model reload. If your app uses one fixed configuration throughout, as most
+chat apps do, this never surfaces: the first session already set the values you
+wanted.
+
+Before litertlm 1.2.0 we carried a build-time patch that fixed this downstream
+(offered upstream as [PR #2081](https://github.com/google-ai-edge/LiteRT-LM/pull/2081)).
+v0.14.0 added a native session-config sampler API and the patch was dropped, but
+the underlying baking was never fixed.
 
 ### Audio modality requires LiteRT-LM models
 

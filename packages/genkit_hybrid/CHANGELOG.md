@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.1
+
+- Widen the `genkit` constraint to `>=0.15.1 <0.17.0` so it works on both genkit 0.15 and 0.16 (no code change — uses only Model/generate/ModelRequest).
+
+## 0.2.0
+
+- Add `CapabilityStrategy`: route by request-required capabilities (vision/audio/tools/json).
+- Add `CostStrategy`: budget-gate a premium branch against an app-supplied signal.
+- Add `cascadeModel`: escalate to a premium branch when an `accept` predicate rejects the cheap response (non-streaming v1).
+
 ## 0.1.1
 
 - Bump `genkit` to `^0.15.1` (from `^0.14.1`). No API or behavioral changes; 32 tests green.

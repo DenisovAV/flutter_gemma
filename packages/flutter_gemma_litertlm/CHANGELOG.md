@@ -1,3 +1,12 @@
+## 1.6.2
+- Fix macOS companion staging: repoint the load command LiteRtLm actually carries instead of a hardcoded one (#457).
+
+## 1.6.1
+- Docs: the README and library docs show the engine-carried resolver and the one-call `fromHuggingFace(repo)` install.
+
+## 1.6.0
+- Add `LitertlmManifestResolver`: manifest-driven Hugging Face install for repos shipping `litertlm_manifest.json`, auto-registered from `LiteRtLmEngine` (#454).
+
 ## 1.5.3
 - Fix a rebuilt native library not reaching the build.
 

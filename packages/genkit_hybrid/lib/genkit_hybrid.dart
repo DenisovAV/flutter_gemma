@@ -14,3 +14,6 @@ export 'src/strategies/connectivity.dart';
 export 'src/strategies/input_size.dart';
 export 'src/strategies/first_match.dart';
 export 'src/strategies/with_fallback.dart';
+export 'src/strategies/capability.dart'; // CapabilityStrategy, ModelCapability
+export 'src/strategies/cost.dart'; // CostStrategy
+export 'src/cascade_model.dart'; // cascadeModel

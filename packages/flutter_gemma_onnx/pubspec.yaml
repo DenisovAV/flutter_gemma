@@ -1,6 +1,6 @@
 name: flutter_gemma_onnx
 description: "ONNX Runtime engine for flutter_gemma: GenAI inference on 5 native platforms + web generation (Transformers.js) & embeddings (onnxruntime-web)."
-version: 0.3.1
+version: 0.3.3
 homepage: https://fluttergemma.dev
 repository: https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_gemma_onnx
 topics: [gemma, llm, onnx, onnxruntime, on-device]
@@ -27,8 +27,14 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_gemma: ^1.6.2
-  flutter_gemma_embeddings: ^2.0.0
+  flutter_gemma: ^1.7.0
+  # 2.1.0, not 2.0.0: this package's WEB embedding arm imports
+  # `flutter_gemma_embeddings/wordpiece_embedding_tokenizer.dart`, and in
+  # published 2.0.0 that library carries an unconditional `import 'dart:io'`,
+  # which makes `flutter build web` fail for any app pairing the two. 2.1.0
+  # moves the file read behind a conditional-import seam. Leaving `^2.0.0` here
+  # would let pub keep resolving the broken version and defeat the seam.
+  flutter_gemma_embeddings: ^2.1.0
   ffi: ^2.1.0
   mutex: ^3.1.0
   hooks: ^2.0.0
@@ -39,6 +45,11 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  # Used by test/onnx_directory_e2e_test.dart (path join + mocked
+  # PathProvider/SharedPreferences for the resolver→install→engine contract).
+  path: ^1.9.0
+  path_provider_platform_interface: ^2.1.0
+  shared_preferences: ^2.5.2
 
 # `hook/build.dart` (Phase 3 Task 4) owns the two co-located ORT-GenAI/ORT
 # CodeAssets — macOS arm64 only for now (native-assets pipeline, no

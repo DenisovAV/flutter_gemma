@@ -5,6 +5,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
 import 'package:flutter_gemma_embeddings/wordpiece_embedding_tokenizer.dart';
 import 'package:flutter_gemma_onnx/src/embedding/onnx_tokenizer_loader.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -26,6 +27,44 @@ String _wordPieceJson() => jsonEncode({
     'vocab': _wordPieceVocab,
   },
 });
+
+/// A BPE `tokenizer.json` carrying SigLIP 2's two distinguishing pipeline
+/// blocks. [fixedPadding] and [eosOnlyTemplate] switch them off individually so
+/// a test can show the guard needs BOTH — a file with only one is an ordinary
+/// BPE tokenizer and must still route to the Gemma adapter.
+String _siglip2Json({bool fixedPadding = true, bool eosOnlyTemplate = true}) =>
+    jsonEncode({
+      'version': '1.0',
+      'padding': fixedPadding
+          ? {
+              'strategy': {'Fixed': 64},
+              'direction': 'Right',
+              'pad_id': 0,
+              'pad_token': '<pad>',
+            }
+          : null,
+      'post_processor': {
+        'type': 'TemplateProcessing',
+        'single': [
+          if (!eosOnlyTemplate)
+            {
+              'SpecialToken': {'id': '<bos>', 'type_id': 0},
+            },
+          {
+            'Sequence': {'id': 'A', 'type_id': 0},
+          },
+          {
+            'SpecialToken': {'id': '<eos>', 'type_id': 0},
+          },
+        ],
+      },
+      'model': {
+        'type': 'BPE',
+        'unk_token': '<unk>',
+        'vocab': {'<pad>': 0, '<eos>': 1, '<bos>': 2, '<unk>': 3},
+        'merges': <List<String>>[],
+      },
+    });
 
 void main() {
   late Directory tmpDir;
@@ -83,4 +122,46 @@ void main() {
       await expectLater(loadOnnxEmbeddingTokenizer(path), throwsA(anything));
     },
   );
+
+  test('a SigLIP 2 `tokenizer.json` is REFUSED rather than routed to the Gemma '
+      'adapter — it is BPE, so without the guard it would be tokenized with a '
+      'BOS, no lowercasing and no 64-wide padding, every id in range and '
+      'nothing thrown', () async {
+    final path = '${tmpDir.path}/tokenizer.json';
+    await File(path).writeAsString(_siglip2Json());
+
+    await expectLater(
+      loadOnnxEmbeddingTokenizer(path),
+      throwsA(
+        isA<UnsupportedError>().having(
+          (e) => e.message,
+          'message',
+          allOf(
+            contains('SigLIP 2'),
+            // The message has to name the way out, not just the refusal.
+            contains('loadSiglipSentencePieceEmbeddingTokenizer'),
+            contains(path),
+          ),
+        ),
+      ),
+    );
+  });
+
+  test('an ordinary BPE tokenizer.json carrying only ONE of the two SigLIP 2 '
+      'signals still routes to the Gemma adapter', () async {
+    // Guards against the refusal widening into every BPE file: plenty of
+    // models declare a fixed padding block, and plenty declare a
+    // post-processor that appends an EOS. Only both together mean SigLIP 2.
+    for (final json in [
+      _siglip2Json(fixedPadding: false),
+      _siglip2Json(eosOnlyTemplate: false),
+    ]) {
+      final path = '${tmpDir.path}/tokenizer.json';
+      await File(path).writeAsString(json);
+
+      // It loads: the Gemma adapter accepts this stub vocabulary. The
+      // assertion is that the guard did not claim the file.
+      expect(await loadOnnxEmbeddingTokenizer(path), isA<EmbeddingTokenizer>());
+    }
+  });
 }

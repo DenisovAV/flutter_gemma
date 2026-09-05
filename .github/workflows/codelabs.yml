@@ -1,0 +1,35 @@
+name: Codelabs
+
+on:
+  push:
+    branches: [main]
+    paths: ['codelabs/**', 'tool/check_codelabs.sh', '.github/workflows/codelabs.yml']
+  pull_request:
+    paths: ['codelabs/**', 'tool/check_codelabs.sh', '.github/workflows/codelabs.yml']
+  # The step apps pin published packages, so they can break without anyone
+  # touching this repo. A nightly run is what catches that.
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+permissions: read-all
+
+jobs:
+  check:
+    name: Flutter ${{ matrix.channel }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        channel: [stable, beta]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: ${{ matrix.channel }}
+      - run: flutter --version
+      - run: tool/check_codelabs.sh

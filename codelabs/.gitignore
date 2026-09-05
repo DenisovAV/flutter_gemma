@@ -1,0 +1,7 @@
+# Step apps deliberately do NOT pin their dependencies.
+#
+# The codelab tells the learner to run `flutter pub add flutter_gemma …`, which
+# resolves to the newest compatible release — so that is what these apps must
+# resolve to as well. A committed lock file would also blind the nightly CI run,
+# whose entire purpose is to notice when a new package release breaks a step.
+pubspec.lock

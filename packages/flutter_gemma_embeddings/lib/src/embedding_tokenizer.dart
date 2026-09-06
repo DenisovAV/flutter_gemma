@@ -16,6 +16,7 @@
 import 'package:dart_sentencepiece_tokenizer/dart_sentencepiece_tokenizer.dart';
 
 import 'tokenizer_adapter.dart';
+import 'tokenizer_contract.dart';
 
 /// Gemma special-token IDs, added by this package rather than by the loader:
 /// `loadEmbeddingTokenizer` passes an explicit `SentencePieceConfig` with
@@ -68,25 +69,11 @@ Future<SentencePieceTokenizer> loadEmbeddingTokenizer(
     ..noPadding()
     ..noTruncation();
 
-  // The calls above are the mechanism; this is the enforcement, and it is here
-  // because `^1.4.1` is open-topped. A release that RENAMES those methods fails
-  // loudly at compile time. One that deprecates them to no-ops, or grows a
-  // second width mechanism they do not cover, fails silently — and
-  // `siglip_loader_contract_test.dart` catches that only in OUR CI, long after
-  // `pub get` has already handed it to users. This catches it on their machine,
-  // at load, once per model. `padding`/`truncation` are public getters in every
-  // version the constraint admits.
-  if (tokenizer.padding != null || tokenizer.truncation != null) {
-    throw StateError(
-      'dart_sentencepiece_tokenizer ignored noPadding()/noTruncation() for '
-      '"$tokenizerPath": encode() would return padded or truncated content. '
-      'Both embedding profiles append their own terminator after whatever they '
-      'are handed, which would strand it past the pad run and silently change '
-      'every vector. Pin dart_sentencepiece_tokenizer to a release that '
-      'honours them.',
-    );
-  }
-  return tokenizer;
+  // The cascade above is the mechanism; `requireBareContent` is the
+  // enforcement, and it is separate because `^1.4.1` is open-topped. See its
+  // doc for exactly which failure shapes it does and does not cover — the ones
+  // it cannot see are `siglip_loader_contract_test.dart`'s job.
+  return requireBareContent(tokenizer, tokenizerPath);
 }
 
 /// Tokenizes ([prefix] + [text]) with Gemma BOS/EOS:

@@ -17,6 +17,7 @@ library;
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:dart_sentencepiece_tokenizer/dart_sentencepiece_tokenizer.dart';
 import 'package:flutter_gemma_embeddings/src/embedding_tokenizer.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -122,6 +123,41 @@ void main() {
 
   setUp(() => dir = Directory.systemTemp.createTempSync('sp_contract_'));
   tearDown(() => dir.deleteSync(recursive: true));
+
+  test(
+    'the fixture is live: the dependency really applies these blocks',
+    () async {
+      // Everything below asserts that the loader UNDOES something. If the file
+      // stopped declaring anything the dependency acts on — a typo like
+      // `paddding`, a lowercase `fixed` (the parser is case-sensitive), or a
+      // future release tightening the parse — those assertions would all still
+      // pass, on a fixture that proves nothing. The canary would be dead and
+      // green. So check the precondition directly, through the raw dependency.
+      final raw = await TokenizerJsonLoader.fromJsonFile(
+        await _write(dir),
+        config: const SentencePieceConfig(),
+      );
+
+      expect(
+        raw.padding,
+        isNotNull,
+        reason: 'the fixture must declare padding the loader has to switch off',
+      );
+      // Binds the two magic numbers together. Raising `max_length` above the 20
+      // used below is otherwise a silent deletion of the only coverage
+      // `noTruncation()` has: the mutation stops being caught and nothing says so.
+      expect(
+        raw.truncation?.maxLength,
+        8,
+        reason: 'must stay below the 20-token input the truncation test uses',
+      );
+      expect(
+        raw.encode('a' * 20).ids.length,
+        64,
+        reason: 'truncated to 8, then padded to 64 — both blocks are applied',
+      );
+    },
+  );
 
   test(
     'loadEmbeddingTokenizer returns bare content, whatever the file asks for',

@@ -26,12 +26,17 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_gemma: ^1.5.9
-  # Upper bound is deliberate, not laziness. 1.3.3 carries the list-form
-  # `merges` parser SigLIP2's tokenizer.json needs (upstream #26). 1.4.0 then
-  # ADDED `pre_tokenizer` validation without a `Split` case and now rejects that
-  # same file — a compatibility regression, reported upstream. `^1.3.3` would
-  # resolve to it and break the SigLIP2 profile on any fresh `pub get`. Relax to
-  # `^1.3.3` once a release accepts `Split` again.
+  # Floor is 1.4.1, not 1.3.3, and that is deliberate. 1.4.0 added
+  # `pre_tokenizer` validation with no `Split` case and rejected the
+  # Gemma-family tokenizer.json this package loads (upstream #35); 1.4.1 accepts
+  # it again, guarded on the normalizer proving no literal space survives.
+  #
+  # 1.4.x also began applying the file's own `padding` and `truncation` blocks,
+  # which 1.3.3 ignored — so `encode()` no longer returns bare content by
+  # default. `loadEmbeddingTokenizer` calls `noPadding()`/`noTruncation()` to
+  # pin that contract, and `siglip_loader_contract_test.dart` fails if a future
+  # release changes it again. Do NOT lower this floor to 1.3.3: the profiles are
+  # written against the 1.4.x API.
   dart_sentencepiece_tokenizer: "^1.4.1"
 
 dev_dependencies:

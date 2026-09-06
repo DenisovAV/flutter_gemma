@@ -19,8 +19,16 @@ import 'package:dart_sentencepiece_tokenizer/dart_sentencepiece_tokenizer.dart';
 
 import 'tokenizer_adapter.dart';
 
-/// Gemma special-token IDs. `dart_sentencepiece_tokenizer` defaults to the
-/// swapped pair (bosId=1, eosId=2), so we add them manually.
+/// Gemma special-token IDs, added by this package rather than by the loader:
+/// `loadEmbeddingTokenizer` passes an explicit `SentencePieceConfig` with
+/// `addBosToken`/`addEosToken` false, and every loader version takes the
+/// caller's config over the file's `post_processor`.
+///
+/// (The older note here said the library "defaults to the swapped pair
+/// bosId=1, eosId=2". That was a protobuf decode bug in 1.3.3 -- signed
+/// varints were ZigZag-decoded -- fixed in 1.4.1, which reads bos=2, eos=1,
+/// pad=0 off a real `.model`. Measured. The constants are unchanged; only the
+/// reason for spelling them out was wrong.)
 const int bosId = 2;
 const int eosId = 1;
 
@@ -30,16 +38,38 @@ const int eosId = 1;
 Future<SentencePieceTokenizer> loadEmbeddingTokenizer(
   String tokenizerPath,
 ) async {
+  // `noPadding()` / `noTruncation()` are not tidiness — they pin the CONTRACT
+  // both profiles below are written against: `encode()` returns bare content.
+  //
+  // 1.3.3 ignored the file's `padding` and `truncation` blocks; from 1.4.0
+  // `_applyTokenizerSettings` applies them regardless of the config passed here,
+  // so a SigLIP 2 `tokenizer.json` (which declares `{Fixed: 64, Right}`) came
+  // back already padded. Both `encodeForEmbedding` and `encodeForSiglipEmbedding`
+  // append their own EOS after whatever they are handed, which put it past the
+  // pad run — every id in range, nothing thrown, and a different vector, since
+  // SigLIP pools the LAST position.
+  //
+  // Undoing that afterwards was possible but was a heuristic over a pipeline
+  // nobody checks: it assumed right-padding with id 0, and a file declaring
+  // `"direction": "Left"` or another `pad_id` would have slipped through
+  // silently. Turning the feature off is the same result without the assumption,
+  // and it keeps this package owning its own width rule.
   if (tokenizerPath.endsWith('.json')) {
-    return TokenizerJsonLoader.fromJsonFile(
+    final tokenizer = await TokenizerJsonLoader.fromJsonFile(
       tokenizerPath,
       config: const SentencePieceConfig(),
     );
+    return tokenizer
+      ..noPadding()
+      ..noTruncation();
   }
-  return SentencePieceTokenizer.fromModelFile(
+  final tokenizer = await SentencePieceTokenizer.fromModelFile(
     tokenizerPath,
     config: const SentencePieceConfig(),
   );
+  return tokenizer
+    ..noPadding()
+    ..noTruncation();
 }
 
 /// Tokenizes ([prefix] + [text]) with Gemma BOS/EOS:
@@ -144,25 +174,12 @@ List<int> encodeForSiglipEmbedding(
   // the reference Android app runs) keeps `<eos>` at index 63 on a long input.
   // Appending first silently dropped it and cost cosine 0.9683 on inputs over
   // the width.
-  final raw = tokenizer.encode(text.toLowerCase()).ids;
-
-  // Reduce to BARE content first, because what the loader hands back depends on
-  // its version. 1.3.3 ignores the file's `padding` and `post_processor` blocks
-  // and returns content alone; from 1.4.0 it honours them and returns content +
-  // `<eos>` + right-padding to 64 — already the finished encoding. Truncating
-  // that to `siglipSeqLen - 1` would keep a run of pad ids and push `<eos>` to
-  // index 63, and since the model pools the LAST position, every vector would
-  // change with nothing thrown. Neither id can occur in content: both are
-  // special tokens the tokenizer does not emit for ordinary text.
-  var end = raw.length;
-  while (end > 0 && raw[end - 1] == siglipPadId) {
-    end--;
-  }
-  if (end > 0 && raw[end - 1] == siglipEosId) {
-    end--;
-  }
-
-  final ids = <int>[...raw.take(end).take(siglipSeqLen - 1), siglipEosId];
+  // `loadEmbeddingTokenizer` turns the tokenizer's own padding and truncation
+  // off, so this is bare content and the width rule below is the only one that
+  // applies. Without that, from 1.4.0 the file's `{Fixed: 64}` block would come
+  // back applied and the EOS appended here would land past the pad run.
+  final content = tokenizer.encode(text.toLowerCase()).ids;
+  final ids = <int>[...content.take(siglipSeqLen - 1), siglipEosId];
   return [...ids, ...List<int>.filled(siglipSeqLen - ids.length, siglipPadId)];
 }
 

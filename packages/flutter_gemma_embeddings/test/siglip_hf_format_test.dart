@@ -18,7 +18,7 @@ library;
 // pre-tokenizer (`pattern: {String: " "}`, `MergedWithPrevious`), same list-form
 // `merges` and `added_tokens`, with an eight-token vocabulary instead of 256k.
 // Its `post_processor` and `padding` blocks mirror the real file for fidelity,
-// but the loader discards them — see the note in the test body.
+// see the note in the test body for which of them the loader acts on.
 
 import 'dart:convert';
 import 'dart:io';
@@ -122,6 +122,66 @@ Future<String> _writeHfTokenizer(Directory dir) async {
   return path;
 }
 
+/// The same miniature file in Gemma's convention — BOS-first post-processor —
+/// but carrying a `padding` block, which no shipped EmbeddingGemma export does.
+/// That is the point: the Gemma path must not depend on the file not having one.
+Future<String> _writeGemmaHfTokenizer(Directory dir) async {
+  const vocab = {
+    '<pad>': 0,
+    '<eos>': 1,
+    '<bos>': 2,
+    '<unk>': 3,
+    '\u2581a': 4,
+    '\u2581b': 5,
+  };
+  final json = {
+    'version': '1.0',
+    'truncation': null,
+    'padding': {
+      'strategy': {'Fixed': 16},
+      'direction': 'Right',
+      'pad_to_multiple_of': null,
+      'pad_id': 0,
+      'pad_type_id': 0,
+      'pad_token': '<pad>',
+    },
+    'added_tokens': [
+      for (final e in const [
+        ('<pad>', 0),
+        ('<eos>', 1),
+        ('<bos>', 2),
+        ('<unk>', 3),
+      ])
+        {
+          'id': e.$2,
+          'content': e.$1,
+          'single_word': false,
+          'lstrip': false,
+          'rstrip': false,
+          'normalized': false,
+          'special': true,
+        },
+    ],
+    'normalizer': {
+      'type': 'Replace',
+      'pattern': {'String': ' '},
+      'content': '\u2581',
+    },
+    'pre_tokenizer': null,
+    'post_processor': null,
+    'decoder': null,
+    'model': {
+      'type': 'BPE',
+      'unk_token': '<unk>',
+      'vocab': vocab,
+      'merges': <List<String>>[],
+    },
+  };
+  final path = '${dir.path}/gemma_tokenizer.json';
+  await File(path).writeAsString(jsonEncode(json));
+  return path;
+}
+
 void main() {
   late Directory dir;
 
@@ -148,19 +208,47 @@ void main() {
     expect(ids.take(3), [6, 5, siglipEosId]);
     expect(ids.skip(3), everyElement(siglipPadId));
 
-    // What this fixture does NOT prove, established by mutating it: under 1.3.3
-    // the `pre_tokenizer`, `post_processor` and `padding` blocks are ALL inert.
-    // 1.3.3 has no pre-tokenizer parsing at all, so flipping `Split` from
-    // `MergedWithPrevious` to `Isolated` changes no id — 1.4.0's contribution
-    // was to start reading that block and throw on the `Split` case.
-    // `loadEmbeddingTokenizer` passes an explicit `SentencePieceConfig`, so the
-    // file's post-processor metadata is discarded (flipping the template to
-    // `[<bos>, Sequence A]` changes no id). And `enablePadding` is a 1.4.0
-    // addition (width 64 -> 8 changes no id). Every id above comes from the BPE
-    // vocabulary plus `encodeForSiglipEmbedding`, never from those blocks.
+    // What this fixture does and does not exercise, established by mutating it.
+    // The `pre_tokenizer` is inert: 1.3.3 had no parsing for it, and 1.4.1
+    // accepts this `Split` only because the normalizer above proves no literal
+    // space reaches it. The `post_processor` is inert too — `loadEmbeddingTokenizer`
+    // passes an explicit `SentencePieceConfig`, and every loader version takes
+    // the caller's config over the file's. The `padding` block is NOT inert from
+    // 1.4.0: `encode()` returns a right-padded array, which is exactly what
+    // `encodeForSiglipEmbedding` now reduces away before applying its own
+    // convention.
     //
     // So the LOAD is the load-bearing assertion here, and what it guards is
     // exactly the version range: 1.3.2 cannot read the list-form `merges`,
     // 1.4.0 rejects the `Split` block.
   });
+
+  test(
+    'the Gemma path survives a tokenizer.json that declares padding',
+    () async {
+      // No shipped EmbeddingGemma export declares one — `padding` is null in
+      // `onnx-community/embeddinggemma-300m-ONNX`. But from 1.4.0 the loader
+      // applies the block when it IS there, and `encodeForEmbedding` appends its
+      // EOS after whatever `encode()` returned. Without the reduction that gives
+      // `[BOS, content, pad…, EOS]`: the EOS stranded past the pad run, every
+      // vector shifted, nothing thrown.
+      final tok = await loadGemmaSentencePieceEmbeddingTokenizer(
+        await _writeGemmaHfTokenizer(dir),
+      );
+
+      final ids = tok.encode('', 'a b').ids;
+
+      expect(ids.first, bosId, reason: 'Gemma prepends a BOS');
+      expect(
+        ids.last,
+        eosId,
+        reason: 'and the EOS must be LAST, not past a pad run',
+      );
+      expect(
+        ids.contains(siglipPadId),
+        isFalse,
+        reason: 'the padding the file asked for must not survive into the ids',
+      );
+    },
+  );
 }

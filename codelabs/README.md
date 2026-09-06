@@ -79,4 +79,8 @@ flutter test integration_test/quickstart_test.dart -d <device-id>
 
 cd codelabs/inference-engines-flutter-gemma/complete
 flutter test integration_test/engines_test.dart -d <device-id>
+
+cd codelabs/hybrid-ai-flutter-genkit/complete
+flutter test integration_test/smoke_test.dart -d <device-id> \
+  --dart-define=HF_TOKEN=hf_xxx --dart-define=GEMINI_API_KEY=AIza...
 ```

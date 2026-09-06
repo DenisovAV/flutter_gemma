@@ -2,7 +2,7 @@ author: Sasha Denisov
 summary: Hybrid AI in Flutter with Genkit Dart — From Cloud to On-Device
 id: hybrid-ai-flutter-genkit
 categories: flutter, ai, gemma, genkit
-environments: web, android, ios
+environments: android, ios, macos, windows, linux, web
 status: Published
 
 # Hybrid AI in Flutter: From Cloud to On-Device with Genkit Dart
@@ -52,7 +52,7 @@ you are building toward:
 
 ### How we get there
 
-Six increments, one per branch of the workshop repository:
+Six increments, each a directory you can open and run:
 
 1. **Cloud Chat** — Streaming responses from Gemini via `genkit_google_genai`
 2. **Local Inference** — On-device AI with Gemma 3 1B via `genkit_flutter_gemma`
@@ -73,10 +73,13 @@ Six increments, one per branch of the workshop repository:
 
 ### What you'll need
 
-- Flutter 3.47.2 (latest stable) installed
+- Flutter 3.44 or newer
 - A GEMINI_API_KEY from [aistudio.google.com](https://aistudio.google.com)
 - A HuggingFace account (for model downloads)
-- Android device/emulator, iOS simulator, or macOS
+- Any one of Flutter's six platforms: an Android device or emulator, an iOS
+  device or simulator, an Apple-silicon Mac, a Windows or Linux desktop, or
+  Chrome. The same code runs on all of them — Step 3 lists the handful of
+  things each one asks of you
 - ~1 GB free disk space (for the AI model)
 
 ### Architecture
@@ -112,18 +115,31 @@ which `Model` `modelFor` returns changes with the policy.
 ## Step 1: Starter Project
 Duration: 5
 
-### Clone the repository
+### Get the code
+
+Every step of this codelab exists as a complete, runnable app, so you can join
+at any point or check your work against the next one.
 
 ```bash
-git clone https://github.com/DenisovAV/workshop-genkit-flutter-hybrid-ai.git
-cd workshop-genkit-flutter-hybrid-ai
-git checkout step-00-starter
-flutter pub get
+git clone --depth 1 https://github.com/DenisovAV/flutter_gemma.git
+cd flutter_gemma/codelabs/hybrid-ai-flutter-genkit
+ls
+```
+
+```text
+step_00_starter/         the shell you start from
+step_01_cloud_ai/        after Step 2 — Gemini, streaming
+step_02_local_ai/        after Step 3 — Gemma 3 1B on the device
+step_03_hybrid/          after Step 4 — one AiEngine, two branches
+step_04_smart_routing/   after Step 4.5 — images and the routing policies
+step_05_embeddings/      after Step 5 — on-device embeddings
+complete/                after Step 6 — the finished app, with RAG
 ```
 
 ### Explore the project
 
-Open the project in your IDE. The starter includes:
+Open `step_00_starter` in your IDE and run `flutter pub get`. The starter
+includes:
 
 - **`lib/main.dart`** — Simple app entry point, no async setup needed
 - **`lib/screens/chat_screen.dart`** — Chat UI with TextField, ListView, send button
@@ -150,6 +166,7 @@ token-by-token for a real-time chat feel.
 ### Run the starter
 
 ```bash
+cd step_00_starter
 flutter run
 ```
 
@@ -194,6 +211,7 @@ Create `lib/services/cloud_ai_service.dart`:
 ```dart
 import 'package:genkit/genkit.dart';
 import 'package:genkit_google_genai/genkit_google_genai.dart';
+
 import 'ai_service.dart';
 
 // Pass at build time: flutter run --dart-define=GEMINI_API_KEY=AIza...
@@ -205,8 +223,10 @@ class CloudAIService implements AIService {
   @override
   Future<void> initialize() async {
     if (_apiKey.isEmpty) {
-      throw StateError('GEMINI_API_KEY is not set. '
-          'Run with --dart-define=GEMINI_API_KEY=your_key');
+      throw StateError(
+        'GEMINI_API_KEY is not set. '
+        'Run with --dart-define=GEMINI_API_KEY=your_key',
+      );
     }
     _ai = Genkit(plugins: [googleAI(apiKey: _apiKey)]);
   }
@@ -227,7 +247,9 @@ class CloudAIService implements AIService {
   }
 
   @override
-  Future<void> dispose() async => _ai = null;
+  Future<void> dispose() async {
+    _ai = null;
+  }
 }
 ```
 
@@ -239,19 +261,19 @@ Replace the echo stub:
 import '../services/cloud_ai_service.dart';
 
 // in _ChatScreenState:
-late final CloudAIService _cloudService;
+late final CloudAIService _service;
 
 // in initState:
-_cloudService = CloudAIService();
-_initServices();
+_service = CloudAIService();
+_initService();
 
-// in _initServices:
-await _cloudService.initialize();
+// in _initService:
+await _service.initialize();
 
 // in _sendMessage:
-await for (final chunk in _cloudService.generateResponseStream(prompt)) {
+await for (final chunk in _service.generateResponseStream(text)) {
   buffer.write(chunk);
-  // ... update UI
+  // ... the throttled setState loop, then _scrollToBottom()
 }
 ```
 
@@ -273,17 +295,94 @@ Duration: 20
 
 ### Platform setup
 
-**iOS** (`ios/Runner/Info.plist`):
-```xml
-<key>NSLocalNetworkUsageDescription</key>
-<string>Required for local model download</string>
-```
-Minimum deployment target: iOS 16+.
+This is the only step with platform configuration in it, and it is less than
+you would expect on any of the six. Read the subsection for the platform you
+are running on and skip the others. [Getting Started](/codelabs/getting-started-flutter-gemma)
+covers each of them at length in its Step 2; what follows is what *this* app
+needs.
 
-**Android** (`android/app/src/main/AndroidManifest.xml`):
+**Android** — one line, because both the model download and the Gemini call
+are ordinary HTTPS requests (`android/app/src/main/AndroidManifest.xml`):
+
 ```xml
-<uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.INTERNET" />
 ```
+
+**iOS** — a deployment target of 15.0 or newer, and two memory entitlements in
+`ios/Runner/Runner.entitlements`:
+
+```xml
+	<key>com.apple.developer.kernel.extended-virtual-addressing</key>
+	<true/>
+	<key>com.apple.developer.kernel.increased-memory-limit</key>
+	<true/>
+```
+
+Point the Runner target at that file in Xcode's **Signing & Capabilities**
+editor. The keys lift the per-process memory ceiling iOS imposes: half a
+gigabyte of weights plus a KV cache is comfortably over the default jetsam
+limit on an older iPhone, and the kill that follows has no Dart-visible error —
+the app simply disappears.
+
+**macOS** — two entitlements and one build phase. The entitlements go in
+**both** `macos/Runner/DebugProfile.entitlements` and
+`macos/Runner/Release.entitlements`, and every step app from this one on already
+carries them:
+
+```xml
+	<key>com.apple.security.cs.disable-library-validation</key>
+	<true/>
+	<key>com.apple.security.network.client</key>
+	<true/>
+```
+
+`network.client` is what lets a sandboxed macOS app reach Gemini and Hugging
+Face at all; `disable-library-validation` is what lets it load the runtime's
+companion dylibs, which upstream ships unsigned. The iOS keys above are
+deliberately **not** here: on macOS the `kernel.*` ones are restricted
+entitlements that need a signing team, so adding them to an unsigned build
+breaks it. macOS support is Apple Silicon only.
+
+The build phase is the part unique to macOS. Every step app from this one on
+ships a `macos/Podfile` whose `post_install` block stages the runtime's
+companion libraries into the built `.app`. A macOS build that succeeds proves
+nothing here — the app compiles, links, signs and launches without the staging
+too, and the failure arrives at the first model load. One trap, measured: with
+Swift Package Manager on and no other CocoaPods plugin in the app, Flutter
+prints **Removing CocoaPods integration**, the `post_install` block never runs,
+and nothing is staged. Either turn SPM off with
+`flutter config --no-enable-swift-package-manager`, or keep one CocoaPods
+plugin in the app.
+
+**Windows** — nothing in the app, and x86_64 only: there is no Windows arm64
+build of the runtime. The machine needs the Microsoft Visual C++
+Redistributable (2019 or newer), which the DirectX shader compiler behind the
+GPU backend links against.
+
+**Linux** — nothing in the app either. glibc 2.34 or newer, which means Ubuntu
+22.04+, Debian 12+ or RHEL 9+; building a Flutter Linux app at all also wants
+`clang cmake ninja-build libgtk-3-dev lld`, and `flutter doctor` names whichever
+of those you are missing.
+
+**Web** — one script tag. The on-device arm loads the runtime from a CDN, and
+that ES module assigns no window globals — module scripts are deferred, so Dart
+would reach the engine before the constructor exists. `web/index.html`
+publishes a promise instead, and Dart awaits it. Every step app from this one
+on carries it in `<head>`:
+
+```html
+<script type="module">
+window.litertLmReady = (async () => {
+  const m = await import('https://cdn.jsdelivr.net/npm/@litert-lm/core@0.14.0/+esm');
+  window.Engine = m.Engine;
+  return m.Engine;
+})();
+</script>
+```
+
+The web arm is an early preview: WebGPU, and text only. That matters for one
+policy in particular — an image on **Smart** still routes to the cloud, which
+is the only branch that declares vision anywhere.
 
 ### Update dependencies
 
@@ -310,18 +409,27 @@ read-access token at **Settings → Access Tokens**.
 Create `lib/services/local_ai_service.dart`:
 
 ```dart
-import 'package:flutter/material.dart' show WidgetsFlutterBinding;
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 import 'package:genkit/genkit.dart';
 import 'package:genkit_flutter_gemma/genkit_flutter_gemma.dart';
+
 import 'ai_service.dart';
 
 // The on-device LLM installs straight from Hugging Face by repo + file.
 const String _hfRepo = 'litert-community/Gemma3-1B-IT';
-const String _hfModelFile = 'Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm';
+const String _hfModelFile =
+    'Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm';
+const String _embeddingModelUrl =
+    'https://huggingface.co/litert-community/embeddinggemma-300m/resolve/main/embeddinggemma-300M_seq256_mixed-precision.tflite';
+const String _tokenizerUrl =
+    'https://huggingface.co/litert-community/embeddinggemma-300m/resolve/main/sentencepiece.model';
+
+// Pass at build time: flutter run --dart-define=HF_TOKEN=hf_xxx
 const String _hfToken = String.fromEnvironment('HF_TOKEN');
+
 const String _modelName = 'gemma-3-1b-it';
+const String _embedderName = 'embedding-gemma-300m';
 
 class LocalAIService implements AIService {
   Genkit? _ai;
@@ -329,18 +437,27 @@ class LocalAIService implements AIService {
 
   bool get isInitialized => _isInitialized;
 
+  // Shared Genkit instance exposed for RagService to use for embeddings.
+  Genkit get ai {
+    final ai = _ai;
+    if (ai == null) throw StateError('LocalAIService not initialized');
+    return ai;
+  }
+
+  String get embedderName => _embedderName;
+
   @override
   Future<void> initialize({void Function(int)? onProgress}) async {
-    WidgetsFlutterBinding.ensureInitialized();
+    if (_isInitialized) return;
 
     // flutter_gemma 1.x registers no engine by default — opt into LiteRT-LM.
     await FlutterGemma.initialize(inferenceEngines: [LiteRtLmEngine()]);
 
     // Download the .litertlm model (skipped if already installed).
     await FlutterGemma.installModel(
-      modelType: ModelType.gemmaIt,
-      fileType: ModelFileType.litertlm,
-    )
+          modelType: ModelType.gemmaIt,
+          fileType: ModelFileType.litertlm,
+        )
         .fromHuggingFace(
           _hfRepo,
           file: _hfModelFile,
@@ -349,27 +466,38 @@ class LocalAIService implements AIService {
         .withProgress((p) => onProgress?.call(p)) // p is int 0..100
         .install();
 
-    // Register the model with Genkit
-    _ai = Genkit(plugins: [
-      GenkitFlutterGemmaPlugin(
-        models: [
-          FlutterGemmaModelConfig(
-            name: _modelName,
-            modelType: ModelType.gemmaIt,
-            fileType: ModelFileType.litertlm,
-          ),
-        ],
-      ),
-    ]);
+    await FlutterGemma.installEmbedder()
+        .modelFromNetwork(
+          _embeddingModelUrl,
+          token: _hfToken.isNotEmpty ? _hfToken : null,
+        )
+        .tokenizerFromNetwork(
+          _tokenizerUrl,
+          token: _hfToken.isNotEmpty ? _hfToken : null,
+        )
+        .install();
+
+    // One Genkit instance for both inference and embeddings.
+    _ai = Genkit(
+      plugins: [
+        GenkitFlutterGemmaPlugin(
+          models: [
+            FlutterGemmaModelConfig(
+              name: _modelName,
+              modelType: ModelType.gemmaIt,
+              fileType: ModelFileType.litertlm,
+            ),
+          ],
+          embedders: [FlutterGemmaEmbedderConfig(name: _embedderName)],
+        ),
+      ],
+    );
 
     _isInitialized = true;
   }
 
   @override
   Stream<String> generateResponseStream(String prompt) async* {
-    final ai = _ai;
-    if (ai == null) throw StateError('LocalAIService not initialized');
-
     final stream = ai.generateStream(
       model: flutterGemma.model(_modelName),
       prompt: prompt,
@@ -387,6 +515,11 @@ class LocalAIService implements AIService {
   }
 }
 ```
+
+Four things in that file belong to Step 5 rather than to this one — the two
+embedding URLs, the `installEmbedder()` call, the `ai` getter and
+`embedderName`. They ship here so that the RAG step is a new file and not a
+second edit of this one; ignore them until then.
 
 ### Run with HuggingFace token
 
@@ -434,8 +567,8 @@ Run `flutter pub get`.
 ### Retire CloudAIService, LocalAIService
 
 ```bash
-git rm lib/services/ai_service.dart lib/services/cloud_ai_service.dart \
-       lib/services/local_ai_service.dart
+rm lib/services/ai_service.dart lib/services/cloud_ai_service.dart \
+   lib/services/local_ai_service.dart
 ```
 
 They're replaced by one `AiEngine` that owns a single `Genkit` instance for
@@ -446,7 +579,7 @@ both plugins.
 Create `lib/services/ai_engine.dart`:
 
 ```dart
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 import 'package:genkit/genkit.dart';
@@ -455,8 +588,8 @@ import 'package:genkit_flutter_gemma/genkit_flutter_gemma.dart';
 import 'package:genkit_google_genai/genkit_google_genai.dart';
 import 'package:genkit_hybrid/genkit_hybrid.dart';
 
-// The on-device LLM installs straight from Hugging Face by repo + file (the
-// plugin applies the configured token to gated huggingface.co URLs).
+// Prod installs the on-device LLM straight from Hugging Face by repo + file
+// (the plugin applies the configured token to gated huggingface.co URLs).
 const _hfRepo = 'litert-community/Gemma3-1B-IT';
 const _hfModelFile = 'Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm';
 const _embeddingModelUrl =
@@ -472,10 +605,18 @@ const kLocalModel = 'gemma-3-1b-it';
 const kCloudModel = 'gemini-3.7-flash';
 const kEmbedder = 'embedding-gemma-300m';
 
+/// Context window for the on-device branch, in tokens. `maxTokens` is the
+/// WHOLE window (input + output) and genkit_flutter_gemma defaults it to 1024.
+/// RagService's take(3) of ~600-token city guides alone is ~1.7k tokens —
+/// measured on device: "Input token ids are too long … 1713 >= 1024". The
+/// bundled Gemma-3-1B `.litertlm` is built for 4096 (`ekv4096`), so use it.
+const kOnDeviceContextTokens = 4096;
+
 /// The five routing policies the chat exposes. Each maps to one genkit_hybrid
-/// construct (see [modelFor] / [strategyFor]) and carries the two facts the
-/// rest of the app keeps asking about it: which branches it needs before it
-/// can be offered at all, and whether an attached image can survive it.
+/// construct (see [modelFor] / [strategyFor]), and carries the UI facts about
+/// itself — its label, which branches it needs, whether it is text-only — so
+/// the screen renders the dropdown from `PolicyMode.values` instead of
+/// restating all five modes by hand.
 enum PolicyMode {
   cloud('Cloud', needsLocal: false),
   local('Local', needsCloud: false, textOnly: true),
@@ -490,13 +631,15 @@ enum PolicyMode {
     this.textOnly = false,
   });
 
-  /// What the policy picker shows for this mode.
+  /// Dropdown text.
   final String label;
+
+  /// Which branches the composite for this mode requires.
   final bool needsCloud;
   final bool needsLocal;
 
-  /// True when this mode's primary route starts on the text-only on-device
-  /// model, so an attached image cannot be handled.
+  /// True when the primary route starts on the text-only on-device model, so
+  /// an attached image cannot be handled (the UI blocks send with a hint).
   final bool textOnly;
 
   bool availableWith({required bool cloud, required bool local}) =>
@@ -525,6 +668,25 @@ class AiEngine {
   int budgetCap = 3;
   bool get budgetAvailable => cloudCallsSpent < budgetCap;
 
+  AiEngine();
+
+  /// Test seam: skips [FlutterGemma.initialize]/`installModel` (real I/O that
+  /// can't run in a unit test) and takes already-resolved branch models
+  /// directly, then runs the same build+register path [initialize] uses — so
+  /// a test driving [modelFor] through `ai.generate` here exercises the real
+  /// registration wiring, not just [strategyFor]. [local] is nullable —
+  /// mirrors [cloud] — so a cloud-only engine (the symmetric mirror of the
+  /// cloud-absent case) is constructible too.
+  @visibleForTesting
+  AiEngine.forTest({required Genkit ai, Model? local, Model? cloud}) {
+    _ai = ai;
+    _local = local == null ? null : _withContextBudget(local);
+    _cloud = cloud;
+    localReady = local != null;
+    cloudReady = cloud != null;
+    _registerPolicyModels();
+  }
+
   Genkit get ai {
     final ai = _ai;
     if (ai == null) throw StateError('AiEngine not initialized');
@@ -535,7 +697,10 @@ class AiEngine {
 
   Future<void> initialize({
     void Function(int progress)? onProgress,
-    // Skip the embedder download when RAG isn't needed for a given run.
+    // Test seam: install the LLM from a pre-staged local file instead of
+    // downloading it — avoids a flaky ~500MB on-device download on CI / FTL.
+    String? localModelPath,
+    // Test seam: skip the embedder download when RAG isn't exercised.
     bool downloadEmbedder = true,
   }) async {
     // Declarative plugin config — always includes the on-device plugin (its
@@ -559,8 +724,9 @@ class AiEngine {
 
     // Build Genkit BEFORE any on-device engine registration/install so `_ai`
     // (and `_resolve`, and the `ai` getter) are always available afterward —
-    // the plugin list above is purely declarative, so cloud resolution below
-    // needs no on-device engine and must not be taken down by a failure
+    // the plugin list above is purely declarative (no I/O, no dependency on
+    // FlutterGemma.initialize() having run), so cloud resolution below needs
+    // no on-device engine and must not be taken down by a failure
     // registering/installing it.
     _ai = Genkit(plugins: plugins);
 
@@ -578,7 +744,7 @@ class AiEngine {
 
     // LOCAL: register the on-device engine, then install + resolve the LLM.
     // flutter_gemma 1.x registers no engines by default; that registration
-    // lives inside this try/catch (not before Genkit is built above) so an
+    // now lives inside this try/catch (not before Genkit is built) so an
     // engine-init failure only suppresses localReady, never cloud.
     try {
       // Opt into LiteRT-LM (.litertlm inference) + its LiteRT embedding
@@ -590,18 +756,25 @@ class AiEngine {
 
       // fileType MUST be litertlm to match the LiteRT-LM engine registered
       // above.
-      await FlutterGemma.installModel(
+      final llm = FlutterGemma.installModel(
         modelType: ModelType.gemmaIt,
         fileType: ModelFileType.litertlm,
-      )
-          .fromHuggingFace(
-            _hfRepo,
-            file: _hfModelFile,
-            token: _hfToken.isEmpty ? null : _hfToken,
-          )
-          .withProgress((p) => onProgress?.call(p)) // p is int 0..100
-          .install();
-      _local = await _resolve(flutterGemma.model(kLocalModel));
+      );
+      if (localModelPath != null) {
+        await llm.fromFile(localModelPath).install();
+      } else {
+        await llm
+            .fromHuggingFace(
+              _hfRepo,
+              file: _hfModelFile,
+              token: _hfToken.isEmpty ? null : _hfToken,
+            )
+            .withProgress((p) => onProgress?.call(p)) // p is int 0..100
+            .install();
+      }
+      _local = _withContextBudget(
+        await _resolve(flutterGemma.model(kLocalModel)),
+      );
       localReady = true;
     } catch (e) {
       debugPrint('⚠️ AiEngine: on-device backend unavailable — $e');
@@ -627,9 +800,6 @@ class AiEngine {
       }
     }
 
-    // Build AND register every policy's composite model once, right here —
-    // not lazily inside modelFor. ai.generate(model: ...) resolves by name
-    // via the registry, so an unregistered composite throws NOT_FOUND.
     _registerPolicyModels();
   }
 
@@ -643,13 +813,35 @@ class AiEngine {
     return action as Model;
   }
 
+  /// Wraps the on-device branch so every request carries the context budget
+  /// unless the caller set one. Copies the request rather than mutating it:
+  /// genkit_hybrid hands the SAME ModelRequest to the next branch when
+  /// cascade escalates, so an in-place write would leak a Gemma-only
+  /// maxTokens into the Gemini call. The metadata copy is required too —
+  /// genkit's Model constructor writes into the map it is handed.
+  Model _withContextBudget(Model inner) => Model(
+    name: '${inner.name}/ctx',
+    metadata: {...inner.metadata},
+    fn: (request, context) {
+      if (request == null || request.config?['maxTokens'] != null) {
+        return inner.fn(request, context);
+      }
+      final budgeted = ModelRequest.fromJson({
+        ...request.toJson(),
+        'config': {...?request.config, 'maxTokens': kOnDeviceContextTokens},
+      });
+      return inner.fn(budgeted, context);
+    },
+  );
+
   Map<String, Model> get _branches => {kOnDevice: ?_local, kCloud: ?_cloud};
 
   /// Builds AND registers one composite [Model] per [PolicyMode] whose
-  /// required branches are available. A mode that needs `kCloud` (every mode
-  /// but `local`) is skipped when there's no API key, instead of crashing on
-  /// a half-built `cascadeModel` (its `order` validates eagerly against
-  /// `branches`, unlike `hybridModel`).
+  /// required branches are available, populating [_models]. A mode that needs
+  /// `kCloud` (every mode but `local`) is skipped when there's no API key, so
+  /// a missing cloud branch degrades to a clear [modelFor] error instead of
+  /// crashing here on a half-built `cascadeModel` (its `order` validates
+  /// eagerly against `branches`, unlike `hybridModel`).
   void _registerPolicyModels() {
     for (final mode in PolicyMode.values) {
       if (!mode.availableWith(cloud: _cloud != null, local: _local != null)) {
@@ -675,8 +867,8 @@ class AiEngine {
         // LiteRT-LM gives `accept` only decoded text (no per-token
         // probabilities), and asking a ~1B model to self-rate confidence is
         // unreliable — small models are confidently wrong. So we escalate on a
-        // crude "too short to be a real answer" check. See the "A real cascade
-        // signal" note below.
+        // crude "too short to be a real answer" check. See the codelab's
+        // "A real cascade signal" note.
         accept: (r) => r.text.trim().length > 20,
         name: 'cascade',
       );
@@ -689,7 +881,7 @@ class AiEngine {
   }
 
   /// The registered, resolvable `Model` for [mode] — built once by
-  /// [_registerPolicyModels] during [initialize].
+  /// [_registerPolicyModels] during [initialize] (or [AiEngine.forTest]).
   Model modelFor(PolicyMode mode) {
     final model = _models[mode];
     if (model == null) {
@@ -754,6 +946,13 @@ returns one key. `smart`, `cascade`, and `budget` are covered in Step 4.5 —
 a `RoutingStrategy` at all; `_buildModel` builds it as a `cascadeModel`
 directly.
 
+Three things in that file run ahead of this step, and are there so you never
+have to go back and edit it. `AiEngine.forTest` and `initialize`'s
+`localModelPath` are test seams — they let `test/ai_engine_policy_test.dart`
+drive the real registration path without a 550 MB download.
+`_withContextBudget` is Step 6's, and Step 6 explains it; until RAG inflates
+the prompt it changes nothing you can observe.
+
 ### The hybrid is itself a Model
 
 > **The punchline**: `hybridModel()` (and `cascadeModel()`) return an
@@ -817,12 +1016,12 @@ same `Genkit`, and lets `AiEngine.modelFor(_policy)` decide who answers:
 ```dart
 final userMessage = Message(
   role: Role.user,
-  content: [TextPart(text: prompt)],
+  content: [TextPart(text: text)],
 );
-
+// ...
 // Captured before the call: genkit_hybrid doesn't report which branch
-// actually ran, so this is a best-effort demo counter, not an exact count
-// of cloud calls — see the accounting comment below.
+// actually ran, so this is a best-effort demo counter, not an exact
+// count of cloud calls — see the accounting comment below.
 final wasBudgetAvailable = _engine.budgetAvailable;
 
 final stream = _engine.ai.generateStream(
@@ -831,13 +1030,13 @@ final stream = _engine.ai.generateStream(
 );
 await for (final chunk in stream) {
   buffer.write(chunk.text);
-  // ... same throttled setState loop as Step 2/3
+  // ... the throttled setState loop, unchanged from Step 2/3
 }
-
+// ...
 // Best-effort demo counter for CostStrategy: genkit_hybrid exposes no
-// "which branch ran" signal, so a Budget call that transiently fell back
-// to on-device still counts here as spent; Budget stops climbing once the
-// cap is hit either way.
+// "which branch ran" signal, so a Budget call that transiently fell
+// back to on-device still counts here as spent; Budget stops climbing
+// once the cap is hit either way.
 if (_policy == PolicyMode.cloud) {
   _engine.cloudCallsSpent++;
 } else if (_policy == PolicyMode.budget && wasBudgetAvailable) {
@@ -845,8 +1044,9 @@ if (_policy == PolicyMode.cloud) {
 }
 ```
 
-`prompt` here is still `text` unless RAG rewrote it — that wiring is
-unchanged and lands for real in Step 6.
+`text` goes straight to the model here. In Step 6 RAG rewrites it first,
+and the local is renamed `prompt` to say so — the call itself does not
+change.
 
 ### Test it
 
@@ -882,6 +1082,7 @@ In `chat_screen.dart`, add the picker and its state:
 ```dart
 import 'dart:convert';
 import 'dart:typed_data';
+// ...
 import 'package:image_picker/image_picker.dart';
 
 // in _ChatScreenState:
@@ -889,6 +1090,7 @@ final _picker = ImagePicker();
 Uint8List? _attachedImage;
 String? _attachedMime;
 
+// ...
 Future<void> _attachImage() async {
   final XFile? picked = await _picker.pickImage(source: ImageSource.gallery);
   if (picked == null) return;
@@ -910,7 +1112,7 @@ button that calls `_attachImage`, and a small thumbnail preview (`Image.memory`
 `_sendMessage()` now builds a `content` list instead of a single `TextPart`:
 
 ```dart
-final content = <Part>[TextPart(text: prompt)];
+final content = <Part>[TextPart(text: text)];
 if (_attachedImage != null) {
   final mime = _attachedMime ?? 'image/jpeg';
   final dataUri = 'data:$mime;base64,${base64Encode(_attachedImage!)}';
@@ -1078,10 +1280,19 @@ Similar texts have similar vectors. EmbeddingGemma 300M runs entirely on-device.
 
 ### Install the embedding model
 
+This already runs inside `AiEngine.initialize()`, in the optional block after
+the LLM install — a failure there disables RAG and never touches the chat:
+
 ```dart
 await FlutterGemma.installEmbedder()
-    .modelFromNetwork(embeddingModelUrl, token: token)
-    .tokenizerFromNetwork(tokenizerUrl, token: token)
+    .modelFromNetwork(
+      _embeddingModelUrl,
+      token: _hfToken.isEmpty ? null : _hfToken,
+    )
+    .tokenizerFromNetwork(
+      _tokenizerUrl,
+      token: _hfToken.isEmpty ? null : _hfToken,
+    )
     .install();
 ```
 
@@ -1093,8 +1304,16 @@ back in Step 4, right next to the on-device model in the *same*
 
 ```dart
 GenkitFlutterGemmaPlugin(
-  models: [FlutterGemmaModelConfig(name: kLocalModel, /* … */)],
-  embedders: [FlutterGemmaEmbedderConfig(name: kEmbedder)], // 'embedding-gemma-300m'
+  models: [
+    FlutterGemmaModelConfig(
+      name: kLocalModel,
+      modelType: ModelType.gemmaIt,
+      fileType: ModelFileType.litertlm,
+    ),
+  ],
+  embedders: downloadEmbedder
+      ? [FlutterGemmaEmbedderConfig(name: kEmbedder)]
+      : const [],
 ),
 ```
 
@@ -1104,12 +1323,14 @@ So the one `AiEngine` Genkit already exposes the embedder — you just call
 ### Generate embeddings
 
 ```dart
-final embeddings = await ai.embed(
-  embedder: flutterGemma.embedder('embedding-gemma-300m'),
+final embeddings = await _ai.embed(
+  embedder: flutterGemma.embedder(_embedderName),
   document: DocumentData(content: [TextPart(text: content)]),
 );
-final vector = embeddings.first.embedding; // List<double>
 ```
+
+`embeddings.first.embedding` is the `List<double>` — 768 numbers for
+EmbeddingGemma 300M.
 
 ### Index the tourist data
 
@@ -1118,13 +1339,28 @@ JSON files and embed each one. Store the `List<double>` vectors in memory.
 
 ```dart
 for (final city in _cityFiles) {
-  final content = _buildContent(data); // description + attractions + cuisine...
-  final embeddings = await ai.embed(
+  onStatus?.call('Embedding $city...');
+  final jsonString = await rootBundle.loadString(
+    'assets/tourist_data/$city.json',
+  );
+  final data = jsonDecode(jsonString) as Map<String, dynamic>;
+
+  final name = data['name'] as String? ?? city;
+  final content = _buildContent(data);
+
+  final embeddings = await _ai.embed(
     embedder: flutterGemma.embedder(_embedderName),
     document: DocumentData(content: [TextPart(text: content)]),
   );
-  _store.add(_VectorDocument(id: city, content: content,
-      city: name, embedding: embeddings.first.embedding));
+
+  _store.add(
+    _VectorDocument(
+      id: city,
+      content: content,
+      city: name,
+      embedding: embeddings.first.embedding,
+    ),
+  );
 }
 ```
 
@@ -1162,35 +1398,56 @@ knobs you'll actually reach for, and one of them decides how much text the
 on-device model has to swallow:
 
 ```dart
-/// Below this a "match" is noise, not a source.
-const kMinSimilarity = 0.5;
+/// Minimum cosine similarity threshold for RAG retrieval results.
+const double kMinSimilarity = 0.5;
 
-/// How many guides go into the prompt.
-const kTopK = 3;
+/// Maximum number of documents to retrieve from the vector store.
+const int kTopK = 3;
+
+// ...
 
 Future<RagResult> searchAndBuildContext(String query) async {
-  // 1. Embed the query
+  if (!_isInitialized) throw StateError('RagService not initialized');
+
   final queryEmbeddings = await _ai.embed(
     embedder: flutterGemma.embedder(_embedderName),
     document: DocumentData(content: [TextPart(text: query)]),
   );
   final queryVector = queryEmbeddings.first.embedding;
 
-  // 2. Score all documents
-  final scored = _store
-      .map((doc) => (doc: doc, score: _cosine(queryVector, doc.embedding)))
-      .where((r) => r.score >= kMinSimilarity)
-      .toList()
-    ..sort((a, b) => b.score.compareTo(a.score));
+  final scored =
+      _store
+          .map(
+            (doc) => (doc: doc, score: _cosine(queryVector, doc.embedding)),
+          )
+          .where((r) => r.score >= kMinSimilarity)
+          .toList()
+        ..sort((a, b) => b.score.compareTo(a.score));
 
-  // 3. Build augmented prompt with the top kTopK results
-  final topK = scored.take(kTopK);
+  final topK = scored.take(kTopK).toList();
+
+  if (topK.isEmpty) {
+    return RagResult(
+      augmentedPrompt: query,
+      retrievedContext: '',
+      sources: [],
+    );
+  }
+
   final context = topK.map((r) => r.doc.content).join('\n\n');
+  final sources = topK
+      .map((r) => '${r.doc.city} (${(r.score * 100).toStringAsFixed(0)}%)')
+      .toList();
+
   final augmentedPrompt =
       'Based on the following travel information:\n\n$context\n\n'
       'Answer the question: $query';
 
-  return RagResult(augmentedPrompt: augmentedPrompt, ...);
+  return RagResult(
+    augmentedPrompt: augmentedPrompt,
+    retrievedContext: context,
+    sources: sources,
+  );
 }
 ```
 
@@ -1220,31 +1477,45 @@ Back in `AiEngine`, wrap the resolved on-device model so every request it
 receives carries that budget:
 
 ```dart
-/// Context window for the on-device branch, in tokens.
+/// Context window for the on-device branch, in tokens. `maxTokens` is the
+/// WHOLE window (input + output) and genkit_flutter_gemma defaults it to 1024.
+/// RagService's take(3) of ~600-token city guides alone is ~1.7k tokens —
+/// measured on device: "Input token ids are too long … 1713 >= 1024". The
+/// bundled Gemma-3-1B `.litertlm` is built for 4096 (`ekv4096`), so use it.
 const kOnDeviceContextTokens = 4096;
 
-// ...in initialize(), where the on-device model is resolved:
-_local = _withContextBudget(await _resolve(flutterGemma.model(kLocalModel)));
+// ... in initialize(), where the on-device model is resolved:
+_local = _withContextBudget(
+  await _resolve(flutterGemma.model(kLocalModel)),
+);
 
-/// [inner] with a context budget merged into any request that doesn't set
-/// one itself. Copies the request instead of editing it in place:
-/// genkit_hybrid hands the *same* ModelRequest to the next branch when a
-/// cascade escalates, and a Gemma-sized `maxTokens` must not leak into the
-/// Gemini call.
+// ...
+
+/// Wraps the on-device [inner] model so every request reaching it carries a
+/// context window big enough for the RAG prompt. genkit_flutter_gemma reads
+/// `maxTokens` ONLY from the per-request `request.config` (defaulting to
+/// 1024) — registration-time [FlutterGemmaModelConfig] has no options field
+/// — so the budget has to ride along with each request. genkit_hybrid calls
+/// a branch as `branch.fn(request, context)`, so forwarding the same
+/// `context` leaves streaming and fallback untouched. Only the on-device
+/// branch is wrapped: Gemini's config has no `maxTokens` key. An explicit
+/// request `maxTokens` wins. The request is COPIED, never mutated — cascade
+/// hands the very same object to the cloud branch next. [inner]'s metadata
+/// is forwarded as a COPY too: genkit's `Model` constructor writes into the
+/// map it is handed, so passing `inner.metadata` itself would rewrite the
+/// wrapped model's own metadata.
 Model _withContextBudget(Model inner) => Model(
-  name: inner.name,
+  name: '${inner.name}/ctx',
+  metadata: {...inner.metadata},
   fn: (request, context) {
-    final config = request.config ?? const <String, dynamic>{};
-    if (config.containsKey('maxTokens')) {
+    if (request == null || request.config?['maxTokens'] != null) {
       return inner.fn(request, context);
     }
-    return inner.fn(
-      ModelRequest.fromJson({
-        ...request.toJson(),
-        'config': {...config, 'maxTokens': kOnDeviceContextTokens},
-      }),
-      context,
-    );
+    final budgeted = ModelRequest.fromJson({
+      ...request.toJson(),
+      'config': {...?request.config, 'maxTokens': kOnDeviceContextTokens},
+    });
+    return inner.fn(budgeted, context);
   },
 );
 ```

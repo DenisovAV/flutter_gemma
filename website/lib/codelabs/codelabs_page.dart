@@ -74,6 +74,7 @@ class CodelabsPage extends StatelessComponent {
       level: 'Intermediate',
       tags: ['LiteRT-LM', 'built-in AI', 'Gemini Nano'],
       accent: Brand.green,
+      href: '/codelabs/inference-engines-flutter-gemma',
     ),
     _Codelab(
       title: 'Multimodal Inference in Flutter: Vision and Audio on Device',

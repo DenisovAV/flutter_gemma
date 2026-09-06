@@ -384,3 +384,31 @@ model-dependent — e.g. all-MiniLM-L6-v2 is 384-dim.) See
 
 - **Gecko 64**: ~109 ms/doc embedding, 130 ms search (fastest — 2.6× faster than EmbeddingGemma).
 - **EmbeddingGemma 256**: ~286 ms/doc embedding, 342 ms search (more accurate — 300M vs 110M params).
+
+### SigLIP 2 text tower (ONNX, manual wiring)
+
+`flutter_gemma_embeddings` ships a **SigLIP 2** text profile, for putting text
+into the same space as SigLIP's vision tower — image↔text retrieval rather than
+document RAG. It is the only embedding profile here that is **not** installed
+through `installEmbedder()`.
+
+Its convention differs from every model above: no leading BOS, a single trailing
+`<eos>`, lowercased text, and a fixed 64-token width that lives in the token ids
+because the int8 export carries no `attention_mask`. It also ignores the
+`TaskType` prefix — the vision tower encodes an image with no prefix, so adding
+one moves the text vector off the space the two towers share.
+
+SigLIP 2 reuses the Gemma BPE vocabulary, so a `tokenizer.json` cannot be told
+apart by its vocabulary alone, and the ONNX tokenizer loader **refuses** such a
+file rather than reading it with Gemma's convention and returning a plausible
+but wrong vector. Wire it yourself instead:
+
+```dart
+import 'package:flutter_gemma_embeddings/embedding_tokenizer.dart'
+    show loadSiglipSentencePieceEmbeddingTokenizer;
+```
+
+and pass that as the tokenizer factory of the `ForwardPassDescriptor` you give
+to `CommonEmbeddingModel.create`. That library is native-only. See the
+[`flutter_gemma_embeddings` README](https://pub.dev/packages/flutter_gemma_embeddings)
+for the full profile and the detection rule.

@@ -61,6 +61,7 @@ class CodelabsPage extends StatelessComponent {
       level: 'Beginner',
       tags: ['flutter_gemma', 'Gemma 3', 'streaming'],
       accent: Brand.blue,
+      href: '/codelabs/getting-started-flutter-gemma',
     ),
     _Codelab(
       title: 'Inference Engines in Flutter: From a Downloaded Model to Built-in AI',
@@ -73,6 +74,7 @@ class CodelabsPage extends StatelessComponent {
       level: 'Intermediate',
       tags: ['LiteRT-LM', 'built-in AI', 'Gemini Nano'],
       accent: Brand.green,
+      href: '/codelabs/inference-engines-flutter-gemma',
     ),
     _Codelab(
       title: 'Multimodal Inference in Flutter: Vision and Audio on Device',
@@ -143,8 +145,8 @@ class CodelabsPage extends StatelessComponent {
             Component.text(
               'Hands-on, step-by-step guides for running language models '
               'inside a Flutter app, ordered from first run to full '
-              'pipelines. The hybrid-AI codelab is ready to take now; the '
-              'rest are being written.',
+              'pipelines. Start with the quickstart; the ones marked '
+              '"Coming soon" are still being written.',
             ),
           ]),
         ]),

@@ -21,8 +21,10 @@ class ModelChoice {
 
   final String label;
 
-  /// What `FlutterGemma.isModelInstalled` is keyed by. For a downloaded model
-  /// that is its file name; for a built-in one, the OS model's name.
+  /// How this app names the model. For a downloaded model it is the file name,
+  /// which is also what `FlutterGemma.isModelInstalled` is keyed by. For a
+  /// built-in one it is the OS model's name — and nothing is keyed by it,
+  /// because there is no file and no install record.
   final String id;
 
   /// What the model IS — decides the chat template.
@@ -71,18 +73,25 @@ abstract final class Models {
   );
 
   /// The model the OS ships: Gemini Nano on Android, Apple Foundation Models
-  /// on iOS. Nothing to download — the OS owns the weights, so [url] is null
-  /// and [sizeLabel] says so.
+  /// on iOS and macOS. Nothing to download — the OS owns the weights, so [url]
+  /// is null and [sizeLabel] says so.
   ///
-  /// A getter, not a const: the ready-made specs are chosen per platform.
+  /// A getter, not a const: the ready-made specs are chosen per platform. Only
+  /// those platforms have a built-in arm, so anywhere else this throws rather
+  /// than quietly offering a model that cannot exist.
   static ModelChoice get builtIn {
-    final spec = defaultTargetPlatform == TargetPlatform.android
-        ? BuiltInAiModels.geminiNano
-        : BuiltInAiModels.appleFoundationModels;
+    final (spec, label) = switch (defaultTargetPlatform) {
+      TargetPlatform.android => (BuiltInAiModels.geminiNano, 'Gemini Nano'),
+      TargetPlatform.iOS || TargetPlatform.macOS => (
+        BuiltInAiModels.appleFoundationModels,
+        'Apple Foundation Models',
+      ),
+      _ => throw UnsupportedError(
+        'No built-in AI model on $defaultTargetPlatform',
+      ),
+    };
     return ModelChoice(
-      label: defaultTargetPlatform == TargetPlatform.android
-          ? 'Gemini Nano'
-          : 'Apple Foundation Models',
+      label: label,
       id: spec.name,
       modelType: spec.modelType,
       fileType: ModelFileType.builtIn,

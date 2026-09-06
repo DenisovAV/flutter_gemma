@@ -22,6 +22,7 @@ By the end you will have an app that:
   that it already has it
 * opens a chat session against that model
 * streams the reply token by token, the way a chat app should
+* says what went wrong when something does, instead of freezing
 * cleans up after itself — both the native runtime and the half-gigabyte file
 
 ### What you'll learn
@@ -57,7 +58,7 @@ step_01_starter/     the shell you start from
 step_02_download/    after Step 2
 step_03_chat/        after Step 3
 step_04_streaming/   after Step 4
-complete/            the finished app
+complete/            after Step 5 — the finished app
 ```
 
 ## Step 1: The starter app
@@ -88,7 +89,7 @@ Starting from a plain Flutter app is deliberate. Everything that follows is an
 addition you can see, and if something breaks you know which addition did it.
 
 ## Step 2: Add the plugin and download a model
-Duration: 10
+Duration: 12
 
 This is the longest step, and the only one with platform configuration in it.
 
@@ -123,19 +124,45 @@ You do **not** need to declare the OpenCL libraries the GPU backend uses. The
 plugin's own manifest declares them and the manifest merger folds them into
 your app.
 
-**iOS** — nothing. Flutter's default deployment target is already 15.0, which
-is what the plugin needs.
+**iOS** — the deployment target is already right: Flutter's default is 15.0,
+which is what the plugin needs. What you do have to add is two memory
+entitlements, in `ios/Runner/Runner.entitlements`:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>com.apple.developer.kernel.extended-virtual-addressing</key>
+	<true/>
+	<key>com.apple.developer.kernel.increased-memory-limit</key>
+	<true/>
+</dict>
+</plist>
+```
+
+…and point the Runner target at it, which is what Xcode's **Signing &
+Capabilities** editor writes for you (`CODE_SIGN_ENTITLEMENTS =
+Runner/Runner.entitlements;` in each of the target's Debug, Release and Profile
+configurations). The step apps from Step 2 onwards already carry both.
+
+These lift the per-process memory ceiling iOS imposes. Half a gigabyte of
+weights plus a KV cache is comfortably over the default jetsam limit on an
+older iPhone, and the kill that follows has no Dart-visible error — the app
+simply disappears. They are an **iOS** thing, not a macOS one.
 
 That is the whole platform setup. The plugin also runs on macOS, Windows and
-Linux, but a desktop app needs one extra build-phase step to stage the
-runtime's companion libraries — out of scope here, and covered in the
-[desktop docs](https://fluttergemma.dev/docs/desktop).
+Linux; only **macOS** needs an extra build-phase step — a `post_install` block
+in `macos/Podfile` that stages the runtime's companion libraries. Out of scope
+here, and covered in the [desktop docs](/docs/desktop).
 
 ### Register the engine
 
 Engines are fully opt-in. The core registers none, so an app that never says
-which runtime it wants gets a `StateError` on its first model call telling it
-to add an engine package. Wire it up in `main`:
+which runtime it wants gets a `StateError` the first time it calls
+`getActiveModel()`, telling it to add an engine package. (Installing a model
+works without one — nothing has to open the file to write it.) Wire it up in
+`main`:
 
 ```dart
 Future<void> main() async {
@@ -159,7 +186,8 @@ the id the plugin installs under and the id you ask about later:
 abstract final class Models {
   static const gemma3 = ModelChoice(
     label: 'Gemma 3 1B',
-    url: 'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/'
+    url:
+        'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/'
         'Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm',
     fileName: 'Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm',
     modelType: ModelType.gemmaIt,
@@ -169,7 +197,8 @@ abstract final class Models {
 
   static const qwen3 = ModelChoice(
     label: 'Qwen3 0.6B',
-    url: 'https://huggingface.co/litert-community/Qwen3-0.6B/resolve/main/'
+    url:
+        'https://huggingface.co/litert-community/Qwen3-0.6B/resolve/main/'
         'Qwen3-0.6B.litertlm',
     fileName: 'Qwen3-0.6B.litertlm',
     modelType: ModelType.qwen3,
@@ -193,7 +222,7 @@ constant to `Models.qwen3`. That repository is ungated, so it downloads with no
 token at all, and every other line of this codelab stays the same. Swapping
 models really is a one-line change.
 
-A token belongs on the command line, never in source control. `String.fromEnvironment` reads it at compile time and the value never enters a file you might commit. The plugin attaches it **only** to `huggingface.co` URLs, so a token set once can't leak to some other host you download from later.
+A token belongs on the command line, never in source control. `String.fromEnvironment` reads it at compile time and the value never enters a file you might commit. The plugin attaches it only to URLs whose host contains `huggingface.co`, so a token set once does not ride along to the other hosts your app downloads from. (That test is a substring match, so treat it as a convenience rather than a security boundary.)
 
 ### Download it
 
@@ -222,7 +251,7 @@ Run it. You should watch the bar fill and land on the placeholder screen.
 Compare against `step_02_download` if it doesn't.
 
 ## Step 3: Your first reply
-Duration: 6
+Duration: 7
 
 Two objects stand between you and an answer.
 
@@ -254,16 +283,53 @@ something the model reads as its own previous turn — the reply comes back empt
 or bizarre, with no error anywhere.
 
 The result is a sealed `ModelResponse`, because a model can answer with plain
-text, with a tool call, or with its own thinking. A first chat only needs the
-text arm, but the switch makes the other cases visible for later:
+text, with a tool call, or with its own thinking. With no tools declared this
+call only ever hands back the text arm, so one `switch` covers it and leaves
+the door open for later:
 
 ```dart
-switch (response) {
-  TextResponse(:final token) => token,
-  ThinkingResponse() => '(thinking)',
-  _ => '(unsupported response)',
+_turns.add(
+  _Turn(switch (response) {
+    TextResponse(:final token) => token,
+    _ => '(unsupported response)',
+  }, fromUser: false),
+);
+```
+
+### When it fails
+
+This is the first code in the app that talks to a native runtime, so it is the
+first code that can fail for reasons no `pub get` catches: a forgotten engine
+package, an out-of-memory kill on a small phone, a half-written model file.
+Both entry points get a `catch` — and `_send` gets a `finally`:
+
+```dart
+} catch (error) {
+  if (mounted) setState(() => _loadError = error);
 }
 ```
+
+```dart
+} catch (error) {
+  if (mounted) {
+    setState(() => _turns.add(_Turn('⚠️ $error', fromUser: false)));
+  }
+} finally {
+  // `_busy` is what disables the composer, so clearing it belongs in
+  // `finally` — a failed generation must not lock the app.
+  if (mounted) setState(() => _busy = false);
+}
+```
+
+The `finally` is the part that matters. `_busy` is what greys out the text
+field and the send button, and it is set *before* the call. Clear it only on
+the success path and one failed generation disables the composer for the life
+of the screen — the app looks alive and accepts nothing, and there is no error
+on screen to explain it. Anything that can throw between "disable the UI" and
+"enable it again" belongs in a `try`, with the re-enable in `finally`.
+
+`_load`'s failure gets a message and a **Try again** button in place of the
+loading bar, because "the model would not open" is a state the user can act on.
 
 Finally, close what you opened. The runtime holds native memory that Dart's
 garbage collector knows nothing about:
@@ -271,11 +337,15 @@ garbage collector knows nothing about:
 ```dart
 @override
 void dispose() {
-  _inference?.close();
+  _inference?.close().catchError((Object _) {});
   _input.dispose();
   super.dispose();
 }
 ```
+
+`dispose` cannot `await`, so the future is dropped deliberately — and caught,
+because an unawaited throw from a native teardown surfaces as an unhandled
+async error with no useful stack.
 
 Run it and ask something. The app freezes for a few seconds, then the whole
 answer appears at once. That pause is the next step.
@@ -291,8 +361,13 @@ final buffer = StringBuffer();
 await for (final chunk in chat.generateChatResponseAsync()) {
   if (chunk is TextResponse) {
     buffer.write(chunk.token);
-    setState(() => _turns[_turns.length - 1] =
-        _Turn(buffer.toString(), fromUser: false));
+    if (!mounted) return;
+    setState(
+      () => _turns[_turns.length - 1] = _Turn(
+        buffer.toString(),
+        fromUser: false,
+      ),
+    );
   }
 }
 ```
@@ -300,6 +375,11 @@ await for (final chunk in chat.generateChatResponseAsync()) {
 **Each `TextResponse` carries only the new text**, not the reply so far. Assign
 it instead of appending and you render only the last fragment — a bug that
 looks like the model emitting a single word.
+
+The `if (!mounted) return;` is not decoration either: generation outlives the
+screen if the user backs out mid-reply, and `setState` on a disposed `State`
+throws. The `finally` from Step 3 still runs on that early return, and skips
+its own `setState` for the same reason.
 
 Add the empty assistant turn *before* the loop starts, so there is something
 on screen for the tokens to flow into.
@@ -310,17 +390,23 @@ thinking out loud instead of hanging.
 ## Step 5: Install once, not every launch
 Duration: 4
 
-The app still asks for the model every cold start. The fix is one question,
-asked before deciding what to show:
+The gate that keeps the app from re-downloading half a gigabyte has been there
+since Step 2 — one question, asked before deciding what to show:
 
 ```dart
 Future<bool> _check() => FlutterGemma.isModelInstalled(widget.model.fileName);
 ```
 
-That is why the file name lives in a constant. `isModelInstalled` is keyed by
-the name the model was installed under — get it out of step with the URL and
-the check quietly answers "no" forever, and your app re-downloads half a
-gigabyte on every launch while looking like it works.
+What `complete` adds is everything around it: a test that keeps the question
+honest, a way to make it answer "no" again, and the truth about what survives
+a restart.
+
+That one line is why the file name lives in a constant. `isModelInstalled` is
+keyed by the name the model was installed under — get it out of step with the
+URL and the check quietly answers "no" forever, and your app re-downloads half
+a gigabyte on every launch while looking like it works. It is also why the
+model's file name and its URL are the same string in `Models` — one typo apart
+and the check is answering about a file that was never written.
 
 `complete` guards exactly that with a test, because it is invisible when wrong:
 
@@ -332,10 +418,20 @@ test('every model id matches the last segment of its URL', () {
 });
 ```
 
-**Try killing the app mid-download and starting it again.** The download picks
-up where it stopped rather than starting over: the plugin derives a stable id
-for the transfer from the model's identity, so it can find its own partial file
-after a restart.
+**What survives a cold start is the decision, not the bytes.** Kill the app
+mid-download and relaunch: the gate asks again, sees no installed model, and
+starts over from zero. That is deliberate. Hugging Face serves *weak* ETags, so
+the plugin sets `allowPause: false` for `huggingface.co` URLs — byte-range
+resume against a server that cannot promise the range still matches is worse
+than a clean restart. A model hosted on GCS, Firebase Storage, Kaggle or your
+own server does resume. It is worth knowing which of those you are on before
+you promise your users a resumable download.
+
+The corollary bites on Android: because a Hugging Face transfer cannot pause,
+one that runs past WorkManager's nine-minute execution cap fails outright
+instead of pausing and re-enqueuing. On a slow connection a 0.5 GB model can
+hit that, and the fix is a faster network or a host that supports resume — not
+a retry loop.
 
 To watch the whole cycle, `complete` adds a delete button:
 
@@ -351,7 +447,8 @@ Future<void> _removeModel() async {
 
 Close the runtime *before* deleting the file. The weights are memory-mapped
 while a model is open, and pulling the file out from under the engine is a
-crash waiting to happen.
+crash waiting to happen. Delete it, and the gate flips back to the download
+screen on the next check — which is the cheapest way to test the gate itself.
 
 ## What's next
 Duration: 2
@@ -361,15 +458,17 @@ core API is the entry point to everything else the plugin does:
 
 * **swap the model** — change one constant; `.litertlm` files from
   [litert-community](https://huggingface.co/litert-community) all work the same way
+* **run a different engine** — the OS built-in model (Gemini Nano, Apple
+  Foundation Models) needs no download at all
 * **send images and audio** — `Message.withImages`, on models that accept them
 * **let the model call your Dart functions** — tools and the call/response loop
 * **ground answers in your own documents** — embeddings and on-device vector search
 * **run it as a voice loop** — speech-to-text in, text-to-speech out
 
-Each has its own codelab in the [catalogue](https://fluttergemma.dev/codelabs).
+Each has its own codelab in the [catalogue](/codelabs).
 
 ### Reference
 
 * [flutter_gemma on pub.dev](https://pub.dev/packages/flutter_gemma)
-* [Documentation](https://fluttergemma.dev/docs/getting-started)
+* [Documentation](/docs/getting-started)
 * [Source and this codelab's code](https://github.com/DenisovAV/flutter_gemma)

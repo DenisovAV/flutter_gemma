@@ -3,7 +3,7 @@
 // Hugging Face token.
 //
 // Not part of CI — it downloads ~0.6 GB and needs a real device:
-//   flutter test integration_test/quickstart_test.dart -d macos
+//   flutter test integration_test/quickstart_test.dart -d <device-id>
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
@@ -20,19 +20,24 @@ void main() {
 
     const model = Models.qwen3;
 
-    if (!await FlutterGemma.isModelInstalled(model.fileName)) {
-      var last = -1;
-      await FlutterGemma.installModel(
-        modelType: model.modelType,
-        fileType: ModelFileType.litertlm,
-      ).fromNetwork(model.url).withProgress((p) {
-        if (p >= last + 25) {
-          last = p;
-          debugPrint('[quickstart] download $p%');
-        }
-      }).install();
-    }
+    // Unconditionally, on every run. `install()` is idempotent: on a device
+    // that already has the file it skips the download and re-activates the
+    // model. Guarding it with `isModelInstalled` would leave whatever a
+    // previous run activated in place, and the test would pass against the
+    // wrong model.
+    var last = -1;
+    await FlutterGemma.installModel(
+      modelType: model.modelType,
+      fileType: ModelFileType.litertlm,
+    ).fromNetwork(model.url).withProgress((p) {
+      if (p >= last + 25) {
+        last = p;
+        debugPrint('[quickstart] download $p%');
+      }
+    }).install();
+
     expect(await FlutterGemma.isModelInstalled(model.fileName), isTrue);
+    expect(FlutterGemma.hasActiveModel(), isTrue);
 
     final inference = await FlutterGemma.getActiveModel(maxTokens: 1024);
     final chat = await inference.createChat(

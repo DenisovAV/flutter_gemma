@@ -67,6 +67,14 @@ class _ModelGateState extends State<ModelGate> {
             body: Center(child: CircularProgressIndicator()),
           );
         }
+        if (snapshot.hasError) {
+          // A FutureBuilder that ignores `hasError` renders the download
+          // screen as if nothing had gone wrong. Say what failed instead.
+          return _GateError(
+            error: snapshot.error!,
+            onRetry: () => setState(() => _installed = _check()),
+          );
+        }
         if (snapshot.data ?? false) {
           return _ModelReady(model: widget.model);
         }
@@ -95,6 +103,34 @@ class _ModelReady extends StatelessWidget {
           child: Text(
             'Model installed.\nThe next step talks to it.',
             textAlign: TextAlign.center,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Shown when the gate's own check fails, rather than falling through to the
+/// download screen as if the answer had been "no".
+class _GateError extends StatelessWidget {
+  const _GateError({required this.error, required this.onRetry});
+
+  final Object error;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('$error', textAlign: TextAlign.center),
+              const SizedBox(height: 12),
+              FilledButton(onPressed: onRetry, child: const Text('Try again')),
+            ],
           ),
         ),
       ),

@@ -30,6 +30,7 @@ class _ChatPageState extends State<ChatPage> {
   InferenceModel? _inference;
   InferenceChat? _chat;
   bool _busy = false;
+  Object? _loadError;
 
   @override
   void initState() {
@@ -38,18 +39,30 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> _load() async {
-    // maxTokens is the CONTEXT WINDOW — prompt + history + reply share it.
-    // It is NOT a reply-length cap; for that, pass maxOutputTokens below.
-    final inference = await FlutterGemma.getActiveModel(maxTokens: 1024);
-    final chat = await inference.createChat(
-      modelType: widget.model.modelType,
-      maxOutputTokens: 256,
-    );
-    if (!mounted) return;
-    setState(() {
-      _inference = inference;
-      _chat = chat;
-    });
+    try {
+      // maxTokens is the CONTEXT WINDOW — prompt + history + reply share it.
+      // It is NOT a reply-length cap; for that, pass maxOutputTokens below.
+      final inference = await FlutterGemma.getActiveModel(maxTokens: 1024);
+      final chat = await inference.createChat(
+        modelType: widget.model.modelType,
+        maxOutputTokens: 256,
+      );
+      if (!mounted) return;
+      setState(() {
+        _inference = inference;
+        _chat = chat;
+      });
+    } catch (error) {
+      // Loading is the likeliest thing to fail on a real device: a forgotten
+      // engine package, too little memory, a half-written model file. Show it
+      // instead of sitting on the progress bar forever.
+      if (mounted) setState(() => _loadError = error);
+    }
+  }
+
+  void _retryLoad() {
+    setState(() => _loadError = null);
+    _load();
   }
 
   Future<void> _send() async {
@@ -66,26 +79,37 @@ class _ChatPageState extends State<ChatPage> {
       _busy = true;
     });
 
-    await chat.addQueryChunk(Message.text(text: text, isUser: true));
+    try {
+      await chat.addQueryChunk(Message.text(text: text, isUser: true));
 
-    final buffer = StringBuffer();
-    await for (final chunk in chat.generateChatResponseAsync()) {
-      // Each TextResponse carries only the NEW text, not the whole reply
-      // so far — append, never replace.
-      if (chunk is TextResponse) {
-        buffer.write(chunk.token);
-        if (!mounted) return;
+      final buffer = StringBuffer();
+      await for (final chunk in chat.generateChatResponseAsync()) {
+        // Each TextResponse carries only the NEW text, not the whole reply
+        // so far — append, never replace.
+        if (chunk is TextResponse) {
+          buffer.write(chunk.token);
+          if (!mounted) return;
+          setState(
+            () => _turns[_turns.length - 1] = _Turn(
+              buffer.toString(),
+              fromUser: false,
+            ),
+          );
+        }
+      }
+    } catch (error) {
+      // The half-written reply becomes the error, so the empty bubble never
+      // just sits there.
+      if (mounted) {
         setState(
-          () => _turns[_turns.length - 1] = _Turn(
-            buffer.toString(),
-            fromUser: false,
-          ),
+          () => _turns[_turns.length - 1] = _Turn('⚠️ $error', fromUser: false),
         );
       }
+    } finally {
+      // `_busy` is what disables the composer, so clearing it belongs in
+      // `finally` — a failed generation must not lock the app.
+      if (mounted) setState(() => _busy = false);
     }
-
-    if (!mounted) return;
-    setState(() => _busy = false);
   }
 
   /// Frees the disk. Close the runtime first — the file is mapped while a
@@ -101,8 +125,10 @@ class _ChatPageState extends State<ChatPage> {
 
   @override
   void dispose() {
-    // Sessions and models hold native memory — always close them.
-    _inference?.close();
+    // Sessions and models hold native memory — always close them. `dispose`
+    // cannot await, so the future is dropped on purpose, and caught so a
+    // failing native teardown does not escape as an unhandled async error.
+    _inference?.close().catchError((Object _) {});
     _input.dispose();
     super.dispose();
   }
@@ -110,6 +136,7 @@ class _ChatPageState extends State<ChatPage> {
   @override
   Widget build(BuildContext context) {
     final ready = _chat != null;
+    final error = _loadError;
 
     return Scaffold(
       appBar: AppBar(
@@ -124,7 +151,10 @@ class _ChatPageState extends State<ChatPage> {
       ),
       body: Column(
         children: [
-          if (!ready) const LinearProgressIndicator(),
+          if (error != null)
+            _LoadFailed(error: error, onRetry: _retryLoad)
+          else if (!ready)
+            const LinearProgressIndicator(),
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.all(16),
@@ -145,6 +175,8 @@ class _ChatPageState extends State<ChatPage> {
                       decoration: InputDecoration(
                         hintText: ready
                             ? 'Ask something'
+                            : error != null
+                            ? 'No model loaded'
                             : 'Loading the model…',
                         border: const OutlineInputBorder(),
                       ),
@@ -159,6 +191,28 @@ class _ChatPageState extends State<ChatPage> {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Shown in place of the loading bar when the model could not be opened.
+class _LoadFailed extends StatelessWidget {
+  const _LoadFailed({required this.error, required this.onRetry});
+
+  final Object error;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          Text('The model did not load.\n$error', textAlign: TextAlign.center),
+          const SizedBox(height: 8),
+          FilledButton(onPressed: onRetry, child: const Text('Try again')),
         ],
       ),
     );

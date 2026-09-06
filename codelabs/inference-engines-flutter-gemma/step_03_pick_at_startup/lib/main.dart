@@ -48,7 +48,15 @@ class _EnginesAppState extends State<EnginesApp> {
   /// Availability is a property of the device and OS, not of the build —
   /// it has to be asked at run time, every time.
   Future<void> _pickAtStartup() async {
-    final status = await BuiltInAi.availability();
+    // `availability()` never throws for an OS that answers — but a plugin
+    // that failed to register does, and an uncaught throw here would leave
+    // the app on the probe screen forever.
+    BuiltInAiAvailability status;
+    try {
+      status = await BuiltInAi.availability();
+    } catch (_) {
+      status = BuiltInAiAvailability.unavailableOther;
+    }
     final choice = switch (status) {
       BuiltInAiAvailability.available ||
       BuiltInAiAvailability.downloadable ||
@@ -99,7 +107,7 @@ class _Probing extends StatelessWidget {
 }
 
 /// On every cold start — and on every switch — makes sure the chosen model is
-/// on the device AND is the active one.
+/// ready to answer AND is the active one.
 class ModelGate extends StatefulWidget {
   const ModelGate({super.key, required this.model, required this.onSwitch});
 
@@ -114,10 +122,22 @@ class _ModelGateState extends State<ModelGate> {
   late Future<bool> _ready = _prepare();
 
   Future<bool> _prepare() async {
+    if (widget.model.isBuiltIn) {
+      // "Installed" is not a concept for a built-in model. The OS owns the
+      // weights, nothing lands on disk, and no install record is written — so
+      // `isModelInstalled` answers no forever. Ask the OS instead.
+      final status = await BuiltInAi.availability();
+      if (status != BuiltInAiAvailability.available) return false;
+      // Ready, but not yet current: `activate` records the identity that
+      // `getActiveModel` will load.
+      await activate(widget.model);
+      return true;
+    }
+
     final installed = await FlutterGemma.isModelInstalled(widget.model.id);
-    // Installed is not the same as active. `install()` is idempotent, so
-    // re-running it on a model that is already here costs nothing and makes
-    // it the one `getActiveModel` will load.
+    // For a downloaded model, installed is still not the same as active.
+    // `install()` is idempotent, so re-running it on a model that is already
+    // here costs nothing and makes it the one `getActiveModel` will load.
     if (installed) await activate(widget.model);
     return installed;
   }
@@ -132,6 +152,15 @@ class _ModelGateState extends State<ModelGate> {
             body: Center(child: CircularProgressIndicator()),
           );
         }
+        if (snapshot.hasError) {
+          // A FutureBuilder that ignores `hasError` renders the setup screen
+          // as if nothing had gone wrong — including when the OS flipped the
+          // built-in model to unavailable under the app's feet.
+          return _GateError(
+            error: snapshot.error!,
+            onRetry: () => setState(() => _ready = _prepare()),
+          );
+        }
         if (snapshot.data ?? false) {
           return ChatPage(
             model: widget.model,
@@ -144,6 +173,34 @@ class _ModelGateState extends State<ModelGate> {
           onReady: () => setState(() => _ready = _prepare()),
         );
       },
+    );
+  }
+}
+
+/// Shown when the gate's own check fails, rather than falling through to the
+/// setup screen as if the answer had been "not ready".
+class _GateError extends StatelessWidget {
+  const _GateError({required this.error, required this.onRetry});
+
+  final Object error;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('$error', textAlign: TextAlign.center),
+              const SizedBox(height: 12),
+              FilledButton(onPressed: onRetry, child: const Text('Try again')),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

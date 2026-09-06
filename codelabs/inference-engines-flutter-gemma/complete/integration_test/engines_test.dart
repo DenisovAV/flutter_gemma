@@ -1,8 +1,9 @@
 // End-to-end check of the engine switch on a real device or emulator.
 //
 // Exercises both arms of the startup policy: the built-in model is probed and
-// either used or — on a device without one, e.g. an emulator — reported as a
-// typed BuiltInAiUnavailableException; the downloaded model then answers on
+// either used — chatted through, to prove the gate's readiness rule holds — or,
+// on a device without one (an emulator, say), reported as a typed
+// BuiltInAiUnavailableException; the downloaded model then answers on
 // LiteRT-LM. Uses the ungated Qwen3 build so it needs no Hugging Face token.
 //
 // Not part of CI (needs a device, may download ~0.6 GB):
@@ -49,7 +50,33 @@ void main() {
       );
     } else {
       await activate(Models.builtIn);
-      debugPrint('[engines] built-in model activated');
+      // The gate's readiness rule for a built-in model: NOT `isModelInstalled`
+      // (there is no file and no install record, so that is always false) but
+      // "the OS says available, and this is the active model". Assert both,
+      // then actually chat through it — a built-in model that activates but
+      // cannot answer is exactly the bug this arm exists to catch.
+      expect(await FlutterGemma.isModelInstalled(Models.builtIn.id), isFalse);
+      expect(FlutterGemma.hasActiveModel(), isTrue);
+      expect(await BuiltInAi.availability(), BuiltInAiAvailability.available);
+
+      final builtIn = await FlutterGemma.getActiveModel(maxTokens: 1024);
+      final builtInChat = await builtIn.createChat(
+        modelType: Models.builtIn.modelType,
+        maxOutputTokens: 64,
+      );
+      await builtInChat.addQueryChunk(
+        Message.text(
+          text: 'Name one planet. Answer in three words.',
+          isUser: true,
+        ),
+      );
+      final builtInReply = StringBuffer();
+      await for (final chunk in builtInChat.generateChatResponseAsync()) {
+        if (chunk is TextResponse) builtInReply.write(chunk.token);
+      }
+      debugPrint('[engines] reply via built-in: ${builtInReply.toString()}');
+      expect(builtInReply.toString().trim(), isNotEmpty);
+      await builtIn.close();
     }
 
     // Whatever the OS said, the downloaded model must work on this device.

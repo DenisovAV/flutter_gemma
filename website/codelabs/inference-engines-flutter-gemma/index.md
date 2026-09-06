@@ -29,8 +29,8 @@ chat code does not change once in the whole codelab. That is the point.
 
 * what an **engine** is in `flutter_gemma`, and why the core ships none
 * how a model's `ModelFileType` is the entire "engine switch"
-* that *installed* and *active* are different things, and how one idempotent
-  call moves between them
+* that *installed* and *active* are different things — and that *installed* is
+  not even a concept for a model the OS owns
 * why built-in availability can only be asked at run time, and how to ask
 * how to fail with a **typed** error so the app can choose a fallback instead
   of crashing
@@ -57,7 +57,7 @@ ls
 step_01_starter/           the Getting Started app, unchanged
 step_02_two_engines/       after Step 2
 step_03_pick_at_startup/   after Step 3
-complete/                  the finished app
+complete/                  after Step 4 — the finished app
 ```
 
 ## Step 1: What an engine is
@@ -87,7 +87,7 @@ So "switching engines" is not a code path. It is: register a second engine,
 and activate a model whose file type routes to it.
 
 ## Step 2: Register a second engine
-Duration: 12
+Duration: 18
 
 ### Add the package
 
@@ -108,13 +108,16 @@ manifest merger refuses an app that sets less, so raise the app's floor in
 
 ```kotlin
 defaultConfig {
+    // …
     // flutter_gemma_builtin_ai (ML Kit GenAI / AICore) declares minSdk 26;
     // the manifest merger rejects an app below it.
     minSdk = 26
 ```
 
-iOS needs nothing: the package builds from iOS 15, and on anything older than
-OS 26 every call is gated and simply reports the model as unavailable.
+iOS needs nothing beyond what Getting Started already set up (deployment
+target 15.0 and the two memory entitlements): the package builds from iOS 15,
+and on anything older than OS 26 every call is gated and simply reports the
+model as unavailable.
 
 ### Register it
 
@@ -127,15 +130,33 @@ await FlutterGemma.initialize(
 
 Two engines, side by side. Neither knows about the other.
 
+### Rename these first
+
+If you are editing your own `complete/` from Getting Started rather than
+opening `step_02_two_engines`, five names change, and the compiler will find
+them in three files:
+
+| Rename | Why | Where it breaks |
+|---|---|---|
+| `ModelChoice.fileName` → `id` | a built-in model has no file name | `main.dart` gate, `chat_page.dart` `uninstallModel`, `test/widget_test.dart` |
+| `ModelChoice.url` → `String?` | a built-in model has no URL | the test needs `model.url!` |
+| `ModelChoice.fileType` (new, required) | this is the engine switch | both `Models` constants |
+| `DownloadPage.onInstalled` → `onReady` | "installed" is the wrong word for a model the OS owns | `main.dart` gate, the widget test |
+| `ChatPage` gains a required `onSwitch` | the chat can now ask for a different model | `main.dart` gate |
+
+`download_page.dart` also grows a top-level `activate()` function, below.
+
 ### Give the model a shape that fits both
 
 In Getting Started, `ModelChoice` described a file. Now it describes a model
-that may or may not *be* a file, so two fields change meaning and one is added:
+that may or may not *be* a file:
 
 ```dart
 class ModelChoice {
-  /// What `FlutterGemma.isModelInstalled` is keyed by. For a downloaded model
-  /// that is its file name; for a built-in one, the OS model's name.
+  /// How this app names the model. For a downloaded model it is the file name,
+  /// which is also what `FlutterGemma.isModelInstalled` is keyed by. For a
+  /// built-in one it is the OS model's name — and nothing is keyed by it,
+  /// because there is no file and no install record.
   final String id;
 
   /// Which engine opens it. `.litertlm` → LiteRtLmEngine, `.builtIn` →
@@ -154,13 +175,18 @@ constant only because the platform is decided at run time:
 
 ```dart
 static ModelChoice get builtIn {
-  final spec = defaultTargetPlatform == TargetPlatform.android
-      ? BuiltInAiModels.geminiNano
-      : BuiltInAiModels.appleFoundationModels;
+  final (spec, label) = switch (defaultTargetPlatform) {
+    TargetPlatform.android => (BuiltInAiModels.geminiNano, 'Gemini Nano'),
+    TargetPlatform.iOS || TargetPlatform.macOS => (
+      BuiltInAiModels.appleFoundationModels,
+      'Apple Foundation Models',
+    ),
+    _ => throw UnsupportedError(
+      'No built-in AI model on $defaultTargetPlatform',
+    ),
+  };
   return ModelChoice(
-    label: defaultTargetPlatform == TargetPlatform.android
-        ? 'Gemini Nano'
-        : 'Apple Foundation Models',
+    label: label,
     id: spec.name,
     modelType: spec.modelType,
     fileType: ModelFileType.builtIn,
@@ -169,18 +195,32 @@ static ModelChoice get builtIn {
 }
 ```
 
-### Installed is not active
+Android and Apple are the platforms `flutter_gemma_builtin_ai` has a native arm
+for, so anywhere else this throws instead of quietly handing back a model that
+cannot exist.
 
-Here is the idea the rest of the codelab rests on. Installing a model puts it
-on the device. Activating a model makes it the one `getActiveModel()` loads.
-The last model you installed is active — and `install()` is **idempotent**:
-called on a model that is already there, it skips the download and just makes
-it active.
+### Installed is not active — and a built-in model is never installed
 
-So one function makes any model ready *and* current, whichever kind it is:
+Here is the idea the rest of the codelab rests on, in two halves.
+
+**For a downloaded model.** Installing puts it on the device. Activating makes
+it the one `getActiveModel()` loads. The last model you installed is active —
+and `install()` is **idempotent**: called on a model that is already there, it
+skips the download and just makes it active.
+
+**For a built-in model.** "Installed" is not a concept at all. Nothing is
+written to disk and no install record exists, so `FlutterGemma.isModelInstalled`
+answers *no* for it forever — before activation and after. Readiness is a
+question for the OS, not for your storage.
+
+One function still covers both, because *activating* means the same thing on
+either side:
 
 ```dart
-Future<void> activate(ModelChoice model, {void Function(int)? onProgress}) async {
+Future<void> activate(
+  ModelChoice model, {
+  void Function(int)? onProgress,
+}) async {
   if (model.isBuiltIn) {
     // Throws BuiltInAiUnavailableException on a device/OS that has no
     // built-in model, so the failure is typed and the caller can react.
@@ -203,30 +243,59 @@ Future<void> activate(ModelChoice model, {void Function(int)? onProgress}) async
 ```
 
 For the built-in model, `ensureReady()` asks the OS to make its model ready —
-on Android the first call may download the feature, and `onProgress` reports
-it. Then `install()` records the identity; there is no file to fetch, so
-`fromBundled(model.id)` is just a name.
+on Android the first call may download the feature. Then `install()` records
+the identity; there is no file to fetch, so `fromBundled(model.id)` is just a
+name.
 
-The gate from Getting Started grows by one line, because *installed* no longer
-implies *active*:
+That OS download is the reason the setup screen's progress bar is
+*indeterminate* for a built-in model and determinate for a file: Android
+reports a running byte count with `bytesTotal: 0`, and Apple reports nothing at
+all, so there is no percentage to draw. A determinate bar pinned at 0% for
+minutes reads as a frozen app, which is worse than admitting you do not know.
+
+The gate from Getting Started therefore grows a branch, not a line — it asks a
+different *question* per kind of model:
 
 ```dart
 Future<bool> _prepare() async {
+  if (widget.model.isBuiltIn) {
+    // "Installed" is not a concept for a built-in model. The OS owns the
+    // weights, nothing lands on disk, and no install record is written — so
+    // `isModelInstalled` answers no forever. Ask the OS instead.
+    final status = await BuiltInAi.availability();
+    if (status != BuiltInAiAvailability.available) return false;
+    // Ready, but not yet current: `activate` records the identity that
+    // `getActiveModel` will load.
+    await activate(widget.model);
+    return true;
+  }
+
   final installed = await FlutterGemma.isModelInstalled(widget.model.id);
-  // Installed is not the same as active. `install()` is idempotent, so
-  // re-running it on a model that is already here costs nothing and makes
-  // it the one `getActiveModel` will load.
+  // For a downloaded model, installed is still not the same as active.
+  // `install()` is idempotent, so re-running it on a model that is already
+  // here costs nothing and makes it the one `getActiveModel` will load.
   if (installed) await activate(widget.model);
   return installed;
 }
 ```
 
+Ask the wrong question and the app becomes unreachable rather than broken:
+`isModelInstalled` on a built-in model is always false, so the gate would send
+you to the setup screen, the setup screen would activate the model
+successfully, and the gate would send you straight back. Forever, with no
+error anywhere.
+
 ### Switch by hand
 
-`step_02_two_engines` adds a menu to the chat's app bar: *Use Gemini Nano*,
-*Use Gemma 3 1B*, *Use Qwen3 0.6B*. Picking one closes the current runtime and
-hands the app a different `ModelChoice`; a new `ValueKey(choice.id)` on the
-gate restarts it for that model.
+`step_02_two_engines` adds a menu to the chat's app bar listing the models you
+are *not* running — so at most two *Use …* entries, and on iOS the built-in one
+reads *Use Apple Foundation Models*. Below them sits *Forget this model*, which
+deletes a downloaded one; it is hidden for the built-in model, because there is
+no file to free and no record to remove (`uninstallModel` would throw).
+
+Picking a model closes the current runtime and hands the app a different
+`ModelChoice`; a new `ValueKey(choice.id)` on the gate restarts it for that
+model.
 
 ```dart
 Future<void> _switchTo(ModelChoice next) async {
@@ -242,16 +311,22 @@ memory of its own, and the built-in one holds an OS session.
 
 Run it. On a device with a built-in model, switch to it and ask the same
 question you asked Gemma — a different engine answers, and the chat page is
-byte-for-byte the code you had. On a device *without* one, the switch fails —
-and look at how:
+byte-for-byte the code you had.
+
+On a device *without* one, the switch itself succeeds — `_switchTo` only closes
+a runtime, it cannot fail. What happens is that the gate finds the OS reporting
+`unavailable*`, so it shows the setup screen; pressing **Use built-in model**
+there is what fails, from `ensureReady()`:
 
 ```text
-BuiltInAiUnavailableException(unavailableDeviceUnsupported): Built-in AI is not available
+BuiltInAiUnavailableException(BuiltInAiAvailability.unavailableDeviceUnsupported): Built-in AI is not available: BuiltInAiAvailability.unavailableDeviceUnsupported
 ```
 
-A typed exception with a status, not a platform crash. `step_02`'s error card
-reads the status and says, for a disabled feature, exactly which Settings
-toggle turns it on. That typed failure is what makes the next step possible.
+A typed exception carrying a `BuiltInAiAvailability`, not a platform crash —
+which is why the app never shows the learner that string. `step_02`'s error
+card pattern-matches the status and renders a sentence instead: for a disabled
+feature, where the toggle lives on each platform. That typed failure is what
+makes the next step possible.
 
 ## Step 3: Let the app choose
 Duration: 8
@@ -262,7 +337,15 @@ once the user turns Apple Intelligence on. So the app asks, every launch:
 
 ```dart
 Future<void> _pickAtStartup() async {
-  final status = await BuiltInAi.availability();
+  // `availability()` never throws for an OS that answers — but a plugin
+  // that failed to register does, and an uncaught throw here would leave
+  // the app on the probe screen forever.
+  BuiltInAiAvailability status;
+  try {
+    status = await BuiltInAi.availability();
+  } catch (_) {
+    status = BuiltInAiAvailability.unavailableOther;
+  }
   final choice = switch (status) {
     BuiltInAiAvailability.available ||
     BuiltInAiAvailability.downloadable ||
@@ -284,15 +367,21 @@ gives up after 20 seconds and reports `unavailableOther` rather than hanging
 your startup. `step_03_pick_at_startup` shows a *Checking for a built-in
 model…* screen for that window.
 
+`downloadable` is the interesting one: the OS *can* have a model but hasn't
+fetched the feature yet, so the gate's built-in branch answers "not ready", the
+app lands on the setup screen, and pressing the button there runs
+`ensureReady()` — with the indeterminate bar from Step 2, because that download
+has no total to report.
+
 The manual switch from Step 2 stays in the menu, so you can override the
 app's choice and compare.
 
 ## Step 4: Say why
-Duration: 4
+Duration: 5
 
 A silent decision is a support ticket waiting to happen: "why is my app
 downloading half a gigabyte when the phone has Gemini?" `complete` keeps the
-probe's verdict and shows it once, in a banner above the chat:
+probe's verdict and shows it in a dismissible banner above the chat:
 
 ```dart
 final (choice, reason) = switch (status) {
@@ -334,10 +423,13 @@ Duration: 2
 You now have an app that adapts to the device it lands on. The registry idea
 extends further than these two engines:
 
-* **MediaPipe** (`flutter_gemma_mediapipe`) opens `.task` files and is the
-  only engine that runs on the web
+* **MediaPipe** (`flutter_gemma_mediapipe`) opens `.task` files on Android,
+  iOS and the web
 * **ONNX Runtime** (`flutter_gemma_onnx`) opens ONNX model directories on
-  desktop and mobile
+  macOS, Linux, Windows, Android and iOS, and runs on the web through
+  Transformers.js
+* **LiteRT-LM** — the engine you already registered — has a **web** arm too,
+  running `.litertlm` in the browser through `@litert-lm/core`
 * the built-in engine also has a **web** arm — Gemini Nano through Chrome's
   Prompt API
 
@@ -347,5 +439,5 @@ Each registers the same way and answers through the same chat code.
 
 * [flutter_gemma_builtin_ai on pub.dev](https://pub.dev/packages/flutter_gemma_builtin_ai)
   — supported devices, OS floors, and what each availability status means
-* [Engines documentation](https://fluttergemma.dev/docs/builtin-ai)
+* [Built-in AI documentation](/docs/builtin-ai)
 * [Source and this codelab's code](https://github.com/DenisovAV/flutter_gemma)

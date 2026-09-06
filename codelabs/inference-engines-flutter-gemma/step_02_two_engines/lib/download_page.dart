@@ -101,9 +101,19 @@ class _DownloadPageState extends State<DownloadPage> {
                 ),
                 const SizedBox(height: 24),
                 if (_running) ...[
-                  LinearProgressIndicator(value: _percent / 100),
+                  // A file download reports bytes, so it gets a real bar. The
+                  // OS feature download reports no total at all — Android
+                  // sends a running byte count with `bytesTotal: 0` and Apple
+                  // sends nothing — so a determinate bar there would sit at
+                  // 0% and read as a frozen app.
+                  LinearProgressIndicator(
+                    value: model.isBuiltIn ? null : _percent / 100,
+                  ),
                   const SizedBox(height: 8),
-                  Text('$_percent%', textAlign: TextAlign.center),
+                  Text(
+                    model.isBuiltIn ? 'Preparing…' : '$_percent%',
+                    textAlign: TextAlign.center,
+                  ),
                 ] else
                   FilledButton(
                     onPressed: _run,
@@ -139,17 +149,26 @@ class _ErrorCard extends StatelessWidget {
         'This device has no built-in model',
         switch (status) {
           BuiltInAiAvailability.unavailableDisabled =>
-            'The feature is turned off. On iOS, enable Apple Intelligence in '
-                'Settings → Apple Intelligence & Siri.',
+            'The feature is turned off. Enable Apple Intelligence in '
+                'Settings → Apple Intelligence & Siri on iOS, or the AICore / '
+                'Gemini Nano toggle on Android.',
           BuiltInAiAvailability.unavailableOsTooOld =>
             'The OS is older than the built-in model requires.',
           _ => 'Status: $status. Switch to a downloaded model instead.',
         },
       ),
-      _ when model.requiresToken && '$error'.contains(RegExp(r'40[13]')) => (
-        'Hugging Face refused the download',
-        'Accept the model licence on its Hugging Face page, then run with '
-            '--dart-define=HF_TOKEN=hf_your_token.',
+      // Download failures arrive as a typed DownloadException wrapping a
+      // sealed DownloadError — match the type, do not sniff for "401".
+      DownloadException(error: UnauthorizedError() || ForbiddenError())
+          when model.requiresToken =>
+        (
+          'Hugging Face refused the download',
+          'Accept the model licence on its Hugging Face page, then run with '
+              '--dart-define=HF_TOKEN=hf_your_token.',
+        ),
+      DownloadException(:final error) => (
+        'Download failed',
+        error.toUserMessage(),
       ),
       _ => ('Something went wrong', '$error'),
     };

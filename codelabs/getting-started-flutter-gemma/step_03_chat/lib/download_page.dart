@@ -43,8 +43,9 @@ class _DownloadPageState extends State<DownloadPage> {
             fileType: ModelFileType.litertlm,
           )
           // No `token:` here — the Hugging Face token passed to
-          // FlutterGemma.initialize() is applied automatically, and only to
-          // huggingface.co URLs, so it can't leak to another host.
+          // FlutterGemma.initialize() is attached automatically, and only to
+          // URLs whose host contains `huggingface.co`, so it does not ride
+          // along to the other hosts an app downloads from.
           .fromNetwork(widget.model.url)
           .withProgress((percent) {
             if (mounted) setState(() => _percent = percent);
@@ -117,8 +118,23 @@ class _ErrorCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final text = '$error';
-    final looksLikeAuth = text.contains('401') || text.contains('403');
+    // The plugin reports a failed download as a typed `DownloadException`
+    // wrapping a sealed `DownloadError`, so match on the type rather than
+    // sniffing the message for "401".
+    final (title, body) = switch (error) {
+      DownloadException(error: UnauthorizedError() || ForbiddenError())
+          when requiresToken =>
+        (
+          'Hugging Face refused the download',
+          'Accept the model licence on its Hugging Face page, then run with '
+              '--dart-define=HF_TOKEN=hf_your_token.',
+        ),
+      DownloadException(:final error) => (
+        'Download failed',
+        error.toUserMessage(),
+      ),
+      _ => ('Download failed', '$error'),
+    };
 
     return Card(
       color: theme.colorScheme.errorContainer,
@@ -127,20 +143,9 @@ class _ErrorCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              looksLikeAuth && requiresToken
-                  ? 'Hugging Face refused the download'
-                  : 'Download failed',
-              style: theme.textTheme.titleSmall,
-            ),
+            Text(title, style: theme.textTheme.titleSmall),
             const SizedBox(height: 8),
-            if (looksLikeAuth && requiresToken)
-              const Text(
-                'Accept the model licence on its Hugging Face page, then run '
-                'with --dart-define=HF_TOKEN=hf_your_token.',
-              )
-            else
-              Text(text),
+            Text(body),
           ],
         ),
       ),

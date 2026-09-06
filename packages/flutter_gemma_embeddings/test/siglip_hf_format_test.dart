@@ -67,7 +67,14 @@ Future<String> _writeHfTokenizer(Directory dir) async {
           'special': true,
         },
     ],
-    'normalizer': null,
+    // Verbatim from SigLIP2's and EmbeddingGemma's tokenizer.json, and
+    // load-bearing since 1.4.1: the loader accepts the `Split` below only
+    // because this Replace proves no literal space can reach it.
+    'normalizer': {
+      'type': 'Replace',
+      'pattern': {'String': ' '},
+      'content': '\u2581',
+    },
     // The block 1.4.0 rejects.
     'pre_tokenizer': {
       'type': 'Split',
@@ -132,8 +139,13 @@ void main() {
 
     // Then a canary on the result: the two pieces, the EOS, then padding — and
     // no BOS (id 2), which is the Gemma convention rather than SigLIP2's.
+    //
+    // `a`(6) and not `▁a`(4): the real files carry a BARE Replace with no
+    // Prepend, so nothing marks the first piece, and only the space becomes
+    // U+2581. A fixture with `normalizer: null` got a dummy prefix instead and
+    // did not reproduce the file it stands for.
     final ids = tok.encode('', 'a b').ids;
-    expect(ids.take(3), [4, 5, siglipEosId]);
+    expect(ids.take(3), [6, 5, siglipEosId]);
     expect(ids.skip(3), everyElement(siglipPadId));
 
     // What this fixture does NOT prove, established by mutating it: under 1.3.3

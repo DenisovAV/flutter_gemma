@@ -144,8 +144,25 @@ List<int> encodeForSiglipEmbedding(
   // the reference Android app runs) keeps `<eos>` at index 63 on a long input.
   // Appending first silently dropped it and cost cosine 0.9683 on inputs over
   // the width.
-  final content = tokenizer.encode(text.toLowerCase()).ids;
-  final ids = <int>[...content.take(siglipSeqLen - 1), siglipEosId];
+  final raw = tokenizer.encode(text.toLowerCase()).ids;
+
+  // Reduce to BARE content first, because what the loader hands back depends on
+  // its version. 1.3.3 ignores the file's `padding` and `post_processor` blocks
+  // and returns content alone; from 1.4.0 it honours them and returns content +
+  // `<eos>` + right-padding to 64 — already the finished encoding. Truncating
+  // that to `siglipSeqLen - 1` would keep a run of pad ids and push `<eos>` to
+  // index 63, and since the model pools the LAST position, every vector would
+  // change with nothing thrown. Neither id can occur in content: both are
+  // special tokens the tokenizer does not emit for ordinary text.
+  var end = raw.length;
+  while (end > 0 && raw[end - 1] == siglipPadId) {
+    end--;
+  }
+  if (end > 0 && raw[end - 1] == siglipEosId) {
+    end--;
+  }
+
+  final ids = <int>[...raw.take(end).take(siglipSeqLen - 1), siglipEosId];
   return [...ids, ...List<int>.filled(siglipSeqLen - ids.length, siglipPadId)];
 }
 

@@ -2,7 +2,7 @@ author: Sasha Denisov
 summary: Inference Engines in Flutter — From a Downloaded Model to Built-in AI
 id: inference-engines-flutter-gemma
 categories: flutter, ai, gemma, gemini-nano
-environments: android, ios
+environments: android, ios, macos, windows, linux, web
 status: Published
 
 # Inference Engines in Flutter: From a Downloaded Model to Built-in AI
@@ -17,9 +17,9 @@ engines** and to choose between them by itself:
 
 * **LiteRT-LM**, which opens a `.litertlm` file you download — the engine you
   already have
-* the **OS built-in model** — Gemini Nano on Android, Apple Foundation Models
-  on iOS — which has no file at all, because the operating system owns the
-  weights
+* the **built-in model** — Gemini Nano on Android and in Chrome, Apple
+  Foundation Models on iOS and macOS — which has no file at all, because the
+  operating system (or the browser) owns the weights
 
 By the end, the app probes the device at startup, uses the built-in model when
 the OS ships one, and falls back to the downloaded model when it doesn't.
@@ -46,10 +46,18 @@ point.
 * The finished app from
   [Getting Started with On-Device LLMs in Flutter](/codelabs/getting-started-flutter-gemma)
   — or just its `complete/` directory, which is this codelab's starter
-* An Android device or emulator, or an iOS device. A device **with** a built-in
-  model (Pixel 9+, Galaxy S25+, iPhone 15 Pro+ with Apple Intelligence on) lets
-  you see both engines answer; a device without one still shows the whole
-  fallback path, which is what most of your users will hit
+* Anything the app runs on — all six Flutter platforms. Four of them can have a
+  built-in model: **Android** (Pixel 9+, Galaxy S25+), **iOS** (iPhone 15 Pro+
+  with Apple Intelligence on), **macOS** (an Apple-silicon Mac with Apple
+  Intelligence on) and the **web** (desktop Chrome with the Prompt API enabled —
+  `chrome://flags/#prompt-api-for-gemini-nano` for local development, an
+  [origin trial](https://developer.chrome.com/origintrials) token for a real
+  site). One of those lets you watch both engines answer
+* **Windows and Linux have no built-in arm at all**, and that is not a gap in
+  your setup: the app is designed to notice and take the downloaded model
+  instead. Running there exercises the fallback path end to end, which is what
+  most of your users will hit anyway — as will any of the four above on a device
+  the OS has no model for
 
 ### Get the code
 
@@ -123,10 +131,11 @@ Duration: 18
 flutter pub add flutter_gemma_builtin_ai
 ```
 
-This engine talks to the model the operating system already has: Gemini Nano
-through ML Kit GenAI on Android, Apple Foundation Models on iOS. There is no
-file. The OS owns the weights, updates them, and decides whether a given
-device gets them at all.
+This engine talks to the model the platform already has: Gemini Nano through ML
+Kit GenAI on Android and through Chrome's Prompt API on the web, Apple
+Foundation Models on iOS and macOS. There is no file. The OS — or the browser —
+owns the weights, updates them, and decides whether a given device gets them at
+all.
 
 ### One platform change
 
@@ -148,6 +157,16 @@ declares an iOS 15.0 floor of its own, so a project still pinned at Flutter's
 older 13.0 template default has to be raised for this package too; on anything
 older than OS 26 every call is gated and simply reports the model as
 unavailable.
+
+macOS is iOS's twin here and needs nothing of its own. The **web** needs nothing
+in the app either — unlike LiteRT-LM's browser arm there is no script tag to
+add, because Chrome's Prompt API is a bare global the browser exposes. What it
+needs is the browser to have the feature switched on: the
+`chrome://flags/#prompt-api-for-gemini-nano` flag for local development, an
+[origin trial](https://developer.chrome.com/origintrials) token for a site you
+ship. **Windows and Linux** need nothing because there is nothing to configure:
+the package has no arm there, and the app is about to be taught to notice that
+by itself.
 
 ### Register it
 
@@ -215,16 +234,24 @@ constant only because the platform is decided at run time:
 
 ```dart
 static ModelChoice get builtIn {
-  final (spec, label) = switch (defaultTargetPlatform) {
-    TargetPlatform.android => (BuiltInAiModels.geminiNano, 'Gemini Nano'),
-    TargetPlatform.iOS || TargetPlatform.macOS => (
-      BuiltInAiModels.appleFoundationModels,
-      'Apple Foundation Models',
-    ),
-    _ => throw UnsupportedError(
-      'No built-in AI model on $defaultTargetPlatform',
-    ),
-  };
+  // `kIsWeb` is asked BEFORE `defaultTargetPlatform`, which on the web
+  // reports the host OS — a Chrome on a Mac would otherwise be handed the
+  // Apple Foundation Models arm, which only a native app can reach.
+  final (spec, label) = kIsWeb
+      ? (BuiltInAiModels.geminiNano, 'Gemini Nano (Chrome)')
+      : switch (defaultTargetPlatform) {
+          TargetPlatform.android => (
+            BuiltInAiModels.geminiNano,
+            'Gemini Nano',
+          ),
+          TargetPlatform.iOS || TargetPlatform.macOS => (
+            BuiltInAiModels.appleFoundationModels,
+            'Apple Foundation Models',
+          ),
+          _ => throw UnsupportedError(
+            'No built-in AI model on $defaultTargetPlatform',
+          ),
+        };
   return ModelChoice(
     label: label,
     id: spec.name,
@@ -235,17 +262,24 @@ static ModelChoice get builtIn {
 }
 ```
 
-Android and Apple are the platforms this codelab targets, and the ones
-`flutter_gemma_builtin_ai` has a native arm for there, so anywhere else this
-throws instead of quietly handing back a model that cannot exist. (The package
-also has a **web** arm — Gemini Nano through Chrome's Prompt API — which is out
-of scope here.) Failing loudly is the right contract for the getter; the cost
-is that every caller has to be somewhere a throw can be caught. The chat page's
-menu builds its list through `_alternatives`, which asks for `Models.builtIn`
-inside a `try` and drops the entry on `UnsupportedError`. That getter runs from
-`itemBuilder`, so the guard has to be *in* it: a throw during a build is a red
-screen, not something a `catch` around the tap could reach. The startup probe
-in Step 3 guards the same getter the same way.
+Four arms, and the order of the first two is load-bearing. On the web
+`defaultTargetPlatform` reports the **host OS**, so a Chrome running on a Mac
+answers `TargetPlatform.macOS` — ask it first and the browser is handed the
+Apple Foundation Models spec, which only a native app can reach. Asking
+`kIsWeb` first is what keeps the browser on Chrome's own Prompt API. The
+`geminiNano` spec is the right one there: it carries
+`ModelFileType.builtIn`, which is all the registry routes on, and the package's
+web arm answers to it.
+
+Windows and Linux have no built-in arm, so there this throws instead of quietly
+handing back a model that cannot exist. Failing loudly is the right contract for
+the getter; the cost is that every caller has to be somewhere a throw can be
+caught. The chat page's menu builds its list through `_alternatives`, which asks
+for `Models.builtIn` inside a `try` and drops the entry on `UnsupportedError`.
+That getter runs from `itemBuilder`, so the guard has to be *in* it: a throw
+during a build is a red screen, not something a `catch` around the tap could
+reach. The startup probe in Step 3 guards the same getter the same way, which is
+why a Windows or Linux run just quietly downloads Gemma and chats.
 
 ### Installed is not active — and a built-in model is never installed
 
@@ -300,6 +334,8 @@ That OS download is the reason the setup screen's progress bar is
 reports a running byte count with `bytesTotal: 0`, and Apple reports nothing at
 all, so there is no percentage to draw. A determinate bar pinned at 0% for
 minutes reads as a frozen app, which is worse than admitting you do not know.
+Chrome is the exception — its Prompt API does report a real percentage — and the
+app still draws the indeterminate bar there rather than branch a third way.
 
 The gate from Getting Started therefore grows a branch, not a line — it asks a
 different *question* per kind of model:
@@ -524,11 +560,15 @@ and downloading it again would raise the banner the user had already put down.
 That is the finished app. Run `complete` on whatever you have:
 
 * a device with a built-in model → the banner says so, nothing downloads, the
-  OS model answers
+  built-in model answers
 * an emulator or an older phone → the banner names the status, Gemma downloads
   once, LiteRT-LM answers
+* Windows or Linux, where there is no built-in arm to probe → the
+  `UnsupportedError` arm's sentence, *No built-in model on this platform — using
+  a downloaded model*, and the same download. Not a failure: it is the fallback
+  working, and it is the one branch you can see without owning the hardware
 
-Same chat page either way.
+Same chat page every way.
 
 ## What's next
 Duration: 2
@@ -542,9 +582,8 @@ extends further than these two engines:
   macOS, Linux, Windows, Android and iOS, and runs on the web through
   Transformers.js
 * **LiteRT-LM** — the engine you already registered — has a **web** arm too,
-  running `.litertlm` in the browser through `@litert-lm/core`
-* the built-in engine also has a **web** arm — Gemini Nano through Chrome's
-  Prompt API
+  running `.litertlm` in the browser through `@litert-lm/core`, which is what
+  makes this app's fallback work in Chrome as well
 
 Each registers the same way and answers through the same chat code.
 

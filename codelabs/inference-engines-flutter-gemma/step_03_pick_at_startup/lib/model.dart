@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart'
-    show TargetPlatform, defaultTargetPlatform;
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_builtin_ai/flutter_gemma_builtin_ai.dart';
 
@@ -72,26 +72,32 @@ abstract final class Models {
     sizeLabel: '0.6 GB',
   );
 
-  /// The model the OS ships: Gemini Nano on Android, Apple Foundation Models
-  /// on iOS and macOS. Nothing to download — the OS owns the weights, so [url]
-  /// is null and [sizeLabel] says so.
+  /// The model the platform ships: Gemini Nano on Android and in Chrome, Apple
+  /// Foundation Models on iOS and macOS. Nothing to download — the OS or the
+  /// browser owns the weights, so [url] is null and [sizeLabel] says so.
   ///
   /// A getter, not a const: the ready-made specs are chosen per platform.
-  /// Those are the platforms this codelab targets — the package also has a web
-  /// arm (Gemini Nano through Chrome's Prompt API), out of scope here — so
-  /// anywhere else this throws rather than quietly offering a model that
-  /// cannot exist.
+  /// Windows and Linux have no built-in arm at all, so there this throws
+  /// rather than quietly offering a model that cannot exist.
   static ModelChoice get builtIn {
-    final (spec, label) = switch (defaultTargetPlatform) {
-      TargetPlatform.android => (BuiltInAiModels.geminiNano, 'Gemini Nano'),
-      TargetPlatform.iOS || TargetPlatform.macOS => (
-        BuiltInAiModels.appleFoundationModels,
-        'Apple Foundation Models',
-      ),
-      _ => throw UnsupportedError(
-        'No built-in AI model on $defaultTargetPlatform',
-      ),
-    };
+    // `kIsWeb` is asked BEFORE `defaultTargetPlatform`, which on the web
+    // reports the host OS — a Chrome on a Mac would otherwise be handed the
+    // Apple Foundation Models arm, which only a native app can reach.
+    final (spec, label) = kIsWeb
+        ? (BuiltInAiModels.geminiNano, 'Gemini Nano (Chrome)')
+        : switch (defaultTargetPlatform) {
+            TargetPlatform.android => (
+              BuiltInAiModels.geminiNano,
+              'Gemini Nano',
+            ),
+            TargetPlatform.iOS || TargetPlatform.macOS => (
+              BuiltInAiModels.appleFoundationModels,
+              'Apple Foundation Models',
+            ),
+            _ => throw UnsupportedError(
+              'No built-in AI model on $defaultTargetPlatform',
+            ),
+          };
     return ModelChoice(
       label: label,
       id: spec.name,

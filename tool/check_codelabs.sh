@@ -52,6 +52,20 @@ for pubspec in "${APPS[@]}"; do
   ) || { echo "::error::$app failed"; failed=1; }
 done
 
+# One real compile, per codelab. `flutter analyze` type-checks Dart and stops
+# there; it never opens web/index.html, never runs the web compiler, and would
+# not notice a step app whose platform directories are missing or malformed.
+# Web is the one target a Linux CI runner can build for all six-platform apps —
+# Android needs an SDK, Apple targets need a Mac, Windows needs Windows — so it
+# is the only build this gate can honestly claim. Only the two `complete/` apps
+# are built: they are supersets of their own steps, and a build is ~20 s each.
+for app in codelabs/*/complete; do
+  echo ""
+  echo "=== $app: flutter build web --release ==="
+  ( cd "$app" && flutter build web --release ) \
+    || { echo "::error::$app failed to build for web"; failed=1; }
+done
+
 # Cross-codelab invariants, declared rather than hand-checked: a later codelab's
 # starter IS an earlier codelab's finished app, and both texts tell the learner
 # so. Without this the property drifts the first time someone edits one side.

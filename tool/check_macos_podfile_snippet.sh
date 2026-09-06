@@ -1,8 +1,9 @@
 #!/bin/sh
 #
-# The macOS `post_install` snippet lives in five places: three example Podfiles,
-# the core README (which is the pub.dev landing page users copy from) and the
-# website. They must stay byte-identical.
+# The macOS `post_install` snippet lives in many places: three example Podfiles,
+# every codelab step app that depends on the plugin, the core README (which is
+# the pub.dev landing page users copy from) and the website. They must stay
+# byte-identical.
 #
 # This is not tidiness. The snippet is frozen into every app's project.pbxproj
 # at `pod install` time, and upgrading flutter_gemma_litertlm does NOT re-run
@@ -34,6 +35,32 @@ for f in packages/flutter_gemma/example/macos/Podfile \
     > "$work/$(echo "$f" | tr '/' '%')"
 done
 
+# Codelab step apps carry the same snippet — a learner's app needs the staging
+# phase as much as an example does, and a codelab that ships a stale copy
+# teaches it. Apps are DISCOVERED, not listed, so a new step cannot escape the
+# check; and an app that depends on flutter_gemma but has no macos/Podfile is
+# itself a failure here (getting-started's step_01_starter has no plugin and no
+# Podfile, by design, so it is skipped by the same test).
+codelab_podfiles=0
+for pubspec in $(find codelabs -mindepth 3 -maxdepth 3 -name pubspec.yaml \
+                   -not -path '*/_*' | sort); do
+  grep -q '^  flutter_gemma:' "$pubspec" || continue
+  f="$(dirname "$pubspec")/macos/Podfile"
+  if [ ! -f "$f" ]; then
+    echo "MISSING: $f" >&2
+    echo "  That app depends on flutter_gemma, so it needs the snippet too." >&2
+    exit 1
+  fi
+  awk '/^post_install do \|installer\|/{p=1} p' "$f" \
+    > "$work/$(echo "$f" | tr '/' '%')"
+  codelab_podfiles=$((codelab_podfiles + 1))
+done
+# Fail closed. A discovery bug that finds nothing must not read as "all green".
+if [ "$codelab_podfiles" -eq 0 ]; then
+  echo "no codelab Podfiles found — discovery is broken" >&2
+  exit 1
+fi
+
 # Markdown: the block is inside a fenced code block (```ruby in the README,
 # a plain ``` on the website — the site's highlighter only knows Dart).
 extract_fenced() {
@@ -53,8 +80,8 @@ for f in packages/flutter_gemma/README.md website/content/docs/desktop.md; do
   extract_fenced "$f" > "$work/$(echo "$f" | tr '/' '%')"
 done
 
-# Every extraction must have found something — an empty file would make all
-# five "match" and turn this check into one that cannot fail.
+# Every extraction must have found something — an empty file would make every
+# copy "match" and turn this check into one that cannot fail.
 for f in "$work"/*; do
   if [ ! -s "$f" ]; then
     echo "EMPTY extraction: $(basename "$f" | tr '%' '/')" >&2
@@ -75,4 +102,4 @@ if [ "$count" -ne 1 ]; then
   exit 1
 fi
 
-echo "macOS post_install snippet: 5 copies, all identical."
+echo "macOS post_install snippet: $(ls "$work" | wc -l | tr -d ' ') copies, all identical."

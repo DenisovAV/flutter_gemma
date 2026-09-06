@@ -2,7 +2,7 @@ author: Sasha Denisov
 summary: Getting Started with On-Device LLMs in Flutter
 id: getting-started-flutter-gemma
 categories: flutter, ai, gemma
-environments: android, ios
+environments: android, ios, macos, windows, linux, web
 status: Published
 
 # Getting Started with On-Device LLMs in Flutter
@@ -38,7 +38,10 @@ of decisions the API asks you to make, and this codelab is built around them:
 ### What you'll need
 
 * Flutter 3.44 or newer
-* An Android device or emulator, or an iOS device — the same code runs on both
+* Any one of Flutter's six platforms: an Android device or emulator, an iOS
+  device or simulator, an Apple-silicon Mac, a Windows or Linux desktop, or
+  Chrome. The same code runs on all of them — Step 2 lists the handful of
+  things each one asks of you
 * About 1 GB of free space and a connection that can pull it
 * Optionally, a free Hugging Face account (Step 2 explains when you need one)
 
@@ -110,7 +113,8 @@ each drags in native binaries you would otherwise ship for nothing.
 
 ### Configure the platforms
 
-Less than you would expect.
+Less than you would expect on any of the six, and nothing at all on two of them.
+Read the subsection for the platform you are running on and skip the others.
 
 **Android** — one line, because downloading the model is an ordinary HTTPS
 request:
@@ -164,12 +168,70 @@ that applies while a debugger is attached, which is every `flutter run` this
 codelab asks you to do, so leaving it out costs you exactly the runs you are
 about to make.
 
-That is the whole platform setup. The plugin also runs on macOS, Windows and
-Linux; only **macOS** needs an extra build-phase step — a `post_install` block
-in `macos/Podfile` that stages the runtime's companion libraries. On macOS
-these entitlements need a signing team and are not needed for a model this
-size. Both are out of scope here, and covered in the
-[desktop docs](/docs/desktop).
+**macOS** — two entitlements and one build phase. The entitlements go in
+**both** `macos/Runner/DebugProfile.entitlements` and
+`macos/Runner/Release.entitlements`, beside the keys `flutter create` already
+wrote there:
+
+```xml
+	<key>com.apple.security.cs.disable-library-validation</key>
+	<true/>
+	<key>com.apple.security.network.client</key>
+	<true/>
+```
+
+`network.client` is what lets a sandboxed macOS app reach Hugging Face at all;
+`disable-library-validation` is what lets it load the runtime's companion
+dylibs, which upstream ships unsigned. The iOS keys above are deliberately
+**not** here: on macOS the `kernel.*` ones are restricted entitlements that need
+a signing team, so adding them to an unsigned build breaks it — and a model this
+size does not need them. macOS support is Apple Silicon only.
+
+The build phase is the part unique to macOS. Every step app from this one on
+ships a `macos/Podfile`, and its `post_install` block stages the runtime's
+companion libraries into the built `.app` and repoints LiteRT-LM at them. It is
+not cosmetic: without it `engine_create` returns null on the GPU backend and the
+model silently falls back to CPU. Copy the block from any step app's
+`macos/Podfile` — or from the [desktop docs](/docs/desktop), which quote it in
+full with the reasoning for each line — and run `pod install`.
+
+One trap, measured on these very apps. With Swift Package Manager enabled
+(`flutter config --enable-swift-package-manager`) and no other CocoaPods plugin
+in the app, Flutter resolves every plugin through SPM and prints **Removing
+CocoaPods integration** — which is exactly what it does. The Podfile stops being
+part of the build, the `post_install` block never runs, nothing is staged, and
+the model fails to load with nothing in the error mentioning CocoaPods. For this
+project, either turn SPM off with
+`flutter config --no-enable-swift-package-manager`, or keep one CocoaPods plugin
+in the app.
+
+**Windows** — nothing in the app. The machine needs the Microsoft Visual C++
+Redistributable (2019 or newer), which the DirectX shader compiler behind the
+GPU backend links against; most Windows 10/11 installs already have it.
+
+**Linux** — nothing in the app either. glibc 2.34 or newer, which means Ubuntu
+22.04+, Debian 12+ or RHEL 9+.
+
+**Web** — one script tag. The browser arm loads the runtime from a CDN, and that
+ES module assigns no window globals — module scripts are deferred, so Dart would
+reach the engine before the constructor exists. `web/index.html` publishes a
+promise instead, and Dart awaits it. Every step app from this one on carries it
+in `<head>`:
+
+```html
+<script type="module">
+window.litertLmReady = (async () => {
+  const m = await import('https://cdn.jsdelivr.net/npm/@litert-lm/core@0.14.0/+esm');
+  window.Engine = m.Engine;
+  return m.Engine;
+})();
+</script>
+```
+
+The web arm is an early preview: WebGPU, and text only — no images, no audio.
+The model is not a file on disk there. The browser fetches it and keeps it in
+the Cache API, which survives a reload and a browser restart, so "installed"
+means "in this browser's storage, on this machine".
 
 ### Register the engine
 

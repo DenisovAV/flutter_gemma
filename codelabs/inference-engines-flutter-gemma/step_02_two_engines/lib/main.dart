@@ -116,6 +116,9 @@ class _ModelGateState extends State<ModelGate> {
         return DownloadPage(
           model: widget.model,
           onReady: () => setState(() => _ready = _prepare()),
+          // The same callback the chat's menu gets — see
+          // `DownloadPage.onSwitch` for why the setup screen needs one too.
+          onSwitch: widget.onSwitch,
         );
       },
     );

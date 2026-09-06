@@ -39,10 +39,23 @@ Future<void> activate(
 
 /// Shows progress while [activate] runs, and offers a retry on failure.
 class DownloadPage extends StatefulWidget {
-  const DownloadPage({super.key, required this.model, required this.onReady});
+  const DownloadPage({
+    super.key,
+    required this.model,
+    required this.onReady,
+    required this.onSwitch,
+  });
 
   final ModelChoice model;
   final VoidCallback onReady;
+
+  /// Asks the app for a different model, exactly as the chat's menu does.
+  ///
+  /// A retry is the only offer this screen can make on its own, and it is the
+  /// wrong one when the OS simply has no built-in model: the button would
+  /// re-run the same failure forever. The way out has to come from here,
+  /// because this screen is the whole app until the model is ready.
+  final ValueChanged<ModelChoice> onSwitch;
 
   @override
   State<DownloadPage> createState() => _DownloadPageState();
@@ -123,7 +136,11 @@ class _DownloadPageState extends State<DownloadPage> {
                   ),
                 if (_error != null) ...[
                   const SizedBox(height: 16),
-                  _ErrorCard(error: _error!, model: model),
+                  _ErrorCard(
+                    error: _error!,
+                    model: model,
+                    onSwitch: widget.onSwitch,
+                  ),
                 ],
               ],
             ),
@@ -136,10 +153,15 @@ class _DownloadPageState extends State<DownloadPage> {
 
 /// Three failures are common enough to name; everything else shows its text.
 class _ErrorCard extends StatelessWidget {
-  const _ErrorCard({required this.error, required this.model});
+  const _ErrorCard({
+    required this.error,
+    required this.model,
+    required this.onSwitch,
+  });
 
   final Object error;
   final ModelChoice model;
+  final ValueChanged<ModelChoice> onSwitch;
 
   @override
   Widget build(BuildContext context) {
@@ -183,6 +205,17 @@ class _ErrorCard extends StatelessWidget {
             Text(title, style: theme.textTheme.titleSmall),
             const SizedBox(height: 8),
             Text(body),
+            // Only the built-in model can fail with nothing left to try, so
+            // only it gets this button — and it is the action the sentence
+            // above promises. An error card that names a way out the screen
+            // does not offer is a dead end with instructions.
+            if (error is BuiltInAiUnavailableException) ...[
+              const SizedBox(height: 12),
+              FilledButton(
+                onPressed: () => onSwitch(Models.gemma3),
+                child: Text('Use ${Models.gemma3.label} instead'),
+              ),
+            ],
           ],
         ),
       ),

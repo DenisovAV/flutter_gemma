@@ -488,10 +488,11 @@ to show:
 Future<bool> _check() => FlutterGemma.isModelInstalled(widget.model.fileName);
 ```
 
-What `complete` adds is one thing: a delete button, so you can make that
-question answer "no" again on demand. This step is where the rest of the story
-around that single line gets told — why the id has to be exactly right, and
-what does and does not survive a restart.
+What `complete` adds is a delete button, so you can make that question answer
+"no" again on demand — plus the one gate line that lets the button send you
+back. This step is where the rest of the story around `_check()` gets told —
+why the id has to be exactly right, and what does and does not survive a
+restart.
 
 That one line is why the file name lives in a constant. `isModelInstalled` is
 keyed by the name the model was installed under, and the plugin derives that
@@ -533,7 +534,11 @@ instead of pausing and re-enqueuing. On a slow connection a 0.5 GB model can
 hit that, and the fix is a faster network or a host that supports resume — not
 a retry loop.
 
-To watch the whole cycle, `complete` adds a delete button:
+To watch the whole cycle, `complete` adds a delete button. `ChatPage` gains a
+required `onModelRemoved` callback to carry the news back, and the gate
+supplies it where it already builds the chat:
+`onModelRemoved: () => setState(() => _installed = _check())` — the same
+one-line re-ask `onInstalled` has used since Step 2. The button's handler:
 
 ```dart
 Future<void> _removeModel() async {

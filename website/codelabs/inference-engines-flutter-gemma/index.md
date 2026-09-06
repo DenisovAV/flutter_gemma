@@ -161,7 +161,7 @@ Two engines, side by side. Neither knows about the other.
 ### Rename these first
 
 If you are editing your own `complete/` from Getting Started rather than
-opening `step_02_two_engines`, five names change, and the compiler will find
+opening `step_02_two_engines`, six names change, and the compiler will find
 them in four files:
 
 | Rename | Why | Where it breaks |
@@ -170,6 +170,7 @@ them in four files:
 | `ModelChoice.url` → `String?` | a built-in model has no URL | `download_page.dart` needs `.fromNetwork(model.url!)`, and so does the test |
 | `ModelChoice.fileType` (new, required) | this is the engine switch | both `Models` constants |
 | `DownloadPage.onInstalled` → `onReady` | "installed" is the wrong word for a model the OS owns | `main.dart` gate, the widget test |
+| `DownloadPage` gains a required `onSwitch` | the setup screen can fail with nothing left to retry | `main.dart` gate, the widget test |
 | `ChatPage` gains a required `onSwitch` | the chat can now ask for a different model | `main.dart` gate |
 
 `download_page.dart` also grows a top-level `activate()` function, below.
@@ -385,9 +386,17 @@ BuiltInAiUnavailableException(BuiltInAiAvailability.unavailableDeviceUnsupported
 
 A typed exception carrying a `BuiltInAiAvailability`, not a platform crash —
 which is why the setup screen never shows the learner that string. `step_02`'s
-error card pattern-matches the status and renders a sentence instead: for a
-disabled feature, where the toggle lives on each platform. That typed failure
-is what makes the next step possible.
+error card pattern-matches the status and renders a sentence instead: where the
+toggle lives for a disabled feature, that the OS is older than the model
+requires, or else the status itself.
+
+Under that sentence sits a **Use Gemma 3 1B instead** button, because this is
+the one failure a retry cannot reach: the OS either has a model or it does not,
+and pressing **Use built-in model** again only reproduces the exception. The
+button is why `DownloadPage` takes the gate's `onSwitch` as well as `ChatPage`
+— until a model is ready this screen *is* the app, and a screen that names a
+way out has to have one. That typed failure is what makes the next step
+possible.
 
 ## Step 3: Let the app choose
 Duration: 8
@@ -449,8 +458,14 @@ app lands on the setup screen, and pressing the button there runs
 `ensureReady()` — with the indeterminate bar from Step 2, because that download
 has no total to report.
 
-The manual switch from Step 2 stays in the menu, so you can override the
-app's choice and compare.
+The manual switch from Step 2 stays in the menu, so you can override the app's
+choice and compare. Neither route is one-way. When the probe lands the app on
+the built-in setup screen — for `downloadable` as much as for a switch you made
+by hand — and `ensureReady()` then fails there, the error card's **Use Gemma 3
+1B instead** button hands the app back to the downloaded model. Without it the
+only control on that screen would re-run the same failure, and on a
+`downloadable` device even a restart would probe the same status and land you
+there again.
 
 ## Step 4: Say why
 Duration: 5

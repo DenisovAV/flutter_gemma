@@ -27,7 +27,11 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
-        home: DownloadPage(model: Models.qwen3, onReady: () {}),
+        home: DownloadPage(
+          model: Models.qwen3,
+          onReady: () {},
+          onSwitch: (_) {},
+        ),
       ),
     );
     expect(find.text('Qwen3 0.6B'), findsOneWidget);

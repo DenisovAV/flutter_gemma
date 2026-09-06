@@ -4,8 +4,9 @@ import 'package:gemma_quickstart/download_page.dart';
 import 'package:gemma_quickstart/model.dart';
 
 void main() {
-  // `isModelInstalled` is keyed by file name, so a file name that drifts from
-  // its URL means the app re-downloads a model it already has — silently.
+  // `isModelInstalled` is keyed by file name. `install()` skips bytes it
+  // already has, so a name that drifts from its URL does not re-download — it
+  // strands the app on a download screen the gate is never satisfied by.
   test('every model id matches the last segment of its URL', () {
     for (final model in [Models.gemma3, Models.qwen3]) {
       expect(model.fileName, model.url.split('/').last, reason: model.label);

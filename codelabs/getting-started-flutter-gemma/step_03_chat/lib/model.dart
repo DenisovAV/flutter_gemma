@@ -28,8 +28,8 @@ class ModelChoice {
 /// The models this quickstart offers.
 ///
 /// Both are `.litertlm`, the format the LiteRT-LM engine reads on Android,
-/// iOS and desktop. (`.task` files are MediaPipe-only — a different engine
-/// package, and no desktop support.)
+/// iOS, desktop and the web. (`.task` files are MediaPipe-only — a different
+/// engine package, and no desktop support.)
 abstract final class Models {
   /// The plugin's namesake. `ekv4096` in the file name is the KV-cache the
   /// weights were built for, so this model can carry a 4096-token context.

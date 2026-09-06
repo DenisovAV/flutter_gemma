@@ -143,10 +143,16 @@ class _ChatPageState extends State<ChatPage> {
           await _removeModel();
       }
     } catch (error) {
-      // Closing a runtime and deleting a file can both fail. Surface it the
-      // way a failed load is surfaced — otherwise the page keeps an enabled
-      // composer over a chat that is already gone, and answers nothing.
-      if (mounted) setState(() => _loadError = error);
+      // Closing a runtime and deleting a file can both fail. Surface it the way
+      // a failed load is surfaced, and drop the chat with it: a `close()` that
+      // threw leaves `_chat` non-null, and "The model did not load." over an
+      // enabled composer is a lie.
+      if (mounted) {
+        setState(() {
+          _chat = null;
+          _loadError = error;
+        });
+      }
     }
   }
 

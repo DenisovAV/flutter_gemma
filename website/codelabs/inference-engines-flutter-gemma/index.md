@@ -140,10 +140,12 @@ defaultConfig {
     minSdk = 26
 ```
 
-iOS needs nothing beyond what Getting Started already set up (deployment
-target 15.0 and the three memory entitlements): the package builds from iOS 15,
-and on anything older than OS 26 every call is gated and simply reports the
-model as unavailable.
+iOS needs nothing beyond what Getting Started already set up — the iOS 15.0
+deployment target and the three memory entitlements. `flutter_gemma_builtin_ai`
+declares an iOS 15.0 floor of its own, so a project still pinned at Flutter's
+older 13.0 template default has to be raised for this package too; on anything
+older than OS 26 every call is gated and simply reports the model as
+unavailable.
 
 ### Register it
 
@@ -235,10 +237,12 @@ Android and Apple are the platforms this codelab targets, and the ones
 throws instead of quietly handing back a model that cannot exist. (The package
 also has a **web** arm — Gemini Nano through Chrome's Prompt API — which is out
 of scope here.) Failing loudly is the right contract for the getter; the cost
-is that whoever calls it has to be somewhere a throw can be caught, which is
-why the chat page's menu asks for it once inside a `try` and leaves the entry
-out when it throws, rather than calling it from `itemBuilder` and turning a
-tap into a red screen.
+is that every caller has to be somewhere a throw can be caught. The chat page's
+menu builds its list through `_alternatives`, which asks for `Models.builtIn`
+inside a `try` and drops the entry on `UnsupportedError`. That getter runs from
+`itemBuilder`, so the guard has to be *in* it: a throw during a build is a red
+screen, not something a `catch` around the tap could reach. The startup probe
+in Step 3 guards the same getter the same way.
 
 ### Installed is not active — and a built-in model is never installed
 
@@ -355,17 +359,20 @@ Future<void> _switchTo(ModelChoice next) async {
 
 Close the runtime *before* activating another model. Each engine holds native
 memory of its own, and the built-in one holds an OS session. Both menu actions
-run through one `_onAction` wrapper that catches whatever they throw and puts
-it in the same `_loadError` a failed load uses — closing a runtime and deleting
-a file are native calls, and an uncaught throw here would leave the page
-painting a chat that is already gone.
+run through one `_onAction` wrapper that catches whatever they throw, puts it
+in the same `_loadError` a failed load uses, and nulls `_chat` alongside it —
+closing a runtime and deleting a file are native calls, and a `close()` that
+throws has already broken the model while leaving `_chat` non-null, so without
+that the page would offer a working composer under *The model did not load.*
 
 Run it. On a device with a built-in model, switch to it and ask the same
 question you asked Gemma. A different engine answers, and `_load`, `_send` and
 `dispose` are byte-for-byte the code you had — run `diff` over the two
 `chat_page.dart` files and every changed line is the app bar's menu, its engine
-label, or the callback that carries the switch out. Nothing that talks to the
-model moved.
+label, the callback that carries the switch out, or the delete action moving
+under that menu: `_removeModel` loses its own `try` (the `_onAction` wrapper
+has it now) and takes `model.id` where it took `model.fileName`. Nothing that
+talks to the model moved.
 
 On a device *without* one, the switch itself normally succeeds — closing a
 runtime is all it does. What happens next is that the gate finds the OS
@@ -400,12 +407,20 @@ Future<void> _pickAtStartup() async {
   } catch (_) {
     status = BuiltInAiAvailability.unavailableOther;
   }
-  final choice = switch (status) {
-    BuiltInAiAvailability.available ||
-    BuiltInAiAvailability.downloadable ||
-    BuiltInAiAvailability.downloading => Models.builtIn,
-    _ => Models.gemma3,
-  };
+  // The switch evaluates `Models.builtIn`, which throws where this app has
+  // no built-in arm — so guard it here the way the chat page's menu does,
+  // and fall through to the downloaded model.
+  ModelChoice choice;
+  try {
+    choice = switch (status) {
+      BuiltInAiAvailability.available ||
+      BuiltInAiAvailability.downloadable ||
+      BuiltInAiAvailability.downloading => Models.builtIn,
+      _ => Models.gemma3,
+    };
+  } on UnsupportedError {
+    choice = Models.gemma3;
+  }
   if (mounted) setState(() => _choice = choice);
 }
 ```
@@ -414,6 +429,13 @@ Three of the seven statuses mean "the OS can give you a model" — now, after a
 download, or once a running download finishes. The other four are the
 `unavailable*` family, and for all of them the answer is the same: use the
 downloaded model.
+
+Two guards, two different failures. The first turns a plugin that never
+registered into an `unavailableOther` verdict instead of a hang on the probe
+screen. The second covers the fact that the switch *evaluates* `Models.builtIn`
+— this runs unawaited from `initState`, so a throw there would escape into the
+zone with the app stuck on *Checking for a built-in model…*. It is the same
+`on UnsupportedError` the menu uses in Step 2.
 
 The probe is bounded. On a device whose AI stack never answers (a
 freshly-provisioned Android with no AICore metadata yet), `availability()`
@@ -438,29 +460,41 @@ downloading half a gigabyte when the phone has Gemini?" `complete` keeps the
 probe's verdict and shows it in a dismissible banner above the chat:
 
 ```dart
-final (choice, reason) = switch (status) {
-  BuiltInAiAvailability.available => (
-    Models.builtIn,
-    'Using the model the OS ships — nothing was downloaded.',
-  ),
-  BuiltInAiAvailability.downloadable ||
-  BuiltInAiAvailability.downloading => (
-    Models.builtIn,
-    'The OS has a built-in model; it will fetch the feature once.',
-  ),
-  BuiltInAiAvailability.unavailableDisabled => (
+ModelChoice choice;
+String reason;
+try {
+  (choice, reason) = switch (status) {
+    BuiltInAiAvailability.available => (
+      Models.builtIn,
+      'Using the model the OS ships — nothing was downloaded.',
+    ),
+    BuiltInAiAvailability.downloadable ||
+    BuiltInAiAvailability.downloading => (
+      Models.builtIn,
+      'The OS has a built-in model; it will fetch the feature once.',
+    ),
+    BuiltInAiAvailability.unavailableDisabled => (
+      Models.gemma3,
+      'Built-in AI is turned off on this device — using a downloaded model.',
+    ),
+    _ => (
+      Models.gemma3,
+      'No built-in model here ($status) — using a downloaded model.',
+    ),
+  };
+} on UnsupportedError {
+  (choice, reason) = (
     Models.gemma3,
-    'Built-in AI is turned off on this device — using a downloaded model.',
-  ),
-  _ => (
-    Models.gemma3,
-    'No built-in model here ($status) — using a downloaded model.',
-  ),
-};
+    'No built-in model on this platform — using a downloaded model.',
+  );
+}
 ```
 
-`unavailableDisabled` gets its own line because it is the one case the *user*
-can fix — the hardware is fine, the feature is switched off.
+The switch now yields a record, so Step 3's guard yields one too — every path
+out of the probe, the `UnsupportedError` arm included, comes with a sentence
+the user can read. `unavailableDisabled` gets its own line because it is the
+one case the *user* can fix — the hardware is fine, the feature is switched
+off.
 
 That is the finished app. Run `complete` on whatever you have:
 

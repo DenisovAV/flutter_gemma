@@ -76,9 +76,11 @@ abstract final class Models {
   /// on iOS and macOS. Nothing to download — the OS owns the weights, so [url]
   /// is null and [sizeLabel] says so.
   ///
-  /// A getter, not a const: the ready-made specs are chosen per platform. Only
-  /// those platforms have a built-in arm, so anywhere else this throws rather
-  /// than quietly offering a model that cannot exist.
+  /// A getter, not a const: the ready-made specs are chosen per platform.
+  /// Those are the platforms this codelab targets — the package also has a web
+  /// arm (Gemini Nano through Chrome's Prompt API), out of scope here — so
+  /// anywhere else this throws rather than quietly offering a model that
+  /// cannot exist.
   static ModelChoice get builtIn {
     final (spec, label) = switch (defaultTargetPlatform) {
       TargetPlatform.android => (BuiltInAiModels.geminiNano, 'Gemini Nano'),

@@ -39,10 +39,12 @@ class QuickstartApp extends StatelessWidget {
   }
 }
 
-/// Asks, on every cold start, whether the model is already on disk.
+/// Asks, on every cold start, whether the model is already installed.
 ///
-/// Skipping this check is the classic beginner bug: the app re-downloads
-/// half a gigabyte every single launch.
+/// `install()` is idempotent, so the bytes are only ever fetched once. What a
+/// drifted id costs you is this gate: it answers "no" forever, so the app
+/// shows the download screen on every launch, the "download" there finishes
+/// instantly, and you land straight back here.
 class ModelGate extends StatefulWidget {
   const ModelGate({super.key, required this.model});
 

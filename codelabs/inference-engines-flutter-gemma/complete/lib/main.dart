@@ -61,25 +61,37 @@ class _EnginesAppState extends State<EnginesApp> {
     } catch (_) {
       status = BuiltInAiAvailability.unavailableOther;
     }
-    final (choice, reason) = switch (status) {
-      BuiltInAiAvailability.available => (
-        Models.builtIn,
-        'Using the model the OS ships — nothing was downloaded.',
-      ),
-      BuiltInAiAvailability.downloadable ||
-      BuiltInAiAvailability.downloading => (
-        Models.builtIn,
-        'The OS has a built-in model; it will fetch the feature once.',
-      ),
-      BuiltInAiAvailability.unavailableDisabled => (
+    // The switch evaluates `Models.builtIn`, which throws where this app has
+    // no built-in arm — so guard it here the way the chat page's menu does,
+    // and fall through to the downloaded model.
+    ModelChoice choice;
+    String reason;
+    try {
+      (choice, reason) = switch (status) {
+        BuiltInAiAvailability.available => (
+          Models.builtIn,
+          'Using the model the OS ships — nothing was downloaded.',
+        ),
+        BuiltInAiAvailability.downloadable ||
+        BuiltInAiAvailability.downloading => (
+          Models.builtIn,
+          'The OS has a built-in model; it will fetch the feature once.',
+        ),
+        BuiltInAiAvailability.unavailableDisabled => (
+          Models.gemma3,
+          'Built-in AI is turned off on this device — using a downloaded model.',
+        ),
+        _ => (
+          Models.gemma3,
+          'No built-in model here ($status) — using a downloaded model.',
+        ),
+      };
+    } on UnsupportedError {
+      (choice, reason) = (
         Models.gemma3,
-        'Built-in AI is turned off on this device — using a downloaded model.',
-      ),
-      _ => (
-        Models.gemma3,
-        'No built-in model here ($status) — using a downloaded model.',
-      ),
-    };
+        'No built-in model on this platform — using a downloaded model.',
+      );
+    }
     if (mounted) {
       setState(() {
         _choice = choice;

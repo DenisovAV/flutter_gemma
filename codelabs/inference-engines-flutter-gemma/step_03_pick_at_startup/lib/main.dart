@@ -57,12 +57,20 @@ class _EnginesAppState extends State<EnginesApp> {
     } catch (_) {
       status = BuiltInAiAvailability.unavailableOther;
     }
-    final choice = switch (status) {
-      BuiltInAiAvailability.available ||
-      BuiltInAiAvailability.downloadable ||
-      BuiltInAiAvailability.downloading => Models.builtIn,
-      _ => Models.gemma3,
-    };
+    // The switch evaluates `Models.builtIn`, which throws where this app has
+    // no built-in arm — so guard it here the way the chat page's menu does,
+    // and fall through to the downloaded model.
+    ModelChoice choice;
+    try {
+      choice = switch (status) {
+        BuiltInAiAvailability.available ||
+        BuiltInAiAvailability.downloadable ||
+        BuiltInAiAvailability.downloading => Models.builtIn,
+        _ => Models.gemma3,
+      };
+    } on UnsupportedError {
+      choice = Models.gemma3;
+    }
     if (mounted) setState(() => _choice = choice);
   }
 

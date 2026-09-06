@@ -124,9 +124,17 @@ You do **not** need to declare the OpenCL libraries the GPU backend uses. The
 plugin's own manifest declares them and the manifest merger folds them into
 your app.
 
-**iOS** — the deployment target is already right: Flutter's default is 15.0,
-which is what the plugin needs. What you do have to add is three memory
-entitlements, in `ios/Runner/Runner.entitlements`:
+**iOS** — two things. First, the deployment target: the plugin's podspec
+declares iOS **15.0**, and CocoaPods refuses to install a pod whose floor is
+above your app's. The step apps are already at 15.0, and Flutter's own app
+template has defaulted to 15.0 since Flutter 3.47 — but a project created on
+anything older is pinned at 13.0, and `pod install` will say so. If you are
+adding this to your own app, set `IPHONEOS_DEPLOYMENT_TARGET` to 15.0 in
+`ios/Runner.xcodeproj/project.pbxproj` (Xcode → Runner → General → **Minimum
+Deployments** writes it for you), and `platform :ios, '15.0'` in `ios/Podfile`
+if your project has one.
+
+Second, three memory entitlements, in `ios/Runner/Runner.entitlements`:
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -146,7 +154,7 @@ entitlements, in `ios/Runner/Runner.entitlements`:
 …and point the Runner target at it, which is what Xcode's **Signing &
 Capabilities** editor writes for you (`CODE_SIGN_ENTITLEMENTS =
 Runner/Runner.entitlements;` in each of the target's Debug, Release and Profile
-configurations). The step apps from Step 2 onwards already carry all three.
+configurations). The step apps from Step 2 onwards already carry all three keys.
 
 These lift the per-process memory ceiling iOS imposes. Half a gigabyte of
 weights plus a KV cache is comfortably over the default jetsam limit on an
@@ -253,13 +261,43 @@ line people forget: it defaults to `task`, which routes to MediaPipe.
 It is not about where the bytes land — they land in the same place either way.
 `fileType` is what the registry matches engines against: it asks each
 registered engine's `canHandle` about the file type the model was *declared*
-with, so a `.litertlm` model installed under the `task` default is offered to
-MediaPipe, which cannot open it, and never to LiteRT-LM. The download succeeds
-and the failure arrives later, out of `getActiveModel()`, as the same
-`StateError` you get for a missing engine package: *No inference engine can
-handle this model (ModelFileType.task).*
+with, and `LiteRtLmEngine` answers yes only to `.litertlm`. So a `.litertlm`
+model installed under the `task` default would be offered to MediaPipe — which
+this app never registered, so nothing claims the type at all. The download
+still succeeds, and the failure arrives later, out of `getActiveModel()`, as
+the same `StateError` you get for a missing engine package: *No inference
+engine can handle this model (ModelFileType.task).*
 
 `withProgress` reports whole percent, 0 to 100.
+
+### When the download fails
+
+On a gated model the likeliest failure of this whole codelab is the licence,
+and it arrives **typed**: the plugin wraps a failed download in a
+`DownloadException` around a sealed `DownloadError`, so `download_page.dart`
+matches on the type rather than sniffing the message for "401":
+
+```dart
+final (title, body) = switch (error) {
+  DownloadException(error: UnauthorizedError() || ForbiddenError())
+      when requiresToken =>
+    (
+      'Hugging Face refused the download',
+      'Accept the model licence on its Hugging Face page, then run with '
+          '--dart-define=HF_TOKEN=hf_your_token.',
+    ),
+  DownloadException(:final error) => (
+    'Download failed',
+    error.toUserMessage(),
+  ),
+  _ => ('Download failed', '$error'),
+};
+```
+
+A 401 and a 403 mean the same thing here — the licence is not accepted, or no
+token was passed — and `_ErrorCard` says exactly that instead of putting an
+exception on screen. Everything else falls through to `toUserMessage()`, which
+the plugin writes per `DownloadError`.
 
 Run it. You should watch the bar fill and land on the placeholder screen.
 Compare against `step_02_download` if it doesn't.
@@ -267,8 +305,8 @@ Compare against `step_02_download` if it doesn't.
 Which screen you land on is not luck: `main.dart` asks
 `FlutterGemma.isModelInstalled` before it decides what to show. That gate is
 already doing its job — Step 5 comes back to it, because that one question is
-the difference between downloading the model once and downloading it on every
-launch.
+the difference between an app that opens on the chat and one that can never get
+past the download screen.
 
 ## Step 3: Your first reply
 Duration: 7
@@ -321,10 +359,10 @@ _turns.add(
 
 ### When it fails
 
-This is the first code in the app that talks to a native runtime, so it is the
-first code that can fail for reasons no `pub get` catches: a forgotten engine
-package, an out-of-memory kill on a small phone, a half-written model file.
-Both entry points get a `catch` — and `_send` gets a `finally`:
+This is the first code that talks to the *inference* runtime, so it fails in
+ways the download screen never saw: a forgotten engine package, an
+out-of-memory kill on a small phone, a half-written model file. Both entry
+points get a `catch` — and `_send` gets a `finally`:
 
 ```dart
 } catch (error) {
@@ -414,7 +452,9 @@ throws. The `finally` from Step 3 still runs on that early return, and skips
 its own `setState` for the same reason.
 
 Add the empty assistant turn *before* the loop starts, so there is something
-on screen for the tokens to flow into.
+on screen for the tokens to flow into — and change the `catch` to replace that
+last turn rather than append a new one, or a failed reply leaves the empty
+bubble behind, sitting above the error.
 
 Run it again. Same model, same answer, and the app now feels like it is
 thinking out loud instead of hanging.
@@ -422,8 +462,9 @@ thinking out loud instead of hanging.
 ## Step 5: Install once, not every launch
 Duration: 4
 
-The gate that keeps the app from re-downloading half a gigabyte has been there
-since Step 2 — one question, asked before deciding what to show:
+The gate that decides whether the app opens on the chat or on the download
+screen has been there since Step 2 — one question, asked before deciding what
+to show:
 
 ```dart
 Future<bool> _check() => FlutterGemma.isModelInstalled(widget.model.fileName);
@@ -435,12 +476,18 @@ around that single line gets told — why the id has to be exactly right, and
 what does and does not survive a restart.
 
 That one line is why the file name lives in a constant. `isModelInstalled` is
-keyed by the name the model was installed under — get it out of step with the
-URL and the check quietly answers "no" forever, and your app re-downloads half
-a gigabyte on every launch while looking like it works. It is also why the
-model's file name in `Models` is exactly the last segment of its URL, which is
-what the plugin derives the installed name from — one typo apart and the check
-is answering about a file that was never written.
+keyed by the name the model was installed under, and the plugin derives that
+name from the last segment of the URL — which is why the `fileName` in `Models`
+is exactly that segment. One typo apart and the check is answering about a file
+that was never written.
+
+What that costs you is not bandwidth. `install()` is idempotent: it looks up
+the name it is about to write, sees the model already there, logs *skipping
+download* and returns in milliseconds. So the bytes are still fetched exactly
+once — what breaks is the gate. It answers "no" forever, so the app opens on
+the download screen every launch, the "download" finishes instantly, the gate
+is asked again, still answers "no", and you land straight back on the download
+screen. Unreachable rather than broken, with no error anywhere.
 
 Every step directory has carried a test for that since Step 2, because it is
 the kind of mistake that is invisible when it is wrong:
@@ -486,8 +533,15 @@ Future<void> _removeModel() async {
     if (mounted) widget.onModelRemoved();
   } catch (error) {
     // Deleting can fail too — a missing install record, a file the OS still
-    // holds. Show it the way a failed load is shown.
-    if (mounted) setState(() => _loadError = error);
+    // holds. Show it the way a failed load is shown, and drop the chat with
+    // it: a `close()` that threw leaves `_chat` non-null, and "The model did
+    // not load." over a working composer is a lie.
+    if (mounted) {
+      setState(() {
+        _chat = null;
+        _loadError = error;
+      });
+    }
   }
 }
 ```
@@ -503,7 +557,10 @@ The `try` and the `setState` are the same lesson as Step 3, one screen over.
 `catch` that exception escapes into the zone: `onModelRemoved` never fires, the
 gate never re-runs, and the page you are looking at still paints an enabled
 composer over a chat that no longer exists. Nulling the fields outside
-`setState` gets you the same painted lie more cheaply.
+`setState` gets you the same painted lie more cheaply. The `catch` nulls
+`_chat` for that reason too: `close()` throws *before* the success path drops
+it, so without that line the screen would say "The model did not load." over a
+composer that still answers.
 
 Delete it, and the gate flips back to the download screen on the next check —
 which is the cheapest way to test the gate itself.
@@ -518,7 +575,8 @@ core API is the entry point to everything else the plugin does:
   [litert-community](https://huggingface.co/litert-community) all work the same way
 * **run a different engine** — the OS built-in model (Gemini Nano, Apple
   Foundation Models) needs no download at all
-* **send images and audio** — `Message.withImages`, on models that accept them
+* **send images and audio** — `Message.withImages` / `Message.withAudio`, on
+  models that accept them
 * **let the model call your Dart functions** — tools and the call/response loop
 * **ground answers in your own documents** — embeddings and on-device vector search
 * **run it as a voice loop** — speech-to-text in, text-to-speech out

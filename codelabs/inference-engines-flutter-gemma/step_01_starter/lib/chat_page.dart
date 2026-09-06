@@ -131,8 +131,15 @@ class _ChatPageState extends State<ChatPage> {
       if (mounted) widget.onModelRemoved();
     } catch (error) {
       // Deleting can fail too — a missing install record, a file the OS still
-      // holds. Show it the way a failed load is shown.
-      if (mounted) setState(() => _loadError = error);
+      // holds. Show it the way a failed load is shown, and drop the chat with
+      // it: a `close()` that threw leaves `_chat` non-null, and "The model did
+      // not load." over a working composer is a lie.
+      if (mounted) {
+        setState(() {
+          _chat = null;
+          _loadError = error;
+        });
+      }
     }
   }
 

@@ -16,7 +16,7 @@ class DownloadPage extends StatefulWidget {
 
   final ModelChoice model;
 
-  /// Called once the bytes are on disk, so the app can move on.
+  /// Called once the model is installed, so the app can move on.
   final VoidCallback onInstalled;
 
   @override

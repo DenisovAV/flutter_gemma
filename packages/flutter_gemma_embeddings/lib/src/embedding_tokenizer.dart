@@ -10,10 +10,8 @@
 // seqLen half stays with the LiteRT forward pass in `flutter_gemma_litertlm`
 // because only that engine's compiled model knows its fixed `seqLen`.
 //
-// ⚠️ I1 risk: `dart_sentencepiece_tokenizer` defaults to the SWAPPED
-// BOS/EOS pair (bosId=1, eosId=2) — we add the correct Gemma pair manually.
-// Getting `_bosId`/`_eosId` or the `prefix + text` concatenation order wrong
-// silently changes every embedding vector without any exception.
+// ⚠️ I1 risk: getting `bosId`/`eosId` or the `prefix + text` concatenation
+// order wrong silently changes every embedding vector without any exception.
 
 import 'package:dart_sentencepiece_tokenizer/dart_sentencepiece_tokenizer.dart';
 
@@ -22,24 +20,23 @@ import 'tokenizer_adapter.dart';
 /// Gemma special-token IDs, added by this package rather than by the loader:
 /// `loadEmbeddingTokenizer` passes an explicit `SentencePieceConfig` with
 /// `addBosToken`/`addEosToken` false, and every loader version takes the
-/// caller's config over the file's `post_processor`.
-///
-/// (The older note here said the library "defaults to the swapped pair
-/// bosId=1, eosId=2". That was a protobuf decode bug in 1.3.3 -- signed
-/// varints were ZigZag-decoded -- fixed in 1.4.1, which reads bos=2, eos=1,
-/// pad=0 off a real `.model`. Measured. The constants are unchanged; only the
-/// reason for spelling them out was wrong.)
+/// caller's config over the file's `post_processor`. So these are the only
+/// terminators `encodeForEmbedding` produces, whatever the file declares.
 const int bosId = 2;
 const int eosId = 1;
 
 /// Loads the SentencePiece tokenizer at [tokenizerPath] — a `.json` (via
 /// `TokenizerJsonLoader`) or a raw SentencePiece `.model` file, matching
 /// exactly the branch `litert_embedding_core.dart` used pre-refactor.
+///
+/// The returned tokenizer has the file's `padding` and `truncation` blocks
+/// DISABLED: `encode()` hands back bare content, never a fixed-width row. Width
+/// and terminators are the caller's — the profiles below, and the forward pass
+/// that owns `seqLen`.
 Future<SentencePieceTokenizer> loadEmbeddingTokenizer(
   String tokenizerPath,
 ) async {
-  // `noPadding()` / `noTruncation()` are not tidiness — they pin the CONTRACT
-  // both profiles below are written against: `encode()` returns bare content.
+  // Why the disable lives here and not in each profile.
   //
   // 1.3.3 ignored the file's `padding` and `truncation` blocks; from 1.4.0
   // `_applyTokenizerSettings` applies them regardless of the config passed here,
@@ -54,22 +51,42 @@ Future<SentencePieceTokenizer> loadEmbeddingTokenizer(
   // `"direction": "Left"` or another `pad_id` would have slipped through
   // silently. Turning the feature off is the same result without the assumption,
   // and it keeps this package owning its own width rule.
-  if (tokenizerPath.endsWith('.json')) {
-    final tokenizer = await TokenizerJsonLoader.fromJsonFile(
-      tokenizerPath,
-      config: const SentencePieceConfig(),
-    );
-    return tokenizer
-      ..noPadding()
-      ..noTruncation();
-  }
-  final tokenizer = await SentencePieceTokenizer.fromModelFile(
-    tokenizerPath,
-    config: const SentencePieceConfig(),
-  );
-  return tokenizer
+  //
+  // `_applyTokenizerSettings` is HF-JSON-only, so on the `.model` arm the two
+  // calls are a no-op today. They stay because the contract above is one
+  // sentence for both arms, and it should not quietly depend on which ran.
+  final tokenizer = tokenizerPath.endsWith('.json')
+      ? await TokenizerJsonLoader.fromJsonFile(
+          tokenizerPath,
+          config: const SentencePieceConfig(),
+        )
+      : await SentencePieceTokenizer.fromModelFile(
+          tokenizerPath,
+          config: const SentencePieceConfig(),
+        );
+  tokenizer
     ..noPadding()
     ..noTruncation();
+
+  // The calls above are the mechanism; this is the enforcement, and it is here
+  // because `^1.4.1` is open-topped. A release that RENAMES those methods fails
+  // loudly at compile time. One that deprecates them to no-ops, or grows a
+  // second width mechanism they do not cover, fails silently — and
+  // `siglip_loader_contract_test.dart` catches that only in OUR CI, long after
+  // `pub get` has already handed it to users. This catches it on their machine,
+  // at load, once per model. `padding`/`truncation` are public getters in every
+  // version the constraint admits.
+  if (tokenizer.padding != null || tokenizer.truncation != null) {
+    throw StateError(
+      'dart_sentencepiece_tokenizer ignored noPadding()/noTruncation() for '
+      '"$tokenizerPath": encode() would return padded or truncated content. '
+      'Both embedding profiles append their own terminator after whatever they '
+      'are handed, which would strand it past the pad run and silently change '
+      'every vector. Pin dart_sentencepiece_tokenizer to a release that '
+      'honours them.',
+    );
+  }
+  return tokenizer;
 }
 
 /// Tokenizes ([prefix] + [text]) with Gemma BOS/EOS:

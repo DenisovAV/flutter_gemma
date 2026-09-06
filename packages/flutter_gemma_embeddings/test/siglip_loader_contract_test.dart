@@ -25,7 +25,16 @@ import 'package:flutter_test/flutter_test.dart';
 Future<String> _write(Directory dir) async {
   final json = {
     'version': '1.0',
-    'truncation': null,
+    // A truncation block, so `noTruncation()` has something to undo. Real
+    // SigLIP 2 and EmbeddingGemma exports declare `null` here — this is the
+    // shape a future export could ship, and the one 1.4.0 taught the loader to
+    // honour. `max_length` must be positive or the loader throws.
+    'truncation': {
+      'max_length': 8,
+      'direction': 'Right',
+      'strategy': 'LongestFirst',
+      'stride': 0,
+    },
     'padding': {
       'strategy': {'Fixed': 64},
       'direction': 'Right',
@@ -150,15 +159,22 @@ void main() {
   test('a long input is neither truncated nor padded by the loader', () async {
     final tokenizer = await loadEmbeddingTokenizer(await _write(dir));
 
-    // 100 content tokens: past the file's 64-wide padding, and past any
-    // truncation a future release might start honouring. The width rule belongs
-    // to encodeForSiglipEmbedding, not to the loader.
-    final ids = tokenizer.encode('a' * 100).ids;
+    // Exactly 20, not `greaterThan(64)`. The looser assertion could not fail:
+    // `withPadding` never shrinks, so a 100-token input stayed over 64 with the
+    // file's padding fully applied, and `noTruncation()` had no coverage at all
+    // — deleting both cascades left the whole suite green. Measured.
+    //
+    // 20 content tokens against a declared `max_length: 8` and `Fixed: 64`
+    // padding: the loader must hand back all 20. Truncating gives 8, padding
+    // gives 64, and either is a silently different vector, since the width rule
+    // belongs to encodeForSiglipEmbedding and the forward pass, not here.
+    final ids = tokenizer.encode('a' * 20).ids;
 
     expect(
       ids.length,
-      greaterThan(siglipSeqLen),
-      reason: 'the loader must hand back everything and let the profile clamp',
+      20,
+      reason:
+          'neither the declared truncation (8) nor the padding (64) applies',
     );
   });
 }

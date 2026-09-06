@@ -1,5 +1,5 @@
 name: flutter_gemma_embeddings
-description: "Runtime-agnostic on-device text embedding pipeline (tokenization, isolate worker, pooling/normalization) for flutter_gemma. Pair with an engine package (e.g. flutter_gemma_litertlm) for a concrete EmbeddingBackendProvider."
+description: "Runtime-agnostic on-device text embedding pipeline for flutter_gemma: tokenization, isolate worker, pooling and normalization. Pair with an engine package for a backend."
 version: 2.1.1
 homepage: https://fluttergemma.dev
 repository: https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_gemma_embeddings
@@ -35,8 +35,11 @@ dependencies:
   # which 1.3.3 ignored — so `encode()` no longer returns bare content by
   # default. `loadEmbeddingTokenizer` calls `noPadding()`/`noTruncation()` to
   # pin that contract, and `siglip_loader_contract_test.dart` fails if a future
-  # release changes it again. Do NOT lower this floor to 1.3.3: the profiles are
-  # written against the 1.4.x API.
+  # release changes it again. Do NOT lower this floor to 1.3.3 — but note that
+  # nothing enforces it: `noPadding()`/`noTruncation()` exist in 1.3.3 too, so a
+  # lowered floor would compile and probably run green. The reasons are 1.4.0's
+  # `Split` rejection, which 1.4.1 lifts, and 1.3.x decoding a `.model`'s signed
+  # varints as ZigZag, which gave the wrong bos/eos/pad ids.
   dart_sentencepiece_tokenizer: "^1.4.1"
 
 dev_dependencies:

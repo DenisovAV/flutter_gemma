@@ -140,7 +140,9 @@ A SigLIP 2 `tokenizer.json` is a third convention the factory does **not**
 select yet, and it is BPE — so it would otherwise be read as Gemma and return a
 plausible but wrong vector. The loader refuses it instead, with a message
 pointing at `loadSiglipSentencePieceEmbeddingTokenizer`, which you can wire into
-a `ForwardPassDescriptor` yourself.
+a `ForwardPassDescriptor` yourself — see
+[SigLIP 2 text tower](/docs/models#siglip-2-text-tower-onnx-manual-wiring) for
+the profile and how to recognise a matching export.
 
 The output contract and mask requirements are discovered from the session's
 actual graph once it opens — no per-model configuration. It registers at

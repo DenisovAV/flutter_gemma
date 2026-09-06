@@ -17,8 +17,8 @@ library;
 // This fixture is that file in miniature: same `model.type`, same `Split`
 // pre-tokenizer (`pattern: {String: " "}`, `MergedWithPrevious`), same list-form
 // `merges` and `added_tokens`, with an eight-token vocabulary instead of 256k.
-// Its `post_processor` and `padding` blocks mirror the real file for fidelity,
-// see the note in the test body for which of them the loader acts on.
+// Its `post_processor` and `padding` blocks mirror the real file for fidelity.
+// The loader acts on neither — see the note in the test body for why.
 
 import 'dart:convert';
 import 'dart:io';
@@ -168,7 +168,33 @@ Future<String> _writeGemmaHfTokenizer(Directory dir) async {
       'content': '\u2581',
     },
     'pre_tokenizer': null,
-    'post_processor': null,
+    // The BOS-prepending template real EmbeddingGemma exports ship — and what
+    // `isSiglip2TokenizerJson` keys on to tell Gemma from SigLIP 2. It must stay
+    // suppressed by the explicit SentencePieceConfig: `encodeForEmbedding` adds
+    // its own BOS, so honouring this too would give [BOS, BOS, …] silently.
+    'post_processor': {
+      'type': 'TemplateProcessing',
+      'single': [
+        {
+          'SpecialToken': {'id': '<bos>', 'type_id': 0},
+        },
+        {
+          'Sequence': {'id': 'A', 'type_id': 0},
+        },
+      ],
+      'pair': [
+        {
+          'Sequence': {'id': 'A', 'type_id': 0},
+        },
+      ],
+      'special_tokens': {
+        '<bos>': {
+          'id': '<bos>',
+          'ids': [2],
+          'tokens': ['<bos>'],
+        },
+      },
+    },
     'decoder': null,
     'model': {
       'type': 'BPE',
@@ -214,9 +240,11 @@ void main() {
     // space reaches it. The `post_processor` is inert too — `loadEmbeddingTokenizer`
     // passes an explicit `SentencePieceConfig`, and every loader version takes
     // the caller's config over the file's. The `padding` block is NOT inert from
-    // 1.4.0: `encode()` returns a right-padded array, which is exactly what
-    // `encodeForSiglipEmbedding` now reduces away before applying its own
-    // convention.
+    // 1.4.0 — `enablePadding` runs at load — but `loadEmbeddingTokenizer` turns
+    // it back off with `noPadding()`, so `encode()` hands this profile bare
+    // content and the width rule below is the only one that applies. (An earlier
+    // revision undid the padding downstream instead; nothing reduces anything
+    // now, so do not go looking for stripping code.)
     //
     // So the LOAD is the load-bearing assertion here, and what it guards is
     // exactly the version range: 1.3.2 cannot read the list-form `merges`,
@@ -229,26 +257,26 @@ void main() {
       // No shipped EmbeddingGemma export declares one — `padding` is null in
       // `onnx-community/embeddinggemma-300m-ONNX`. But from 1.4.0 the loader
       // applies the block when it IS there, and `encodeForEmbedding` appends its
-      // EOS after whatever `encode()` returned. Without the reduction that gives
-      // `[BOS, content, pad…, EOS]`: the EOS stranded past the pad run, every
-      // vector shifted, nothing thrown.
+      // EOS after whatever `encode()` returned. Unless the loader turns the
+      // block off that gives `[BOS, content, pad…, EOS]`: the EOS stranded past
+      // the pad run, every vector shifted, nothing thrown.
       final tok = await loadGemmaSentencePieceEmbeddingTokenizer(
         await _writeGemmaHfTokenizer(dir),
       );
 
       final ids = tok.encode('', 'a b').ids;
 
-      expect(ids.first, bosId, reason: 'Gemma prepends a BOS');
-      expect(
-        ids.last,
-        eosId,
-        reason: 'and the EOS must be LAST, not past a pad run',
-      );
-      expect(
-        ids.contains(siglipPadId),
-        isFalse,
-        reason: 'the padding the file asked for must not survive into the ids',
-      );
+      // One exact list, not three separate checks. `encodeForEmbedding` returns
+      // `[bosId, ...encode(), eosId]`, so `ids.first == bosId` and
+      // `ids.last == eosId` are true by construction — they held even for
+      // `[BOS, content, pad…, EOS]`, the very shape they claimed to rule out.
+      // Pinning the whole list makes right-padding, left-padding, truncation, a
+      // stranded EOS and a doubled BOS all fail here.
+      //
+      // `3` is `<unk>`: this fixture's vocab has `▁a`/`▁b` but no bare `a`, and
+      // the bare Replace normalizer adds no leading marker, so `a b` is
+      // `a` + `▁b` -> unk, 5.
+      expect(ids, [bosId, 3, 5, eosId]);
     },
   );
 }

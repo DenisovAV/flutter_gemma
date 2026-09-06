@@ -392,6 +392,10 @@ into the same space as SigLIP's vision tower — image↔text retrieval rather t
 document RAG. It is the only embedding profile here that is **not** installed
 through `installEmbedder()`.
 
+**Text in, vectors out — the plugin does not run the vision tower.** You embed
+the image side elsewhere (or offline) and query it with vectors this profile
+produces.
+
 Its convention differs from every model above: no leading BOS, a single trailing
 `<eos>`, lowercased text, and a fixed 64-token width that lives in the token ids
 because the int8 export carries no `attention_mask`. It also ignores the
@@ -399,9 +403,18 @@ because the int8 export carries no `attention_mask`. It also ignores the
 one moves the text vector off the space the two towers share.
 
 SigLIP 2 reuses the Gemma BPE vocabulary, so a `tokenizer.json` cannot be told
-apart by its vocabulary alone, and the ONNX tokenizer loader **refuses** such a
-file rather than reading it with Gemma's convention and returning a plausible
-but wrong vector. Wire it yourself instead:
+apart by its vocabulary alone, and the [ONNX tokenizer loader](/docs/onnx)
+**refuses** such a file rather than reading it with Gemma's convention and
+returning a plausible but wrong vector.
+
+To tell whether an export is the one this profile expects, look at two blocks of
+its `tokenizer.json` — the same two the refusal keys on:
+
+- `"padding"` declares a fixed width: `"strategy": {"Fixed": 64}`, not `"BatchLongest"`
+- `"post_processor"` appends `<eos>` and prepends **no** `<bos>`
+
+A file matching both is SigLIP 2's convention; one that prepends `<bos>` is an
+EmbeddingGemma-family file and belongs on the profiles above. Wire it yourself:
 
 ```dart
 import 'package:flutter_gemma_embeddings/embedding_tokenizer.dart'
@@ -411,4 +424,5 @@ import 'package:flutter_gemma_embeddings/embedding_tokenizer.dart'
 and pass that as the tokenizer factory of the `ForwardPassDescriptor` you give
 to `CommonEmbeddingModel.create`. That library is native-only. See the
 [`flutter_gemma_embeddings` README](https://pub.dev/packages/flutter_gemma_embeddings)
-for the full profile and the detection rule.
+for the full profile, and [ONNX Runtime](/docs/onnx) for why the factory
+declines to guess.

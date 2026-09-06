@@ -11,8 +11,10 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-# -mindepth 2 keeps this from matching a pubspec.yaml sitting directly in
-# codelabs/ (there is none today, and if one appears it is not a step app).
+# The depth is exactly codelabs/<codelab-id>/<step>/pubspec.yaml, so
+# -mindepth 3 -maxdepth 3 both skips a pubspec.yaml sitting higher up (there is
+# none today, and if one appears it is not a step app) and cannot descend into
+# a build/ or .dart_tool/ directory.
 # Portable collection: `mapfile` is bash 4+, and macOS still ships bash 3.2,
 # so the script would silently do nothing on a maintainer's laptop.
 APPS=()
@@ -38,9 +40,14 @@ for pubspec in "${APPS[@]}"; do
     cd "$app"
     flutter pub get
     flutter analyze
-    dart format --output=none --set-exit-if-changed lib test
+    # `flutter analyze` covers integration_test/ where it exists, so the
+    # format check has to as well — otherwise drift there passes CI. Not
+    # `dart format .`, which would also walk build/ on a maintainer's machine.
+    fmt_dirs=(lib test)
+    if [ -d integration_test ]; then fmt_dirs+=(integration_test); fi
+    dart format --output=none --set-exit-if-changed "${fmt_dirs[@]}"
     # integration_test/ suites need a device and a multi-hundred-MB model
-    # download; they are deliberately not part of this gate.
+    # download; they are deliberately not RUN by this gate.
     flutter test
   ) || { echo "::error::$app failed"; failed=1; }
 done

@@ -56,8 +56,8 @@ class CodelabsPage extends StatelessComponent {
       title: 'Getting Started with On-Device LLMs in Flutter',
       blurb:
           'Install flutter_gemma, pick and download a model, and stream your '
-          'first reply — with a progress bar that survives a cold start.',
-      duration: '30 min',
+          'first reply — and never download the same model twice.',
+      duration: '35 min',
       level: 'Beginner',
       tags: ['flutter_gemma', 'Gemma 3', 'streaming'],
       accent: Brand.blue,
@@ -70,7 +70,7 @@ class CodelabsPage extends StatelessComponent {
           'runs Gemini Nano and Apple Foundation Models with nothing to '
           'download at all — the OS owns the weights. Register either engine '
           'at startup; the inference code never changes.',
-      duration: '45 min',
+      duration: '40 min',
       level: 'Intermediate',
       tags: ['LiteRT-LM', 'built-in AI', 'Gemini Nano'],
       accent: Brand.green,

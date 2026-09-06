@@ -33,7 +33,14 @@ the point.
 
 They also do not commit a `pubspec.lock`, for the same reason: the codelab
 tells the learner to `flutter pub add`, so the apps must resolve to whatever
-that resolves to today.
+that resolves to today. The price is that a PR run is not reproducible — see
+the note in `codelabs/.gitignore`.
+
+Because the apps resolve from pub.dev, a `packages/` change cannot affect them
+until it is published, which is why the workflow's `paths:` filter does not
+watch `packages/`. The flip side is that a release which breaks the teaching
+material is caught by the nightly run — up to 24 h *after* it ships, never
+before. Run `tool/check_codelabs.sh` by hand after publishing if that matters.
 
 That also means `flutter analyze packages/` never sees them. They have their
 own gate:
@@ -64,4 +71,7 @@ and runs inference. Those need a device and several hundred MB, so they are
 ```bash
 cd codelabs/getting-started-flutter-gemma/complete
 flutter test integration_test/quickstart_test.dart -d <device-id>
+
+cd codelabs/inference-engines-flutter-gemma/complete
+flutter test integration_test/engines_test.dart -d <device-id>
 ```

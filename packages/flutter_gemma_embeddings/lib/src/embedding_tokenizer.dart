@@ -244,12 +244,12 @@ class _SiglipSentencePieceEmbeddingTokenizer implements EmbeddingTokenizer {
     // `attention_mask` input, the forward pass otherwise fabricates an all-ones
     // one over the pad tail, and a graph that falls through to
     // `last_hidden_state` would mean-pool 63 pads into the vector.
-    // Counted from the END rather than by locating the EOS. Equivalent today —
-    // 1.3.3 does not match added tokens inside content, so `encode('a<eos>a')`
-    // yields `<unk>`s, never a mid-content id 1 — but `indexOf(siglipEosId)`
-    // would rely on that staying true of the dependency. The tail does not:
-    // everything past the EOS is padding by construction, and the EOS itself is
-    // never [siglipPadId].
+    // Counted from the END rather than by locating the EOS, and on 1.4.x that is
+    // no longer merely tidier: the loader matches `added_tokens` inside content,
+    // so text containing a literal `<eos>` really can carry id 1 mid-sequence
+    // and `indexOf(siglipEosId)` would stop there. The tail cannot lie —
+    // everything past the EOS is padding this function just wrote, and the EOS
+    // itself is never [siglipPadId].
     var realTokens = siglipSeqLen;
     while (realTokens > 0 && ids[realTokens - 1] == siglipPadId) {
       realTokens--;

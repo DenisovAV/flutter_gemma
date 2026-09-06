@@ -22,8 +22,14 @@ engines** and to choose between them by itself:
   weights
 
 By the end, the app probes the device at startup, uses the built-in model when
-the OS ships one, and falls back to the downloaded model when it doesn't. The
-chat code does not change once in the whole codelab. That is the point.
+the OS ships one, and falls back to the downloaded model when it doesn't.
+
+The code that talks to the model does not change once in the whole codelab.
+Three functions — `_load`, `_send` and `dispose` in `chat_page.dart` — are
+character-for-character the same in all four step directories and on both
+engines; `diff` them and see. What does grow is the chrome around them: an app
+bar menu in Step 2, an engine label beside it, a banner in Step 4. That is the
+point.
 
 ### What you'll learn
 
@@ -61,7 +67,27 @@ complete/                  after Step 4 — the finished app
 ```
 
 ## Step 1: What an engine is
-Duration: 4
+Duration: 5
+
+### Before you run
+
+The downloaded model in this codelab — the one every fallback path lands on —
+is Gemma 3 1B, and its Hugging Face repository is behind a licence gate. Accept
+the terms on the
+[model page](https://huggingface.co/litert-community/Gemma3-1B-IT) once, create
+a read token in your Hugging Face settings, and start every run with it:
+
+```bash
+flutter run --dart-define=HF_TOKEN=hf_your_token
+```
+
+[Getting Started](/codelabs/getting-started-flutter-gemma) covers that in its
+Step 2. Without the token the download 401s — and since a device without a
+built-in model takes the fallback path, that is most devices. If you would
+rather not have a Hugging Face account, `Models.qwen3` in `model.dart` is
+ungated: point the fallback at it instead and nothing else here changes.
+
+### One list of engines
 
 Open `step_01_starter` and run it. It is the Getting Started app: download a
 `.litertlm` file, chat with it. Look at one line of `main.dart`:
@@ -115,7 +141,7 @@ defaultConfig {
 ```
 
 iOS needs nothing beyond what Getting Started already set up (deployment
-target 15.0 and the two memory entitlements): the package builds from iOS 15,
+target 15.0 and the three memory entitlements): the package builds from iOS 15,
 and on anything older than OS 26 every call is gated and simply reports the
 model as unavailable.
 
@@ -134,12 +160,12 @@ Two engines, side by side. Neither knows about the other.
 
 If you are editing your own `complete/` from Getting Started rather than
 opening `step_02_two_engines`, five names change, and the compiler will find
-them in three files:
+them in four files:
 
 | Rename | Why | Where it breaks |
 |---|---|---|
 | `ModelChoice.fileName` → `id` | a built-in model has no file name | `main.dart` gate, `chat_page.dart` `uninstallModel`, `test/widget_test.dart` |
-| `ModelChoice.url` → `String?` | a built-in model has no URL | the test needs `model.url!` |
+| `ModelChoice.url` → `String?` | a built-in model has no URL | `download_page.dart` needs `.fromNetwork(model.url!)`, and so does the test |
 | `ModelChoice.fileType` (new, required) | this is the engine switch | both `Models` constants |
 | `DownloadPage.onInstalled` → `onReady` | "installed" is the wrong word for a model the OS owns | `main.dart` gate, the widget test |
 | `ChatPage` gains a required `onSwitch` | the chat can now ask for a different model | `main.dart` gate |
@@ -153,11 +179,15 @@ that may or may not *be* a file:
 
 ```dart
 class ModelChoice {
+  // …
+
   /// How this app names the model. For a downloaded model it is the file name,
   /// which is also what `FlutterGemma.isModelInstalled` is keyed by. For a
   /// built-in one it is the OS model's name — and nothing is keyed by it,
   /// because there is no file and no install record.
   final String id;
+
+  // …
 
   /// Which engine opens it. `.litertlm` → LiteRtLmEngine, `.builtIn` →
   /// BuiltInAiEngine. This field is the whole "engine switch".
@@ -166,9 +196,14 @@ class ModelChoice {
   /// Where the bytes are. `null` for a built-in model — there is no file.
   final String? url;
 
+  // …
+
   bool get isBuiltIn => fileType == ModelFileType.builtIn;
 }
 ```
+
+(`// …` is where the constructor and the `label` / `modelType` / `sizeLabel` /
+`requiresToken` fields sit — the file has them; this excerpt does not.)
 
 And the built-in model itself, one per platform. It is a getter rather than a
 constant only because the platform is decided at run time:
@@ -195,9 +230,15 @@ static ModelChoice get builtIn {
 }
 ```
 
-Android and Apple are the platforms `flutter_gemma_builtin_ai` has a native arm
-for, so anywhere else this throws instead of quietly handing back a model that
-cannot exist.
+Android and Apple are the platforms this codelab targets, and the ones
+`flutter_gemma_builtin_ai` has a native arm for there, so anywhere else this
+throws instead of quietly handing back a model that cannot exist. (The package
+also has a **web** arm — Gemini Nano through Chrome's Prompt API — which is out
+of scope here.) Failing loudly is the right contract for the getter; the cost
+is that whoever calls it has to be somewhere a throw can be caught, which is
+why the chat page's menu asks for it once inside a `try` and leaves the entry
+out when it throws, rather than calling it from `itemBuilder` and turning a
+tap into a red screen.
 
 ### Installed is not active — and a built-in model is never installed
 
@@ -300,23 +341,36 @@ model.
 ```dart
 Future<void> _switchTo(ModelChoice next) async {
   await _inference?.close();
-  _inference = null;
-  _chat = null;
-  if (mounted) widget.onSwitch(next);
+  // Inside `setState`: dropping the chat has to repaint, or the screen keeps
+  // showing an enabled composer over a runtime that is gone.
+  if (mounted) {
+    setState(() {
+      _inference = null;
+      _chat = null;
+    });
+    widget.onSwitch(next);
+  }
 }
 ```
 
 Close the runtime *before* activating another model. Each engine holds native
-memory of its own, and the built-in one holds an OS session.
+memory of its own, and the built-in one holds an OS session. Both menu actions
+run through one `_onAction` wrapper that catches whatever they throw and puts
+it in the same `_loadError` a failed load uses — closing a runtime and deleting
+a file are native calls, and an uncaught throw here would leave the page
+painting a chat that is already gone.
 
 Run it. On a device with a built-in model, switch to it and ask the same
-question you asked Gemma — a different engine answers, and the chat page is
-byte-for-byte the code you had.
+question you asked Gemma. A different engine answers, and `_load`, `_send` and
+`dispose` are byte-for-byte the code you had — run `diff` over the two
+`chat_page.dart` files and every changed line is the app bar's menu, its engine
+label, or the callback that carries the switch out. Nothing that talks to the
+model moved.
 
-On a device *without* one, the switch itself succeeds — `_switchTo` only closes
-a runtime, it cannot fail. What happens is that the gate finds the OS reporting
-`unavailable*`, so it shows the setup screen; pressing **Use built-in model**
-there is what fails, from `ensureReady()`:
+On a device *without* one, the switch itself normally succeeds — closing a
+runtime is all it does. What happens next is that the gate finds the OS
+reporting `unavailable*`, so it shows the setup screen; pressing **Use built-in
+model** there is what fails, from `ensureReady()`:
 
 ```text
 BuiltInAiUnavailableException(BuiltInAiAvailability.unavailableDeviceUnsupported): Built-in AI is not available: BuiltInAiAvailability.unavailableDeviceUnsupported

@@ -99,7 +99,8 @@ class _ChatPageState extends State<ChatPage> {
       }
     } catch (error) {
       // The half-written reply becomes the error, so the empty bubble never
-      // just sits there.
+      // just sits there. The chat's own history now holds a user turn the model
+      // never answered; a production app would reset it with `clearHistory`.
       if (mounted) {
         setState(
           () => _turns[_turns.length - 1] = _Turn('⚠️ $error', fromUser: false),
@@ -116,11 +117,23 @@ class _ChatPageState extends State<ChatPage> {
   /// model is open, and deleting it underneath the engine is a crash waiting
   /// to happen.
   Future<void> _removeModel() async {
-    await _inference?.close();
-    _inference = null;
-    _chat = null;
-    await FlutterGemma.uninstallModel(widget.model.fileName);
-    if (mounted) widget.onModelRemoved();
+    try {
+      await _inference?.close();
+      // Inside `setState`: dropping the chat has to repaint, or the screen
+      // keeps showing an enabled composer over a runtime that is gone.
+      if (mounted) {
+        setState(() {
+          _inference = null;
+          _chat = null;
+        });
+      }
+      await FlutterGemma.uninstallModel(widget.model.fileName);
+      if (mounted) widget.onModelRemoved();
+    } catch (error) {
+      // Deleting can fail too — a missing install record, a file the OS still
+      // holds. Show it the way a failed load is shown.
+      if (mounted) setState(() => _loadError = error);
+    }
   }
 
   @override
@@ -144,7 +157,10 @@ class _ChatPageState extends State<ChatPage> {
         actions: [
           IconButton(
             tooltip: 'Delete the downloaded model',
-            onPressed: _busy ? null : _removeModel,
+            // Not while the model is still opening: deleting the file
+            // underneath an in-flight `getActiveModel()` is the crash the
+            // comment on `_removeModel` warns about.
+            onPressed: _busy || (!ready && error == null) ? null : _removeModel,
             icon: const Icon(Icons.delete_outline),
           ),
         ],

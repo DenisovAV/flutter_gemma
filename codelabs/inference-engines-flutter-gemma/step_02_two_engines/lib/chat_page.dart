@@ -103,7 +103,8 @@ class _ChatPageState extends State<ChatPage> {
       }
     } catch (error) {
       // The half-written reply becomes the error, so the empty bubble never
-      // just sits there.
+      // just sits there. The chat's own history now holds a user turn the model
+      // never answered; a production app would reset it with `clearHistory`.
       if (mounted) {
         setState(
           () => _turns[_turns.length - 1] = _Turn('⚠️ $error', fromUser: false),
@@ -116,23 +117,51 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  List<ModelChoice> get _alternatives => [
-    Models.gemma3,
-    Models.qwen3,
-    Models.builtIn,
-  ].where((m) => m.id != widget.model.id).toList();
+  /// The models this app can offer that it is not already running.
+  ///
+  /// `Models.builtIn` throws where the OS has no built-in arm, and this getter
+  /// runs inside `itemBuilder` — a throw during a build is a red screen, not
+  /// something a `catch` around the tap could reach. So ask here and drop the
+  /// entry instead. (This codelab targets Android and iOS; the package does
+  /// have a web arm, out of scope here.)
+  List<ModelChoice> get _alternatives {
+    final all = <ModelChoice>[Models.gemma3, Models.qwen3];
+    try {
+      all.add(Models.builtIn);
+    } on UnsupportedError {
+      // No built-in model on this platform — offer the downloadable ones only.
+    }
+    return all.where((m) => m.id != widget.model.id).toList();
+  }
 
-  Future<void> _onAction(_Action action) => switch (action) {
-    _Switch(:final model) => _switchTo(model),
-    _Remove() => _removeModel(),
-  };
+  Future<void> _onAction(_Action action) async {
+    try {
+      switch (action) {
+        case _Switch(:final model):
+          await _switchTo(model);
+        case _Remove():
+          await _removeModel();
+      }
+    } catch (error) {
+      // Closing a runtime and deleting a file can both fail. Surface it the
+      // way a failed load is surfaced — otherwise the page keeps an enabled
+      // composer over a chat that is already gone, and answers nothing.
+      if (mounted) setState(() => _loadError = error);
+    }
+  }
 
   /// Release this engine's runtime before the app activates another model.
   Future<void> _switchTo(ModelChoice next) async {
     await _inference?.close();
-    _inference = null;
-    _chat = null;
-    if (mounted) widget.onSwitch(next);
+    // Inside `setState`: dropping the chat has to repaint, or the screen keeps
+    // showing an enabled composer over a runtime that is gone.
+    if (mounted) {
+      setState(() {
+        _inference = null;
+        _chat = null;
+      });
+      widget.onSwitch(next);
+    }
   }
 
   /// Frees the disk. Close the runtime first — the file is mapped while a
@@ -140,8 +169,12 @@ class _ChatPageState extends State<ChatPage> {
   /// to happen.
   Future<void> _removeModel() async {
     await _inference?.close();
-    _inference = null;
-    _chat = null;
+    if (mounted) {
+      setState(() {
+        _inference = null;
+        _chat = null;
+      });
+    }
     await FlutterGemma.uninstallModel(widget.model.id);
     if (mounted) widget.onModelRemoved();
   }
@@ -180,7 +213,10 @@ class _ChatPageState extends State<ChatPage> {
         ),
         actions: [
           PopupMenuButton<_Action>(
-            enabled: !_busy,
+            // Not while the model is still opening: switching or deleting
+            // underneath an in-flight `getActiveModel()` is the crash the
+            // comment on `_removeModel` warns about.
+            enabled: !_busy && (ready || error != null),
             onSelected: _onAction,
             itemBuilder: (context) => [
               for (final m in _alternatives)

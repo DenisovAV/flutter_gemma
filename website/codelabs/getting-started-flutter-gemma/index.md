@@ -104,7 +104,7 @@ Two packages, not one, and the reason matters.
 `flutter_gemma` is the **core**: the install and runtime API, the chat loop,
 the registry. It ships no inference runtime at all. `flutter_gemma_litertlm`
 is one such runtime — the LiteRT-LM engine, which reads `.litertlm` files on
-Android, iOS and desktop. There are others (MediaPipe for `.task`, ONNX
+Android, iOS, desktop and the web. There are others (MediaPipe for `.task`, ONNX
 Runtime, the OS built-in models), and you take only the one you need, because
 each drags in native binaries you would otherwise ship for nothing.
 
@@ -125,7 +125,7 @@ plugin's own manifest declares them and the manifest merger folds them into
 your app.
 
 **iOS** — the deployment target is already right: Flutter's default is 15.0,
-which is what the plugin needs. What you do have to add is two memory
+which is what the plugin needs. What you do have to add is three memory
 entitlements, in `ios/Runner/Runner.entitlements`:
 
 ```xml
@@ -137,6 +137,8 @@ entitlements, in `ios/Runner/Runner.entitlements`:
 	<true/>
 	<key>com.apple.developer.kernel.increased-memory-limit</key>
 	<true/>
+	<key>com.apple.developer.kernel.increased-debugging-memory-limit</key>
+	<true/>
 </dict>
 </plist>
 ```
@@ -144,17 +146,22 @@ entitlements, in `ios/Runner/Runner.entitlements`:
 …and point the Runner target at it, which is what Xcode's **Signing &
 Capabilities** editor writes for you (`CODE_SIGN_ENTITLEMENTS =
 Runner/Runner.entitlements;` in each of the target's Debug, Release and Profile
-configurations). The step apps from Step 2 onwards already carry both.
+configurations). The step apps from Step 2 onwards already carry all three.
 
 These lift the per-process memory ceiling iOS imposes. Half a gigabyte of
 weights plus a KV cache is comfortably over the default jetsam limit on an
 older iPhone, and the kill that follows has no Dart-visible error — the app
-simply disappears. They are an **iOS** thing, not a macOS one.
+simply disappears. The third key is the second one's debug twin: it is the one
+that applies while a debugger is attached, which is every `flutter run` this
+codelab asks you to do, so leaving it out costs you exactly the runs you are
+about to make.
 
 That is the whole platform setup. The plugin also runs on macOS, Windows and
 Linux; only **macOS** needs an extra build-phase step — a `post_install` block
-in `macos/Podfile` that stages the runtime's companion libraries. Out of scope
-here, and covered in the [desktop docs](/docs/desktop).
+in `macos/Podfile` that stages the runtime's companion libraries. On macOS
+these entitlements need a signing team and are not needed for a model this
+size. Both are out of scope here, and covered in the
+[desktop docs](/docs/desktop).
 
 ### Register the engine
 
@@ -241,14 +248,27 @@ await FlutterGemma.installModel(
 The two arguments to `installModel` answer different questions. `modelType`
 says **what the model is**, which decides the chat template wrapped around
 your messages. `fileType` says **which runtime reads the file**, and it is the
-line people forget: it defaults to `task`, which routes to MediaPipe. Hand a
-`.litertlm` file to that default and the install lands somewhere the LiteRT-LM
-engine never looks.
+line people forget: it defaults to `task`, which routes to MediaPipe.
+
+It is not about where the bytes land — they land in the same place either way.
+`fileType` is what the registry matches engines against: it asks each
+registered engine's `canHandle` about the file type the model was *declared*
+with, so a `.litertlm` model installed under the `task` default is offered to
+MediaPipe, which cannot open it, and never to LiteRT-LM. The download succeeds
+and the failure arrives later, out of `getActiveModel()`, as the same
+`StateError` you get for a missing engine package: *No inference engine can
+handle this model (ModelFileType.task).*
 
 `withProgress` reports whole percent, 0 to 100.
 
 Run it. You should watch the bar fill and land on the placeholder screen.
 Compare against `step_02_download` if it doesn't.
+
+Which screen you land on is not luck: `main.dart` asks
+`FlutterGemma.isModelInstalled` before it decides what to show. That gate is
+already doing its job — Step 5 comes back to it, because that one question is
+the difference between downloading the model once and downloading it on every
+launch.
 
 ## Step 3: Your first reply
 Duration: 7
@@ -267,9 +287,12 @@ final chat = await inference.createChat(
 a conversation on top, and it is the chat that remembers what was said.
 
 **`maxTokens` is the context window**, not a cap on the answer's length — the
-prompt, the history and the reply all share it. Set it to 100 hoping for a
-short reply and you get a model that cannot even fit your question. To limit
-the answer, use `maxOutputTokens` on the chat, as above.
+prompt, the history and the reply all share it. Ask for 100 hoping for a short
+reply and you do not get a short reply: the LiteRT-LM engine raises the value
+back to 1024 — the smallest context a `.litertlm` model's baked KV cache can be
+built for — and logs that it did. The setting is corrected, not honoured, so it
+achieves nothing at all. To cap the answer, use `maxOutputTokens` on the chat,
+as above, and leave `maxTokens` big enough for prompt + history + reply.
 
 Sending a message is two calls — add it, then ask:
 
@@ -311,6 +334,8 @@ Both entry points get a `catch` — and `_send` gets a `finally`:
 
 ```dart
 } catch (error) {
+  // The chat's own history now holds a user turn the model never answered;
+  // a production app would reset it with `clearHistory`.
   if (mounted) {
     setState(() => _turns.add(_Turn('⚠️ $error', fromUser: false)));
   }
@@ -330,6 +355,13 @@ on screen to explain it. Anything that can throw between "disable the UI" and
 
 `_load`'s failure gets a message and a **Try again** button in place of the
 loading bar, because "the model would not open" is a state the user can act on.
+
+One honest limitation, noted in the `catch`: `addQueryChunk` commits your
+message to the chat's history before generation runs, so a failed turn leaves a
+user message the model never answered — in the Dart-side history and in the
+native session both. The chat still works; every later turn is just asked of a
+transcript with a hole in it. An app that cares would call
+`chat.clearHistory(replayHistory: …)` there. This one keeps the screen simple.
 
 Finally, close what you opened. The runtime holds native memory that Dart's
 garbage collector knows nothing about:
@@ -397,18 +429,21 @@ since Step 2 — one question, asked before deciding what to show:
 Future<bool> _check() => FlutterGemma.isModelInstalled(widget.model.fileName);
 ```
 
-What `complete` adds is everything around it: a test that keeps the question
-honest, a way to make it answer "no" again, and the truth about what survives
-a restart.
+What `complete` adds is one thing: a delete button, so you can make that
+question answer "no" again on demand. This step is where the rest of the story
+around that single line gets told — why the id has to be exactly right, and
+what does and does not survive a restart.
 
 That one line is why the file name lives in a constant. `isModelInstalled` is
 keyed by the name the model was installed under — get it out of step with the
 URL and the check quietly answers "no" forever, and your app re-downloads half
 a gigabyte on every launch while looking like it works. It is also why the
-model's file name and its URL are the same string in `Models` — one typo apart
-and the check is answering about a file that was never written.
+model's file name in `Models` is exactly the last segment of its URL, which is
+what the plugin derives the installed name from — one typo apart and the check
+is answering about a file that was never written.
 
-`complete` guards exactly that with a test, because it is invisible when wrong:
+Every step directory has carried a test for that since Step 2, because it is
+the kind of mistake that is invisible when it is wrong:
 
 ```dart
 test('every model id matches the last segment of its URL', () {
@@ -437,18 +472,41 @@ To watch the whole cycle, `complete` adds a delete button:
 
 ```dart
 Future<void> _removeModel() async {
-  await _inference?.close();
-  _inference = null;
-  _chat = null;
-  await FlutterGemma.uninstallModel(widget.model.fileName);
-  if (mounted) widget.onModelRemoved();
+  try {
+    await _inference?.close();
+    // Inside `setState`: dropping the chat has to repaint, or the screen
+    // keeps showing an enabled composer over a runtime that is gone.
+    if (mounted) {
+      setState(() {
+        _inference = null;
+        _chat = null;
+      });
+    }
+    await FlutterGemma.uninstallModel(widget.model.fileName);
+    if (mounted) widget.onModelRemoved();
+  } catch (error) {
+    // Deleting can fail too — a missing install record, a file the OS still
+    // holds. Show it the way a failed load is shown.
+    if (mounted) setState(() => _loadError = error);
+  }
 }
 ```
 
 Close the runtime *before* deleting the file. The weights are memory-mapped
 while a model is open, and pulling the file out from under the engine is a
-crash waiting to happen. Delete it, and the gate flips back to the download
-screen on the next check — which is the cheapest way to test the gate itself.
+crash waiting to happen. For the same reason the button is disabled while the
+model is still opening — there is no runtime to close yet, and `getActiveModel`
+is holding the file open behind the progress bar.
+
+The `try` and the `setState` are the same lesson as Step 3, one screen over.
+`uninstallModel` throws if the install record is already gone, and without the
+`catch` that exception escapes into the zone: `onModelRemoved` never fires, the
+gate never re-runs, and the page you are looking at still paints an enabled
+composer over a chat that no longer exists. Nulling the fields outside
+`setState` gets you the same painted lie more cheaply.
+
+Delete it, and the gate flips back to the download screen on the next check —
+which is the cheapest way to test the gate itself.
 
 ## What's next
 Duration: 2
@@ -465,7 +523,8 @@ core API is the entry point to everything else the plugin does:
 * **ground answers in your own documents** — embeddings and on-device vector search
 * **run it as a voice loop** — speech-to-text in, text-to-speech out
 
-Each has its own codelab in the [catalogue](/codelabs).
+Most of these have a codelab in the [catalogue](/codelabs) — some published,
+some still being written.
 
 ### Reference
 

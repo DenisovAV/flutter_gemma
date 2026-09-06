@@ -11,6 +11,10 @@ void main() {
     }
   });
 
+  // `flutter test` pins `defaultTargetPlatform` to android (Flutter's own
+  // `_platform_io.dart` does that whenever FLUTTER_TEST is set), so this only
+  // ever exercises the Gemini Nano arm; the Apple and UnsupportedError arms of
+  // `Models.builtIn` are covered by running the app, not by this suite.
   test('the built-in model has no file and routes to the built-in engine', () {
     final m = Models.builtIn;
     expect(m.url, isNull);

@@ -92,7 +92,8 @@ class _ChatPageState extends State<ChatPage> {
       }
     } catch (error) {
       // The half-written reply becomes the error, so the empty bubble never
-      // just sits there.
+      // just sits there. The chat's own history now holds a user turn the model
+      // never answered; a production app would reset it with `clearHistory`.
       if (mounted) {
         setState(
           () => _turns[_turns.length - 1] = _Turn('⚠️ $error', fromUser: false),

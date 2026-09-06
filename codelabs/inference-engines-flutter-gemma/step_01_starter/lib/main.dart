@@ -43,8 +43,8 @@ class QuickstartApp extends StatelessWidget {
 /// Asks, on every cold start, whether the model is already on disk.
 ///
 /// Skipping this check is the classic beginner bug: the app re-downloads
-/// half a gigabyte every single launch. Delete the model from the chat's
-/// menu and relaunch to watch this branch flip back.
+/// half a gigabyte every single launch. Delete the model with the chat's
+/// delete button and relaunch to watch this branch flip back.
 class ModelGate extends StatefulWidget {
   const ModelGate({super.key, required this.model});
 

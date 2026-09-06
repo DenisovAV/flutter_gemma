@@ -49,6 +49,11 @@ own gate:
 tool/check_codelabs.sh     # pub get + analyze + format + test, every step
 ```
 
+The same script also enforces the cross-codelab invariants declared in its
+`MIRRORS` table: a later codelab's starter is an earlier codelab's finished app,
+`lib/` and `test/` byte for byte, because both texts tell the learner so. Add a
+row there when a new codelab continues an existing one.
+
 CI runs it on push, on pull requests, and **nightly** — a step app can rot
 without anyone touching this repo, and the nightly run is what notices.
 

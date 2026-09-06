@@ -70,7 +70,7 @@ class CodelabsPage extends StatelessComponent {
           'runs Gemini Nano and Apple Foundation Models with nothing to '
           'download at all — the OS owns the weights. Register either engine '
           'at startup; the inference code never changes.',
-      duration: '40 min',
+      duration: '41 min',
       level: 'Intermediate',
       tags: ['LiteRT-LM', 'built-in AI', 'Gemini Nano'],
       accent: Brand.green,

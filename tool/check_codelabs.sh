@@ -52,4 +52,28 @@ for pubspec in "${APPS[@]}"; do
   ) || { echo "::error::$app failed"; failed=1; }
 done
 
+# Cross-codelab invariants, declared rather than hand-checked: a later codelab's
+# starter IS an earlier codelab's finished app, and both texts tell the learner
+# so. Without this the property drifts the first time someone edits one side.
+MIRRORS=(
+  "codelabs/getting-started-flutter-gemma/complete|codelabs/inference-engines-flutter-gemma/step_01_starter"
+)
+
+for pair in "${MIRRORS[@]}"; do
+  src="${pair%%|*}"
+  dst="${pair##*|}"
+  echo ""
+  echo "=== $dst must equal $src (lib, test) ==="
+  for sub in lib test; do
+    # Fail closed: a renamed directory must not read as "nothing to compare".
+    if [ ! -d "$src/$sub" ] || [ ! -d "$dst/$sub" ]; then
+      echo "::error::$src/$sub or $dst/$sub is missing — the mirror check cannot run"
+      failed=1
+      continue
+    fi
+    diff -r "$src/$sub" "$dst/$sub" \
+      || { echo "::error::$dst/$sub has drifted from $src/$sub"; failed=1; }
+  done
+done
+
 exit "$failed"

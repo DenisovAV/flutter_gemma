@@ -39,6 +39,10 @@ class _EnginesAppState extends State<EnginesApp> {
 
   /// Why the app picked what it picked. Shown once in the chat so the
   /// decision is visible instead of silent.
+  ///
+  /// It lives here rather than in the chat page because the chat page is
+  /// rebuilt from scratch on a switch, and on a delete-and-download round
+  /// trip — and a banner the user dismissed must not come back with it.
   String? _reason;
 
   @override
@@ -113,6 +117,7 @@ class _EnginesAppState extends State<EnginesApp> {
               key: ValueKey(choice.id),
               model: choice,
               reason: _reason,
+              onDismissReason: () => setState(() => _reason = null),
               onSwitch: (next) => setState(() {
                 _choice = next;
                 _reason = 'Switched by hand.';
@@ -151,6 +156,7 @@ class ModelGate extends StatefulWidget {
     super.key,
     required this.model,
     required this.onSwitch,
+    required this.onDismissReason,
     this.reason,
   });
 
@@ -159,6 +165,10 @@ class ModelGate extends StatefulWidget {
 
   /// One line explaining the startup decision, surfaced in the chat.
   final String? reason;
+
+  /// Clears [reason] in the app state, so a dismissed banner stays dismissed
+  /// across the rebuilds this gate does.
+  final VoidCallback onDismissReason;
 
   @override
   State<ModelGate> createState() => _ModelGateState();
@@ -211,6 +221,7 @@ class _ModelGateState extends State<ModelGate> {
           return ChatPage(
             model: widget.model,
             reason: widget.reason,
+            onDismissReason: widget.onDismissReason,
             onSwitch: widget.onSwitch,
             onModelRemoved: () => setState(() => _ready = _prepare()),
           );

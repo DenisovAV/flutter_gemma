@@ -13,6 +13,7 @@ class ChatPage extends StatefulWidget {
     required this.model,
     required this.onSwitch,
     required this.onModelRemoved,
+    required this.onDismissReason,
     this.reason,
   });
 
@@ -20,6 +21,11 @@ class ChatPage extends StatefulWidget {
 
   /// Why this model was chosen at startup, if the app knows.
   final String? reason;
+
+  /// Clears [reason] where it is kept — in the app's own state. Dismissing in
+  /// this page's state instead would bring the banner back the next time the
+  /// gate builds a chat, which a delete-and-download round trip does.
+  final VoidCallback onDismissReason;
 
   /// Asks the app to run a different model — possibly on a different engine.
   final ValueChanged<ModelChoice> onSwitch;
@@ -40,9 +46,6 @@ class _ChatPageState extends State<ChatPage> {
   bool _busy = false;
   Object? _loadError;
 
-  /// The startup verdict, until the user dismisses it.
-  late String? _reason = widget.reason;
-
   @override
   void initState() {
     super.initState();
@@ -54,15 +57,21 @@ class _ChatPageState extends State<ChatPage> {
       // maxTokens is the CONTEXT WINDOW — prompt + history + reply share it.
       // It is NOT a reply-length cap; for that, pass maxOutputTokens below.
       final inference = await FlutterGemma.getActiveModel(maxTokens: 1024);
+      // Hold the runtime before opening a chat on it: `createChat` can throw,
+      // and a model this page never stored is a model `dispose` can never
+      // close. A page that is already gone holds nothing, so it closes it here.
+      if (!mounted) {
+        await inference.close();
+        return;
+      }
+      setState(() => _inference = inference);
+
       final chat = await inference.createChat(
         modelType: widget.model.modelType,
         maxOutputTokens: 256,
       );
       if (!mounted) return;
-      setState(() {
-        _inference = inference;
-        _chat = chat;
-      });
+      setState(() => _chat = chat);
     } catch (error) {
       // Loading is the likeliest thing to fail on a real device: a forgotten
       // engine package, too little memory, a half-written model file. Show it
@@ -254,14 +263,16 @@ class _ChatPageState extends State<ChatPage> {
             _LoadFailed(error: error, onRetry: _retryLoad)
           else if (!ready)
             const LinearProgressIndicator(),
-          if (_reason case final reason?)
+          if (widget.reason case final reason?)
             MaterialBanner(
               content: Text(reason),
               // A MaterialBanner has no dismiss of its own — whatever put it
-              // up has to take it down, so give it a real action.
+              // up has to take it down. That is the app, not this page: the
+              // verdict lives in `_EnginesAppState`, and a dismissal kept
+              // here would die with the State the next rebuild disposes.
               actions: [
                 TextButton(
-                  onPressed: () => setState(() => _reason = null),
+                  onPressed: widget.onDismissReason,
                   child: const Text('Dismiss'),
                 ),
               ],

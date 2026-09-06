@@ -384,10 +384,10 @@ BuiltInAiUnavailableException(BuiltInAiAvailability.unavailableDeviceUnsupported
 ```
 
 A typed exception carrying a `BuiltInAiAvailability`, not a platform crash —
-which is why the app never shows the learner that string. `step_02`'s error
-card pattern-matches the status and renders a sentence instead: for a disabled
-feature, where the toggle lives on each platform. That typed failure is what
-makes the next step possible.
+which is why the setup screen never shows the learner that string. `step_02`'s
+error card pattern-matches the status and renders a sentence instead: for a
+disabled feature, where the toggle lives on each platform. That typed failure
+is what makes the next step possible.
 
 ## Step 3: Let the app choose
 Duration: 8
@@ -495,6 +495,12 @@ out of the probe, the `UnsupportedError` arm included, comes with a sentence
 the user can read. `unavailableDisabled` gets its own line because it is the
 one case the *user* can fix — the hardware is fine, the feature is switched
 off.
+
+The sentence and its **Dismiss** live in the same place: `_EnginesAppState`
+holds the reason, and the chat page's button calls back into it. Keeping the
+dismissal in the chat page's own State would look identical and be wrong — the
+gate rebuilds that State whenever the model changes, so forgetting the model
+and downloading it again would raise the banner the user had already put down.
 
 That is the finished app. Run `complete` on whatever you have:
 

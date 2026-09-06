@@ -43,15 +43,21 @@ class _ChatPageState extends State<ChatPage> {
       // maxTokens is the CONTEXT WINDOW — prompt + history + reply share it.
       // It is NOT a reply-length cap; for that, pass maxOutputTokens below.
       final inference = await FlutterGemma.getActiveModel(maxTokens: 1024);
+      // Hold the runtime before opening a chat on it: `createChat` can throw,
+      // and a model this page never stored is a model `dispose` can never
+      // close. A page that is already gone holds nothing, so it closes it here.
+      if (!mounted) {
+        await inference.close();
+        return;
+      }
+      setState(() => _inference = inference);
+
       final chat = await inference.createChat(
         modelType: widget.model.modelType,
         maxOutputTokens: 256,
       );
       if (!mounted) return;
-      setState(() {
-        _inference = inference;
-        _chat = chat;
-      });
+      setState(() => _chat = chat);
     } catch (error) {
       // Loading is the likeliest thing to fail on a real device: a forgotten
       // engine package, too little memory, a half-written model file. Show it

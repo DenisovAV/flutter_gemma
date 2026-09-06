@@ -315,6 +315,7 @@ Two objects stand between you and an answer.
 
 ```dart
 final inference = await FlutterGemma.getActiveModel(maxTokens: 1024);
+// ... hand `inference` to the State here, before anything else can throw
 final chat = await inference.createChat(
   modelType: widget.model.modelType,
   maxOutputTokens: 256,
@@ -323,6 +324,12 @@ final chat = await inference.createChat(
 
 `getActiveModel` loads the installed weights into a runtime. `createChat` opens
 a conversation on top, and it is the chat that remembers what was said.
+
+The elided line is not bookkeeping. `_load` assigns `_inference` the moment
+`getActiveModel` returns, because everything after that can throw and a runtime
+the page never stored is a runtime `dispose` can never close. And if the page
+was already disposed by the time the model opened, `_load` closes it on the
+spot — there is nobody left to do it later.
 
 **`maxTokens` is the context window**, not a cap on the answer's length — the
 prompt, the history and the reply all share it. Ask for 100 hoping for a short
@@ -360,9 +367,9 @@ _turns.add(
 ### When it fails
 
 This is the first code that talks to the *inference* runtime, so it fails in
-ways the download screen never saw: a forgotten engine package, an
-out-of-memory kill on a small phone, a half-written model file. Both entry
-points get a `catch` — and `_send` gets a `finally`:
+ways the download screen never saw: a forgotten engine package, too little
+memory to open the weights, a half-written model file. Both entry points get a
+`catch` — and `_send` gets a `finally`:
 
 ```dart
 } catch (error) {
@@ -416,6 +423,17 @@ void dispose() {
 `dispose` cannot `await`, so the future is dropped deliberately — and caught,
 because an unawaited throw from a native teardown surfaces as an unhandled
 async error with no useful stack.
+
+All of this lives in a new `chat_page.dart`, and one line of `main.dart` puts
+it on screen: the gate returns the chat where Step 2 returned the placeholder.
+Add `import 'chat_page.dart';`, change that line, and delete the `_ModelReady`
+class it replaces.
+
+```dart
+if (snapshot.data ?? false) {
+  return ChatPage(model: widget.model);
+}
+```
 
 Run it and ask something. The app freezes for a few seconds, then the whole
 answer appears at once. That pause is the next step.
@@ -549,18 +567,19 @@ Future<void> _removeModel() async {
 Close the runtime *before* deleting the file. The weights are memory-mapped
 while a model is open, and pulling the file out from under the engine is a
 crash waiting to happen. For the same reason the button is disabled while the
-model is still opening — there is no runtime to close yet, and `getActiveModel`
-is holding the file open behind the progress bar.
+model is still opening — the runtime may not exist yet, and `getActiveModel` is
+holding the file open behind the progress bar.
 
 The `try` and the `setState` are the same lesson as Step 3, one screen over.
 `uninstallModel` throws if the install record is already gone, and without the
 `catch` that exception escapes into the zone: `onModelRemoved` never fires, the
-gate never re-runs, and the page you are looking at still paints an enabled
-composer over a chat that no longer exists. Nulling the fields outside
-`setState` gets you the same painted lie more cheaply. The `catch` nulls
-`_chat` for that reason too: `close()` throws *before* the success path drops
-it, so without that line the screen would say "The model did not load." over a
-composer that still answers.
+gate never re-runs, and the screen is left on a progress bar that never
+resolves — `_chat` was nulled two lines earlier, so the composer is already
+disabled and nothing on screen says why. The enabled composer belongs to the
+*other* throw: `close()` fails before the success path drops `_chat`, which is
+why the `catch` nulls it as well — without that line the screen would say "The
+model did not load." over a composer that still answers. Nulling the fields
+outside `setState` gets you the same painted lie more cheaply.
 
 Delete it, and the gate flips back to the download screen on the next check —
 which is the cheapest way to test the gate itself.

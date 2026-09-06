@@ -56,7 +56,8 @@ class CodelabsPage extends StatelessComponent {
       title: 'Getting Started with On-Device LLMs in Flutter',
       blurb:
           'Install flutter_gemma, pick and download a model, and stream your '
-          'first reply — and never download the same model twice.',
+          'first reply — then have the app open on the chat, not the download '
+          'screen.',
       duration: '35 min',
       level: 'Beginner',
       tags: ['flutter_gemma', 'Gemma 3', 'streaming'],

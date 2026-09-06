@@ -209,7 +209,7 @@ class _ErrorCard extends StatelessWidget {
             // only it gets this button — and it is the action the sentence
             // above promises. An error card that names a way out the screen
             // does not offer is a dead end with instructions.
-            if (error is BuiltInAiUnavailableException) ...[
+            if (model.isBuiltIn) ...[
               const SizedBox(height: 12),
               FilledButton(
                 onPressed: () => onSwitch(Models.gemma3),

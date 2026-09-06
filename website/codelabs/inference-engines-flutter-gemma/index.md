@@ -85,7 +85,9 @@ flutter run --dart-define=HF_TOKEN=hf_your_token
 Step 2. Without the token the download 401s — and since a device without a
 built-in model takes the fallback path, that is most devices. If you would
 rather not have a Hugging Face account, `Models.qwen3` in `model.dart` is
-ungated: point the fallback at it instead and nothing else here changes.
+ungated. The fallback is named in two places — the startup policy in
+`main.dart` and the setup screen's **Use … instead** button in
+`download_page.dart` — so repoint both.
 
 ### One list of engines
 
@@ -390,9 +392,10 @@ error card pattern-matches the status and renders a sentence instead: where the
 toggle lives for a disabled feature, that the OS is older than the model
 requires, or else the status itself.
 
-Under that sentence sits a **Use Gemma 3 1B instead** button, because this is
-the one failure a retry cannot reach: the OS either has a model or it does not,
-and pressing **Use built-in model** again only reproduces the exception. The
+Under that sentence sits a **Use Gemma 3 1B instead** button, because a retry
+rarely helps here: only `unavailableDisabled` can change after you flip the
+setting it names; for every other status the OS either has a model or it does
+not, and pressing **Use built-in model** again reproduces the exception. The
 button is why `DownloadPage` takes the gate's `onSwitch` as well as `ChatPage`
 — until a model is ready this screen *is* the app, and a screen that names a
 way out has to have one. That typed failure is what makes the next step
@@ -461,7 +464,8 @@ has no total to report.
 The manual switch from Step 2 stays in the menu, so you can override the app's
 choice and compare. Neither route is one-way. When the probe lands the app on
 the built-in setup screen — for `downloadable` as much as for a switch you made
-by hand — and `ensureReady()` then fails there, the error card's **Use Gemma 3
+by hand — and `ensureReady()` then fails there, however it fails — a typed
+status, or the ten-minute wait on a fetch that never finishes — the error card's **Use Gemma 3
 1B instead** button hands the app back to the downloaded model. Without it the
 only control on that screen would re-run the same failure, and on a
 `downloadable` device even a restart would probe the same status and land you

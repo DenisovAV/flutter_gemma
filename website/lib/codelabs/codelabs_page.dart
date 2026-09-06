@@ -56,11 +56,13 @@ class CodelabsPage extends StatelessComponent {
       title: 'Getting Started with On-Device LLMs in Flutter',
       blurb:
           'Install flutter_gemma, pick and download a model, and stream your '
-          'first reply — with a progress bar that survives a cold start.',
-      duration: '30 min',
+          'first reply — then have the app open on the chat, not the download '
+          'screen.',
+      duration: '35 min',
       level: 'Beginner',
       tags: ['flutter_gemma', 'Gemma 3', 'streaming'],
       accent: Brand.blue,
+      href: '/codelabs/getting-started-flutter-gemma',
     ),
     _Codelab(
       title: 'Inference Engines in Flutter: From a Downloaded Model to Built-in AI',
@@ -69,10 +71,11 @@ class CodelabsPage extends StatelessComponent {
           'runs Gemini Nano and Apple Foundation Models with nothing to '
           'download at all — the OS owns the weights. Register either engine '
           'at startup; the inference code never changes.',
-      duration: '45 min',
+      duration: '41 min',
       level: 'Intermediate',
       tags: ['LiteRT-LM', 'built-in AI', 'Gemini Nano'],
       accent: Brand.green,
+      href: '/codelabs/inference-engines-flutter-gemma',
     ),
     _Codelab(
       title: 'Multimodal Inference in Flutter: Vision and Audio on Device',
@@ -143,8 +146,8 @@ class CodelabsPage extends StatelessComponent {
             Component.text(
               'Hands-on, step-by-step guides for running language models '
               'inside a Flutter app, ordered from first run to full '
-              'pipelines. The hybrid-AI codelab is ready to take now; the '
-              'rest are being written.',
+              'pipelines. Start with the quickstart; the ones marked '
+              '"Coming soon" are still being written.',
             ),
           ]),
         ]),

@@ -1,0 +1,15 @@
+# Step apps deliberately do NOT pin their dependencies.
+#
+# The codelab tells the learner to run `flutter pub add flutter_gemma …`, which
+# resolves to the newest compatible release — so that is what these apps must
+# resolve to as well. A committed lock file would also blind the nightly CI run,
+# whose entire purpose is to notice when a new package release breaks a step.
+#
+# The cost, stated plainly: a PR run is not reproducible. A transitive package
+# publishing a broken version at 09:00 fails an unrelated PR at 09:05, and the
+# author cannot tell "my change broke it" from "the world moved". Dart's own
+# guidance is that applications commit `pubspec.lock`, and these are
+# applications — this repo trades that for rot detection on purpose. A
+# maintainer's local run also reuses their own stale lock while CI resolves
+# fresh, so local green and CI green are not quite the same claim.
+pubspec.lock

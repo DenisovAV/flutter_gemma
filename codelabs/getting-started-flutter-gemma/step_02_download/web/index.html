@@ -34,14 +34,15 @@
 
   <!-- LiteRT-LM's web arm loads `@litert-lm/core` from a CDN. The ESM assigns
        no window globals and module scripts are deferred, so Dart waits on the
-       promise this handshake publishes. Native platforms need no web setup. -->
-  <script type="module">
-  window.litertLmReady = (async () => {
-    const m = await import('https://cdn.jsdelivr.net/npm/@litert-lm/core@0.14.0/+esm');
-    window.Engine = m.Engine;
-    return m.Engine;
-  })();
-  </script>
+       promise this handshake publishes. Native platforms need no web setup.
+       The handshake below is the flutter_gemma_litertlm README's, verbatim. -->
+<script type="module">
+window.litertLmReady = (async () => {
+  const m = await import('https://cdn.jsdelivr.net/npm/@litert-lm/core@0.14.0/+esm');
+  window.Engine = m.Engine;
+  return m.Engine;
+})();
+</script>
 </head>
 <body>
   <!--

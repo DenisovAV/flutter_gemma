@@ -190,27 +190,43 @@ size does not need them. macOS support is Apple Silicon only.
 The build phase is the part unique to macOS. Every step app from this one on
 ships a `macos/Podfile`, and its `post_install` block stages the runtime's
 companion libraries into the built `.app` and repoints LiteRT-LM at them. It is
-not cosmetic: without it `engine_create` returns null on the GPU backend and the
-model silently falls back to CPU. Copy the block from any step app's
-`macos/Podfile` — or from the [desktop docs](/docs/desktop), which quote it in
-full with the reasoning for each line — and run `pod install`.
+not cosmetic, and how it bites depends on how much of the staging is missing.
+With a Podfile that installs pods but carries no such block, LiteRT-LM itself
+loads and only its Metal companion is absent: `engine_create` returns null on
+the GPU backend and the model silently falls back to CPU. With nothing staged at
+all — the SPM case below — `LiteRtLm.framework` is the only thing in
+`Contents/Frameworks`, the dynamic loader cannot resolve the companions it
+links against, and the first model load fails outright. Copy the block from any
+step app's `macos/Podfile` — or
+from the [desktop docs](/docs/desktop), which quote it in full with the
+reasoning for each line — and run `pod install`.
 
 One trap, measured on these very apps. With Swift Package Manager enabled
 (`flutter config --enable-swift-package-manager`) and no other CocoaPods plugin
 in the app, Flutter resolves every plugin through SPM and prints **Removing
 CocoaPods integration** — which is exactly what it does. The Podfile stops being
 part of the build, the `post_install` block never runs, nothing is staged, and
-the model fails to load with nothing in the error mentioning CocoaPods. For this
-project, either turn SPM off with
-`flutter config --no-enable-swift-package-manager`, or keep one CocoaPods plugin
-in the app.
+the model fails to load with nothing in the error mentioning CocoaPods. A macOS
+build that succeeds proves nothing here: the app compiles, links, signs and
+launches either way, and the failure —
+`Failed to load dynamic library 'LiteRtLm.framework/LiteRtLm'` — arrives at the
+first model load, which no build log will ever warn you about. For this project,
+either turn SPM off with `flutter config --no-enable-swift-package-manager`, or
+keep one CocoaPods plugin in the app.
 
-**Windows** — nothing in the app. The machine needs the Microsoft Visual C++
-Redistributable (2019 or newer), which the DirectX shader compiler behind the
-GPU backend links against; most Windows 10/11 installs already have it.
+**Windows** — nothing in the app, and x86_64 only: there is no Windows arm64
+build of the runtime, so a Snapdragon-X machine is out. The machine needs the
+Microsoft Visual C++ Redistributable (2019 or newer), which the DirectX shader
+compiler (DXC) behind the GPU backend links against; most Windows 10/11
+installs already have it.
 
 **Linux** — nothing in the app either. glibc 2.34 or newer, which means Ubuntu
-22.04+, Debian 12+ or RHEL 9+.
+22.04+, Debian 12+ or RHEL 9+. Building a Flutter Linux app at all also wants
+`clang cmake ninja-build libgtk-3-dev lld`, and `flutter doctor` names whichever
+of those you are missing. The GPU backend reaches Vulkan through Dawn, so it
+wants a working vendor driver: Mesa's `llvmpipe` software fallback caps
+`maxStorageBufferRange` at 128 MB, and the [desktop docs](/docs/desktop) list
+both the driver packages and which models that cap rules out.
 
 **Web** — one script tag. The browser arm loads the runtime from a CDN, and that
 ES module assigns no window globals — module scripts are deferred, so Dart would

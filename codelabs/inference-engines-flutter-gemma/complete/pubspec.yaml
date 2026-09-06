@@ -40,8 +40,9 @@ dependencies:
   # The .litertlm inference engine. Engines are opt-in — core
   # registers none, so this package must be added explicitly.
   flutter_gemma_litertlm: ^1.6.2
-  # The OS built-in engine: Gemini Nano (Android), Apple Foundation
-  # Models (iOS). No file to download — the OS owns the weights.
+  # The OS built-in engine: Gemini Nano (Android, Chrome), Apple
+  # Foundation Models (iOS, macOS). No file to download — the OS or the
+  # browser owns the weights. Windows and Linux have no built-in arm.
   flutter_gemma_builtin_ai: ^0.2.1
 
 dev_dependencies:

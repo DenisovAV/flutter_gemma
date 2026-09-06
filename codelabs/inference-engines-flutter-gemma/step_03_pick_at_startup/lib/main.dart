@@ -48,29 +48,35 @@ class _EnginesAppState extends State<EnginesApp> {
   /// Availability is a property of the device and OS, not of the build —
   /// it has to be asked at run time, every time.
   Future<void> _pickAtStartup() async {
-    // `availability()` never throws for an OS that answers — but a plugin
-    // that failed to register does, and an uncaught throw here would leave
-    // the app on the probe screen forever.
+    // First: does this platform have a built-in arm at all? `Models.builtIn`
+    // throws where it does not, so asking it is the cheap way to find out —
+    // and where it throws there is nothing to probe either. The package
+    // registers no plugin on Windows or Linux, so `availability()` there has
+    // no host to answer it and can only fail. Skip it.
+    final ModelChoice builtIn;
+    try {
+      builtIn = Models.builtIn;
+    } on UnsupportedError {
+      if (mounted) setState(() => _choice = Models.gemma3);
+      return;
+    }
+
+    // Only now, on a platform that does have one: ask the OS. `availability()`
+    // never throws for an OS that answers — but a plugin that registered and
+    // then broke does, and an uncaught throw here would leave the app on the
+    // probe screen forever.
     BuiltInAiAvailability status;
     try {
       status = await BuiltInAi.availability();
     } catch (_) {
       status = BuiltInAiAvailability.unavailableOther;
     }
-    // The switch evaluates `Models.builtIn`, which throws where this app has
-    // no built-in arm — so guard it here the way the chat page's menu does,
-    // and fall through to the downloaded model.
-    ModelChoice choice;
-    try {
-      choice = switch (status) {
-        BuiltInAiAvailability.available ||
-        BuiltInAiAvailability.downloadable ||
-        BuiltInAiAvailability.downloading => Models.builtIn,
-        _ => Models.gemma3,
-      };
-    } on UnsupportedError {
-      choice = Models.gemma3;
-    }
+    final choice = switch (status) {
+      BuiltInAiAvailability.available ||
+      BuiltInAiAvailability.downloadable ||
+      BuiltInAiAvailability.downloading => builtIn,
+      _ => Models.gemma3,
+    };
     if (mounted) setState(() => _choice = choice);
   }
 

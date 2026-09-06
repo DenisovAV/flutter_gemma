@@ -53,6 +53,11 @@ point.
   `chrome://flags/#prompt-api-for-gemini-nano` for local development, an
   [origin trial](https://developer.chrome.com/origintrials) token for a real
   site). One of those lets you watch both engines answer
+* Chrome has a hardware floor for its copy of Nano that the flag does not lift.
+  `flutter_gemma_builtin_ai` states it as **~22 GB of free disk and a GPU with
+  more than 4 GB of VRAM**, or a CPU-only path on a machine with 16 GB of RAM.
+  Under it the probe answers `unavailableDeviceUnsupported` with the flag
+  switched on — which reads like a setup mistake and is not one
 * **Windows and Linux have no built-in arm at all**, and that is not a gap in
   your setup: the app is designed to notice and take the downloaded model
   instead. Running there exercises the fallback path end to end, which is what
@@ -278,8 +283,10 @@ caught. The chat page's menu builds its list through `_alternatives`, which asks
 for `Models.builtIn` inside a `try` and drops the entry on `UnsupportedError`.
 That getter runs from `itemBuilder`, so the guard has to be *in* it: a throw
 during a build is a red screen, not something a `catch` around the tap could
-reach. The startup probe in Step 3 guards the same getter the same way, which is
-why a Windows or Linux run just quietly downloads Gemma and chats.
+reach. The startup probe in Step 3 asks the same getter, but asks it *first*:
+where it throws there is no built-in model to probe for, so the probe never
+runs and the app goes straight to Gemma. That is why a Windows or Linux run
+just quietly downloads it and chats.
 
 ### Installed is not active — and a built-in model is never installed
 
@@ -446,29 +453,35 @@ once the user turns Apple Intelligence on. So the app asks, every launch:
 
 ```dart
 Future<void> _pickAtStartup() async {
-  // `availability()` never throws for an OS that answers — but a plugin
-  // that failed to register does, and an uncaught throw here would leave
-  // the app on the probe screen forever.
+  // First: does this platform have a built-in arm at all? `Models.builtIn`
+  // throws where it does not, so asking it is the cheap way to find out —
+  // and where it throws there is nothing to probe either. The package
+  // registers no plugin on Windows or Linux, so `availability()` there has
+  // no host to answer it and can only fail. Skip it.
+  final ModelChoice builtIn;
+  try {
+    builtIn = Models.builtIn;
+  } on UnsupportedError {
+    if (mounted) setState(() => _choice = Models.gemma3);
+    return;
+  }
+
+  // Only now, on a platform that does have one: ask the OS. `availability()`
+  // never throws for an OS that answers — but a plugin that registered and
+  // then broke does, and an uncaught throw here would leave the app on the
+  // probe screen forever.
   BuiltInAiAvailability status;
   try {
     status = await BuiltInAi.availability();
   } catch (_) {
     status = BuiltInAiAvailability.unavailableOther;
   }
-  // The switch evaluates `Models.builtIn`, which throws where this app has
-  // no built-in arm — so guard it here the way the chat page's menu does,
-  // and fall through to the downloaded model.
-  ModelChoice choice;
-  try {
-    choice = switch (status) {
-      BuiltInAiAvailability.available ||
-      BuiltInAiAvailability.downloadable ||
-      BuiltInAiAvailability.downloading => Models.builtIn,
-      _ => Models.gemma3,
-    };
-  } on UnsupportedError {
-    choice = Models.gemma3;
-  }
+  final choice = switch (status) {
+    BuiltInAiAvailability.available ||
+    BuiltInAiAvailability.downloadable ||
+    BuiltInAiAvailability.downloading => builtIn,
+    _ => Models.gemma3,
+  };
   if (mounted) setState(() => _choice = choice);
 }
 ```
@@ -478,12 +491,23 @@ download, or once a running download finishes. The other four are the
 `unavailable*` family, and for all of them the answer is the same: use the
 downloaded model.
 
-Two guards, two different failures. The first turns a plugin that never
-registered into an `unavailableOther` verdict instead of a hang on the probe
-screen. The second covers the fact that the switch *evaluates* `Models.builtIn`
-— this runs unawaited from `initState`, so a throw there would escape into the
-zone with the app stuck on *Checking for a built-in model…*. It is the same
-`on UnsupportedError` the menu uses in Step 2.
+Two questions, in that order, and the order is the whole design.
+
+The **first is about the platform**, and it is asked first because it is free:
+`Models.builtIn` throws where this app has no built-in arm, so evaluating it
+*is* the test. Where it throws there is also nothing to ask the OS —
+`flutter_gemma_builtin_ai` registers no plugin on Windows or Linux, so
+`availability()` there has no host on the other end of its channel. It would not
+answer "unavailable"; it would throw a `PlatformException` at nobody. There is
+no information in that, so the app does not ask for it, returns straight away,
+and takes the downloaded model. This is the same `on UnsupportedError` the menu
+uses in Step 2, moved to the front.
+
+The **second is about the plugin**, on a platform that does have an arm: one
+that registered and then broke. There a throw is real news, and turning it into
+an `unavailableOther` verdict is what keeps the app moving — `_pickAtStartup`
+runs unawaited from `initState`, so an escaping throw would leave it stuck on
+*Checking for a built-in model…* with the error lost in the zone.
 
 The probe is bounded. On a device whose AI stack never answers (a
 freshly-provisioned Android with no AICore metadata yet), `availability()`
@@ -515,41 +539,48 @@ downloading half a gigabyte when the phone has Gemini?" `complete` keeps the
 probe's verdict and shows it in a dismissible banner above the chat:
 
 ```dart
-ModelChoice choice;
-String reason;
+final ModelChoice builtIn;
 try {
-  (choice, reason) = switch (status) {
-    BuiltInAiAvailability.available => (
-      Models.builtIn,
-      'Using the model the OS ships — nothing was downloaded.',
-    ),
-    BuiltInAiAvailability.downloadable ||
-    BuiltInAiAvailability.downloading => (
-      Models.builtIn,
-      'The OS has a built-in model; it will fetch the feature once.',
-    ),
-    BuiltInAiAvailability.unavailableDisabled => (
-      Models.gemma3,
-      'Built-in AI is turned off on this device — using a downloaded model.',
-    ),
-    _ => (
-      Models.gemma3,
-      'No built-in model here ($status) — using a downloaded model.',
-    ),
-  };
+  builtIn = Models.builtIn;
 } on UnsupportedError {
-  (choice, reason) = (
-    Models.gemma3,
-    'No built-in model on this platform — using a downloaded model.',
-  );
+  if (mounted) {
+    setState(() {
+      _choice = Models.gemma3;
+      _reason =
+          'No built-in model on this platform — using a downloaded model.';
+    });
+  }
+  return;
 }
+
+// ...
+
+final (choice, reason) = switch (status) {
+  BuiltInAiAvailability.available => (
+    builtIn,
+    'Using the model the OS ships — nothing was downloaded.',
+  ),
+  BuiltInAiAvailability.downloadable ||
+  BuiltInAiAvailability.downloading => (
+    builtIn,
+    'The OS has a built-in model; it will fetch the feature once.',
+  ),
+  BuiltInAiAvailability.unavailableDisabled => (
+    Models.gemma3,
+    'Built-in AI is turned off on this device — using a downloaded model.',
+  ),
+  _ => (
+    Models.gemma3,
+    'No built-in model here ($status) — using a downloaded model.',
+  ),
+};
 ```
 
-The switch now yields a record, so Step 3's guard yields one too — every path
-out of the probe, the `UnsupportedError` arm included, comes with a sentence
-the user can read. `unavailableDisabled` gets its own line because it is the
-one case the *user* can fix — the hardware is fine, the feature is switched
-off.
+The switch now yields a record, and so does the early return that Step 3's
+platform question takes — every path out of the probe, the one that never
+reaches the probe included, comes with a sentence the user can read.
+`unavailableDisabled` gets its own line because it is the one case the *user*
+can fix — the hardware is fine, the feature is switched off.
 
 The sentence and its **Dismiss** live in the same place: `_EnginesAppState`
 holds the reason, and the chat page's button calls back into it. Keeping the
@@ -563,10 +594,11 @@ That is the finished app. Run `complete` on whatever you have:
   built-in model answers
 * an emulator or an older phone → the banner names the status, Gemma downloads
   once, LiteRT-LM answers
-* Windows or Linux, where there is no built-in arm to probe → the
-  `UnsupportedError` arm's sentence, *No built-in model on this platform — using
-  a downloaded model*, and the same download. Not a failure: it is the fallback
-  working, and it is the one branch you can see without owning the hardware
+* Windows or Linux, where there is no built-in arm to probe → the app finds
+  that out before it probes anything, the banner reads *No built-in model on
+  this platform — using a downloaded model*, and Gemma downloads the same way.
+  Not a failure: it is the fallback working, and it is the one branch you can
+  see without owning the hardware
 
 Same chat page every way.
 

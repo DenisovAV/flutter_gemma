@@ -128,8 +128,7 @@ class _ChatPageState extends State<ChatPage> {
   /// `Models.builtIn` throws where the OS has no built-in arm, and this getter
   /// runs inside `itemBuilder` — a throw during a build is a red screen, not
   /// something a `catch` around the tap could reach. So ask here and drop the
-  /// entry instead. (This codelab targets Android and iOS; the package does
-  /// have a web arm, out of scope here.)
+  /// entry instead. Windows and Linux have no built-in arm at all.
   List<ModelChoice> get _alternatives {
     final all = <ModelChoice>[Models.gemma3, Models.qwen3];
     try {

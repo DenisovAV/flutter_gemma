@@ -59,12 +59,24 @@ done
 # Android needs an SDK, Apple targets need a Mac, Windows needs Windows — so it
 # is the only build this gate can honestly claim. Only the two `complete/` apps
 # are built: they are supersets of their own steps, and a build is ~20 s each.
+built=0
 for app in codelabs/*/complete; do
   echo ""
   echo "=== $app: flutter build web --release ==="
   ( cd "$app" && flutter build web --release ) \
     || { echo "::error::$app failed to build for web"; failed=1; }
+  built=$((built + 1))
 done
+
+# Fail closed, the way discovery does above. Every codelab has a `complete/` —
+# it is the finished app both texts point the learner at — so the number of
+# builds has to equal the number of codelabs. Rename or drop one and the glob
+# quietly skips it: a build that never ran must not read as one that passed.
+codelab_count="$(printf '%s\n' "${APPS[@]}" | cut -d/ -f2 | sort -u | wc -l | tr -d ' ')"
+if [ "$built" -ne "$codelab_count" ]; then
+  echo "::error::built $built web app(s) for $codelab_count codelab(s) — a complete/ directory is missing or renamed"
+  failed=1
+fi
 
 # Cross-codelab invariants, declared rather than hand-checked: a later codelab's
 # starter IS an earlier codelab's finished app, and both texts tell the learner

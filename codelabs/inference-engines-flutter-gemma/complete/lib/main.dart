@@ -56,46 +56,54 @@ class _EnginesAppState extends State<EnginesApp> {
   /// Availability is a property of the device and OS, not of the build —
   /// it has to be asked at run time, every time.
   Future<void> _pickAtStartup() async {
-    // `availability()` never throws for an OS that answers — but a plugin
-    // that failed to register does, and an uncaught throw here would leave
-    // the app on the probe screen forever.
+    // First: does this platform have a built-in arm at all? `Models.builtIn`
+    // throws where it does not, so asking it is the cheap way to find out —
+    // and where it throws there is nothing to probe either. The package
+    // registers no plugin on Windows or Linux, so `availability()` there has
+    // no host to answer it and can only fail. Skip it, and say so.
+    final ModelChoice builtIn;
+    try {
+      builtIn = Models.builtIn;
+    } on UnsupportedError {
+      if (mounted) {
+        setState(() {
+          _choice = Models.gemma3;
+          _reason =
+              'No built-in model on this platform — using a downloaded model.';
+        });
+      }
+      return;
+    }
+
+    // Only now, on a platform that does have one: ask the OS. `availability()`
+    // never throws for an OS that answers — but a plugin that registered and
+    // then broke does, and an uncaught throw here would leave the app on the
+    // probe screen forever.
     BuiltInAiAvailability status;
     try {
       status = await BuiltInAi.availability();
     } catch (_) {
       status = BuiltInAiAvailability.unavailableOther;
     }
-    // The switch evaluates `Models.builtIn`, which throws where this app has
-    // no built-in arm — so guard it here the way the chat page's menu does,
-    // and fall through to the downloaded model.
-    ModelChoice choice;
-    String reason;
-    try {
-      (choice, reason) = switch (status) {
-        BuiltInAiAvailability.available => (
-          Models.builtIn,
-          'Using the model the OS ships — nothing was downloaded.',
-        ),
-        BuiltInAiAvailability.downloadable ||
-        BuiltInAiAvailability.downloading => (
-          Models.builtIn,
-          'The OS has a built-in model; it will fetch the feature once.',
-        ),
-        BuiltInAiAvailability.unavailableDisabled => (
-          Models.gemma3,
-          'Built-in AI is turned off on this device — using a downloaded model.',
-        ),
-        _ => (
-          Models.gemma3,
-          'No built-in model here ($status) — using a downloaded model.',
-        ),
-      };
-    } on UnsupportedError {
-      (choice, reason) = (
+    final (choice, reason) = switch (status) {
+      BuiltInAiAvailability.available => (
+        builtIn,
+        'Using the model the OS ships — nothing was downloaded.',
+      ),
+      BuiltInAiAvailability.downloadable ||
+      BuiltInAiAvailability.downloading => (
+        builtIn,
+        'The OS has a built-in model; it will fetch the feature once.',
+      ),
+      BuiltInAiAvailability.unavailableDisabled => (
         Models.gemma3,
-        'No built-in model on this platform — using a downloaded model.',
-      );
-    }
+        'Built-in AI is turned off on this device — using a downloaded model.',
+      ),
+      _ => (
+        Models.gemma3,
+        'No built-in model here ($status) — using a downloaded model.',
+      ),
+    };
     if (mounted) {
       setState(() {
         _choice = choice;

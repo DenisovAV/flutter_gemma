@@ -308,13 +308,15 @@ are ordinary HTTPS requests (`android/app/src/main/AndroidManifest.xml`):
     <uses-permission android:name="android.permission.INTERNET" />
 ```
 
-**iOS** — a deployment target of 15.0 or newer, and two memory entitlements in
+**iOS** — a deployment target of 15.0 or newer, and three memory entitlements in
 `ios/Runner/Runner.entitlements`:
 
 ```xml
 	<key>com.apple.developer.kernel.extended-virtual-addressing</key>
 	<true/>
 	<key>com.apple.developer.kernel.increased-memory-limit</key>
+	<true/>
+	<key>com.apple.developer.kernel.increased-debugging-memory-limit</key>
 	<true/>
 ```
 

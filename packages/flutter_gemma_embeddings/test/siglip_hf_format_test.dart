@@ -18,7 +18,9 @@ library;
 // pre-tokenizer (`pattern: {String: " "}`, `MergedWithPrevious`), same list-form
 // `merges` and `added_tokens`, with an eight-token vocabulary instead of 256k.
 // Its `post_processor` and `padding` blocks mirror the real file for fidelity.
-// The loader acts on neither — see the note in the test body for why.
+// From 1.4.0 the dependency DOES apply `padding` at load; `loadEmbeddingTokenizer`
+// then switches it back off. `post_processor` is never applied, because the
+// explicit `SentencePieceConfig` wins. See the note in the test body.
 
 import 'dart:convert';
 import 'dart:io';

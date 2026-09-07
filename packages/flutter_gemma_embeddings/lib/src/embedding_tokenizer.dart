@@ -1,14 +1,12 @@
 // Runtime-agnostic tokenization half of the embedding pipeline (embedder
 // decoupling plan Task 3, Invariant I1).
 //
-// Verbatim port of what used to live in
-// `flutter_gemma_embeddings/lib/src/litert/litert_embedding_core.dart`
-// (lines 41-44 + 95-106 pre-refactor): the Gemma BOS/EOS convention and the
-// `.json`-vs-`.model` tokenizer-loader branch. This half is engine-agnostic
-// (pure Dart, `dart_sentencepiece_tokenizer` only) so it now lives here
-// instead of inside the LiteRT-specific forward pass — the pad/truncate-to-
-// seqLen half stays with the LiteRT forward pass in `flutter_gemma_litertlm`
-// because only that engine's compiled model knows its fixed `seqLen`.
+// The Gemma BOS/EOS convention and the `.json`-vs-`.model` loader branch live
+// here rather than inside a forward pass because they are engine-agnostic (pure
+// Dart, `dart_sentencepiece_tokenizer` only). The pad/truncate-to-`seqLen` half
+// deliberately does NOT: it stays with the LiteRT forward pass in
+// `flutter_gemma_litertlm`, because only that engine's compiled model knows its
+// fixed `seqLen`.
 //
 // ⚠️ I1 risk: getting `bosId`/`eosId` or the `prefix + text` concatenation
 // order wrong silently changes every embedding vector without any exception.
@@ -27,13 +25,17 @@ const int bosId = 2;
 const int eosId = 1;
 
 /// Loads the SentencePiece tokenizer at [tokenizerPath] — a `.json` (via
-/// `TokenizerJsonLoader`) or a raw SentencePiece `.model` file, matching
-/// exactly the branch `litert_embedding_core.dart` used pre-refactor.
+/// `TokenizerJsonLoader`) or a raw SentencePiece `.model` file.
 ///
-/// The returned tokenizer has the file's `padding` and `truncation` blocks
+/// The returned tokenizer has any `padding` and `truncation` the file declares
 /// DISABLED: `encode()` hands back bare content, never a fixed-width row. Width
-/// and terminators are the caller's — the profiles below, and the forward pass
-/// that owns `seqLen`.
+/// and terminators are the caller's — [encodeForEmbedding],
+/// [encodeForSiglipEmbedding], and the forward pass that owns `seqLen`. (A raw
+/// `.model` carries no such blocks, so there the guarantee is free.)
+///
+/// Throws [StateError] if the resolved `dart_sentencepiece_tokenizer` accepts
+/// the calls that disable them and applies the settings anyway — see
+/// `requireBareContent`.
 Future<SentencePieceTokenizer> loadEmbeddingTokenizer(
   String tokenizerPath,
 ) async {

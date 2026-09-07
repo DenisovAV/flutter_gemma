@@ -3,11 +3,16 @@ library;
 
 // Pins what the DEPENDENCY hands back, not what the profile produces.
 //
-// The profile is deliberately version-insensitive now — `loadEmbeddingTokenizer`
+// The profile is deliberately version-insensitive — `loadEmbeddingTokenizer`
 // calls `noPadding()`/`noTruncation()`, so `encodeForSiglipEmbedding` sees bare
-// content whatever the file declares. That is the right design and it is exactly
-// why the profile cannot be the canary: it would keep passing while the loader
-// changed underneath it.
+// content whatever the file declares. That is the right design, and it is why
+// the profile cannot be the canary for a CHANGED contract: it would keep
+// passing while the loader changed underneath it.
+//
+// (For a BROKEN contract the profile tests do now fail, because
+// `requireBareContent` throws at load. That covers the shape where the disable
+// calls stop clearing what they name — not the shape below, where a future
+// release pads through some other field and both getters stay null.)
 //
 // This is the canary. 1.4.0 changed `encode()`'s return shape inside a MINOR
 // release (it began applying the file's `padding` and `truncation` blocks), and
@@ -21,8 +26,9 @@ import 'package:dart_sentencepiece_tokenizer/dart_sentencepiece_tokenizer.dart';
 import 'package:flutter_gemma_embeddings/src/embedding_tokenizer.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// A miniature file carrying the blocks the real SigLIP 2 tokenizer declares:
-/// fixed-width right padding, and the normalizer that makes its `Split` legal.
+/// A miniature file carrying the blocks the real SigLIP 2 tokenizer declares —
+/// fixed-width right padding, and the normalizer that makes its `Split` legal —
+/// plus a `truncation` block it does not (see below for why).
 Future<String> _write(Directory dir) async {
   final json = {
     'version': '1.0',

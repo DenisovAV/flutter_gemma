@@ -21,8 +21,9 @@ Three models, and the order is the argument. Step 2 starts on **FunctionGemma
 running your Dart before you have finished reading the page. Step 4 fine-tunes
 that same 270M model on the three tools this codelab declares and produces a
 `.litertlm` you open from disk. Step 5 pays **2.59 GB** for **Gemma 4 E2B**,
-for the two things a 270M model cannot do at all: reason out loud before it
-chooses, and be told it *must* call something.
+for the thing a 270M model cannot do at all: reason out loud before it chooses
+which function to call. It also declares its tools by a different route, which
+is where `toolChoice` stops behaving the way its three names suggest.
 
 That is the idea worth taking away:
 
@@ -57,8 +58,8 @@ call. That is the rule the loop in Step 3 exists to keep.
   `generateChatResponseWithTools` with `maxToolTurns` as the stop condition
 * why every committed call must be answered on every exit path, including the
   ones you did not plan for
-* what `toolChoice` actually changes, and why one model can be forced to call
-  and another cannot
+* what `toolChoice` actually changes — and, on both models here, what it does
+  not: neither can be forced to call, for two different reasons
 * how to fine-tune a 270M model on your own tools with **litetune**, convert it
   to `.litertlm`, and measure what the conversion cost
 * that a model you tuned loads through the same API as one you downloaded —
@@ -69,17 +70,21 @@ call. That is the rule the loop in Step 3 exists to keep.
 * The finished app from
   [Getting Started with On-Device LLMs in Flutter](/codelabs/getting-started-flutter-gemma)
   — or just its `complete/` directory, which is this codelab's starter
-* **No Hugging Face token** from Step 2 on: both repositories this codelab
-  downloads from are ungated, so every `flutter run` is a plain `flutter run`
-  with no `--dart-define`. Step 1 is Getting Started's finished app unchanged,
-  and it still runs that codelab's gated Gemma 3 1B, which needs
-  `--dart-define=HF_TOKEN=hf_...`
+* **No Hugging Face token to run the app** from Step 2 on: the two repositories
+  the app downloads from — `sasha-denisov/function-gemma-270M-it` and
+  `litert-community/gemma-4-E2B-it-litert-lm` — are ungated, so every
+  `flutter run` is a plain `flutter run` with no `--dart-define`. Step 1 is
+  Getting Started's finished app unchanged, and it still runs that codelab's
+  gated Gemma 3 1B, which needs `--dart-define=HF_TOKEN=hf_...`
 * Room for **284 MB** from Step 2, and for **2.59 GB** in Step 5 — plus the
   memory to open the larger one, roughly 6 GB of RAM. A 4 GB phone is killed by
   the OS rather than told no
 * Step 4 is optional and costs CPU time instead of megabytes: **Linux or
   macOS**, Python 3.10–3.12, and about 2.2 GB of cached Python environments.
-  Skip it and the app works on the stock models
+  It is also the one part of this codelab that *does* need a Hugging Face
+  token, because the base checkpoint it fine-tunes is gated and the approval is
+  manual — **request access before you start it**, see that step's own
+  prerequisites. Skip it and the app works on the stock models
 
 ### Get the code
 
@@ -315,10 +320,11 @@ answer every prompt with `<pad>` repeated to the token limit — no exception, n
 warning, a chat that looks alive and returns filler. On CPU the same model asks
 for `multiply` correctly. A 270M model does not need a GPU, so this codelab
 asks for the backend that works rather than the one that sounds faster, and
-`maxTokens: 1024` is what this checkpoint is built for. What does change is the
-budget: the declarations are rendered into the prompt once and stay in the
-history for the rest of the conversation, and every call and every tool
-response is another turn in there — so 4096 rather than Getting Started's 1024.
+`maxTokens: 1024` is what this checkpoint is built for. What changes with tools
+is not the number but what has to fit under it: the declarations are rendered
+into the prompt once and stay in the history for the rest of the conversation,
+and every call and every tool response is another turn inside the same 1024 —
+so a tool-calling chat runs out of room sooner than a plain one does.
 
 ### The loop, written out
 
@@ -499,21 +505,48 @@ each of them is a committed call that would have been left dangling:
 * **the generation stream errored mid-turn** — the calls it had already yielded
   are answered before the original error is rethrown
 
-All three leave the chat usable for the next message. All three would have
-taken another twenty lines in `_send`, and you would only have found out you
-needed them from a conversation that started answering nothing.
+All three balance the history before they return, and that is what leaves the
+chat usable for the next message — with one exception the SDK states rather
+than hides: if the session is already too broken to accept the balancing feed
+itself, it logs that the history may be left unbalanced and that the recovery
+is to recreate the session. All three would have taken another twenty lines in
+`_send`, and you would only have found out you needed them from a conversation
+that started answering nothing.
 
 ### Run it
 
 Run `step_03_the_loop` and ask for something that chains: *12 times 12, then
-that times 3*. Two calls, two results, one answer — and the transcript shows
-each generation writing underneath the work it was given, because the reply
-bubble is re-anchored every time a tool runs.
+that times 3*. Whether a 270M model plans two calls or stops after one is the
+model's decision, not the loop's — a single call is what was measured here — and
+either way the transcript shows each generation writing underneath the work it
+was given, because the reply bubble is re-anchored every time a tool runs. If
+it stops after one, that is the checkpoint's limit: the loop keeps going for as
+long as calls keep coming, up to `_maxToolTurns`.
 
 ## Step 4: Fine-tune the model on your own tools
 Duration: 14
 
 This step is optional, it does not touch `lib/`, and its output is a file.
+
+### Before you start: request access to the base model
+
+Three of the five commands below name `google/functiongemma-270m-it` — as the
+tokenizer, as the model to tune, and as the base to record in the bundle. That
+repository is **gated, and the approval is manual**: an anonymous fetch of its
+`config.json` returns `401`, and access is granted by a person rather than by
+accepting a checkbox, so it can take hours or days.
+
+So do this part first, not when you reach command 1:
+
+1. Open [the model page](https://huggingface.co/google/functiongemma-270m-it)
+   and request access.
+2. When it is granted, `hf auth login` (or export `HF_TOKEN`).
+
+Without it `prepare` fails on the tokenizer download and you never reach
+`tune`. This is the only place in the codelab that needs a token — the
+`.litertlm` the app itself downloads comes from the ungated
+`sasha-denisov/function-gemma-270M-it`, and nothing in Steps 2, 3 or 5 asks you
+to log in.
 
 `step_04_finetune/` is not a Flutter app — it has no `pubspec.yaml`, so the
 codelab gate does not analyze or build it. What it holds is the two inputs a
@@ -641,8 +674,9 @@ The two artifacts a sweep produces are 0.04% apart in bytes; nothing in file
 size, exit code or logs separates them, and running both against held-out data
 is the only thing that does.
 
-Step 3 already gives you something shippable — one `.litertlm` per recipe under
-`artifacts/<recipe>/`. Steps 4 and 5 are what let you say anything about it.
+Command 3 in that list — not this codelab's Step 3 — already gives you
+something shippable: one `.litertlm` per recipe under `artifacts/<recipe>/`.
+Commands 4 and 5 are what let you say anything about it.
 
 ### Then open it in the app
 
@@ -746,47 +780,70 @@ const clockTool = Tool(
 — because FunctionGemma's rendered declaration gates the whole `parameters`
 block on that map. Drop it and the model reads a declaration that was cut off.
 
-### toolChoice, and a model that cannot obey it
+### toolChoice, and the models that cannot obey it
 
-`ToolChoice` has three values and they do not all act at the same moment:
+`ToolChoice` has three values, and what each one is worth depends on **who
+renders the declarations** for the model you picked:
 
 ```dart
-        // Whether the model may, must, or must not call. `none` does not just
-        // refuse calls at the end — it stops the declarations being rendered
-        // into the prompt at all, so the model never learns the tools exist.
+        // Whether the model may, must, or must not call — and how much of that
+        // lands depends on who renders the declarations. On FunctionGemma the
+        // SDK renders them into the prompt, so `none` leaves them out and the
+        // model never learns the tools exist. On Gemma 4 the runtime renders
+        // them from `tools_json`, which `createChat` passes whatever you
+        // choose here — so `none` cannot take them back out. What it does
+        // switch off there is the SDK's suppression of tool-call JSON, which
+        // is why a call made under `none` can arrive as raw JSON in the bubble.
         toolChoice: _toolChoice,
 ```
 
-Switch to `none` and ask the multiplication question again: you get the model's
-own arithmetic, which is the demonstration. Switch to `required` on Gemma 4 and
-it must call something.
+Switch to `none` on **FunctionGemma** and ask the multiplication question
+again: the declarations are gone from the prompt, you get the model's own
+arithmetic, and that is the demonstration.
 
-Switch to `required` on FunctionGemma and it will not, and the app says so
-rather than leaving you to wonder:
+On **Gemma 4** the same switch is weaker than its name. Its declarations are
+carried by the session — `createChat` forwards `tools` to `createSession`
+without consulting `toolChoice` — so `none` cannot unsay them. All it does
+there is turn off the SDK's swallowing of a tool-call turn, so if the model
+calls anyway you see the raw `{"role":"assistant","tool_calls":[…]}` in the
+reply bubble instead of prose. Worth trying once, because it is the clearest
+possible look at what the passthrough format actually puts on the wire.
+
+Switch to `required` and **neither** model obeys it. The app says so rather
+than leaving you to wonder:
 
 ```dart
       _notice =
           _toolChoice == ToolChoice.required &&
               !widget.model.supportsRequiredToolChoice
-          ? '${widget.model.label} cannot be forced to call a tool — its '
-                'prompt format has no way to say so, and the SDK logs a '
-                'warning and behaves as "auto".'
+          ? '${widget.model.label} cannot be forced to call a tool — nothing '
+                'in the prompt it is given can say "you must", so `required` '
+                'behaves as "auto".'
           : null;
 ```
 
-That is not a bug in the model or in the SDK. FunctionGemma's prompt format has
-no way to express "you must call a function", and honouring `required` would
-mean inventing tokens it was never trained on — so `InferenceChat` logs a
-warning and behaves as `auto`. A property of the checkpoint, recorded next to
-the checkpoint:
+That is not a bug in either model, and the two reasons are different.
+FunctionGemma's prompt format has no way to express "you must call a function",
+and honouring `required` would mean inventing tokens it was never trained on —
+so `InferenceChat` logs a warning and behaves as `auto`. Gemma 4 never reaches
+that code: the only "you must" text the SDK owns lives on the Dart-injection
+path, which passthrough models skip by design, and the `tools_json` handed to
+the runtime carries no `tool_choice` field at all. So there `required` is
+silently `auto` — not even a warning.
+
+Which is why the answer is recorded per checkpoint rather than assumed from
+size. Today it is `false` for both, and the bigger model is not the exception:
 
 ```dart
   /// Can this model be *forced* to call a tool?
   ///
   /// `ToolChoice.required` needs a way to say "you must call a function" in
-  /// the prompt format. FunctionGemma's has none, so the SDK logs a warning
-  /// and behaves as `auto` — which is a perfectly reasonable thing for it to
-  /// do and a very confusing thing to watch if the app does not say so.
+  /// the prompt the model actually reads, and neither of these has one.
+  /// FunctionGemma's format cannot express it, so the SDK logs a warning and
+  /// behaves as `auto`. Gemma 4's declarations go to the runtime as
+  /// `tools_json`, which carries no `tool_choice` — so `required` is `auto`
+  /// there too, without even the warning. Reasonable behaviour on the SDK's
+  /// part, and very confusing to watch if the app does not say so.
   final bool supportsRequiredToolChoice;
 ```
 
@@ -905,16 +962,24 @@ disk records which family a `.litertlm` belongs to. Tune a different base and
 
 | | Android | iOS device | iOS Simulator | macOS | Windows | Linux | Web |
 |---|---|---|---|---|---|---|---|
-| Function calling | yes | yes | CPU only | yes | yes | yes | see below |
+| Function calling | yes | yes | CPU only | yes | yes | yes | **no** (Gemma 4) |
 | Thinking (Gemma 4) | yes | yes | CPU only | yes | yes | yes | see below |
 | Open a file from disk | yes | yes | yes | yes | yes | yes | **no** |
 
-**The web** builds and runs, and text chat works. The `.litertlm` browser
-runtime is an early preview of `@litert-lm/core`, and nothing in this codelab
-was verified against it — treat function calling there as untested rather than
-as promised. The 2.59 GB model is in any case not a browser download, and the
-from-disk path is genuinely absent: `fromFile` in a browser registers a URL,
-because a browser has no path to give.
+**The web** builds and runs, and text chat works. Function calling on **Gemma
+4** does not, and this is known from the source rather than merely untried: the
+browser `.litertlm` runtime does not override `createChat`, so it inherits the
+base implementation, whose session factory never passes `tools:` on. Gemma 4's
+declarations travel *with the session*, so on web they never arrive — the model
+is told nothing about your functions and answers 1234 × 5678 out of its own
+head. FunctionGemma's declarations are rendered into the prompt by
+`InferenceChat` instead, so they are not lost the same way, but nothing in this
+codelab was run on web against either model, so treat that half as unverified.
+Thinking is unverified for the same reason: the browser runtime types its
+`extra_context` as opaque JSON and its thinking channel has never been
+confirmed end to end. The 2.59 GB model is in any case not a browser download,
+and the from-disk path is genuinely absent: `fromFile` in a browser registers a
+URL, because a browser has no path to give.
 
 **The iOS Simulator** runs CPU-only — Metal's simulator implementation caps a
 single allocation at 256 MB, below Gemma 4's weights. FunctionGemma at 284 MB

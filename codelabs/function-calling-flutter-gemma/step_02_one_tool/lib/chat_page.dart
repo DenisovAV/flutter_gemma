@@ -60,9 +60,8 @@ class _ChatPageState extends State<ChatPage> {
       // Tools are not free inside it: the declarations below are rendered into
       // the prompt once and stay in the history for the rest of the
       // conversation, and every call and every tool response is another turn in
-      // there too. 1024 is the floor for a `.litertlm` model and what Getting
-      // Started uses; a tool round trip spends enough of it that this asks for
-      // more.
+      // the same window — so a tool-calling chat runs out of room sooner than a
+      // plain one does.
       //
       // Note what this call does NOT take: `tools`. There is no modality flag
       // to set in two places here — `getActiveModel` builds the engine, and
@@ -208,6 +207,14 @@ class _ChatPageState extends State<ChatPage> {
       // opened never just sits there empty. A failure between generations —
       // staging the tool response, say — has no bubble to overwrite, and gets
       // its own.
+      //
+      // What this does NOT do is balance the history, and that is the hole in
+      // the hand-written loop. If `generateChatResponseAsync` throws
+      // mid-stream, the calls it had already yielded are committed and now
+      // have no response — exactly the dangling state the round-two branch
+      // above takes such care to avoid. Closing it means tracking what
+      // `_generate` collected before it threw and answering those calls here.
+      // Step 3 hands the loop to the SDK, which already does.
       if (mounted) {
         setState(() {
           final at = _turns.length - 1;
@@ -235,7 +242,13 @@ class _ChatPageState extends State<ChatPage> {
     final pending = <FunctionCallResponse>[];
     final buffer = StringBuffer();
 
-    setState(() => _turns.add(const _Turn('', kind: _TurnKind.model)));
+    // Guarded like every other `setState` in this file: `_generate` is called
+    // after an `await`, so the page can be gone by the time it runs. With no
+    // page there is nothing to paint into, and the two writes to `at` below
+    // are guarded the same way.
+    if (mounted) {
+      setState(() => _turns.add(const _Turn('', kind: _TurnKind.model)));
+    }
     final at = _turns.length - 1;
 
     await for (final chunk in chat.generateChatResponseAsync()) {

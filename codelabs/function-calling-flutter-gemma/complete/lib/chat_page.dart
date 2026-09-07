@@ -124,9 +124,14 @@ class _ChatPageState extends State<ChatPage> {
         // changed to add the second and third: the loop dispatches by name.
         tools: toolbox,
         supportsFunctionCalls: true,
-        // Whether the model may, must, or must not call. `none` does not just
-        // refuse calls at the end — it stops the declarations being rendered
-        // into the prompt at all, so the model never learns the tools exist.
+        // Whether the model may, must, or must not call — and how much of that
+        // lands depends on who renders the declarations. On FunctionGemma the
+        // SDK renders them into the prompt, so `none` leaves them out and the
+        // model never learns the tools exist. On Gemma 4 the runtime renders
+        // them from `tools_json`, which `createChat` passes whatever you
+        // choose here — so `none` cannot take them back out. What it does
+        // switch off there is the SDK's suppression of tool-call JSON, which
+        // is why a call made under `none` can arrive as raw JSON in the bubble.
         toolChoice: _toolChoice,
         // Reason first, then answer. On weights with no thinking training this
         // buys nothing, which is why the switch is disabled for those.
@@ -163,9 +168,9 @@ class _ChatPageState extends State<ChatPage> {
       _notice =
           _toolChoice == ToolChoice.required &&
               !widget.model.supportsRequiredToolChoice
-          ? '${widget.model.label} cannot be forced to call a tool — its '
-                'prompt format has no way to say so, and the SDK logs a '
-                'warning and behaves as "auto".'
+          ? '${widget.model.label} cannot be forced to call a tool — nothing '
+                'in the prompt it is given can say "you must", so `required` '
+                'behaves as "auto".'
           : null;
     });
 

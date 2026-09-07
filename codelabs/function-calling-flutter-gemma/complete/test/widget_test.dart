@@ -110,10 +110,18 @@ void main() {
     });
 
     // The two capabilities the chat reads before it offers a control.
-    test('only Gemma 4 reasons out loud or can be forced to call', () {
+    test('only Gemma 4 reasons out loud', () {
       expect(Models.gemma4.supportsThinking, isTrue);
-      expect(Models.gemma4.supportsRequiredToolChoice, isTrue);
       expect(Models.functionGemma.supportsThinking, isFalse);
+    });
+
+    // Neither, and that is the point of recording it per checkpoint rather
+    // than assuming the larger model can do more. FunctionGemma's prompt
+    // format cannot express "you must call"; Gemma 4's declarations reach the
+    // runtime as `tools_json`, which carries no `tool_choice` at all. A model
+    // whose format did express it would set this true — none here does.
+    test('neither model can be forced to call a tool', () {
+      expect(Models.gemma4.supportsRequiredToolChoice, isFalse);
       expect(Models.functionGemma.supportsRequiredToolChoice, isFalse);
     });
   });

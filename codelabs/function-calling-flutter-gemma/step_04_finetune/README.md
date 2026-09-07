@@ -15,6 +15,17 @@ is data and commands.
 
 ## What you need
 
+**Access to the base model, requested before you start.** Three of the five
+commands below name `google/functiongemma-270m-it`, and that repository is
+gated with **manual** approval — an anonymous fetch of its `config.json`
+returns `401`, and a person grants access rather than a checkbox, so it can
+take hours or days. Request it on
+[the model page](https://huggingface.co/google/functiongemma-270m-it), then
+`hf auth login` (or export `HF_TOKEN`) once it is granted. Without it command 1
+fails on the tokenizer download and you never reach command 2. Nothing else in
+this codelab needs a token: the `.litertlm` the app downloads comes from the
+ungated `sasha-denisov/function-gemma-270M-it`.
+
 `pip install litetune` — **Linux or macOS**, Python 3.10–3.12. Python 3.13
 runs `prepare`, `tune` and `bundle` but not `convert` or `verify`, because the
 export toolchain pins `numpy==2.0.2` and that stops publishing wheels after
@@ -77,7 +88,8 @@ fluent wrong answer rather than an error.
 
 ## Then open it in the app
 
-Step 3 already gives you a `.litertlm` per recipe under `artifacts/<recipe>/`.
+Command 3 above — not the codelab's Step 3 — already gives you a `.litertlm`
+per recipe under `artifacts/<recipe>/`.
 Run `complete/`, choose **Open a .litertlm from disk**, and paste the absolute
 path. Nothing in `lib/` changes — it is a `.litertlm`, and the app opens it the
 way it opens the two it downloads.

@@ -73,9 +73,12 @@ class ModelChoice {
   /// Can this model be *forced* to call a tool?
   ///
   /// `ToolChoice.required` needs a way to say "you must call a function" in
-  /// the prompt format. FunctionGemma's has none, so the SDK logs a warning
-  /// and behaves as `auto` — which is a perfectly reasonable thing for it to
-  /// do and a very confusing thing to watch if the app does not say so.
+  /// the prompt the model actually reads, and neither of these has one.
+  /// FunctionGemma's format cannot express it, so the SDK logs a warning and
+  /// behaves as `auto`. Gemma 4's declarations go to the runtime as
+  /// `tools_json`, which carries no `tool_choice` — so `required` is `auto`
+  /// there too, without even the warning. Reasonable behaviour on the SDK's
+  /// part, and very confusing to watch if the app does not say so.
   final bool supportsRequiredToolChoice;
 
   /// Points an install at wherever this model's bytes are.
@@ -115,9 +118,14 @@ abstract final class Models {
   /// The reason to pay 2.59 GB instead of 284 MB.
   ///
   /// Same three tools, same loop — but these weights can reason out loud
-  /// before deciding which function to call, and they can be told they MUST
-  /// call one. Nine times the download for the two things the small model
+  /// before deciding which function to call, and they hold a conversation
+  /// either side of it. Nine times the download for the thing the small model
   /// cannot do at all.
+  ///
+  /// What it does NOT buy is `ToolChoice.required`: its declarations reach the
+  /// runtime as `tools_json`, which has no `tool_choice` field, so `required`
+  /// is `auto` here exactly as it is on FunctionGemma — see
+  /// [supportsRequiredToolChoice].
   static const gemma4 = ModelChoice(
     label: 'Gemma 4 E2B',
     url:
@@ -127,7 +135,7 @@ abstract final class Models {
     modelType: ModelType.gemma4,
     sizeLabel: '2.59 GB',
     supportsThinking: true,
-    supportsRequiredToolChoice: true,
+    supportsRequiredToolChoice: false,
   );
 
   /// The ones with a download, in the order the list shows them.

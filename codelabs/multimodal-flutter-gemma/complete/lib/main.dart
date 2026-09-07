@@ -95,7 +95,21 @@ class ModelGate extends StatefulWidget {
 class _ModelGateState extends State<ModelGate> {
   late Future<bool> _installed = _check();
 
-  Future<bool> _check() => FlutterGemma.isModelInstalled(widget.model.fileName);
+  /// Installed is not the same as active. This codelab puts two checkpoints in
+  /// one app, so the model `getActiveModel` opens is whichever was installed
+  /// LAST — which, after a trip through the other step, is the other model.
+  /// `install()` is idempotent: on a file already here it downloads nothing
+  /// and just records this model as the current one.
+  Future<bool> _check() async {
+    if (!await FlutterGemma.isModelInstalled(widget.model.fileName)) {
+      return false;
+    }
+    await FlutterGemma.installModel(
+      modelType: widget.model.modelType,
+      fileType: ModelFileType.litertlm,
+    ).fromNetwork(widget.model.url).install();
+    return true;
+  }
 
   @override
   Widget build(BuildContext context) {

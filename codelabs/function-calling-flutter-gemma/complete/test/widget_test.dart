@@ -1,0 +1,147 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:gemma_quickstart/download_page.dart';
+import 'package:gemma_quickstart/model.dart';
+import 'package:gemma_quickstart/tools.dart';
+
+void main() {
+  // `isModelInstalled` is keyed by file name. `install()` skips bytes it
+  // already has, so a name that drifts from its URL does not re-download — it
+  // strands the app on a download screen the gate is never satisfied by. At
+  // 2.59 GB that is not a small mistake.
+  test('every downloadable model id matches the last segment of its URL', () {
+    for (final model in Models.downloadable) {
+      expect(model.fileName, model.url!.split('/').last, reason: model.label);
+    }
+  });
+
+  // The two halves of the toolbox are the two things that can drift apart: a
+  // declaration with no runner is a call the app answers with an error
+  // forever, and a runner with no declaration is code the model is never told
+  // about.
+  test('every declared tool has a runner, and no runner is undeclared', () {
+    expect(
+      toolbox.map((t) => t.name).toSet(),
+      toolRunners.keys.toSet(),
+      reason: 'toolbox and toolRunners must name the same tools',
+    );
+  });
+
+  // The declaration is the model's only description of a function, so its
+  // shape is part of the app's behaviour and not a comment.
+  test('multiply declares the two arguments its runner reads', () {
+    final properties =
+        multiplyTool.parameters['properties'] as Map<String, dynamic>;
+    expect(properties.keys, containsAll(<String>['a', 'b']));
+    expect(multiplyTool.parameters['required'], <String>['a', 'b']);
+  });
+
+  // A no-argument tool still carries `parameters`. Dropping the map makes
+  // FunctionGemma's rendered declaration lose its parameters block, which
+  // reads to the model as a declaration that was cut off.
+  test('the no-argument tools still declare an object type', () {
+    for (final tool in [clockTool, deviceTool]) {
+      expect(tool.parameters['type'], 'object', reason: tool.name);
+      expect(tool.parameters['properties'], isEmpty, reason: tool.name);
+    }
+  });
+
+  group('runMultiply answers whatever the model wrote', () {
+    // FunctionGemma is trained to emit arguments as strings, so this is the
+    // ordinary case, not the exotic one.
+    test('strings', () {
+      expect(runMultiply({'a': '1234', 'b': '5678'}), {'result': 7006652});
+    });
+
+    test('numbers', () {
+      expect(runMultiply({'a': 47, 'b': 89}), {'result': 4183});
+    });
+
+    // An integer product that arrives as doubles must not be read back to the
+    // user as "156.0".
+    test('doubles that are whole numbers come back whole', () {
+      expect(runMultiply({'a': 12.0, 'b': 13.0}), {'result': 156});
+    });
+
+    test('a genuine fraction stays one', () {
+      expect(runMultiply({'a': 0.5, 'b': 3}), {'result': 1.5});
+    });
+
+    // Returned, not thrown: the model has to be able to read this and try
+    // again, and an exception would end the turn instead.
+    test('nonsense is an error map, not an exception', () {
+      final answer = runMultiply({'a': 'twelve', 'b': 13});
+      expect(answer.containsKey('error'), isTrue);
+      expect(answer.containsKey('result'), isFalse);
+    });
+  });
+
+  test('an undeclared name is answered, not thrown', () {
+    final answer = runTool(
+      const FunctionCallResponse(name: 'launch_rocket', args: {}),
+    );
+    expect(answer['error'], contains('launch_rocket'));
+  });
+
+  test('the clock answers in a shape a person can check', () {
+    final now = runClock(const {});
+    expect(now['time'], matches(RegExp(r'^\d{2}:\d{2}$')));
+    expect(now['date'], matches(RegExp(r'^\d{4}-\d{2}-\d{2}$')));
+    expect(DateTime.parse(now['iso8601'] as String), isA<DateTime>());
+  });
+
+  group('ModelChoice', () {
+    // The whole point of Step 4: what comes out of `litetune convert` is a
+    // `.litertlm` like any other, and the only thing that differs is where the
+    // bytes are.
+    test('a model from disk carries a path and no URL', () {
+      final tuned = ModelChoice.fromDisk('/tmp/artifacts/my-model.litertlm');
+      expect(tuned.path, '/tmp/artifacts/my-model.litertlm');
+      expect(tuned.url, isNull);
+      // The id is the basename, because that is what the install registers it
+      // under and what `isModelInstalled` will be asked about later.
+      expect(tuned.fileName, 'my-model.litertlm');
+    });
+
+    test('a downloadable model carries a URL and no path', () {
+      expect(Models.gemma4.path, isNull);
+      expect(Models.gemma4.url, isNotNull);
+    });
+
+    // The two capabilities the chat reads before it offers a control.
+    test('only Gemma 4 reasons out loud or can be forced to call', () {
+      expect(Models.gemma4.supportsThinking, isTrue);
+      expect(Models.gemma4.supportsRequiredToolChoice, isTrue);
+      expect(Models.functionGemma.supportsThinking, isFalse);
+      expect(Models.functionGemma.supportsRequiredToolChoice, isFalse);
+    });
+  });
+
+  testWidgets('the install screen offers the model before any plugin call', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: DownloadPage(model: Models.gemma4, onInstalled: () {}),
+      ),
+    );
+    expect(find.text('Gemma 4 E2B'), findsOneWidget);
+    expect(find.text('Download model'), findsOneWidget);
+  });
+
+  testWidgets('a model from disk is offered as a file, not a download', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: DownloadPage(
+          model: ModelChoice.fromDisk('/tmp/artifacts/my-model.litertlm'),
+          onInstalled: () {},
+        ),
+      ),
+    );
+    expect(find.text('Open it'), findsOneWidget);
+    expect(find.text('Download model'), findsNothing);
+  });
+}

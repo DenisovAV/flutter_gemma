@@ -122,7 +122,7 @@ class CodelabsPage extends StatelessComponent {
       blurb:
           'Build an offline travel guide that routes each message between '
           'Gemini and on-device Gemma — five policies, images, and RAG.',
-      duration: '90 min',
+      duration: '2 hr 12 min',
       level: 'Advanced',
       tags: ['Genkit', 'hybrid routing', 'RAG'],
       accent: Brand.blue,

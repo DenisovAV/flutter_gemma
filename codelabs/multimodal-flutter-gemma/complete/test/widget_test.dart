@@ -88,6 +88,17 @@ void main() {
     expect(view.getUint16(34, Endian.little), 16); // bits per sample
     expect(view.getUint32(40, Endian.little), pcm.length);
     expect(wav.sublist(44), pcm);
+
+    // A stream cut mid-sample has no valid encoding: a 16-bit sample is two
+    // bytes and a RIFF data chunk is word-aligned. The half sample is dropped,
+    // so the header never promises a byte the data does not have.
+    final odd = wavFromPcm16(
+      Uint8List.fromList(List<int>.filled(3201, 0x11)),
+      sampleRate: 16000,
+      channels: 1,
+    );
+    expect(odd.length, 44 + 3200);
+    expect(ByteData.sublistView(odd).getUint32(40, Endian.little), 3200);
   });
 
   testWidgets('the download screen offers the model before any plugin call', (

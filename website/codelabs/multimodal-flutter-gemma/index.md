@@ -12,15 +12,16 @@ Duration: 3
 
 ### What you'll build
 
-The chat app from the *Getting Started* codelab, taught to send a **picture**
-and a **recording** to the model — and, at the end, taught to know where it
-cannot.
+A small on-device chat app, taught to send a **picture** and a **recording**
+to the model — and, at the end, taught to know where it cannot.
 
-Two models, and the second one is the point. Step 2 starts on **SmolVLM2
-500M**: 0.36 GB, about a minute of download, and the app is describing your
-own photograph. Step 3 wants audio — and no flag switches on an encoder the
-weights do not contain, so it moves to **Gemma 4 E2B**, 2.59 GB. Seven times
-the size, said plainly rather than in a footnote.
+Two models, and the second one is the point. Step 1 downloads **SmolVLM2
+500M** — 0.36 GB, about a minute — and chats with it in text. Step 2 sets one
+boolean, and that same file starts describing your own photograph: no second
+download, because the encoder was in there the whole time. Step 3 wants audio
+— and no flag switches on an encoder the weights do not contain, so it moves
+to **Gemma 4 E2B**, 2.59 GB. Seven times the size, said plainly rather than in
+a footnote.
 
 You pay it once. Those weights read pictures *and* hear you, so the app never
 ends up juggling one model per modality: `complete` ships exactly one.
@@ -67,15 +68,16 @@ this codelab hands you one of each.
 
 ### What you'll need
 
-* The finished app from
-  [Getting Started with On-Device LLMs in Flutter](/codelabs/getting-started-flutter-gemma)
-  — or just its `complete/` directory, which is this codelab's starter
-* **No Hugging Face token** from Step 2 on: both repositories this codelab
-  introduces are ungated, so every `flutter run` from there is a plain
-  `flutter run` with no `--dart-define`. Step 1 is Getting Started's finished
-  app unchanged, and it still runs that codelab's gated Gemma 3 1B, which needs
-  `--dart-define=HF_TOKEN=hf_...`
-* Room for **0.36 GB** in Step 2, and for **2.59 GB** from Step 3 on — plus the
+* [Getting Started with On-Device LLMs in Flutter](/codelabs/getting-started-flutter-gemma)
+  builds the background this one assumes: installing a model, the gate that
+  decides between the download screen and the chat, the streaming loop. Its
+  finished app is *not* the starter here, though — `step_01_starter` is this
+  codelab's own Step 2 with the vision flag taken out, so the model file never
+  changes between Step 1 and Step 2
+* **No Hugging Face token, in any step.** Both repositories this codelab
+  downloads from are ungated, so every `flutter run` in it is a plain
+  `flutter run` — there is no `--dart-define` anywhere in this codelab
+* Room for **0.36 GB** from Step 1, and **2.59 GB** from Step 3 on — plus the
   memory to open the larger one, roughly 6 GB of RAM. A 4 GB phone is killed by
   the OS rather than told no
 * Android, a real iPhone or iPad, macOS, Windows or Linux for the full thing.
@@ -91,19 +93,89 @@ ls
 ```
 
 ```text
-step_01_starter/     the Getting Started app, unchanged
-step_02_vision/      after Step 2 — a small vision model, and it can see
+step_01_starter/     a text chat on the model Step 2 will teach to see
+step_02_vision/      after Step 2 — the same model, and it can see
 step_03_audio/       after Step 3 — a bigger one, and it hears too
 complete/            after Step 4 — and it knows where it cannot
 ```
 
 ## Step 1: A modality is a session flag
-Duration: 4
+Duration: 7
 
 ### Run the starter
 
-Open `step_01_starter` and run it. It is the Getting Started app: download a
-`.litertlm` file, chat with it, in text.
+Open `step_01_starter` and run it — a plain `flutter run`, no `--dart-define`,
+no Hugging Face account. It downloads a `.litertlm` file and chats with it, in
+text.
+
+### The model you just downloaded
+
+```dart
+  /// A vision-language model small enough to feel like a text model. 0.36 GB
+  /// is roughly what a photo-heavy app already spends on its image cache, so
+  /// this is the version of "multimodal" you can put in a shipping app
+  /// without an argument about download size — about a minute of download,
+  /// and then it is looking at your photograph.
+  ///
+  /// It cannot hear, and that is not a gap in this step: it is a
+  /// vision-language model, and the plugin lists audio input for Gemma 4 and
+  /// Gemma 3n only (`flutter_gemma/README.md`). A session flag cannot switch
+  /// on an encoder the checkpoint does not carry. It is why Step 3
+  /// changes models, and it is the model half of the question `complete` asks
+  /// at the end — a half that says no here while the device, happily holding
+  /// a microphone, says yes.
+  /// Run on macOS 2026-09-07: installs (0.36 GB) and answers "RED" to a
+  /// 16x16 red square, with `supportImage` set on both `getActiveModel` and
+  /// `createChat`. Nothing in CI runs a model, so this line is the only
+  /// evidence these weights were ever executed.
+  static const smolVlm2 = ModelChoice(
+    label: 'SmolVLM2 500M',
+    url:
+        'https://huggingface.co/litert-community/SmolVLM2-500M/resolve/main/'
+        'SmolVLM2-500M.litertlm',
+    fileName: 'SmolVLM2-500M.litertlm',
+    // `general` and not `gemmaIt`: SmolVLM2 is not a Gemma, and the chat
+    // template that ships inside the `.litertlm` is the right one to use.
+    modelType: ModelType.general,
+    sizeLabel: '0.36 GB',
+  );
+```
+
+A vision-language model, running a text chat. That is deliberate, and it is
+what makes Step 2 readable: the file on disk will not change between here and
+there, so the one thing that turns the pictures on is the one thing you edit.
+
+`ModelType.general` and not `gemmaIt` is the line worth pausing on: SmolVLM2 is
+not a Gemma, so the right chat template is the one shipped inside the
+`.litertlm` file. Naming the wrong family does not fail loudly — it wraps the
+prompt in another model's turn markers, and the answers simply get worse.
+
+0.36 GB is roughly a minute of download, which is the other reason this
+codelab starts here rather than on the 2.59 GB model it ends on: you should be
+reading a description of your own photograph before you have finished reading
+this page.
+
+The repository is ungated, so there is no Hugging Face plumbing in `main.dart`
+at all — no token, no `--dart-define`, no 401 to explain. What there is, is a
+`try`:
+
+```dart
+  try {
+    await FlutterGemma.initialize(inferenceEngines: [LiteRtLmEngine()]);
+  } catch (error) {
+    runApp(_StartupFailed(error: error));
+    return;
+  }
+```
+
+That is not ceremony. This is the earliest thing in the app that can fail —
+hot-restarting after adding a plugin throws `MissingPluginException` right here
+— and an `await` before `runApp` that throws never reaches `runApp` at all. The
+symptom is a blank window and a stack trace in a console you are probably not
+looking at. Every other failure in this app arrives on screen; this one has to
+be made to.
+
+### The call this codelab changes
 
 Now look at the call that opens the chat, because that is where this codelab's
 central change lands:
@@ -115,6 +187,10 @@ central change lands:
       );
 ```
 
+Nothing in it mentions pictures, and yet the weights it is opening have a
+vision encoder in them. Step 2 downloads nothing: it opens this same file with
+one more capability switched on.
+
 ### One checkpoint, several sessions
 
 `createChat` takes `supportImage` and `supportAudio`. They map to
@@ -124,13 +200,15 @@ pictures. Set both and they will take pictures and sound.
 
 Nothing is downloaded in between, and nothing about the model changes: a
 `.litertlm` file ships whatever encoders it was built with, and a session
-decides which of them are wired up.
+decides which of them are wired up. Step 2 is where you watch that happen on
+the file already sitting on this device.
 
 Which is also the limit of the idea, and Step 3 walks straight into it. A flag
-can only switch on an encoder that is in the file. Step 2's SmolVLM2 has a
-vision encoder and no audio one, so `supportAudio: true` there is not a cheap
-way to get sound — it asks for a part the checkpoint does not contain. Audio
-means different weights, and different weights mean a download, not a boolean.
+can only switch on an encoder that is in the file. The SmolVLM2 you just
+downloaded has a vision encoder and no audio one, so `supportAudio: true` on it
+is not a cheap way to get sound — it asks for a part the checkpoint does not
+contain. Audio means different weights, and different weights mean a download,
+not a boolean.
 
 ### What is not yours to decide
 
@@ -166,7 +244,20 @@ greyed-out microphone. One is information; the other is a bug report waiting to
 be filed.
 
 ## Step 2: Send a picture
-Duration: 12
+Duration: 9
+
+### The model does not change
+
+`lib/model.dart` is untouched. `step_02_vision` opens the same
+`SmolVLM2-500M.litertlm` that Step 1 downloaded — same constant, same URL, same
+bytes on disk — so running this step fetches nothing. Diff the two apps and
+`model.dart`, `main.dart` and `download_page.dart` come back identical: beyond
+the package and the entitlement below, every line of Step 2 is in
+`chat_page.dart`.
+
+That is the claim this codelab is making, and it is only checkable because
+Step 1 was already running these weights. If the checkpoint changed here too,
+"a modality is a flag" would be a sentence you had to take on trust.
 
 ### Add the package
 
@@ -197,71 +288,6 @@ Android needs nothing — the system photo picker hands back a URI without a
 permission. iOS needs nothing either: since iOS 14 `image_picker` uses
 `PHPicker`, which runs out of process and requires no
 `NSPhotoLibraryUsageDescription`. Windows, Linux and the web need nothing.
-
-### The model
-
-`step_02_vision` replaces Getting Started's Gemma 3 1B with something smaller
-that can see:
-
-```dart
-  /// A vision-language model small enough to feel like a text model. 0.36 GB
-  /// is roughly what a photo-heavy app already spends on its image cache, so
-  /// this is the version of "multimodal" you can put in a shipping app
-  /// without an argument about download size — about a minute of download,
-  /// and then it is looking at your photograph.
-  ///
-  /// It cannot hear, and that is not a gap in this step: it is a
-  /// vision-language model, and the plugin lists audio input for Gemma 4 and
-  /// Gemma 3n only (`flutter_gemma/README.md`). A session flag cannot switch
-  /// on an encoder the checkpoint does not carry. It is why Step 3
-  /// changes models, and it is the model half of the question `complete` asks
-  /// at the end — a half that says no here while the device, happily holding
-  /// a microphone, says yes.
-  /// Run on macOS 2026-09-07: installs (0.36 GB) and answers "RED" to a
-  /// 16x16 red square, with `supportImage` set on both `getActiveModel` and
-  /// `createChat`. Nothing in CI runs a model, so this line is the only
-  /// evidence these weights were ever executed.
-  static const smolVlm2 = ModelChoice(
-    label: 'SmolVLM2 500M',
-    url:
-        'https://huggingface.co/litert-community/SmolVLM2-500M/resolve/main/'
-        'SmolVLM2-500M.litertlm',
-    fileName: 'SmolVLM2-500M.litertlm',
-    // `general` and not `gemmaIt`: SmolVLM2 is not a Gemma, and the chat
-    // template that ships inside the `.litertlm` is the right one to use.
-    modelType: ModelType.general,
-    sizeLabel: '0.36 GB',
-  );
-```
-
-`ModelType.general` and not `gemmaIt` is the line worth pausing on: SmolVLM2 is
-not a Gemma, so the right chat template is the one shipped inside the
-`.litertlm` file. Naming the wrong family does not fail loudly — it wraps the
-prompt in another model's turn markers, and the answers simply get worse.
-
-0.36 GB is roughly a minute of download. That is the reason this step starts
-here: you should be reading a model's description of your own photograph before
-you have finished reading this page, not waiting out a multi-gigabyte download
-to find out whether the wiring is right.
-
-The repository is ungated, so `main.dart` also loses the Hugging Face plumbing
-it inherited from Getting Started. It gains a `try` in exchange:
-
-```dart
-  try {
-    await FlutterGemma.initialize(inferenceEngines: [LiteRtLmEngine()]);
-  } catch (error) {
-    runApp(_StartupFailed(error: error));
-    return;
-  }
-```
-
-That is not ceremony. This is the earliest thing in the app that can fail —
-hot-restarting after adding a plugin throws `MissingPluginException` right here
-— and an `await` before `runApp` that throws never reaches `runApp` at all. The
-symptom is a blank window and a stack trace in a console you are probably not
-looking at. Every other failure in this app arrives on screen; this one has to
-be made to.
 
 ### Open a session that can see
 
@@ -369,7 +395,7 @@ One line changes in `_send`: which factory builds the message.
 ```
 
 Everything downstream — `generateChatResponseAsync`, the streaming loop, the
-error handling — is byte-for-byte the code from Getting Started.
+error handling — is byte-for-byte the code Step 1 already ran.
 
 Run `step_02_vision` on a phone or a desktop, attach a photo, and ask what is
 in it.

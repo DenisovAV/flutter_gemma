@@ -88,12 +88,14 @@ fi
 # starter IS an earlier codelab's finished app, and both texts tell the learner
 # so. Without this the property drifts the first time someone edits one side.
 #
-# One source can feed several starters — Getting Started's finished app is where
-# both of the codelabs that continue it begin — so this is a list of pairs, not
-# a map, and a new row is all a new continuation needs.
+# One source can feed several starters, so this is a list of pairs, not a map,
+# and a new row is all a new continuation needs. Only Inference Engines starts
+# from Getting Started's finished app today: Multimodal used to and no longer
+# does — its Step 1 is now its own Step 2 minus the vision flag, so that the
+# one thing changing between those two steps is the flag rather than the
+# checkpoint.
 MIRRORS=(
   "codelabs/getting-started-flutter-gemma/complete|codelabs/inference-engines-flutter-gemma/step_01_starter"
-  "codelabs/getting-started-flutter-gemma/complete|codelabs/multimodal-flutter-gemma/step_01_starter"
 )
 
 # Fail closed, the way discovery does above. An emptied or mistyped table must

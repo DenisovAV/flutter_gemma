@@ -16,10 +16,9 @@ Future<void> main() async {
   // Without LiteRtLmEngine here, the first model call throws a StateError
   // that tells you to add an engine package.
   //
-  // No `huggingFaceToken:` — the repository this codelab installs from Step 2
-  // on is ungated, so every `flutter run` is a plain `flutter run` with no
-  // `--dart-define`. (Step 1 is Getting Started's finished app unchanged, and
-  // it still runs that codelab's gated Gemma 3 1B.)
+  // No `huggingFaceToken:` — the repository this codelab downloads from is
+  // ungated, so every `flutter run` is a plain `flutter run` with no
+  // `--dart-define`.
   //
   // Guarded, because every other failure in this app reaches the screen — the
   // gate's error card, the chat's load error, the notice line — and this is the

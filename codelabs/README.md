@@ -61,7 +61,10 @@ tool/check_codelabs.sh     # pub get + analyze + format + test, every step
 The same script also enforces the cross-codelab invariants declared in its
 `MIRRORS` table: a later codelab's starter is an earlier codelab's finished app,
 `lib/` and `test/` byte for byte, because both texts tell the learner so. Add a
-row there when a new codelab continues an existing one.
+row there when a new codelab continues an existing one — and only then. A
+starter may be its own app instead, and function-calling's is: inheriting a
+finished app whose model the next step replaces makes a learner pay for a
+download the codelab never uses.
 
 And it checks **application ids**, on Android, iOS, macOS and Linux: every app
 inside a codelab declares the same one — that is what lets a later step open the

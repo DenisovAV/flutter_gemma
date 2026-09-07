@@ -11,49 +11,44 @@ class ModelChoice {
     required this.fileName,
     required this.modelType,
     required this.sizeLabel,
-    required this.requiresToken,
   });
 
   final String label;
   final String url;
   final String fileName;
-  final ModelType modelType;
-  final String sizeLabel;
 
-  /// Hugging Face serves this repo behind a licence gate. Accept the licence
-  /// once on the model page, then run with `--dart-define=HF_TOKEN=hf_...`.
-  final bool requiresToken;
+  /// Which family's function-call format the SDK should read and write.
+  ///
+  /// This is not decoration. `ModelType.functionGemma` selects
+  /// `FunctionGemmaCallFormat`, which renders the tool declarations into a
+  /// developer turn and parses `<start_function_call>call:name{…}` back out
+  /// again. Name a different family and the SDK writes a prompt these weights
+  /// were never trained on and looks for a call in a syntax they never emit —
+  /// so every turn comes back as plain text and nothing says why.
+  final ModelType modelType;
+
+  final String sizeLabel;
 }
 
-/// The models this quickstart offers.
+/// The one model this step ships.
 ///
-/// Both are `.litertlm`, the format the LiteRT-LM engine reads on Android,
-/// iOS, desktop and the web. (`.task` files are MediaPipe-only — a different
-/// engine package, and no desktop support.)
+/// The repository is ungated, so nothing here needs a Hugging Face token and
+/// no run needs `--dart-define`.
 abstract final class Models {
-  /// The plugin's namesake. `ekv4096` in the file name is the KV-cache the
-  /// weights were built for, so this model can carry a 4096-token context.
-  static const gemma3 = ModelChoice(
-    label: 'Gemma 3 1B',
+  /// A 270M model whose whole job is function calling.
+  ///
+  /// 284 MB — small enough to download while you read this page, and small
+  /// enough that it does very little else: ask it a general question and the
+  /// answer will be thin. That is the trade this step is making on purpose.
+  /// Calling a function is a narrow skill, and a model specialised for it can
+  /// be a fraction of the size of one that also has to hold a conversation.
+  static const functionGemma = ModelChoice(
+    label: 'FunctionGemma 270M',
     url:
-        'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/'
-        'Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm',
-    fileName: 'Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm',
-    modelType: ModelType.gemmaIt,
-    sizeLabel: '0.5 GB',
-    requiresToken: true,
-  );
-
-  /// No Hugging Face account? This repo is ungated. Same code path — the only
-  /// thing that changes is which constant you hand to the app.
-  static const qwen3 = ModelChoice(
-    label: 'Qwen3 0.6B',
-    url:
-        'https://huggingface.co/litert-community/Qwen3-0.6B/resolve/main/'
-        'Qwen3-0.6B.litertlm',
-    fileName: 'Qwen3-0.6B.litertlm',
-    modelType: ModelType.qwen3,
-    sizeLabel: '0.6 GB',
-    requiresToken: false,
+        'https://huggingface.co/sasha-denisov/function-gemma-270M-it/'
+        'resolve/main/functiongemma-270M-it.litertlm',
+    fileName: 'functiongemma-270M-it.litertlm',
+    modelType: ModelType.functionGemma,
+    sizeLabel: '284 MB',
   );
 }

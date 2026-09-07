@@ -5,8 +5,10 @@ import 'model.dart';
 
 /// Installs the model file, reporting progress as it goes.
 ///
-/// Nothing here is Gemma-specific: `installModel` takes the model's identity
-/// (what it is) and `fromNetwork` takes the source (where the bytes are).
+/// Nothing here knows about tools: `installModel` takes the model's identity
+/// (what it is) and `fromNetwork` takes the source (where the bytes are). A
+/// function-calling model installs exactly like a text one — tools are a
+/// property of the SESSION you open later, not of the file you download.
 class DownloadPage extends StatefulWidget {
   const DownloadPage({
     super.key,
@@ -36,21 +38,14 @@ class _DownloadPageState extends State<DownloadPage> {
 
     try {
       await FlutterGemma.installModel(
-            // What the model IS — used to pick the right chat template.
-            modelType: widget.model.modelType,
-            // Which runtime reads it. `.litertlm` routes to LiteRtLmEngine;
-            // the default is `task` (MediaPipe), so this line is load-bearing.
-            fileType: ModelFileType.litertlm,
-          )
-          // No `token:` here — the Hugging Face token passed to
-          // FlutterGemma.initialize() is attached automatically, and only to
-          // URLs whose host contains `huggingface.co`, so it does not ride
-          // along to the other hosts an app downloads from.
-          .fromNetwork(widget.model.url)
-          .withProgress((percent) {
-            if (mounted) setState(() => _percent = percent);
-          })
-          .install();
+        // What the model IS — used to pick the right chat template.
+        modelType: widget.model.modelType,
+        // Which runtime reads it. `.litertlm` routes to LiteRtLmEngine;
+        // the default is `task` (MediaPipe), so this line is load-bearing.
+        fileType: ModelFileType.litertlm,
+      ).fromNetwork(widget.model.url).withProgress((percent) {
+        if (mounted) setState(() => _percent = percent);
+      }).install();
 
       if (mounted) widget.onInstalled();
     } catch (error) {
@@ -94,10 +89,7 @@ class _DownloadPageState extends State<DownloadPage> {
                   ),
                 if (_error != null) ...[
                   const SizedBox(height: 16),
-                  _ErrorCard(
-                    error: _error!,
-                    requiresToken: widget.model.requiresToken,
-                  ),
+                  _ErrorCard(error: _error!),
                 ],
               ],
             ),
@@ -108,27 +100,19 @@ class _DownloadPageState extends State<DownloadPage> {
   }
 }
 
-/// A failed download is usually one of two things, and the message says which.
+/// Says what failed, in the plugin's own words where it has any.
 class _ErrorCard extends StatelessWidget {
-  const _ErrorCard({required this.error, required this.requiresToken});
+  const _ErrorCard({required this.error});
 
   final Object error;
-  final bool requiresToken;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     // The plugin reports a failed download as a typed `DownloadException`
     // wrapping a sealed `DownloadError`, so match on the type rather than
-    // sniffing the message for "401".
+    // sniffing the message for a status code.
     final (title, body) = switch (error) {
-      DownloadException(error: UnauthorizedError() || ForbiddenError())
-          when requiresToken =>
-        (
-          'Hugging Face refused the download',
-          'Accept the model licence on its Hugging Face page, then run with '
-              '--dart-define=HF_TOKEN=hf_your_token.',
-        ),
       DownloadException(:final error) => (
         'Download failed',
         error.toUserMessage(),

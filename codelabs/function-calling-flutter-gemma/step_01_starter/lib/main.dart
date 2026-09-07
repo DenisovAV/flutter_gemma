@@ -6,12 +6,8 @@ import 'chat_page.dart';
 import 'download_page.dart';
 import 'model.dart';
 
-/// Supplied at run time, never committed:
-///   flutter run --dart-define=HF_TOKEN=hf_your_token
-const _hfToken = String.fromEnvironment('HF_TOKEN');
-
-/// Change this one line to run the whole app on a different model.
-const _model = Models.gemma3;
+/// The model this step runs: 284 MB, and function calling is what it is for.
+const _model = Models.functionGemma;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,21 +15,60 @@ Future<void> main() async {
   // Engines are fully opt-in: the core package registers none by itself.
   // Without LiteRtLmEngine here, the first model call throws a StateError
   // that tells you to add an engine package.
-  await FlutterGemma.initialize(
-    inferenceEngines: [LiteRtLmEngine()],
-    huggingFaceToken: _hfToken.isEmpty ? null : _hfToken,
-  );
+  //
+  // No `huggingFaceToken:` — the repository this codelab downloads from is
+  // ungated, so every `flutter run` is a plain `flutter run` with no
+  // `--dart-define`.
+  //
+  // Guarded, because every other failure in this app reaches the screen — the
+  // gate's error card, the chat's load error, the notice line — and this is the
+  // earliest one, so it is the one a learner meets first. Hot-restarting after
+  // adding a plugin throws `MissingPluginException` right here; unguarded, it
+  // never reaches `runApp` and the symptom is a blank window and a stack trace
+  // in a console nobody is looking at.
+  try {
+    await FlutterGemma.initialize(inferenceEngines: [LiteRtLmEngine()]);
+  } catch (error) {
+    runApp(_StartupFailed(error: error));
+    return;
+  }
 
-  runApp(const QuickstartApp());
+  runApp(const FunctionCallingApp());
 }
 
-class QuickstartApp extends StatelessWidget {
-  const QuickstartApp({super.key});
+/// Shown in place of the app when `FlutterGemma.initialize` throws, so a
+/// failure before the first frame is a sentence instead of a blank window.
+class _StartupFailed extends StatelessWidget {
+  const _StartupFailed({required this.error});
+
+  final Object error;
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Gemma Quickstart',
+      title: 'Gemma Function Calling',
+      home: Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+              'flutter_gemma could not start.\n$error',
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class FunctionCallingApp extends StatelessWidget {
+  const FunctionCallingApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Gemma Function Calling',
       theme: ThemeData(colorSchemeSeed: Colors.indigo),
       home: const ModelGate(model: _model),
     );
@@ -59,7 +94,22 @@ class ModelGate extends StatefulWidget {
 class _ModelGateState extends State<ModelGate> {
   late Future<bool> _installed = _check();
 
-  Future<bool> _check() => FlutterGemma.isModelInstalled(widget.model.fileName);
+  /// Installed is not the same as active. `getActiveModel` opens whichever
+  /// model was installed LAST, and this codelab's steps install two different
+  /// ones into a single application identity — so a run that finds the file
+  /// already here still has to say which model it means. `install()` is
+  /// idempotent: on a file already on disk it downloads nothing and just
+  /// records this model as the current one.
+  Future<bool> _check() async {
+    if (!await FlutterGemma.isModelInstalled(widget.model.fileName)) {
+      return false;
+    }
+    await FlutterGemma.installModel(
+      modelType: widget.model.modelType,
+      fileType: ModelFileType.litertlm,
+    ).fromNetwork(widget.model.url).install();
+    return true;
+  }
 
   @override
   Widget build(BuildContext context) {

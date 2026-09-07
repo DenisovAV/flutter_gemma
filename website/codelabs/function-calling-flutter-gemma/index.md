@@ -12,12 +12,13 @@ Duration: 3
 
 ### What you'll build
 
-The chat app from the *Getting Started* codelab, taught to hand work to your
-own Dart functions — and then, at the end, taught to run on a model you
-fine-tuned yourself.
+A chat app taught to hand work to your own Dart functions — and then, at the
+end, taught to run on a model you fine-tuned yourself.
 
-Three models, and the order is the argument. Step 2 starts on **FunctionGemma
-270M**: 284 MB, a model whose entire job is calling functions, and the app is
+It begins the way the other codelabs here begin — download a model, stream a
+reply — but on the model this one is about. Three models, in fact, and the
+order is the argument. The starter chats with **FunctionGemma 270M**: 284 MB,
+ungated, and a model whose entire job is calling functions, so Step 2 has it
 running your Dart before you have finished reading the page. Step 4 fine-tunes
 that same 270M model on the three tools this codelab declares and produces a
 `.litertlm` you open from disk. Step 5 pays **2.59 GB** for **Gemma 4 E2B**,
@@ -67,22 +68,21 @@ call. That is the rule the loop in Step 3 exists to keep.
 
 ### What you'll need
 
-* The finished app from
-  [Getting Started with On-Device LLMs in Flutter](/codelabs/getting-started-flutter-gemma)
-  — or just its `complete/` directory, which is this codelab's starter
-* **No Hugging Face token to run the app** from Step 2 on: the two repositories
-  the app downloads from — `sasha-denisov/function-gemma-270M-it` and
+* Flutter 3.44 or newer, and any one of Flutter's six platforms to run on: an
+  Android device or emulator, an iOS device or simulator, an Apple-silicon Mac,
+  a Windows or Linux desktop, or Chrome. `step_01_starter/` is a whole app, not
+  a diff against another codelab — clone the repo and run it
+* **No Hugging Face token to run the app**, in any step. The two repositories
+  it downloads from — `sasha-denisov/function-gemma-270M-it` and
   `litert-community/gemma-4-E2B-it-litert-lm` — are ungated, so every
-  `flutter run` is a plain `flutter run` with no `--dart-define`. Step 1 is
-  Getting Started's finished app unchanged, and it still runs that codelab's
-  gated Gemma 3 1B, which needs `--dart-define=HF_TOKEN=hf_...`
-* Room for **284 MB** from Step 2, and for **2.59 GB** in Step 5 — plus the
-  memory to open the larger one, roughly 6 GB of RAM. A 4 GB phone is killed by
-  the OS rather than told no
+  `flutter run` here is a plain `flutter run` with no `--dart-define`
+* Room for **284 MB** — one download, shared by Steps 1, 2 and 3 — and for
+  **2.59 GB** more in Step 5, plus the memory to open the larger one, roughly
+  6 GB of RAM. A 4 GB phone is killed by the OS rather than told no
 * Step 4 is optional and costs CPU time instead of megabytes: **Linux or
   macOS**, Python 3.10–3.12, and about 2.2 GB of cached Python environments.
-  It is also the one part of this codelab that *does* need a Hugging Face
-  token, because the base checkpoint it fine-tunes is gated and the approval is
+  It is the one part of this codelab that *does* need a Hugging Face token,
+  because the base checkpoint it fine-tunes is gated and the approval is
   manual — **request access before you start it**, see that step's own
   prerequisites. Skip it and the app works on the stock models
 
@@ -95,7 +95,7 @@ ls
 ```
 
 ```text
-step_01_starter/     the Getting Started app, unchanged
+step_01_starter/     a plain chat on FunctionGemma — no tools yet
 step_02_one_tool/    after Step 2 — one tool, the loop written out
 step_03_the_loop/    after Step 3 — the same tools, the SDK's loop
 step_04_finetune/    NOT an app: the data and commands for a litetune run
@@ -106,12 +106,33 @@ complete/            after Step 5 — three tools, toolChoice, thinking
 code.
 
 ## Step 1: What a tool call actually is
-Duration: 4
+Duration: 6
 
 ### Run the starter
 
-Open `step_01_starter` and run it. It is the Getting Started app: download a
-`.litertlm` file, chat with it, in text.
+Open `step_01_starter` and run it. It is the same shape of app the other
+codelabs here start from — download a `.litertlm`, stream the reply, in text —
+on the model this one is about: **FunctionGemma 270M**, 284 MB, from an ungated
+repository, so there is no token to get and no `--dart-define` to remember.
+
+Nothing in it knows about tools yet, and that is the point of starting here:
+everything Step 2 adds is visible as a diff against this.
+
+One thing in `main.dart` is worth seeing before you go on — the call that runs
+before the first frame is guarded:
+
+```dart
+  try {
+    await FlutterGemma.initialize(inferenceEngines: [LiteRtLmEngine()]);
+  } catch (error) {
+    runApp(_StartupFailed(error: error));
+    return;
+  }
+```
+
+That is not ceremony. This is the earliest thing in the app that can fail —
+hot-restarting after adding a plugin throws `MissingPluginException` right here
+— and an `await` before `runApp` that throws never reaches `runApp` at all.
 
 Now look at the call that opens the chat, because that is where this codelab's
 change lands:
@@ -158,12 +179,15 @@ is that you can check the answer without a network, without a service, and
 without trusting anything.
 
 ## Step 2: One tool, and the loop by hand
-Duration: 13
+Duration: 11
 
-### The model
+### One field on the model you already have
 
-`step_02_one_tool` replaces Getting Started's Gemma 3 1B with a model whose
-whole job is this:
+`step_02_one_tool` downloads nothing new. `main.dart`, `model.dart` and
+`download_page.dart` are byte for byte the starter's, and everything this step
+adds is a new `lib/tools.dart` and the chat page. Which makes one field in
+`model.dart` worth reading before the tools arrive, because it is the field
+that decides whether any of them work:
 
 ```dart
   /// A 270M model whose whole job is function calling.
@@ -190,22 +214,6 @@ were trained on, and `<start_function_call>call:multiply{…}` is parsed back
 into a `FunctionCallResponse`. Name a different family and the SDK writes a
 prompt the model never saw and waits for a syntax it never emits — every turn
 comes back as plain text and nothing says why.
-
-The repository is ungated, so `main.dart` loses the Hugging Face plumbing it
-inherited from Getting Started, and gains a `try` in exchange:
-
-```dart
-  try {
-    await FlutterGemma.initialize(inferenceEngines: [LiteRtLmEngine()]);
-  } catch (error) {
-    runApp(_StartupFailed(error: error));
-    return;
-  }
-```
-
-That is not ceremony. This is the earliest thing in the app that can fail —
-hot-restarting after adding a plugin throws `MissingPluginException` right here
-— and an `await` before `runApp` that throws never reaches `runApp` at all.
 
 ### Declare the function
 
@@ -328,11 +336,14 @@ So this is not "FunctionGemma needs a CPU", and it is not a platform bug. It is
 one published artifact carrying a conversion setting that predates the fix. Step
 4 converts the model again with a current litetune, and that artifact scores the
 same on GPU as on CPU and runs about 1.5× faster — which is a fair summary of
-what the fine-tuning step buys you even before you change a single training row. What changes with tools
-is not the number but what has to fit under it: the declarations are rendered
-into the prompt once and stay in the history for the rest of the conversation,
-and every call and every tool response is another turn inside the same 1024 —
-so a tool-calling chat runs out of room sooner than a plain one does.
+what the fine-tuning step buys you even before you change a single training
+row.
+
+What changes with tools is not the number but what has to fit under it: the
+declarations are rendered into the prompt once and stay in the history for the
+rest of the conversation, and every call and every tool response is another
+turn inside the same 1024 — so a tool-calling chat runs out of room sooner than
+a plain one does.
 
 ### The loop, written out
 
@@ -553,8 +564,8 @@ So do this part first, not when you reach command 1:
 Without it `prepare` fails on the tokenizer download and you never reach
 `tune`. This is the only place in the codelab that needs a token — the
 `.litertlm` the app itself downloads comes from the ungated
-`sasha-denisov/function-gemma-270M-it`, and nothing in Steps 2, 3 or 5 asks you
-to log in.
+`sasha-denisov/function-gemma-270M-it`, and no step of the app asks you to log
+in.
 
 `step_04_finetune/` is not a Flutter app — it has no `pubspec.yaml`, so the
 codelab gate does not analyze or build it. What it holds is the two inputs a

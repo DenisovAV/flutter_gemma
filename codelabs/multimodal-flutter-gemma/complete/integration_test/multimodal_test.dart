@@ -107,10 +107,19 @@ void main() {
     await for (final chunk in chat.generateChatResponseAsync()) {
       if (chunk is TextResponse) buffer.write(chunk.token);
     }
-    debugPrint('[multimodal] reply: ${buffer.toString().trim()}');
-    // Not an assertion about the colour — the claim under test is that the
-    // session accepted the input and produced a reply instead of dropping it.
-    expect(buffer.toString().trim(), isNotEmpty);
+    final reply = buffer.toString().trim();
+    debugPrint('[multimodal] reply: $reply');
+    if (image.available) {
+      // `isNotEmpty` would not distinguish "the picture reached the weights"
+      // from "the bytes were dropped and the model answered from the text
+      // alone" — `ffi_inference_model.dart` gates the image on the session
+      // flag and discards it in silence when the flag is false, which is
+      // exactly the inverse of the bug this suite exists to catch. The turn
+      // has ground truth, so use it: measured, this answers "Red".
+      expect(reply.toLowerCase(), contains('red'));
+    } else {
+      expect(reply, isNotEmpty);
+    }
 
     // The codelab's headline: the SAME session, the same weights, now given
     // sound. One second of silence is enough — what is under test is that the

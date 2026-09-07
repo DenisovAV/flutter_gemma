@@ -33,6 +33,7 @@ void main() {
 
     Capability of({required bool byModel, required bool byPlatform}) =>
         Capability(
+          what: 'Audio input',
           byModel: byModel,
           byPlatform: byPlatform,
           modelReason: modelReason,

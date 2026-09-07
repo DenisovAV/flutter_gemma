@@ -18,8 +18,25 @@ const _sampleRate = 16000;
 const _channels = 1;
 
 /// Long enough to ask a question out loud, short enough that a forgotten
-/// recorder does not fill memory with samples.
+/// recorder does not fill memory with samples — and short enough not to eat
+/// the context window. Audio is not free: the encoder turns every second into
+/// tokens that come out of the same budget as the reply. The SDK's own
+/// bookkeeping does not count them (`chat.dart` bills images only), so nothing
+/// upstream will notice the budget going; that is the other reason this is 15
+/// seconds and not two minutes.
 const _maxClip = Duration(seconds: 15);
+
+/// What can ride along with a message.
+enum _AttachmentKind { image, audio }
+
+/// The thing queued for the next message: one kind, its bytes.
+///
+/// One record instead of an `_image` and an `_audio` field, because "at most
+/// one attachment" is then the shape of the state rather than an invariant
+/// three scattered lines have to remember. Two nullable fields can hold both at
+/// once, and the sender would have to pick one — silently, which is the exact
+/// failure this codelab is about.
+typedef _Attached = ({_AttachmentKind kind, Uint8List bytes});
 
 /// A chat that can carry a picture or a recording along with the question.
 ///
@@ -53,11 +70,10 @@ class _ChatPageState extends State<ChatPage> {
   bool _busy = false;
   Object? _loadError;
 
-  /// The picture waiting to go with the next message, if any.
-  Uint8List? _image;
-
-  /// The clip waiting to go with the next message, already WAV-wrapped.
-  Uint8List? _audio;
+  /// The picture or the WAV-wrapped clip waiting to go with the next message.
+  ///
+  /// Assigning one replaces the other, so nothing has to remember to clear it.
+  _Attached? _pending;
 
   /// A one-line problem that is not worth losing the chat over — a picture
   /// that would not decode, a microphone permission the user declined.
@@ -86,8 +102,12 @@ class _ChatPageState extends State<ChatPage> {
     try {
       // maxTokens is the CONTEXT WINDOW — prompt + history + reply share it.
       // It is NOT a reply-length cap; for that, pass maxOutputTokens below.
-      // An image costs ~257 tokens of it, so 1024 no longer buys a
-      // conversation once pictures are in it.
+      // `InferenceChat` charges a message carrying an image a flat 257 tokens
+      // against this budget — the SDK's own accounting, not a measurement of
+      // the model, and it is per message, not per picture. Audio costs context
+      // too, but the SDK does not count it at all. 1024 is the floor for a
+      // `.litertlm` model and what the earlier codelabs use; with pictures in
+      // the history it stops buying a conversation, hence 4096.
       //
       // Both flags belong HERE as well as on the chat below. This is where the
       // engine is built, and it loads a vision or audio executor only if it is
@@ -119,7 +139,12 @@ class _ChatPageState extends State<ChatPage> {
         supportAudio: _audioCapability.available,
         maxOutputTokens: 256,
       );
-      if (!mounted) return;
+      // The same guard, one call later and for the same reason: a chat this
+      // page never stored is a native session `dispose` can never close.
+      if (!mounted) {
+        await chat.close();
+        return;
+      }
       setState(() => _chat = chat);
     } catch (error) {
       // Loading is the likeliest thing to fail on a real device: a forgotten
@@ -151,10 +176,11 @@ class _ChatPageState extends State<ChatPage> {
       final bytes = await file.readAsBytes();
       if (mounted) {
         setState(() {
-          _image = bytes;
           // One attachment at a time: the turn reads as a question about the
           // thing attached, and two things make it a question about neither.
-          _audio = null;
+          // Assigning the record is what enforces that — there is no second
+          // field left holding a recording.
+          _pending = (kind: _AttachmentKind.image, bytes: bytes);
           _notice = null;
         });
       }
@@ -211,7 +237,10 @@ class _ChatPageState extends State<ChatPage> {
       if (mounted) {
         setState(() {
           _recording = true;
-          _image = null;
+          // Reaching for the microphone drops whatever was queued: the clip
+          // will take its place at `stop`, and showing a stale thumbnail in
+          // the meantime would promise a turn this app cannot send.
+          _pending = null;
           _notice = null;
         });
       }
@@ -226,6 +255,14 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> _stopRecording() async {
+    // Two callers reach here — the Stop button and the `_maxClip` timer — and
+    // the flush below takes long enough for both to arrive. Claim the
+    // recording on the way in: `takeBytes()` empties the builder, so a second
+    // entry would find nothing, replace the good clip with null and tell the
+    // user it came back empty. Confidently wrong is the worst error text there
+    // is.
+    if (!_recording) return;
+    _recording = false;
     _clipTimer?.cancel();
     _clipTimer = null;
     try {
@@ -238,58 +275,70 @@ class _ChatPageState extends State<ChatPage> {
         const Duration(seconds: 2),
         onTimeout: () {},
       );
-      await _samples?.cancel();
       final pcm = _pcm.takeBytes();
       if (mounted) {
         setState(() {
-          _recording = false;
-          _audio = pcm.isEmpty
+          _pending = pcm.isEmpty
               ? null
-              : wavFromPcm16(pcm, sampleRate: _sampleRate, channels: _channels);
+              : (
+                  kind: _AttachmentKind.audio,
+                  bytes: wavFromPcm16(
+                    pcm,
+                    sampleRate: _sampleRate,
+                    channels: _channels,
+                  ),
+                );
           if (pcm.isEmpty) _notice = 'The recording came back empty.';
         });
       }
     } catch (error) {
       if (mounted) {
-        setState(() {
-          _recording = false;
-          _notice = 'Could not finish the recording: $error';
-        });
+        setState(() => _notice = 'Could not finish the recording: $error');
       }
     } finally {
+      // Cancel here, not in the `try`. `stop()` throwing is the whole reason
+      // the catch exists, and nulling the only reference to a live
+      // subscription without cancelling it leaves the platform pushing samples
+      // into `_pcm` with the microphone still open, `_clipTimer` already
+      // cancelled, and nothing left that can release either.
+      await _samples?.cancel();
       _samples = null;
       _samplesDone = null;
+      _pcm.clear();
     }
   }
 
   Future<void> _send() async {
     final chat = _chat;
     final text = _input.text.trim();
-    final image = _image;
-    final audio = _audio;
+    final pending = _pending;
     // An attachment on its own is a valid turn — "what is this?" is implied.
-    if (chat == null ||
-        _busy ||
-        (text.isEmpty && image == null && audio == null)) {
+    if (chat == null || _busy || (text.isEmpty && pending == null)) {
       return;
     }
 
     setState(() {
       _turns
         ..add(
-          _Turn(text, fromUser: true, image: image, hasAudio: audio != null),
+          _Turn(
+            text,
+            fromUser: true,
+            image: pending?.kind == _AttachmentKind.image
+                ? pending?.bytes
+                : null,
+            hasAudio: pending?.kind == _AttachmentKind.audio,
+          ),
         )
         // The reply starts empty and grows as chunks arrive.
         ..add(const _Turn('', fromUser: false));
       _input.clear();
-      _image = null;
-      _audio = null;
+      _pending = null;
       _notice = null;
       _busy = true;
     });
 
     try {
-      await chat.addQueryChunk(_message(text, image: image, audio: audio));
+      await chat.addQueryChunk(_message(text, pending));
 
       final buffer = StringBuffer();
       await for (final chunk in chat.generateChatResponseAsync()) {
@@ -322,19 +371,25 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  /// One factory per shape of turn. `Message.withImages` takes a LIST, because
-  /// a model that can see one picture can usually see several;
-  /// `Message.withAudio` takes exactly one clip; `Message.text` is the same
-  /// call with nothing attached.
-  Message _message(String text, {Uint8List? image, Uint8List? audio}) {
-    if (image != null) {
-      return Message.withImages(text: text, imageBytes: [image], isUser: true);
-    }
-    if (audio != null) {
-      return Message.withAudio(text: text, audioBytes: audio, isUser: true);
-    }
-    return Message.text(text: text, isUser: true);
-  }
+  /// One factory per shape of turn. `Message.withImages` takes a LIST — the API
+  /// is shaped for models that accept several pictures per turn — but this app
+  /// sends one, and one is what the engine is built for: `getActiveModel`
+  /// defaults `maxNumImages` to 1 when `supportImage` is on, so raise it there
+  /// before sending more than one here. `Message.withAudio` takes exactly one
+  /// clip; `Message.text` is the same call with nothing attached.
+  Message _message(String text, _Attached? attached) => switch (attached) {
+    null => Message.text(text: text, isUser: true),
+    (kind: _AttachmentKind.image, :final bytes) => Message.withImages(
+      text: text,
+      imageBytes: [bytes],
+      isUser: true,
+    ),
+    (kind: _AttachmentKind.audio, :final bytes) => Message.withAudio(
+      text: text,
+      audioBytes: bytes,
+      isUser: true,
+    ),
+  };
 
   /// Frees the disk. Close the runtime first — the file is mapped while a
   /// model is open, and deleting it underneath the engine is a crash waiting
@@ -442,31 +497,41 @@ class _ChatPageState extends State<ChatPage> {
               itemBuilder: (context, i) => _Bubble(turn: _turns[i]),
             ),
           ),
-          if (_image case final image?)
+          if (_pending case (kind: _AttachmentKind.image, :final bytes))
             _Attachment(
               preview: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: Image.memory(
-                  image,
+                  bytes,
                   width: 56,
                   height: 56,
                   fit: BoxFit.cover,
+                  // A file the picker handed over is not necessarily an image
+                  // Flutter can decode: on the desktops `image_picker` ignores
+                  // `maxWidth`/`maxHeight` and hands the file over verbatim, so
+                  // a HEIC or a truncated PNG reaches here. Without this the
+                  // preview draws nothing, the user reads that as "attached,
+                  // the thumbnail just did not paint", and sends it anyway.
+                  errorBuilder: (_, _, _) =>
+                      const Icon(Icons.broken_image_outlined),
                 ),
               ),
               label: 'Image attached to the next message',
-              onClear: () => setState(() => _image = null),
+              onClear: () => setState(() => _pending = null),
             ),
-          if (_audio != null)
+          if (_pending?.kind == _AttachmentKind.audio)
             _Attachment(
               preview: const Icon(Icons.graphic_eq, size: 40),
               label: 'Recording attached to the next message',
-              onClear: () => setState(() => _audio = null),
+              onClear: () => setState(() => _pending = null),
             ),
           // Say it, do not just grey it out. A disabled button teaches the
           // user that the app is broken; a sentence naming the side that
           // refused teaches them whether to change the model or the device.
-          _BlockedLine(what: 'Image input', capability: _imageCapability),
-          _BlockedLine(what: 'Audio input', capability: _audioCapability),
+          // Each `Capability` names its own modality, so there is no label
+          // here to pair with the wrong answer.
+          _BlockedLine(capability: _imageCapability),
+          _BlockedLine(capability: _audioCapability),
           if (_notice case final notice?)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -560,9 +625,9 @@ class _CapabilitySheet extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _row(context, 'Image input', image),
+          _row(context, image),
           const SizedBox(height: 16),
-          _row(context, 'Audio input', audio),
+          _row(context, audio),
         ],
       ),
       actions: [
@@ -574,12 +639,12 @@ class _CapabilitySheet extends StatelessWidget {
     );
   }
 
-  static Widget _row(BuildContext context, String what, Capability c) {
+  static Widget _row(BuildContext context, Capability c) {
     final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(what, style: theme.textTheme.titleSmall),
+        Text(c.what, style: theme.textTheme.titleSmall),
         Text('the model: ${c.byModel ? 'yes' : 'no'}'),
         Text('this platform: ${c.byPlatform ? 'yes' : 'no'}'),
         if (c.blockedBecause case final why?)
@@ -599,9 +664,8 @@ class _CapabilitySheet extends StatelessWidget {
 /// One line naming a modality this app cannot use here, and which side of the
 /// question refused it. Renders nothing when the modality works.
 class _BlockedLine extends StatelessWidget {
-  const _BlockedLine({required this.what, required this.capability});
+  const _BlockedLine({required this.capability});
 
-  final String what;
   final Capability capability;
 
   @override
@@ -611,7 +675,7 @@ class _BlockedLine extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
       child: Text(
-        '$what is off — $why.',
+        '${capability.what} is off — $why.',
         style: Theme.of(context).textTheme.labelSmall,
       ),
     );
@@ -718,7 +782,16 @@ class _Bubble extends StatelessWidget {
             if (turn.image case final image?) ...[
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: Image.memory(image, width: 200, fit: BoxFit.cover),
+                child: Image.memory(
+                  image,
+                  width: 200,
+                  fit: BoxFit.cover,
+                  // Same reason as the preview: a decode failure is a red box
+                  // in debug and silence in release, and the transcript is
+                  // what the user checks to see what was actually asked.
+                  errorBuilder: (_, _, _) =>
+                      const Icon(Icons.broken_image_outlined),
+                ),
               ),
               if (turn.text.isNotEmpty) const SizedBox(height: 8),
             ],

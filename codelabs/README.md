@@ -54,6 +54,12 @@ The same script also enforces the cross-codelab invariants declared in its
 `lib/` and `test/` byte for byte, because both texts tell the learner so. Add a
 row there when a new codelab continues an existing one.
 
+And it checks **application ids**, on Android, iOS, macOS and Linux: every app
+inside a codelab declares the same one — that is what lets a later step open the
+model an earlier step downloaded — and no two codelabs share one. Three of them
+once shipped as `dev.fluttergemma.gemma_quickstart`, which gave them a single
+container: one codelab's app opened with another's model already "installed".
+
 CI runs it on push, on pull requests, and **nightly** — a step app can rot
 without anyone touching this repo, and the nightly run is what notices.
 

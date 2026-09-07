@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "dev.fluttergemma" "\0"
-            VALUE "FileDescription", "gemma_quickstart" "\0"
+            VALUE "FileDescription", "Gemma Multimodal" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "gemma_quickstart" "\0"
+            VALUE "InternalName", "multimodal" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 dev.fluttergemma. All rights reserved." "\0"
-            VALUE "OriginalFilename", "gemma_quickstart.exe" "\0"
-            VALUE "ProductName", "gemma_quickstart" "\0"
+            VALUE "OriginalFilename", "multimodal.exe" "\0"
+            VALUE "ProductName", "Gemma Multimodal" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

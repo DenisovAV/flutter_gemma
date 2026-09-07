@@ -60,7 +60,12 @@ class _ChatPageState extends State<ChatPage> {
         modelType: widget.model.modelType,
         maxOutputTokens: 256,
       );
-      if (!mounted) return;
+      // The same guard, one call later and for the same reason: a chat this
+      // page never stored is a native session `dispose` can never close.
+      if (!mounted) {
+        await chat.close();
+        return;
+      }
       setState(() => _chat = chat);
     } catch (error) {
       // Loading is the likeliest thing to fail on a real device: a forgotten

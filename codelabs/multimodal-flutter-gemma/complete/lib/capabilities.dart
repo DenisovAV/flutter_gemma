@@ -11,13 +11,32 @@ import 'model.dart';
 /// independent facts into one, and the user is left staring at a greyed-out
 /// microphone with no idea whether the app is broken, the model is wrong, or
 /// this is simply not a place where audio works.
+///
+/// Two questions, not every question. A third axis — this particular device,
+/// and what its memory and hardware will actually stand — is deliberately out
+/// of scope: an old phone or an iOS Simulator answers yes to both of these and
+/// can still crawl or run out of memory, and the app finds that out from a load
+/// error instead. A fourth (the microphone permission) is asked at the moment
+/// of use in `chat_page.dart`, because unlike these two it can change while the
+/// app is running. Copy this type by all means — but do not read it as the
+/// complete list of reasons a modality can fail.
 class Capability {
   const Capability({
+    required this.what,
     required this.byModel,
     required this.byPlatform,
     required this.modelReason,
     required this.platformReason,
   });
+
+  /// How this modality is named to the user: "Image input", "Audio input".
+  ///
+  /// It lives on the value rather than travelling beside it, so that a caller
+  /// cannot pair one modality's label with another modality's answer — a
+  /// confident, fluent sentence about something that never happened, which is
+  /// the failure this whole codelab is written against. The two factories below
+  /// are the only things that set it, and each knows which modality it is.
+  final String what;
 
   /// Can the weights take this input at all?
   final bool byModel;
@@ -72,10 +91,15 @@ abstract final class PlatformSupport {
   /// either, and the bytes are dropped just as quietly.
   ///
   /// The iOS **Simulator** is the case this flag deliberately does not try to
-  /// cover: nothing in Dart distinguishes it from a device, and it fails
-  /// earlier than this anyway — it is CPU-only, and a 2.59 GB model does not
-  /// load. The app finds that out the honest way, from the microphone probe
-  /// in `chat_page.dart` or from a load error.
+  /// cover, and the reason is not that it cannot be detected — `device_info_plus`
+  /// exposes `IosDeviceInfo.isPhysicalDevice` for exactly this. It is that the
+  /// Simulator is a *supported* configuration, not a refused one: the SDK runs
+  /// it CPU-only, because Metal's simulator implementation caps a single
+  /// allocation at 256 MB, well under this model's weights. So a 2.59 GB model
+  /// there will crawl if it loads at all — which is a hardware answer, not a
+  /// platform one, and it belongs to the axis this type says it does not model.
+  /// The app finds it out the honest way, from the microphone probe in
+  /// `chat_page.dart` or from a load error.
   static bool get audio => !kIsWeb;
 
   static const audioBlockedReason =
@@ -85,6 +109,7 @@ abstract final class PlatformSupport {
 
 /// Can this app send an image right now, with this model, on this device?
 Capability imageCapability(ModelChoice model) => Capability(
+  what: 'Image input',
   byModel: model.supportsImage,
   byPlatform: PlatformSupport.image,
   modelReason: '${model.label} has no vision encoder',
@@ -93,6 +118,7 @@ Capability imageCapability(ModelChoice model) => Capability(
 
 /// Can this app send a recording right now, with this model, on this device?
 Capability audioCapability(ModelChoice model) => Capability(
+  what: 'Audio input',
   byModel: model.supportsAudio,
   byPlatform: PlatformSupport.audio,
   modelReason: '${model.label} has no audio encoder',

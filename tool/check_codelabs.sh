@@ -37,17 +37,22 @@ for pubspec in "${APPS[@]}"; do
   echo ""
   echo "=== $app ==="
   (
-    cd "$app"
-    flutter pub get
-    flutter analyze
-    # `flutter analyze` covers integration_test/ where it exists, so the
-    # format check has to as well — otherwise drift there passes CI. Not
-    # `dart format .`, which would also walk build/ on a maintainer's machine.
+    cd "$app" || exit 1
+    # `flutter analyze` covers integration_test/ where it exists, so the format
+    # check has to as well — otherwise drift there passes CI. Not `dart format .`,
+    # which would also walk build/ on a maintainer's machine.
     fmt_dirs=(lib test)
     if [ -d integration_test ]; then fmt_dirs+=(integration_test); fi
-    dart format --output=none --set-exit-if-changed "${fmt_dirs[@]}"
+
+    # One `&&` chain, deliberately: `set -e` does NOT apply inside a compound
+    # command on the left of `||`, so with plain newlines this subshell's exit
+    # status was whatever the LAST command returned. `flutter analyze` and the
+    # format check failed silently for every app until this was chained.
     # integration_test/ suites need a device and a multi-hundred-MB model
-    # download; they are deliberately not RUN by this gate.
+    # download; they are deliberately not RUN here.
+    flutter pub get &&
+    flutter analyze &&
+    dart format --output=none --set-exit-if-changed "${fmt_dirs[@]}" &&
     flutter test
   ) || { echo "::error::$app failed"; failed=1; }
 done
@@ -57,8 +62,9 @@ done
 # not notice a step app whose platform directories are missing or malformed.
 # Web is the one target a Linux CI runner can build for all six-platform apps —
 # Android needs an SDK, Apple targets need a Mac, Windows needs Windows — so it
-# is the only build this gate can honestly claim. Only the two `complete/` apps
-# are built: they are supersets of their own steps, and a build is ~20 s each.
+# is the only build this gate can honestly claim. One `complete/` per codelab is
+# built and no other step: a `complete/` is a superset of its own steps, and a
+# build is ~20 s each.
 built=0
 for app in codelabs/*/complete; do
   echo ""
@@ -112,6 +118,87 @@ for pair in "${MIRRORS[@]}"; do
     diff -r "$src/$sub" "$dst/$sub" \
       || { echo "::error::$dst/$sub has drifted from $src/$sub"; failed=1; }
   done
+done
+
+# One identity per codelab, and the two halves pull in opposite directions, so
+# both are asserted:
+#
+#   1. Every app INSIDE a codelab declares the SAME id. That is what lets Step 3
+#      open the model Step 2 downloaded — a promise every codelab text makes.
+#   2. No two codelabs share one. Three of them once shipped as
+#      dev.fluttergemma.gemma_quickstart: one Android install and one macOS
+#      container between them, so the multimodal app opened with Getting
+#      Started's model already "installed" — a model it never downloaded and
+#      could not use.
+#
+# Per platform, because each keys its own container and one codelab is
+# deliberately on a different prefix on Apple than it is on Linux. A platform
+# that carries no id (a Windows app stores under %LOCALAPPDATA%, which is
+# app-independent) is not listed here.
+id_for() {
+  local app="$1" file=""
+  case "$2" in
+    android) file="$app/android/app/build.gradle.kts" ;;
+    ios)     file="$app/ios/Runner.xcodeproj/project.pbxproj" ;;
+    macos)   file="$app/macos/Runner/Configs/AppInfo.xcconfig" ;;
+    linux)   file="$app/linux/CMakeLists.txt" ;;
+  esac
+  [ -f "$file" ] || return 0
+  # `|| true` on each: `set -o pipefail` above turns both "grep matched
+  # nothing" and `head`'s SIGPIPE into a script-killing failure, and an id this
+  # cannot read must reach the empty-string guard below rather than abort here.
+  case "$2" in
+    android) sed -n 's/.*applicationId *= *"\([^"]*\)".*/\1/p' "$file" | head -1 || true ;;
+    # The test target's id is the app's plus `.RunnerTests`, so it is dropped
+    # rather than counted as a second, colliding identity.
+    ios)     { sed -n 's/.*PRODUCT_BUNDLE_IDENTIFIER = \([^;]*\);.*/\1/p' "$file" \
+               | grep -v '\.RunnerTests$' | sort -u | head -1; } || true ;;
+    macos)   sed -n 's/^PRODUCT_BUNDLE_IDENTIFIER *= *\(.*[^ ]\) *$/\1/p' "$file" | head -1 || true ;;
+    linux)   sed -n 's/.*set(APPLICATION_ID *"\([^"]*\)").*/\1/p' "$file" | head -1 || true ;;
+  esac
+}
+
+for platform in android ios macos linux; do
+  echo ""
+  echo "=== $platform application id: one per codelab, and no two alike ==="
+  pairs=""
+  for pubspec in "${APPS[@]}"; do
+    app="$(dirname "$pubspec")"
+    codelab="$(echo "$app" | cut -d/ -f2)"
+    id="$(id_for "$app" "$platform")"
+    # Fail closed, the way discovery does above. A moved, renamed or reformatted
+    # declaration must not read as "no collision found".
+    if [ -z "$id" ]; then
+      echo "::error::$app declares no $platform application id — the identity check cannot run"
+      failed=1
+      continue
+    fi
+    pairs="$pairs$codelab $id
+"
+  done
+
+  # Property 1: a codelab whose steps disagree appears twice after `sort -u`.
+  split="$(printf '%s' "$pairs" | sort -u | cut -d' ' -f1 | uniq -d)"
+  if [ -n "$split" ]; then
+    for codelab in $split; do
+      echo "::error::$codelab does not share one $platform id across its steps:"
+      printf '%s' "$pairs" | sort -u | grep "^$codelab " | sed 's/^/    /'
+    done
+    failed=1
+  fi
+
+  # Property 2: an id claimed by two codelabs appears twice with the codelab
+  # column dropped.
+  shared="$(printf '%s' "$pairs" | sort -u | awk '{print $2}' | sort | uniq -d)"
+  if [ -n "$shared" ]; then
+    for id in $shared; do
+      echo "::error::$platform id $id is claimed by more than one codelab:"
+      printf '%s' "$pairs" | sort -u | grep " $id\$" | sed 's/^/    /'
+    done
+    failed=1
+  fi
+
+  printf '%s' "$pairs" | sort -u | sed 's/^/  /'
 done
 
 exit "$failed"

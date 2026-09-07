@@ -61,8 +61,11 @@ asking, and about saying which side said no.
 * The finished app from
   [Getting Started with On-Device LLMs in Flutter](/codelabs/getting-started-flutter-gemma)
   — or just its `complete/` directory, which is this codelab's starter
-* **No Hugging Face token.** The model repository is ungated, so every
-  `flutter run` here is a plain `flutter run` with no `--dart-define`
+* **No Hugging Face token** from Step 2 on: that model's repository is ungated,
+  so every `flutter run` from there is a plain `flutter run` with no
+  `--dart-define`. Step 1 is Getting Started's finished app unchanged, and it
+  still runs that codelab's gated Gemma 3 1B, which needs
+  `--dart-define=HF_TOKEN=hf_...`
 * A device with room for a **2.59 GB** model and the memory to open it —
   roughly 6 GB of RAM. A 4 GB phone is killed by the OS rather than told no
 * Android, a real iPhone or iPad, macOS, Windows or Linux for the full thing.
@@ -201,11 +204,23 @@ here on:
 ```
 
 The repository is ungated, so `main.dart` also loses the Hugging Face plumbing
-it inherited from Getting Started:
+it inherited from Getting Started. It gains a `try` in exchange:
 
 ```dart
-  await FlutterGemma.initialize(inferenceEngines: [LiteRtLmEngine()]);
+  try {
+    await FlutterGemma.initialize(inferenceEngines: [LiteRtLmEngine()]);
+  } catch (error) {
+    runApp(_StartupFailed(error: error));
+    return;
+  }
 ```
+
+That is not ceremony. This is the earliest thing in the app that can fail —
+hot-restarting after adding a plugin throws `MissingPluginException` right here
+— and an `await` before `runApp` that throws never reaches `runApp` at all. The
+symptom is a blank window and a stack trace in a console you are probably not
+looking at. Every other failure in this app arrives on screen; this one has to
+be made to.
 
 ### Open a session that can see
 
@@ -214,9 +229,11 @@ One argument:
 ```dart
       final chat = await inference.createChat(
         modelType: widget.model.modelType,
-        // The whole of "this chat can see". It maps to `enableVisionModality`
-        // on the native session — a session flag, not a different model. The
-        // same weights, opened with one more capability switched on.
+        // The session half of "this chat can see". It maps to
+        // `enableVisionModality` on the native session — a session flag, not a
+        // different model: the same weights, opened with one more capability
+        // switched on. The model half is the `supportImage` on
+        // `getActiveModel` above, and both are required.
         supportImage: true,
         maxOutputTokens: 256,
       );
@@ -228,8 +245,11 @@ described:
 ```dart
       // maxTokens is the CONTEXT WINDOW — prompt + history + reply share it.
       // It is NOT a reply-length cap; for that, pass maxOutputTokens below.
-      // An image costs ~257 tokens of it, so 1024 no longer buys a
-      // conversation once pictures are in it.
+      // `InferenceChat` charges a message carrying an image a flat 257 tokens
+      // against this budget — the SDK's own accounting, not a measurement of
+      // the model, and it is per message, not per picture. 1024 is the floor
+      // for a `.litertlm` model and what the earlier codelabs use; with
+      // pictures in the history it stops buying a conversation, hence 4096.
       //
       // The modality flag belongs HERE as well as on the chat below. This is
       // where the engine is built, and it only loads a vision executor if it
@@ -295,8 +315,11 @@ One line changes in `_send`: which factory builds the message.
 
 ```dart
       await chat.addQueryChunk(
-        // One factory per shape of turn. `Message.withImages` takes a LIST,
-        // because a model that can see one picture can usually see several;
+        // One factory per shape of turn. `Message.withImages` takes a LIST —
+        // the API is shaped for models that accept several pictures per turn —
+        // but this app sends one, and one is what the engine is built for:
+        // `getActiveModel` defaults `maxNumImages` to 1 when `supportImage` is
+        // on, so raise it there before sending more than one here.
         // `Message.text` is the same call with no pixels attached.
         image == null
             ? Message.text(text: text, isUser: true)
@@ -353,7 +376,9 @@ macOS, in **both** entitlements files again:
 
 Windows and Linux need nothing declared.
 
-### One more flag
+### One more flag, in both places
+
+On the session:
 
 ```dart
       final chat = await inference.createChat(
@@ -369,8 +394,20 @@ Windows and Linux need nothing declared.
       );
 ```
 
-That is the entire model-side change in this step. Everything below is about
-getting sixteen kilohertz of mono PCM out of a microphone.
+and — for exactly the reason Step 2 gave — on the call above it that builds the
+engine, because that is where the audio executor is loaded or not loaded:
+
+```dart
+      final inference = await FlutterGemma.getActiveModel(
+        maxTokens: 4096,
+        supportImage: true,
+        supportAudio: true,
+      );
+```
+
+Two lines, in two calls. That is the entire model-side change in this step;
+everything below is about getting sixteen kilohertz of mono PCM out of a
+microphone.
 
 ### Capture without a file
 
@@ -459,23 +496,48 @@ second, occasionally by the last word of the question.
   Future<void> _startRecording() async {
 ```
 
+### One attachment, by construction
+
+A picture and a clip are alternatives, not a pair — a turn carrying both is a
+question about neither. So the queued attachment is one field, not two:
+
+```dart
+/// What can ride along with a message.
+enum _AttachmentKind { image, audio }
+
+/// The thing queued for the next message: one kind, its bytes.
+///
+/// One record instead of an `_image` and an `_audio` field, because "at most
+/// one attachment" is then the shape of the state rather than an invariant
+/// three scattered lines have to remember. Two nullable fields can hold both at
+/// once, and the sender would have to pick one — silently, which is the exact
+/// failure this codelab is about.
+typedef _Attached = ({_AttachmentKind kind, Uint8List bytes});
+```
+
+Assigning one replaces the other, so nothing has to remember to clear anything.
 And `_send` picks the factory that matches what is attached:
 
 ```dart
-  /// One factory per shape of turn. `Message.withImages` takes a LIST, because
-  /// a model that can see one picture can usually see several;
-  /// `Message.withAudio` takes exactly one clip; `Message.text` is the same
-  /// call with nothing attached.
-  Message _message(String text, {Uint8List? image, Uint8List? audio}) {
-    if (image != null) {
-      return Message.withImages(text: text, imageBytes: [image], isUser: true);
-    }
-    if (audio != null) {
-      return Message.withAudio(text: text, audioBytes: audio, isUser: true);
-    }
-    return Message.text(text: text, isUser: true);
-  }
+  Message _message(String text, _Attached? attached) => switch (attached) {
+    null => Message.text(text: text, isUser: true),
+    (kind: _AttachmentKind.image, :final bytes) => Message.withImages(
+      text: text,
+      imageBytes: [bytes],
+      isUser: true,
+    ),
+    (kind: _AttachmentKind.audio, :final bytes) => Message.withAudio(
+      text: text,
+      audioBytes: bytes,
+      isUser: true,
+    ),
+  };
 ```
+
+`Message.withImages` takes a LIST — the API is shaped for models that accept
+several pictures per turn — but this app sends one, and one is what the engine
+is built for: `getActiveModel` defaults `maxNumImages` to 1 when `supportImage`
+is on, so raise it there before sending more than one here.
 
 Run `step_03_audio` on a phone or a desktop. Record a few seconds asking the
 model something, and watch the same streaming loop answer it — no new
@@ -541,6 +603,21 @@ one that refused.
       );
 ```
 
+Both places again — the engine has to be built with the same answer, or the
+executor the session asks for was never loaded:
+
+```dart
+      final inference = await FlutterGemma.getActiveModel(
+        maxTokens: 4096,
+        supportImage: _imageCapability.available,
+        supportAudio: _audioCapability.available,
+      );
+```
+
+One `Capability` feeds both calls, which is the point of computing it once:
+two independently derived booleans are two things that can drift apart, and
+this is the drift that costs 2.59 GB to discover.
+
 ### Say it out loud
 
 A greyed-out button is not an explanation, so the app prints one:
@@ -549,9 +626,8 @@ A greyed-out button is not an explanation, so the app prints one:
 /// One line naming a modality this app cannot use here, and which side of the
 /// question refused it. Renders nothing when the modality works.
 class _BlockedLine extends StatelessWidget {
-  const _BlockedLine({required this.what, required this.capability});
+  const _BlockedLine({required this.capability});
 
-  final String what;
   final Capability capability;
 
   @override
@@ -561,13 +637,20 @@ class _BlockedLine extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
       child: Text(
-        '$what is off — $why.',
+        '${capability.what} is off — $why.',
         style: Theme.of(context).textTheme.labelSmall,
       ),
     );
   }
 }
 ```
+
+Note what this widget does *not* take: a label. `Capability` carries its own
+`what` — "Image input", "Audio input" — set by the factory that already knows
+which modality it is. A separate label argument compiles just as happily when
+it is paired with the wrong answer, and renders *"Audio input is off — Gemma 4
+E2B has no vision encoder"*: a confident, fluent sentence about something that
+never happened, which is the failure this codelab was written against.
 
 The app bar carries the same verdict in two words, always visible:
 
@@ -584,12 +667,12 @@ says "not supported". It shows both answers separately, with the reason
 underneath:
 
 ```dart
-  static Widget _row(BuildContext context, String what, Capability c) {
+  static Widget _row(BuildContext context, Capability c) {
     final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(what, style: theme.textTheme.titleSmall),
+        Text(c.what, style: theme.textTheme.titleSmall),
         Text('the model: ${c.byModel ? 'yes' : 'no'}'),
         Text('this platform: ${c.byPlatform ? 'yes' : 'no'}'),
         if (c.blockedBecause case final why?)
@@ -630,13 +713,17 @@ vision on the web today means MediaPipe `.task` models and the
 `flutter_gemma_mediapipe` package — a different engine, and the subject of the
 [Inference Engines codelab](/codelabs/inference-engines-flutter-gemma).)
 
-**The iOS Simulator** is the case the two questions do not cover, because it
-fails earlier than either of them. It is CPU-only — Metal's simulator
+**The iOS Simulator** is the case the two questions do not cover, and the
+reason is not that Dart cannot see it — `device_info_plus` exposes
+`IosDeviceInfo.isPhysicalDevice` for exactly this. It is that the Simulator is
+a *supported* configuration rather than a refused one, so a flat "no" here
+would be the wrong answer. The SDK runs it CPU-only, because Metal's simulator
 implementation caps a single allocation at 256 MB, far below this model's
-weights — so a 2.59 GB model is a device proposition there, and it has no
-microphone to record with in the first place. A learner on a simulator should
-expect the load to fail or crawl, and should move to hardware; the app reports
-it as a load error rather than pretending.
+weights. A learner on a simulator should expect a 2.59 GB model to crawl if it
+loads at all, and should move to hardware for the real thing; the app reports
+whatever happens as a load error rather than pretending. That is a third axis —
+this device, and what its memory and hardware will stand — and `Capability`
+says out loud that it does not model it.
 
 **Android, a real iPhone, and the three desktops** are the unrestricted case:
 both modalities, GPU accelerated, no caveats.

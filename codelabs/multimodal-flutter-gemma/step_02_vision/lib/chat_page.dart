@@ -54,8 +54,11 @@ class _ChatPageState extends State<ChatPage> {
     try {
       // maxTokens is the CONTEXT WINDOW — prompt + history + reply share it.
       // It is NOT a reply-length cap; for that, pass maxOutputTokens below.
-      // An image costs ~257 tokens of it, so 1024 no longer buys a
-      // conversation once pictures are in it.
+      // `InferenceChat` charges a message carrying an image a flat 257 tokens
+      // against this budget — the SDK's own accounting, not a measurement of
+      // the model, and it is per message, not per picture. 1024 is the floor
+      // for a `.litertlm` model and what the earlier codelabs use; with
+      // pictures in the history it stops buying a conversation, hence 4096.
       //
       // The modality flag belongs HERE as well as on the chat below. This is
       // where the engine is built, and it only loads a vision executor if it
@@ -77,13 +80,20 @@ class _ChatPageState extends State<ChatPage> {
 
       final chat = await inference.createChat(
         modelType: widget.model.modelType,
-        // The whole of "this chat can see". It maps to `enableVisionModality`
-        // on the native session — a session flag, not a different model. The
-        // same weights, opened with one more capability switched on.
+        // The session half of "this chat can see". It maps to
+        // `enableVisionModality` on the native session — a session flag, not a
+        // different model: the same weights, opened with one more capability
+        // switched on. The model half is the `supportImage` on
+        // `getActiveModel` above, and both are required.
         supportImage: true,
         maxOutputTokens: 256,
       );
-      if (!mounted) return;
+      // The same guard, one call later and for the same reason: a chat this
+      // page never stored is a native session `dispose` can never close.
+      if (!mounted) {
+        await chat.close();
+        return;
+      }
       setState(() => _chat = chat);
     } catch (error) {
       // Loading is the likeliest thing to fail on a real device: a forgotten
@@ -146,8 +156,11 @@ class _ChatPageState extends State<ChatPage> {
 
     try {
       await chat.addQueryChunk(
-        // One factory per shape of turn. `Message.withImages` takes a LIST,
-        // because a model that can see one picture can usually see several;
+        // One factory per shape of turn. `Message.withImages` takes a LIST —
+        // the API is shaped for models that accept several pictures per turn —
+        // but this app sends one, and one is what the engine is built for:
+        // `getActiveModel` defaults `maxNumImages` to 1 when `supportImage` is
+        // on, so raise it there before sending more than one here.
         // `Message.text` is the same call with no pixels attached.
         image == null
             ? Message.text(text: text, isUser: true)
@@ -333,6 +346,14 @@ class _Attachment extends StatelessWidget {
               width: 56,
               height: 56,
               fit: BoxFit.cover,
+              // A file the picker handed over is not necessarily an image
+              // Flutter can decode: on the desktops `image_picker` ignores
+              // `maxWidth`/`maxHeight` and hands the file over verbatim, so a
+              // HEIC or a truncated PNG reaches here. Without this the preview
+              // draws nothing, the user reads that as "attached, the thumbnail
+              // just did not paint", and sends it anyway.
+              errorBuilder: (_, _, _) =>
+                  const Icon(Icons.broken_image_outlined),
             ),
           ),
           const SizedBox(width: 12),
@@ -406,7 +427,16 @@ class _Bubble extends StatelessWidget {
             if (turn.image case final image?) ...[
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: Image.memory(image, width: 200, fit: BoxFit.cover),
+                child: Image.memory(
+                  image,
+                  width: 200,
+                  fit: BoxFit.cover,
+                  // Same reason as the preview: a decode failure is a red box
+                  // in debug and silence in release, and the transcript is
+                  // what the user checks to see what was actually asked.
+                  errorBuilder: (_, _, _) =>
+                      const Icon(Icons.broken_image_outlined),
+                ),
               ),
               if (turn.text.isNotEmpty) const SizedBox(height: 8),
             ],

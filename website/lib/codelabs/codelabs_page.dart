@@ -80,10 +80,10 @@ class CodelabsPage extends StatelessComponent {
     _Codelab(
       title: 'Multimodal Inference in Flutter: Vision and Audio on Device',
       blurb:
-          'Send images to SmolVLM2 at 0.36 GB and recordings to Gemma 4 at '
-          '2.59 GB, and gate each modality on two independent answers: what '
-          'the model supports, and what the platform will actually deliver.',
-      duration: '50 min',
+          'Send images and recordings to one Gemma 4 model. A modality is a '
+          'session flag, not a different model — so the real question is what '
+          'this platform lets you switch on, and how the app says so.',
+      duration: '46 min',
       level: 'Intermediate',
       tags: ['vision', 'audio', 'Gemma 4'],
       accent: Brand.orange,

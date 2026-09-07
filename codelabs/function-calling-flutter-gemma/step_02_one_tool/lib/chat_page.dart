@@ -68,7 +68,18 @@ class _ChatPageState extends State<ChatPage> {
       // to set in two places here — `getActiveModel` builds the engine, and
       // nothing about the weights changes when you declare a function. Tools
       // belong to the SESSION, and the session is opened one call down.
-      final inference = await FlutterGemma.getActiveModel(maxTokens: 4096);
+      // Measured on macOS 2026-09-07: on the GPU backend these weights emit
+      // nothing but `<pad>` — no error, no warning, a chat that looks alive
+      // and answers with filler. On CPU the same model asks for the tool
+      // correctly. A 270M model does not need a GPU, so ask for the backend
+      // that works rather than the fastest one on paper.
+      //
+      // maxTokens 1024 is what this checkpoint is built for; the example app
+      // uses the same, and it is the value this was measured at.
+      final inference = await FlutterGemma.getActiveModel(
+        maxTokens: 1024,
+        preferredBackend: PreferredBackend.cpu,
+      );
       // Hold the runtime before opening a chat on it: `createChat` can throw,
       // and a model this page never stored is a model `dispose` can never
       // close. A page that is already gone holds nothing, so it closes it here.

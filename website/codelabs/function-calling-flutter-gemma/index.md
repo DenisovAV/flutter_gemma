@@ -300,11 +300,22 @@ where `supportImage` has to go on `getActiveModel` as well or native fails the
 turn. There is no second place here:
 
 ```dart
-      final inference = await FlutterGemma.getActiveModel(maxTokens: 4096);
+      final inference = await FlutterGemma.getActiveModel(
+        maxTokens: 1024,
+        preferredBackend: PreferredBackend.cpu,
+      );
 ```
 
 `getActiveModel` builds the engine, and nothing about the engine changes when
-you declare a function. Tools belong to the session. What does change is the
+you declare a function. Tools belong to the session.
+
+The two arguments it *does* take are worth a moment, because one of them was
+measured the hard way. On this machine, with the GPU backend, these weights
+answer every prompt with `<pad>` repeated to the token limit — no exception, no
+warning, a chat that looks alive and returns filler. On CPU the same model asks
+for `multiply` correctly. A 270M model does not need a GPU, so this codelab
+asks for the backend that works rather than the one that sounds faster, and
+`maxTokens: 1024` is what this checkpoint is built for. What does change is the
 budget: the declarations are rendered into the prompt once and stay in the
 history for the rest of the conversation, and every call and every tool
 response is another turn in there — so 4096 rather than Getting Started's 1024.

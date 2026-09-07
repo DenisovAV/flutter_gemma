@@ -1,0 +1,446 @@
+import 'dart:typed_data';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:image_picker/image_picker.dart';
+
+import 'capabilities.dart';
+import 'model.dart';
+
+/// A chat that can carry a picture along with the question.
+///
+/// `generateChatResponseAsync` emits one [ModelResponse] per decoded chunk,
+/// so the first words appear long before the last one is computed — the same
+/// on a multimodal turn as on a text one.
+class ChatPage extends StatefulWidget {
+  const ChatPage({
+    super.key,
+    required this.model,
+    required this.onModelRemoved,
+  });
+
+  final ModelChoice model;
+
+  /// Lets the gate send the app back to the download screen.
+  final VoidCallback onModelRemoved;
+
+  @override
+  State<ChatPage> createState() => _ChatPageState();
+}
+
+class _ChatPageState extends State<ChatPage> {
+  final _input = TextEditingController();
+  final _turns = <_Turn>[];
+  final _picker = ImagePicker();
+
+  InferenceModel? _inference;
+  InferenceChat? _chat;
+  bool _busy = false;
+  Object? _loadError;
+
+  /// The picture waiting to go with the next message, if any.
+  Uint8List? _image;
+
+  /// A one-line problem that is not worth losing the chat over — a picture
+  /// that would not decode, a permission the user declined.
+  String? _notice;
+
+  /// Asked once, of both sides, and then used everywhere: to open the right
+  /// kind of session, to enable the attach button, and to say why not.
+  late final Capability _imageCapability = imageCapability(widget.model);
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      // maxTokens is the CONTEXT WINDOW — prompt + history + reply share it.
+      // An image is not free there: the vision encoder turns one picture into
+      // hundreds of tokens, so a multimodal turn eats context a text turn
+      // would not.
+      final inference = await FlutterGemma.getActiveModel(maxTokens: 2048);
+      // Hold the runtime before opening a chat on it: `createChat` can throw,
+      // and a model this page never stored is a model `dispose` can never
+      // close. A page that is already gone holds nothing, so it closes it here.
+      if (!mounted) {
+        await inference.close();
+        return;
+      }
+      setState(() => _inference = inference);
+
+      final chat = await inference.createChat(
+        modelType: widget.model.modelType,
+        // BOTH halves of the question, in one expression. `supportImage: true`
+        // maps to `enableVisionModality` on the native session: asking for it
+        // on weights with no vision encoder fails at session creation, and
+        // asking for it on a platform that cannot carry images opens a vision
+        // session nothing will ever feed.
+        supportImage: _imageCapability.available,
+        maxOutputTokens: 256,
+      );
+      if (!mounted) return;
+      setState(() => _chat = chat);
+    } catch (error) {
+      // Loading is the likeliest thing to fail on a real device: a forgotten
+      // engine package, too little memory, a half-written model file. Show it
+      // instead of sitting on the progress bar forever.
+      if (mounted) setState(() => _loadError = error);
+    }
+  }
+
+  void _retryLoad() {
+    setState(() => _loadError = null);
+    _load();
+  }
+
+  /// Reads a picture into memory. The plugin takes bytes, not a path — which
+  /// is why this works the same on a phone and on a desktop file dialog.
+  Future<void> _pickImage() async {
+    try {
+      final file = await _picker.pickImage(
+        source: ImageSource.gallery,
+        // The vision encoder resizes to its own input square anyway, so a
+        // 12-megapixel original costs decode time and memory for nothing.
+        maxWidth: 1024,
+        maxHeight: 1024,
+      );
+      // Null means the user closed the picker. That is not an error, and
+      // reporting it as one is how an app earns a reputation for shouting.
+      if (file == null) return;
+      final bytes = await file.readAsBytes();
+      if (mounted) {
+        setState(() {
+          _image = bytes;
+          _notice = null;
+        });
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() => _notice = 'Could not read that image: $error');
+      }
+    }
+  }
+
+  Future<void> _send() async {
+    final chat = _chat;
+    final text = _input.text.trim();
+    final image = _image;
+    // A picture on its own is a valid turn — "what is this?" is implied.
+    if (chat == null || _busy || (text.isEmpty && image == null)) return;
+
+    setState(() {
+      _turns
+        ..add(_Turn(text, fromUser: true, image: image))
+        // The reply starts empty and grows as chunks arrive.
+        ..add(const _Turn('', fromUser: false));
+      _input.clear();
+      _image = null;
+      _notice = null;
+      _busy = true;
+    });
+
+    try {
+      await chat.addQueryChunk(
+        // One factory per shape of turn. `Message.withImages` takes a LIST,
+        // because a model that can see one picture can usually see several;
+        // `Message.text` is the same call with no pixels attached.
+        image == null
+            ? Message.text(text: text, isUser: true)
+            : Message.withImages(text: text, imageBytes: [image], isUser: true),
+      );
+
+      final buffer = StringBuffer();
+      await for (final chunk in chat.generateChatResponseAsync()) {
+        // Each TextResponse carries only the NEW text, not the whole reply
+        // so far — append, never replace.
+        if (chunk is TextResponse) {
+          buffer.write(chunk.token);
+          if (!mounted) return;
+          setState(
+            () => _turns[_turns.length - 1] = _Turn(
+              buffer.toString(),
+              fromUser: false,
+            ),
+          );
+        }
+      }
+    } catch (error) {
+      // The half-written reply becomes the error, so the empty bubble never
+      // just sits there. The chat's own history now holds a user turn the model
+      // never answered; a production app would reset it with `clearHistory`.
+      if (mounted) {
+        setState(
+          () => _turns[_turns.length - 1] = _Turn('⚠️ $error', fromUser: false),
+        );
+      }
+    } finally {
+      // `_busy` is what disables the composer, so clearing it belongs in
+      // `finally` — a failed generation must not lock the app.
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// Frees the disk. Close the runtime first — the file is mapped while a
+  /// model is open, and deleting it underneath the engine is a crash waiting
+  /// to happen.
+  Future<void> _removeModel() async {
+    try {
+      await _inference?.close();
+      // Inside `setState`: dropping the chat has to repaint, or the screen
+      // keeps showing an enabled composer over a runtime that is gone.
+      if (mounted) {
+        setState(() {
+          _inference = null;
+          _chat = null;
+        });
+      }
+      await FlutterGemma.uninstallModel(widget.model.fileName);
+      if (mounted) widget.onModelRemoved();
+    } catch (error) {
+      // Deleting can fail too — a missing install record, a file the OS still
+      // holds. Show it the way a failed load is shown, and drop the chat with
+      // it: a `close()` that threw leaves `_chat` non-null, and "The model did
+      // not load." over a working composer is a lie.
+      if (mounted) {
+        setState(() {
+          _chat = null;
+          _loadError = error;
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    // Sessions and models hold native memory — always close them. `dispose`
+    // cannot await, so the future is dropped on purpose, and caught so a
+    // failing native teardown does not escape as an unhandled async error.
+    _inference?.close().catchError((Object _) {});
+    _input.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final ready = _chat != null;
+    final error = _loadError;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.model.label),
+        actions: [
+          IconButton(
+            tooltip: 'Delete the downloaded model',
+            // Not while the model is still opening: deleting the file
+            // underneath an in-flight `getActiveModel()` is the crash the
+            // comment on `_removeModel` warns about.
+            onPressed: _busy || (!ready && error == null) ? null : _removeModel,
+            icon: const Icon(Icons.delete_outline),
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          if (error != null)
+            _LoadFailed(error: error, onRetry: _retryLoad)
+          else if (!ready)
+            const LinearProgressIndicator(),
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: _turns.length,
+              itemBuilder: (context, i) => _Bubble(turn: _turns[i]),
+            ),
+          ),
+          if (_image case final image?)
+            _Attachment(
+              image: image,
+              onClear: () => setState(() => _image = null),
+            ),
+          if (_notice case final notice?)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Text(
+                notice,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.error,
+                ),
+              ),
+            ),
+          // Say it, do not just grey it out. A disabled button teaches the
+          // user that the app is broken; a sentence naming the side that
+          // refused teaches them whether to change the model or the device.
+          _BlockedLine(what: 'Image input', capability: _imageCapability),
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+              child: Row(
+                children: [
+                  IconButton(
+                    tooltip:
+                        _imageCapability.blockedBecause ?? 'Attach an image',
+                    onPressed: _imageCapability.available && ready && !_busy
+                        ? _pickImage
+                        : null,
+                    icon: const Icon(Icons.image_outlined),
+                  ),
+                  Expanded(
+                    child: TextField(
+                      controller: _input,
+                      enabled: ready && !_busy,
+                      onSubmitted: (_) => _send(),
+                      decoration: InputDecoration(
+                        hintText: ready
+                            ? 'Ask something'
+                            : error != null
+                            ? 'No model loaded'
+                            : 'Loading the model…',
+                        border: const OutlineInputBorder(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton.filled(
+                    onPressed: ready && !_busy ? _send : null,
+                    icon: const Icon(Icons.send),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One line naming a modality this app cannot use here, and which side of the
+/// question refused it. Renders nothing when the modality works.
+class _BlockedLine extends StatelessWidget {
+  const _BlockedLine({required this.what, required this.capability});
+
+  final String what;
+  final Capability capability;
+
+  @override
+  Widget build(BuildContext context) {
+    final why = capability.blockedBecause;
+    if (why == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+      child: Text(
+        '$what is off — $why.',
+        style: Theme.of(context).textTheme.labelSmall,
+      ),
+    );
+  }
+}
+
+/// The picture queued for the next message, with a way to change your mind.
+class _Attachment extends StatelessWidget {
+  const _Attachment({required this.image, required this.onClear});
+
+  final Uint8List image;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.memory(
+              image,
+              width: 56,
+              height: 56,
+              fit: BoxFit.cover,
+            ),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(child: Text('Attached to the next message')),
+          IconButton(
+            tooltip: 'Remove the image',
+            onPressed: onClear,
+            icon: const Icon(Icons.close),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Shown in place of the loading bar when the model could not be opened.
+class _LoadFailed extends StatelessWidget {
+  const _LoadFailed({required this.error, required this.onRetry});
+
+  final Object error;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          Text('The model did not load.\n$error', textAlign: TextAlign.center),
+          const SizedBox(height: 8),
+          FilledButton(onPressed: onRetry, child: const Text('Try again')),
+        ],
+      ),
+    );
+  }
+}
+
+class _Turn {
+  const _Turn(this.text, {required this.fromUser, this.image});
+  final String text;
+  final bool fromUser;
+
+  /// Kept so the transcript shows what the model was actually asked about.
+  final Uint8List? image;
+}
+
+class _Bubble extends StatelessWidget {
+  const _Bubble({required this.turn});
+
+  final _Turn turn;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Align(
+      alignment: turn.fromUser ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        constraints: const BoxConstraints(maxWidth: 520),
+        decoration: BoxDecoration(
+          color: turn.fromUser
+              ? scheme.primaryContainer
+              : scheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (turn.image case final image?) ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.memory(image, width: 200, fit: BoxFit.cover),
+              ),
+              if (turn.text.isNotEmpty) const SizedBox(height: 8),
+            ],
+            if (turn.text.isNotEmpty) SelectableText(turn.text),
+          ],
+        ),
+      ),
+    );
+  }
+}

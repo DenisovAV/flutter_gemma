@@ -54,7 +54,18 @@ class _ChatPageState extends State<ChatPage> {
     try {
       // maxTokens is the CONTEXT WINDOW — prompt + history + reply share it.
       // It is NOT a reply-length cap; for that, pass maxOutputTokens below.
-      final inference = await FlutterGemma.getActiveModel(maxTokens: 1024);
+      // An image costs ~257 tokens of it, so 1024 no longer buys a
+      // conversation once pictures are in it.
+      //
+      // The modality flag belongs HERE as well as on the chat below. This is
+      // where the engine is built, and it only loads a vision executor if it
+      // is told to. Set it on the chat alone and everything looks fine until
+      // the first image, when native fails the turn with
+      // `INVALID_ARGUMENT: Vision executor should not be null`.
+      final inference = await FlutterGemma.getActiveModel(
+        maxTokens: 4096,
+        supportImage: true,
+      );
       // Hold the runtime before opening a chat on it: `createChat` can throw,
       // and a model this page never stored is a model `dispose` can never
       // close. A page that is already gone holds nothing, so it closes it here.

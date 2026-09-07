@@ -22,10 +22,19 @@ photograph are the weights that hear you.
 
 That is the idea worth taking away:
 
-**A modality is a session flag, not a model identity.** You do not swap models
-to add vision or audio. You open the same weights with another capability
-switched on — `supportImage`, `supportAudio` on `createChat` — and the rest of
-your chat code does not move.
+**A modality is a flag, not a model identity.** You do not swap models to add
+vision or audio. You open the same weights with another capability switched on
+— `supportImage`, `supportAudio` — and the rest of your chat code does not
+move.
+
+The flag goes in **two** places, and this is the trap: on `getActiveModel`,
+where the engine is built and decides whether to load a vision or audio
+executor, *and* on `createChat`, where the session declares what it will send.
+Set it only on the chat and nothing complains — the model downloads, the engine
+starts, the UI offers you the camera — until the first picture, when native
+fails the turn with `INVALID_ARGUMENT: Vision executor should not be null`.
+A setup mistake that surfaces as a generation error, several minutes and 2.59 GB
+after you made it.
 
 Which turns the interesting question around. It stops being *"which model do I
 need?"* and becomes *"what does this platform let me switch on?"* — because
@@ -213,13 +222,24 @@ One argument:
       );
 ```
 
-`maxTokens` above it is unchanged from Getting Started, and still means what it
-meant there:
+The call above it changes too — in two ways, one of them the trap just
+described:
 
 ```dart
       // maxTokens is the CONTEXT WINDOW — prompt + history + reply share it.
       // It is NOT a reply-length cap; for that, pass maxOutputTokens below.
-      final inference = await FlutterGemma.getActiveModel(maxTokens: 1024);
+      // An image costs ~257 tokens of it, so 1024 no longer buys a
+      // conversation once pictures are in it.
+      //
+      // The modality flag belongs HERE as well as on the chat below. This is
+      // where the engine is built, and it only loads a vision executor if it
+      // is told to. Set it on the chat alone and everything looks fine until
+      // the first image, when native fails the turn with
+      // `INVALID_ARGUMENT: Vision executor should not be null`.
+      final inference = await FlutterGemma.getActiveModel(
+        maxTokens: 4096,
+        supportImage: true,
+      );
 ```
 
 Worth knowing that images are not free inside that window: `InferenceChat`

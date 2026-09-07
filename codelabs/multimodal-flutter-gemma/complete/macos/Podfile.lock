@@ -1,0 +1,47 @@
+PODS:
+  - file_selector_macos (0.0.1):
+    - FlutterMacOS
+  - flutter_gemma (1.7.2):
+    - FlutterMacOS
+  - FlutterMacOS (1.0.0)
+  - large_file_handler (0.5.0):
+    - FlutterMacOS
+  - record_macos (2.0.0):
+    - FlutterMacOS
+  - shared_preferences_foundation (0.0.1):
+    - Flutter
+    - FlutterMacOS
+
+DEPENDENCIES:
+  - file_selector_macos (from `Flutter/ephemeral/.symlinks/plugins/file_selector_macos/macos`)
+  - flutter_gemma (from `Flutter/ephemeral/.symlinks/plugins/flutter_gemma/macos`)
+  - FlutterMacOS (from `Flutter/ephemeral`)
+  - large_file_handler (from `Flutter/ephemeral/.symlinks/plugins/large_file_handler/macos`)
+  - record_macos (from `Flutter/ephemeral/.symlinks/plugins/record_macos/macos`)
+  - shared_preferences_foundation (from `Flutter/ephemeral/.symlinks/plugins/shared_preferences_foundation/darwin`)
+
+EXTERNAL SOURCES:
+  file_selector_macos:
+    :path: Flutter/ephemeral/.symlinks/plugins/file_selector_macos/macos
+  flutter_gemma:
+    :path: Flutter/ephemeral/.symlinks/plugins/flutter_gemma/macos
+  FlutterMacOS:
+    :path: Flutter/ephemeral
+  large_file_handler:
+    :path: Flutter/ephemeral/.symlinks/plugins/large_file_handler/macos
+  record_macos:
+    :path: Flutter/ephemeral/.symlinks/plugins/record_macos/macos
+  shared_preferences_foundation:
+    :path: Flutter/ephemeral/.symlinks/plugins/shared_preferences_foundation/darwin
+
+SPEC CHECKSUMS:
+  file_selector_macos: 9e9e068e90ebee155097d00e89ae91edb2374db7
+  flutter_gemma: 22e9307e65e67d777b58ecae4fe0c7cd69b8cd49
+  FlutterMacOS: c232990155153907050900a2e175c7773903ba4e
+  large_file_handler: b337fef756ae925be9c28112a81c7c4275d91c45
+  record_macos: 2e43c16b84ce188b8137754ee648322a2dcdf7fa
+  shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
+
+PODFILE CHECKSUM: 8c50772b647c5495d76444d70aa1e2594716ddd1
+
+COCOAPODS: 1.16.2

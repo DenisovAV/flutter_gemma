@@ -69,7 +69,15 @@ void main() {
     await _install(model);
     expect(await FlutterGemma.isModelInstalled(model.fileName), isTrue);
 
-    final inference = await FlutterGemma.getActiveModel(maxTokens: 1024);
+    // The flags go here too — this is where the engine loads (or does not
+    // load) the vision and audio executors. Measured: with them only on the
+    // chat, the first image fails the turn with
+    // `INVALID_ARGUMENT: Vision executor should not be null`.
+    final inference = await FlutterGemma.getActiveModel(
+      maxTokens: 4096,
+      supportImage: image.available,
+      supportAudio: audio.available,
+    );
     // Exactly what the app opens: both flags, each ANDed with the platform.
     final chat = await inference.createChat(
       modelType: model.modelType,
@@ -103,6 +111,31 @@ void main() {
     // Not an assertion about the colour — the claim under test is that the
     // session accepted the input and produced a reply instead of dropping it.
     expect(buffer.toString().trim(), isNotEmpty);
+
+    // The codelab's headline: the SAME session, the same weights, now given
+    // sound. One second of silence is enough — what is under test is that the
+    // audio modality was accepted, not what the model heard in it.
+    if (audio.available) {
+      await chat.addQueryChunk(
+        Message.withAudio(
+          text: 'Describe this audio in one word.',
+          audioBytes: wavFromPcm16(
+            Uint8List(32000),
+            sampleRate: 16000,
+            channels: 1,
+          ),
+          isUser: true,
+        ),
+      );
+      final heard = StringBuffer();
+      await for (final chunk in chat.generateChatResponseAsync()) {
+        if (chunk is TextResponse) heard.write(chunk.token);
+      }
+      debugPrint('[multimodal] audio reply: ${heard.toString().trim()}');
+      expect(heard.toString().trim(), isNotEmpty);
+    } else {
+      debugPrint('[multimodal] audio SKIPPED: ${audio.blockedBecause}');
+    }
 
     await inference.close();
   }, timeout: const Timeout(Duration(minutes: 60)));

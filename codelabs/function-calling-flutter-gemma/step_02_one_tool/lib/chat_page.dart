@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 
@@ -67,17 +69,24 @@ class _ChatPageState extends State<ChatPage> {
       // to set in two places here — `getActiveModel` builds the engine, and
       // nothing about the weights changes when you declare a function. Tools
       // belong to the SESSION, and the session is opened one call down.
-      // Measured on macOS 2026-09-07: on the GPU backend these weights emit
-      // nothing but `<pad>` — no error, no warning, a chat that looks alive
-      // and answers with filler. On CPU the same model asks for the tool
-      // correctly. A 270M model does not need a GPU, so ask for the backend
-      // that works rather than the fastest one on paper.
-      //
       // maxTokens 1024 is what this checkpoint is built for; the example app
       // uses the same, and it is the value this was measured at.
+      //
+      // The backend is asked for only on macOS, and only because of a measured
+      // failure there: on 2026-09-07, built for the GPU (Metal), these weights
+      // answered every prompt with `<pad>` to the token limit — no exception,
+      // no warning, a chat that looks alive and returns filler. On CPU the same
+      // model asked for the tool correctly. A 270M model does not need a GPU,
+      // so on that one platform this asks for the backend that works.
+      //
+      // Everywhere else the default stands. Do NOT read this as "FunctionGemma
+      // needs CPU": on Android it runs on the GPU, which is what the plugin's
+      // own example configures.
       final inference = await FlutterGemma.getActiveModel(
         maxTokens: 1024,
-        preferredBackend: PreferredBackend.cpu,
+        preferredBackend: defaultTargetPlatform == TargetPlatform.macOS
+            ? PreferredBackend.cpu
+            : null,
       );
       // Hold the runtime before opening a chat on it: `createChat` can throw,
       // and a model this page never stored is a model `dispose` can never

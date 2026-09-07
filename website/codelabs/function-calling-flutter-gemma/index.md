@@ -307,20 +307,24 @@ turn. There is no second place here:
 ```dart
       final inference = await FlutterGemma.getActiveModel(
         maxTokens: 1024,
-        preferredBackend: PreferredBackend.cpu,
+        preferredBackend: defaultTargetPlatform == TargetPlatform.macOS
+            ? PreferredBackend.cpu
+            : null,
       );
 ```
 
 `getActiveModel` builds the engine, and nothing about the engine changes when
 you declare a function. Tools belong to the session.
 
-The two arguments it *does* take are worth a moment, because one of them was
-measured the hard way. On this machine, with the GPU backend, these weights
-answer every prompt with `<pad>` repeated to the token limit — no exception, no
-warning, a chat that looks alive and returns filler. On CPU the same model asks
-for `multiply` correctly. A 270M model does not need a GPU, so this codelab
-asks for the backend that works rather than the one that sounds faster, and
-`maxTokens: 1024` is what this checkpoint is built for. What changes with tools
+The two arguments it *does* take are worth a moment. `maxTokens: 1024` is what
+this checkpoint is built for. The backend is asked for on **macOS only**, and
+only because of one measured failure: built for the GPU there, these weights
+answered every prompt with `<pad>` repeated to the token limit — no exception,
+no warning, a chat that looks alive and returns filler; on CPU the same model
+asked for `multiply` correctly. Read that narrowly. FunctionGemma runs on the
+GPU on Android, which is how the plugin's own example configures it, and this
+codelab leaves the default alone everywhere except the one platform where it
+was seen to fail. What changes with tools
 is not the number but what has to fit under it: the declarations are rendered
 into the prompt once and stay in the history for the rest of the conversation,
 and every call and every tool response is another turn inside the same 1024 —

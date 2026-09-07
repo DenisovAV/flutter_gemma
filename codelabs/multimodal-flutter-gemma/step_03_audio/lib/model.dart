@@ -20,14 +20,18 @@ class ModelChoice {
   final String sizeLabel;
 }
 
-/// The one model this codelab uses, from Step 2 to the end.
+/// The model this step swaps to, and the one `complete` ships.
 ///
 /// The repository is ungated, so nothing here needs a Hugging Face token and
 /// no run needs `--dart-define`.
 abstract final class Models {
   /// Gemma 4 E2B reads pictures and listens to audio with the same weights.
-  /// You download it once, in Step 2, and Step 3 adds a second modality to
-  /// the model that is already on the device.
+  ///
+  /// Step 2's SmolVLM2 has no audio encoder, and a session flag cannot switch
+  /// on something the checkpoint does not carry — so audio costs a second
+  /// download, seven times the first at 2.59 GB. You pay it once: both
+  /// modalities come out of these weights, so nothing here ever holds two
+  /// models open to cover two kinds of input.
   static const gemma4 = ModelChoice(
     label: 'Gemma 4 E2B',
     url:

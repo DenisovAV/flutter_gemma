@@ -6,10 +6,11 @@ import 'package:gemma_quickstart/model.dart';
 void main() {
   // `isModelInstalled` is keyed by file name. `install()` skips bytes it
   // already has, so a name that drifts from its URL does not re-download — it
-  // strands the app on a download screen the gate is never satisfied by. At
-  // 2.59 GB that is not a small mistake.
+  // strands the app on a download screen the gate is never satisfied by. It is
+  // a cheap mistake to make here and an expensive one to carry into Step 3,
+  // where the same gate stands in front of 2.59 GB.
   test('the model id matches the last segment of its URL', () {
-    const model = Models.gemma4;
+    const model = Models.smolVlm2;
     expect(model.fileName, model.url.split('/').last, reason: model.label);
   });
 
@@ -18,10 +19,10 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
-        home: DownloadPage(model: Models.gemma4, onInstalled: () {}),
+        home: DownloadPage(model: Models.smolVlm2, onInstalled: () {}),
       ),
     );
-    expect(find.text('Gemma 4 E2B'), findsOneWidget);
+    expect(find.text('SmolVLM2 500M'), findsOneWidget);
     expect(find.text('Download model'), findsOneWidget);
   });
 }

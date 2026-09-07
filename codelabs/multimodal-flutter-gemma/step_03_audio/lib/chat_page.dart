@@ -124,11 +124,12 @@ class _ChatPageState extends State<ChatPage> {
 
       final chat = await inference.createChat(
         modelType: widget.model.modelType,
-        // Two flags, one model. They map to `enableVisionModality` and
-        // `enableAudioModality` on the native session. Nothing was downloaded
-        // for the second one: the weights that read your photograph in Step 2
-        // are the weights that hear you now — the only thing that changed is
-        // which capabilities this session was opened with.
+        // Two flags, ONE model. They map to `enableVisionModality` and
+        // `enableAudioModality` on the native session. Step 2's model had no
+        // audio encoder for a flag to switch on, which is what the 2.59 GB
+        // bought — and it bought both: the weights that describe your
+        // photograph are the weights that hear you, so this app never opens a
+        // second model to cover a second modality.
         supportImage: true,
         supportAudio: true,
         maxOutputTokens: 256,

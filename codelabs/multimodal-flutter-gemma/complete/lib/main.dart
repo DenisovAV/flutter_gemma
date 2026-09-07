@@ -6,7 +6,8 @@ import 'chat_page.dart';
 import 'download_page.dart';
 import 'model.dart';
 
-/// The one model this codelab runs, from here to the end.
+/// The model this codelab runs from Step 3 on: one checkpoint, both
+/// modalities, and a single download to pay for them.
 const _model = Models.gemma4;
 
 Future<void> main() async {
@@ -16,7 +17,7 @@ Future<void> main() async {
   // Without LiteRtLmEngine here, the first model call throws a StateError
   // that tells you to add an engine package.
   //
-  // No `huggingFaceToken:` — the model this codelab uses from Step 2 on is
+  // No `huggingFaceToken:` — both models this codelab uses from Step 2 on are
   // ungated. (Step 1 inherits Gemma 3 1B from Getting Started, and that repo
   // IS behind a licence gate: it needs `--dart-define=HF_TOKEN=hf_...`.)
   //

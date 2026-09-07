@@ -66,9 +66,13 @@ class Capability {
 
 /// What the platform will carry, before any model is involved.
 ///
-/// This is the half of the question a model cannot answer for you, and in
-/// this codelab it is the only half that ever says no — Gemma 4 E2B has both
-/// encoders everywhere it runs.
+/// This is the half of the question a model cannot answer for you. It is the
+/// only half that says no to THIS model — Gemma 4 E2B has both encoders
+/// everywhere it runs — but not the only half that ever says no: hand these
+/// same factories Step 2's SmolVLM2 and `audioCapability` refuses from the
+/// model side, on a phone whose microphone was never in question. Two
+/// different failures, and the app that greys out one button for both of them
+/// has told the user nothing.
 abstract final class PlatformSupport {
   /// Image input reaches the model on all five native platforms — Android,
   /// iOS, macOS, Windows and Linux.

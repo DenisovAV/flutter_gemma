@@ -17,9 +17,9 @@ void main() {
     expect(model.fileName, model.url.split('/').last, reason: model.label);
   });
 
-  // The model half of both questions, for the one checkpoint this codelab
-  // runs. These are what the app ANDs against the platform, so a wrong value
-  // here silently disables a modality the weights have.
+  // The model half of both questions, for the one checkpoint this app ships.
+  // These are what the app ANDs against the platform, so a wrong value here
+  // silently disables a modality the weights have.
   test('the model accepts both modalities', () {
     expect(Models.gemma4.supportsImage, isTrue);
     expect(Models.gemma4.supportsAudio, isTrue);

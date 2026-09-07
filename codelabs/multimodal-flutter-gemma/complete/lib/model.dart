@@ -24,20 +24,23 @@ class ModelChoice {
   /// What the WEIGHTS accept. Properties of the checkpoint, not of the
   /// device: the same answer on a Pixel, on a Mac and in Chrome. They are
   /// only half of "can this app send one" — the other half is in
-  /// `capabilities.dart`, and on this codelab's single model it is the only
-  /// half that ever says no.
+  /// `capabilities.dart`. Both halves really do refuse things, and they refuse
+  /// different ones: Step 2's SmolVLM2 answers no to audio on a device holding
+  /// a microphone, while this model answers yes to both on a platform that
+  /// will carry neither.
   final bool supportsImage;
   final bool supportsAudio;
 }
 
-/// The one model this codelab uses, from Step 2 to the end.
+/// The one model this app ships. Two modalities, one checkpoint.
 ///
 /// The repository is ungated, so nothing here needs a Hugging Face token and
 /// no run needs `--dart-define`.
 abstract final class Models {
-  /// Gemma 4 E2B reads pictures and listens to audio with the same weights.
-  /// You download it once, in Step 2, and Step 3 adds a second modality to
-  /// the model that is already on the device.
+  /// Gemma 4 E2B reads pictures and listens to audio with the same weights —
+  /// the reason Step 3 paid 2.59 GB for it, and the reason that is the last
+  /// download in the codelab. An app that took a model per modality would be
+  /// holding two of them open by now; this one holds one.
   static const gemma4 = ModelChoice(
     label: 'Gemma 4 E2B',
     url:

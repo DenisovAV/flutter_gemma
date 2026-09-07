@@ -16,16 +16,21 @@ The chat app from the *Getting Started* codelab, taught to send a **picture**
 and a **recording** to the model — and, at the end, taught to know where it
 cannot.
 
-One model does all of it: **Gemma 4 E2B**, 2.59 GB, downloaded once in Step 2.
-Step 3 adds audio and downloads **nothing**. The weights that described your
-photograph are the weights that hear you.
+Two models, and the second one is the point. Step 2 starts on **SmolVLM2
+500M**: 0.36 GB, about a minute of download, and the app is describing your
+own photograph. Step 3 wants audio — and no flag switches on an encoder the
+weights do not contain, so it moves to **Gemma 4 E2B**, 2.59 GB. Seven times
+the size, said plainly rather than in a footnote.
+
+You pay it once. Those weights read pictures *and* hear you, so the app never
+ends up juggling one model per modality: `complete` ships exactly one.
 
 That is the idea worth taking away:
 
-**A modality is a flag, not a model identity.** You do not swap models to add
-vision or audio. You open the same weights with another capability switched on
-— `supportImage`, `supportAudio` — and the rest of your chat code does not
-move.
+**A modality is a flag, not a model identity.** Inside a checkpoint that has
+the encoder, you do not swap models to add vision or audio. You open the same
+weights with another capability switched on — `supportImage`, `supportAudio` —
+and the rest of your chat code does not move.
 
 The flag goes in **two** places, and this is the trap: on `getActiveModel`,
 where the engine is built and decides whether to load a vision or audio
@@ -33,22 +38,26 @@ executor, *and* on `createChat`, where the session declares what it will send.
 Set it only on the chat and nothing complains — the model downloads, the engine
 starts, the UI offers you the camera — until the first picture, when native
 fails the turn with `INVALID_ARGUMENT: Vision executor should not be null`.
-A setup mistake that surfaces as a generation error, several minutes and 2.59 GB
-after you made it.
+A setup mistake that surfaces as a generation error, minutes and a whole model
+download after you made it.
 
 Which turns the interesting question around. It stops being *"which model do I
 need?"* and becomes *"what does this platform let me switch on?"* — because
 that answer is not yours to set. The web runtime has no vision or audio
 executor at all, and it does not refuse: it **drops the bytes** and lets the
 model answer confidently about something it never received. Step 4 is about
-asking, and about saying which side said no.
+asking, and about saying which side said no — a model that cannot, or a
+platform that will not. Two different failures with two different fixes, and
+this codelab hands you one of each.
 
 ### What you'll learn
 
 * how to attach an image with `Message.withImages` and a clip with
   `Message.withAudio`
 * what `supportImage` / `supportAudio` on `createChat` actually switch on, and
-  that adding one downloads nothing
+  why the same flag has to go on `getActiveModel` as well
+* what a second modality costs when the weights do not have it, and why one
+  checkpoint carrying both beats two that carry one each
 * how to capture 16 kHz mono audio without a file, and why that matters for
   the web build
 * that capability is **not** a build-time constant — the app has to ask what
@@ -61,13 +70,14 @@ asking, and about saying which side said no.
 * The finished app from
   [Getting Started with On-Device LLMs in Flutter](/codelabs/getting-started-flutter-gemma)
   — or just its `complete/` directory, which is this codelab's starter
-* **No Hugging Face token** from Step 2 on: that model's repository is ungated,
-  so every `flutter run` from there is a plain `flutter run` with no
-  `--dart-define`. Step 1 is Getting Started's finished app unchanged, and it
-  still runs that codelab's gated Gemma 3 1B, which needs
+* **No Hugging Face token** from Step 2 on: both repositories this codelab
+  introduces are ungated, so every `flutter run` from there is a plain
+  `flutter run` with no `--dart-define`. Step 1 is Getting Started's finished
+  app unchanged, and it still runs that codelab's gated Gemma 3 1B, which needs
   `--dart-define=HF_TOKEN=hf_...`
-* A device with room for a **2.59 GB** model and the memory to open it —
-  roughly 6 GB of RAM. A 4 GB phone is killed by the OS rather than told no
+* Room for **0.36 GB** in Step 2, and for **2.59 GB** from Step 3 on — plus the
+  memory to open the larger one, roughly 6 GB of RAM. A 4 GB phone is killed by
+  the OS rather than told no
 * Android, a real iPhone or iPad, macOS, Windows or Linux for the full thing.
   The web and the iOS Simulator both run this app; Step 4 covers what they do
   instead
@@ -82,8 +92,8 @@ ls
 
 ```text
 step_01_starter/     the Getting Started app, unchanged
-step_02_vision/      after Step 2 — the model downloaded, and it can see
-step_03_audio/       after Step 3 — the same model, now it can hear too
+step_02_vision/      after Step 2 — a small vision model, and it can see
+step_03_audio/       after Step 3 — a bigger one, and it hears too
 complete/            after Step 4 — and it knows where it cannot
 ```
 
@@ -95,8 +105,8 @@ Duration: 4
 Open `step_01_starter` and run it. It is the Getting Started app: download a
 `.litertlm` file, chat with it, in text.
 
-Now look at the call that opens the chat, because that is the only place this
-codelab really changes:
+Now look at the call that opens the chat, because that is where this codelab's
+central change lands:
 
 ```dart
       final chat = await inference.createChat(
@@ -105,17 +115,22 @@ codelab really changes:
       );
 ```
 
-### One model, three sessions
+### One checkpoint, several sessions
 
 `createChat` takes `supportImage` and `supportAudio`. They map to
 `enableVisionModality` and `enableAudioModality` on the native session. Set
 neither and you get a text session. Set one and the same weights will take
 pictures. Set both and they will take pictures and sound.
 
-Nothing is downloaded in between, and nothing about the model changes. Gemma 4
-E2B ships every encoder it has in the one 2.59 GB file; a session simply
-decides which of them are wired up. That is why Step 3 of this codelab —
-"now add audio" — has no download step in it at all.
+Nothing is downloaded in between, and nothing about the model changes: a
+`.litertlm` file ships whatever encoders it was built with, and a session
+decides which of them are wired up.
+
+Which is also the limit of the idea, and Step 3 walks straight into it. A flag
+can only switch on an encoder that is in the file. Step 2's SmolVLM2 has a
+vision encoder and no audio one, so `supportAudio: true` there is not a cheap
+way to get sound — it asks for a part the checkpoint does not contain. Audio
+means different weights, and different weights mean a download, not a boolean.
 
 ### What is not yours to decide
 
@@ -151,7 +166,7 @@ greyed-out microphone. One is information; the other is a bug report waiting to
 be filed.
 
 ## Step 2: Send a picture
-Duration: 14
+Duration: 12
 
 ### Add the package
 
@@ -185,23 +200,43 @@ permission. iOS needs nothing either: since iOS 14 `image_picker` uses
 
 ### The model
 
-`step_02_vision` replaces Gemma 3 with the one model this codelab uses from
-here on:
+`step_02_vision` replaces Getting Started's Gemma 3 1B with something smaller
+that can see:
 
 ```dart
-  /// Gemma 4 E2B reads pictures and listens to audio with the same weights.
-  /// You download it once, in Step 2, and Step 3 adds a second modality to
-  /// the model that is already on the device.
-  static const gemma4 = ModelChoice(
-    label: 'Gemma 4 E2B',
+  /// A vision-language model small enough to feel like a text model. 0.36 GB
+  /// is roughly what a photo-heavy app already spends on its image cache, so
+  /// this is the version of "multimodal" you can put in a shipping app
+  /// without an argument about download size — about a minute of download,
+  /// and then it is looking at your photograph.
+  ///
+  /// It cannot hear, and that is not a gap in this step: these weights have
+  /// no audio encoder, so no session flag can switch one on. It is why Step 3
+  /// changes models, and it is the model half of the question `complete` asks
+  /// at the end — a half that says no here while the device, happily holding
+  /// a microphone, says yes.
+  static const smolVlm2 = ModelChoice(
+    label: 'SmolVLM2 500M',
     url:
-        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/'
-        'resolve/main/gemma-4-E2B-it.litertlm',
-    fileName: 'gemma-4-E2B-it.litertlm',
-    modelType: ModelType.gemma4,
-    sizeLabel: '2.59 GB',
+        'https://huggingface.co/litert-community/SmolVLM2-500M/resolve/main/'
+        'SmolVLM2-500M.litertlm',
+    fileName: 'SmolVLM2-500M.litertlm',
+    // `general` and not `gemmaIt`: SmolVLM2 is not a Gemma, and the chat
+    // template that ships inside the `.litertlm` is the right one to use.
+    modelType: ModelType.general,
+    sizeLabel: '0.36 GB',
   );
 ```
+
+`ModelType.general` and not `gemmaIt` is the line worth pausing on: SmolVLM2 is
+not a Gemma, so the right chat template is the one shipped inside the
+`.litertlm` file. Naming the wrong family does not fail loudly — it wraps the
+prompt in another model's turn markers, and the answers simply get worse.
+
+0.36 GB is roughly a minute of download. That is the reason this step starts
+here: you should be reading a model's description of your own photograph before
+you have finished reading this page, not waiting out a multi-gigabyte download
+to find out whether the wiring is right.
 
 The repository is ungated, so `main.dart` also loses the Hugging Face plumbing
 it inherited from Getting Started. It gains a `try` in exchange:
@@ -333,12 +368,52 @@ error handling — is byte-for-byte the code from Getting Started.
 Run `step_02_vision` on a phone or a desktop, attach a photo, and ask what is
 in it.
 
-## Step 3: The same model, now it hears
-Duration: 14
+## Step 3: Seven times the size, paid once
+Duration: 16
 
-This is the shortest step in the codelab, and the headline is what it does
-*not* contain: **there is no download**. Gemma 4 E2B is already on the device
-from Step 2. You are about to add a whole modality by setting one boolean.
+Step 2's model cannot hear. Not "audio is switched off" — SmolVLM2 has no audio
+encoder in it at all, and a session flag cannot wire up a part that is not
+there. So this step does the thing the rest of the codelab spends its time
+telling you that you rarely need to do: it changes models.
+
+**This step downloads 2.59 GB.** Gemma 4 E2B is seven times the size of what
+you have been running, and there is no honest way to shrink that number: audio
+needs weights that were trained with it.
+
+What you get for the seven times is the reason to stop here rather than keep
+collecting: this one checkpoint reads pictures *and* hears you. You pay once.
+The alternative — a vision model and an audio model, picked at run time — is
+two downloads, two loads, both sets of weights resident the moment a user
+switches input, and a conversation that cannot follow them across. `complete`
+ships exactly one model, and it is this one.
+
+### The model
+
+```dart
+  /// Gemma 4 E2B reads pictures and listens to audio with the same weights.
+  ///
+  /// Step 2's SmolVLM2 has no audio encoder, and a session flag cannot switch
+  /// on something the checkpoint does not carry — so audio costs a second
+  /// download, seven times the first at 2.59 GB. You pay it once: both
+  /// modalities come out of these weights, so nothing here ever holds two
+  /// models open to cover two kinds of input.
+  static const gemma4 = ModelChoice(
+    label: 'Gemma 4 E2B',
+    url:
+        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/'
+        'resolve/main/gemma-4-E2B-it.litertlm',
+    fileName: 'gemma-4-E2B-it.litertlm',
+    modelType: ModelType.gemma4,
+    sizeLabel: '2.59 GB',
+  );
+```
+
+The id changed, so the download screen is back on the next launch: the gate in
+`main.dart` asks `isModelInstalled('gemma-4-E2B-it.litertlm')` and the answer
+is no. Step 2's file is not deleted for you — every step app in this codelab
+shares one application identity, so SmolVLM2 is still sitting exactly where it
+was. Press the delete button in `step_02_vision` before you move on if you want
+that 0.36 GB back.
 
 ### Add the package
 
@@ -383,11 +458,12 @@ On the session:
 ```dart
       final chat = await inference.createChat(
         modelType: widget.model.modelType,
-        // Two flags, one model. They map to `enableVisionModality` and
-        // `enableAudioModality` on the native session. Nothing was downloaded
-        // for the second one: the weights that read your photograph in Step 2
-        // are the weights that hear you now — the only thing that changed is
-        // which capabilities this session was opened with.
+        // Two flags, ONE model. They map to `enableVisionModality` and
+        // `enableAudioModality` on the native session. Step 2's model had no
+        // audio encoder for a flag to switch on, which is what the 2.59 GB
+        // bought — and it bought both: the weights that describe your
+        // photograph are the weights that hear you, so this app never opens a
+        // second model to cover a second modality.
         supportImage: true,
         supportAudio: true,
         maxOutputTokens: 256,
@@ -405,9 +481,9 @@ engine, because that is where the audio executor is loaded or not loaded:
       );
 ```
 
-Two lines, in two calls. That is the entire model-side change in this step;
-everything below is about getting sixteen kilohertz of mono PCM out of a
-microphone.
+Two lines, in two calls. Together with the constant above, that is the entire
+model-side change in this step; everything below is about getting sixteen
+kilohertz of mono PCM out of a microphone.
 
 ### Capture without a file
 
@@ -540,8 +616,9 @@ is built for: `getActiveModel` defaults `maxNumImages` to 1 when `supportImage`
 is on, so raise it there before sending more than one here.
 
 Run `step_03_audio` on a phone or a desktop. Record a few seconds asking the
-model something, and watch the same streaming loop answer it — no new
-download, no second model, one more flag.
+model something, and watch the same streaming loop answer it — then attach a
+photo to the very next turn. Same session, same weights, nothing else opened:
+that is what the 2.59 GB was for.
 
 ## Step 4: Ask what this platform allows
 Duration: 9
@@ -562,8 +639,10 @@ Pixel, a Mac and in Chrome:
   /// What the WEIGHTS accept. Properties of the checkpoint, not of the
   /// device: the same answer on a Pixel, on a Mac and in Chrome. They are
   /// only half of "can this app send one" — the other half is in
-  /// `capabilities.dart`, and on this codelab's single model it is the only
-  /// half that ever says no.
+  /// `capabilities.dart`. Both halves really do refuse things, and they refuse
+  /// different ones: Step 2's SmolVLM2 answers no to audio on a device holding
+  /// a microphone, while this model answers yes to both on a platform that
+  /// will carry neither.
   final bool supportsImage;
   final bool supportsAudio;
 ```
@@ -586,6 +665,14 @@ The **platform half** is not:
 Both are needed. Keeping only the AND would work and would tell the user
 nothing; `Capability` keeps the two answers apart precisely so it can name the
 one that refused.
+
+And you have met both refusals already, one per model. Run `complete` in Chrome
+and the platform half says no while the weights have not changed at all. Hand
+these same factories Step 2's SmolVLM2 and the **model** half says no to audio,
+on a phone whose microphone was never in question. "Not supported" covers both
+and helps with neither: one is fixed by opening the app somewhere else, the
+other by downloading different weights, and the app is the only thing in the
+room that knows which.
 
 ### The flags stop being constants
 
@@ -743,13 +830,15 @@ flutter test integration_test/multimodal_test.dart -d <device-id>
 ## What's next
 Duration: 2
 
-One model, two modalities, and an app that knows where it can use them.
+Two downloads, two modalities, one model at the end — and an app that knows
+where it can use them.
 
 * **Function calling** turns the model's answer into an action, and the same
   `createChat` grows a `tools:` argument for it
 * **Speech-to-text** (`flutter_gemma_speech`) is the other way to use a
   microphone: transcribe first, then send text — which works on models with no
-  audio encoder at all, and is often the cheaper design
+  audio encoder at all, Step 2's SmolVLM2 among them, and is often the cheaper
+  design
 * **MediaPipe** (`flutter_gemma_mediapipe`) opens `.task` models and is the
   engine to reach for when vision on the **web** is a requirement
 

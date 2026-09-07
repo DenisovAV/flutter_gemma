@@ -415,13 +415,15 @@ its `tokenizer.json` — the same two the refusal keys on:
 
 The refusal needs **both**, so there are three outcomes rather than two. A file
 matching both is SigLIP 2's convention. One that prepends `<bos>` is an
-EmbeddingGemma-family file and belongs on the profiles above. A file matching
-**neither** — no `padding` block, `"BatchLongest"`, or no `post_processor` at
-all — is not classified either way: it is read with Gemma's convention and
-nothing is raised. Shipped SigLIP 2 exports declare the fixed width, so they are
-caught; a re-export that dropped either block is not. Do not read the absence of
-an error as approval — if the file is really a SigLIP 2 export, that path
-produces exactly the silently wrong vector this section warns about.
+EmbeddingGemma-family file and belongs on the profiles above. A file failing
+**either** check — no `padding` block, `"BatchLongest"`, or a `post_processor`
+that is missing, empty, or does not end in a special token — is not classified
+at all: it is read with Gemma's convention and nothing is raised.
+
+So do not read the absence of an error as approval. A SigLIP 2 export that
+declares both blocks is caught, but one that dropped either — a re-export, or a
+tool that strips them — reaches the Gemma path and produces exactly the silently
+wrong vector this section warns about.
 
 Wire it yourself:
 

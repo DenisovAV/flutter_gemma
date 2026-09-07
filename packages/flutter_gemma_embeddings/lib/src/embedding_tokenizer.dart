@@ -34,20 +34,19 @@ const int eosId = 1;
 /// `.model` carries no such blocks, so there the guarantee is free.)
 ///
 /// Throws [StateError] if the resolved `dart_sentencepiece_tokenizer` accepts
-/// the calls that disable them and applies the settings anyway — see
-/// `requireBareContent`.
+/// the calls that disable those settings and leaves them set anyway. That is a
+/// check on the tokenizer's config, not a guarantee about `encode()`'s output.
 Future<SentencePieceTokenizer> loadEmbeddingTokenizer(
   String tokenizerPath,
 ) async {
   // Why the disable lives here and not in each profile.
   //
-  // 1.3.3 ignored the file's `padding` and `truncation` blocks; from 1.4.0
-  // `_applyTokenizerSettings` applies them regardless of the config passed here,
-  // so a SigLIP 2 `tokenizer.json` (which declares `{Fixed: 64, Right}`) came
-  // back already padded. Both `encodeForEmbedding` and `encodeForSiglipEmbedding`
-  // append their own EOS after whatever they are handed, which put it past the
-  // pad run — every id in range, nothing thrown, and a different vector, since
-  // SigLIP pools the LAST position.
+  // On 1.4.1 a SigLIP 2 `tokenizer.json` (which declares `{Fixed: 64, Right}`)
+  // comes back already padded: the loader applies the file's own blocks
+  // regardless of the config passed here. Both `encodeForEmbedding` and
+  // `encodeForSiglipEmbedding` append their own EOS after whatever they are
+  // handed, which puts it past the pad run — every id in range, nothing thrown,
+  // and a different vector, since SigLIP pools the LAST position.
   //
   // Undoing that afterwards was possible but was a heuristic over a pipeline
   // nobody checks: it assumed right-padding with id 0, and a file declaring
@@ -182,8 +181,8 @@ List<int> encodeForSiglipEmbedding(
   // the width.
   // `loadEmbeddingTokenizer` turns the tokenizer's own padding and truncation
   // off, so this is bare content and the width rule below is the only one that
-  // applies. Without that, from 1.4.0 the file's `{Fixed: 64}` block would come
-  // back applied and the EOS appended here would land past the pad run.
+  // applies. Without that the file's `{Fixed: 64}` block comes back applied and
+  // the EOS appended here would land past the pad run.
   final content = tokenizer.encode(text.toLowerCase()).ids;
   final ids = <int>[...content.take(siglipSeqLen - 1), siglipEosId];
   return [...ids, ...List<int>.filled(siglipSeqLen - ids.length, siglipPadId)];

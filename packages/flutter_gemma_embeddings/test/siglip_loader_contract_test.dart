@@ -14,10 +14,12 @@ library;
 // calls stop clearing what they name — not the shape below, where a future
 // release pads through some other field and both getters stay null.)
 //
-// This is the canary. 1.4.0 changed `encode()`'s return shape inside a MINOR
-// release (it began applying the file's `padding` and `truncation` blocks), and
-// the constraint is open-topped, so the next minor can do it again. These
-// assertions turn that into a red build instead of a quietly different vector.
+// This is the canary. 1.4.1 changed `encode()`'s return shape in a PATCH release
+// — it began honouring `strategy: {Fixed: N}`, which 1.4.0 had read from a
+// `length` key HuggingFace does not write — and upstream's changelog does not
+// mention it. The constraint is open-topped, so the next release can do it
+// again. These assertions turn that into a red build instead of a quietly
+// different vector.
 
 import 'dart:convert';
 import 'dart:io';
@@ -34,8 +36,9 @@ Future<String> _write(Directory dir) async {
     'version': '1.0',
     // A truncation block, so `noTruncation()` has something to undo. Real
     // SigLIP 2 and EmbeddingGemma exports declare `null` here — this is the
-    // shape a future export could ship, and the one 1.4.0 taught the loader to
-    // honour. `max_length` must be positive or the loader throws.
+    // shape a future export could ship. `max_length` is a real HuggingFace key,
+    // so unlike the padding width it has been honoured since 1.4.0. It must be
+    // positive or the loader throws.
     'truncation': {
       'max_length': 8,
       'direction': 'Right',

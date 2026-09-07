@@ -28,10 +28,11 @@ SentencePieceTokenizer requireBareContent(
   SentencePieceTokenizer tokenizer,
   String tokenizerPath,
 ) {
-  // Collected as a list rather than tested with `||`, so that the check cannot
-  // be silently weakened: with a boolean the difference between `||` and `&&`
-  // is invisible to every test, because on a version that honours the calls
-  // both operands are false either way. Measured — the `&&` mutant stayed green.
+  // Collected as a list rather than tested with `||`: there is then no operator
+  // to get backwards. When this was a boolean, an `&&` typo — which would let a
+  // release that no-ops just ONE of the two calls through — was invisible to the
+  // whole suite. `tokenizer_contract_test.dart` covers that case now; the shape
+  // makes it unrepresentable.
   final stillApplied = <String>[
     if (tokenizer.padding != null) 'padding',
     if (tokenizer.truncation != null) 'truncation',

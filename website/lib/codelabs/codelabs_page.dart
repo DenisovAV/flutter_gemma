@@ -80,12 +80,14 @@ class CodelabsPage extends StatelessComponent {
     _Codelab(
       title: 'Multimodal Inference in Flutter: Vision and Audio on Device',
       blurb:
-          'Send images and audio to Gemma 3n and Gemma 4, and learn which '
-          'platforms accelerate them — and why a simulator is not a device.',
-      duration: '45 min',
+          'Send images to SmolVLM2 at 0.36 GB and recordings to Gemma 4 at '
+          '2.59 GB, and gate each modality on two independent answers: what '
+          'the model supports, and what the platform will actually deliver.',
+      duration: '50 min',
       level: 'Intermediate',
       tags: ['vision', 'audio', 'Gemma 4'],
       accent: Brand.orange,
+      href: '/codelabs/multimodal-flutter-gemma',
     ),
     _Codelab(
       title: 'Function Calling with On-Device Models in Flutter',

@@ -1,6 +1,6 @@
 {
-    "name": "gemma_quickstart",
-    "short_name": "gemma_quickstart",
+    "name": "Gemma Quickstart",
+    "short_name": "Gemma Quickstart",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

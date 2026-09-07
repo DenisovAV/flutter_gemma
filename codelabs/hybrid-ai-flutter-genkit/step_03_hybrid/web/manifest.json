@@ -1,6 +1,6 @@
 {
-    "name": "workshop_flutter_gemma_hybrid_ai",
-    "short_name": "workshop_flutter_gemma_hybrid_ai",
+    "name": "Gemma Hybrid AI",
+    "short_name": "Gemma Hybrid AI",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

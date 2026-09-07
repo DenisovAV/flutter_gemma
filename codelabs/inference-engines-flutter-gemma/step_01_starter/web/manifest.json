@@ -1,6 +1,6 @@
 {
-    "name": "gemma_quickstart",
-    "short_name": "gemma_quickstart",
+    "name": "Gemma Engines",
+    "short_name": "Gemma Engines",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

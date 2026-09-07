@@ -45,6 +45,14 @@ jobs:
           channel: ${{ matrix.channel }}
       - run: flutter --version
       - run: tool/check_codelabs.sh
+
+      # The one check that depends on a third party being up: the codelabs pin
+      # exact Hugging Face files, and a rename breaks a learner's first step
+      # with nothing in the build noticing. Nightly only — a transient 5xx must
+      # not turn a pull request red.
+      - name: Model URLs still resolve
+        if: github.event_name == 'schedule'
+        run: tool/check_codelab_model_urls.sh
       # `continue-on-error` makes a beta failure a green run, which is the
       # point — but a green run is also easy to miss. The script's own
       # `::error::` lines annotate the failing app; this names the channel and

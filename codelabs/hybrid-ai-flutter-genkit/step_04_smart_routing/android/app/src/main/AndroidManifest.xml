@@ -2,7 +2,7 @@
     <!-- Both the model download and the Gemini call are plain HTTPS. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <application
-        android:label="workshop_flutter_gemma_hybrid_ai"
+        android:label="Gemma Hybrid AI"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

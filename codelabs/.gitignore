@@ -13,3 +13,9 @@
 # maintainer's local run also reuses their own stale lock while CI resolves
 # fresh, so local green and CI green are not quite the same claim.
 pubspec.lock
+
+# The same reasoning on the CocoaPods side. `pod install` writes a Podfile.lock
+# carrying the pod versions and SPEC CHECKSUMS of whichever machine ran it —
+# one did reach a commit here — and these apps must resolve to today's pods for
+# the same reason they resolve to today's packages.
+Podfile.lock

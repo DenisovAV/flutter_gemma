@@ -113,6 +113,21 @@ That library is native-only, which is why it sits outside the package barrel.
 engine's web arm can apply the same rule) reads exactly those two blocks, and
 requires both: plenty of models declare one alone.
 
+### What the tokenizer loaders return
+
+Both loaders return a tokenizer with any `padding` and `truncation` the file
+declares switched OFF: `encode()` gives back bare content, never a fixed-width
+row. Width and terminators belong to the profile — `encodeForSiglipEmbedding`
+applies SigLIP2's 64-token rule itself — and to the forward pass, which owns the
+engine's compiled `seqLen`.
+
+This matters if you build a `ForwardPassDescriptor` by hand: do not expect the
+file's `"padding": {"strategy": {"Fixed": 64}}` to have been applied for you.
+
+The loaders throw `StateError` if the resolved `dart_sentencepiece_tokenizer`
+accepts the calls that disable those settings and leaves them set anyway. That
+is a check on the tokenizer's config, not a guarantee about `encode()`'s output.
+
 ### The task-type prefix
 
 `TaskType` has two values and both prefixes are non-empty, and

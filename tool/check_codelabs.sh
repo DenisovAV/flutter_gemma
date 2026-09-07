@@ -81,9 +81,21 @@ fi
 # Cross-codelab invariants, declared rather than hand-checked: a later codelab's
 # starter IS an earlier codelab's finished app, and both texts tell the learner
 # so. Without this the property drifts the first time someone edits one side.
+#
+# One source can feed several starters — Getting Started's finished app is where
+# both of the codelabs that continue it begin — so this is a list of pairs, not
+# a map, and a new row is all a new continuation needs.
 MIRRORS=(
   "codelabs/getting-started-flutter-gemma/complete|codelabs/inference-engines-flutter-gemma/step_01_starter"
+  "codelabs/getting-started-flutter-gemma/complete|codelabs/multimodal-flutter-gemma/step_01_starter"
 )
+
+# Fail closed, the way discovery does above. An emptied or mistyped table must
+# not read as "every mirror holds"; there is at least one real pair today.
+if [ "${#MIRRORS[@]}" -eq 0 ]; then
+  echo "::error::MIRRORS is empty — the cross-codelab check cannot run"
+  exit 1
+fi
 
 for pair in "${MIRRORS[@]}"; do
   src="${pair%%|*}"

@@ -1,4 +1,4 @@
-package dev.fluttergemma.gemma_quickstart
+package dev.fluttergemma.quickstart
 
 import io.flutter.embedding.android.FlutterActivity
 

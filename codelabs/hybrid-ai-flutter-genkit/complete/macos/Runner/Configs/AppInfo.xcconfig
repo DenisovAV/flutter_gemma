@@ -5,7 +5,7 @@
 // 'flutter create' template.
 
 // The application's name. By default this is also the title of the Flutter window.
-PRODUCT_NAME = workshop_flutter_gemma_hybrid_ai
+PRODUCT_NAME = Gemma Hybrid AI
 
 // The application's bundle identifier
 PRODUCT_BUNDLE_IDENTIFIER = dev.flutterberlin.workshopFlutterGemmaHybridAi

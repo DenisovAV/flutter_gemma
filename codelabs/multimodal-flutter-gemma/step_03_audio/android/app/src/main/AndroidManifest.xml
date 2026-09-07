@@ -6,7 +6,7 @@
          before the dialog can appear. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <application
-        android:label="gemma_quickstart"
+        android:label="Gemma Multimodal"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

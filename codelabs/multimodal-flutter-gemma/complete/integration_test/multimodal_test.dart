@@ -153,5 +153,10 @@ void main() {
     final wav = wavFromPcm16(Uint8List(3200), sampleRate: 16000, channels: 1);
     expect(wav.length, 3244);
     expect(String.fromCharCodes(wav.sublist(0, 4)), 'RIFF');
+
+    // A stream cut mid-sample must not produce a header that promises a byte
+    // the data does not have: the half sample is dropped, not counted.
+    final odd = wavFromPcm16(Uint8List(3201), sampleRate: 16000, channels: 1);
+    expect(odd.length, 3244);
   });
 }

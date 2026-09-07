@@ -18,6 +18,14 @@ Uint8List wavFromPcm16(
   final blockAlign = channels * bitsPerSample ~/ 8;
   final byteRate = sampleRate * blockAlign;
 
+  // A 16-bit sample is two bytes, and a RIFF data chunk is word-aligned, so a
+  // trailing half sample is not representable. The recorder should never hand
+  // one over, but a stream cut mid-sample would, and a header that claims a
+  // length the data does not have is worse than a clip one sample shorter.
+  if (pcm.length % blockAlign != 0) {
+    pcm = Uint8List.sublistView(pcm, 0, pcm.length - pcm.length % blockAlign);
+  }
+
   final header = ByteData(44);
   void ascii(int offset, String tag) {
     for (var i = 0; i < tag.length; i++) {

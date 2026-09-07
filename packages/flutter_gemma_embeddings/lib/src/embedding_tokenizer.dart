@@ -1,45 +1,80 @@
 // Runtime-agnostic tokenization half of the embedding pipeline (embedder
 // decoupling plan Task 3, Invariant I1).
 //
-// Verbatim port of what used to live in
-// `flutter_gemma_embeddings/lib/src/litert/litert_embedding_core.dart`
-// (lines 41-44 + 95-106 pre-refactor): the Gemma BOS/EOS convention and the
-// `.json`-vs-`.model` tokenizer-loader branch. This half is engine-agnostic
-// (pure Dart, `dart_sentencepiece_tokenizer` only) so it now lives here
-// instead of inside the LiteRT-specific forward pass — the pad/truncate-to-
-// seqLen half stays with the LiteRT forward pass in `flutter_gemma_litertlm`
-// because only that engine's compiled model knows its fixed `seqLen`.
+// The Gemma BOS/EOS convention and the `.json`-vs-`.model` loader branch live
+// here rather than inside a forward pass because they are engine-agnostic (pure
+// Dart, `dart_sentencepiece_tokenizer` only). The pad/truncate-to-`seqLen` half
+// deliberately does NOT: it stays with the LiteRT forward pass in
+// `flutter_gemma_litertlm`, because only that engine's compiled model knows its
+// fixed `seqLen`.
 //
-// ⚠️ I1 risk: `dart_sentencepiece_tokenizer` defaults to the SWAPPED
-// BOS/EOS pair (bosId=1, eosId=2) — we add the correct Gemma pair manually.
-// Getting `_bosId`/`_eosId` or the `prefix + text` concatenation order wrong
-// silently changes every embedding vector without any exception.
+// ⚠️ I1 risk: getting `bosId`/`eosId` or the `prefix + text` concatenation
+// order wrong silently changes every embedding vector without any exception.
 
 import 'package:dart_sentencepiece_tokenizer/dart_sentencepiece_tokenizer.dart';
 
 import 'tokenizer_adapter.dart';
+import 'tokenizer_contract.dart';
 
-/// Gemma special-token IDs. `dart_sentencepiece_tokenizer` defaults to the
-/// swapped pair (bosId=1, eosId=2), so we add them manually.
+/// Gemma special-token IDs, added by this package rather than by the loader:
+/// `loadEmbeddingTokenizer` passes an explicit `SentencePieceConfig` with
+/// `addBosToken`/`addEosToken` false, and every loader version takes the
+/// caller's config over the file's `post_processor`. So these are the only
+/// terminators `encodeForEmbedding` produces, whatever the file declares.
 const int bosId = 2;
 const int eosId = 1;
 
 /// Loads the SentencePiece tokenizer at [tokenizerPath] — a `.json` (via
-/// `TokenizerJsonLoader`) or a raw SentencePiece `.model` file, matching
-/// exactly the branch `litert_embedding_core.dart` used pre-refactor.
+/// `TokenizerJsonLoader`) or a raw SentencePiece `.model` file.
+///
+/// The returned tokenizer has any `padding` and `truncation` the file declares
+/// DISABLED: `encode()` hands back bare content, never a fixed-width row. Width
+/// and terminators are the caller's — [encodeForEmbedding],
+/// [encodeForSiglipEmbedding], and the forward pass that owns `seqLen`. (A raw
+/// `.model` carries no such blocks, so there the guarantee is free.)
+///
+/// Throws [StateError] if the resolved `dart_sentencepiece_tokenizer` accepts
+/// the calls that disable those settings and leaves them set anyway. That is a
+/// check on the tokenizer's config, not a guarantee about `encode()`'s output.
 Future<SentencePieceTokenizer> loadEmbeddingTokenizer(
   String tokenizerPath,
 ) async {
-  if (tokenizerPath.endsWith('.json')) {
-    return TokenizerJsonLoader.fromJsonFile(
-      tokenizerPath,
-      config: const SentencePieceConfig(),
-    );
-  }
-  return SentencePieceTokenizer.fromModelFile(
-    tokenizerPath,
-    config: const SentencePieceConfig(),
-  );
+  // Why the disable lives here and not in each profile.
+  //
+  // On 1.4.1 a SigLIP 2 `tokenizer.json` (which declares `{Fixed: 64, Right}`)
+  // comes back already padded: the loader applies the file's own blocks
+  // regardless of the config passed here. Both `encodeForEmbedding` and
+  // `encodeForSiglipEmbedding` append their own EOS after whatever they are
+  // handed, which puts it past the pad run — every id in range, nothing thrown,
+  // and a different vector, since SigLIP pools the LAST position.
+  //
+  // Undoing that afterwards was possible but was a heuristic over a pipeline
+  // nobody checks: it assumed right-padding with id 0, and a file declaring
+  // `"direction": "Left"` or another `pad_id` would have slipped through
+  // silently. Turning the feature off is the same result without the assumption,
+  // and it keeps this package owning its own width rule.
+  //
+  // `_applyTokenizerSettings` is HF-JSON-only, so on the `.model` arm the two
+  // calls are a no-op today. They stay because the contract above is one
+  // sentence for both arms, and it should not quietly depend on which ran.
+  final tokenizer = tokenizerPath.endsWith('.json')
+      ? await TokenizerJsonLoader.fromJsonFile(
+          tokenizerPath,
+          config: const SentencePieceConfig(),
+        )
+      : await SentencePieceTokenizer.fromModelFile(
+          tokenizerPath,
+          config: const SentencePieceConfig(),
+        );
+  tokenizer
+    ..noPadding()
+    ..noTruncation();
+
+  // The cascade above is the mechanism; `requireBareContent` is the
+  // enforcement, and it is separate because `^1.4.1` is open-topped. See its
+  // doc for exactly which failure shapes it does and does not cover — the ones
+  // it cannot see are `siglip_loader_contract_test.dart`'s job.
+  return requireBareContent(tokenizer, tokenizerPath);
 }
 
 /// Tokenizes ([prefix] + [text]) with Gemma BOS/EOS:
@@ -144,6 +179,10 @@ List<int> encodeForSiglipEmbedding(
   // the reference Android app runs) keeps `<eos>` at index 63 on a long input.
   // Appending first silently dropped it and cost cosine 0.9683 on inputs over
   // the width.
+  // `loadEmbeddingTokenizer` turns the tokenizer's own padding and truncation
+  // off, so this is bare content and the width rule below is the only one that
+  // applies. Without that the file's `{Fixed: 64}` block comes back applied and
+  // the EOS appended here would land past the pad run.
   final content = tokenizer.encode(text.toLowerCase()).ids;
   final ids = <int>[...content.take(siglipSeqLen - 1), siglipEosId];
   return [...ids, ...List<int>.filled(siglipSeqLen - ids.length, siglipPadId)];
@@ -210,12 +249,12 @@ class _SiglipSentencePieceEmbeddingTokenizer implements EmbeddingTokenizer {
     // `attention_mask` input, the forward pass otherwise fabricates an all-ones
     // one over the pad tail, and a graph that falls through to
     // `last_hidden_state` would mean-pool 63 pads into the vector.
-    // Counted from the END rather than by locating the EOS. Equivalent today —
-    // 1.3.3 does not match added tokens inside content, so `encode('a<eos>a')`
-    // yields `<unk>`s, never a mid-content id 1 — but `indexOf(siglipEosId)`
-    // would rely on that staying true of the dependency. The tail does not:
-    // everything past the EOS is padding by construction, and the EOS itself is
-    // never [siglipPadId].
+    // Counted from the END rather than by locating the EOS, and on 1.4.x that is
+    // no longer merely tidier: the loader matches `added_tokens` inside content,
+    // so text containing a literal `<eos>` really can carry id 1 mid-sequence
+    // and `indexOf(siglipEosId)` would stop there. The tail cannot lie —
+    // everything past the EOS is padding this function just wrote, and the EOS
+    // itself is never [siglipPadId].
     var realTokens = siglipSeqLen;
     while (realTokens > 0 && ids[realTokens - 1] == siglipPadId) {
       realTokens--;

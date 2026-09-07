@@ -1,3 +1,6 @@
+## 2.1.1
+- Lift the `dart_sentencepiece_tokenizer` cap — 1.4.1 is now required, not excluded.
+
 ## 2.1.0
 - Add a SigLIP2 text-embedding profile (no BOS, single trailing EOS, lowercased, fixed 64-token width).
 - No longer pulls `dart:io` into the web graph; `fromPath` throws `UnsupportedError` there.

@@ -384,3 +384,56 @@ model-dependent — e.g. all-MiniLM-L6-v2 is 384-dim.) See
 
 - **Gecko 64**: ~109 ms/doc embedding, 130 ms search (fastest — 2.6× faster than EmbeddingGemma).
 - **EmbeddingGemma 256**: ~286 ms/doc embedding, 342 ms search (more accurate — 300M vs 110M params).
+
+### SigLIP 2 text tower (ONNX, manual wiring)
+
+`flutter_gemma_embeddings` ships a **SigLIP 2** text profile, for putting text
+into the same space as SigLIP's vision tower — image↔text retrieval rather than
+document RAG. It is the only embedding profile here that is **not** installed
+through `installEmbedder()`.
+
+**Text in, vectors out — the plugin does not run the vision tower.** You embed
+the image side elsewhere (or offline) and query it with vectors this profile
+produces.
+
+Its convention differs from every model above: no leading BOS, a single trailing
+`<eos>`, lowercased text, and a fixed 64-token width that lives in the token ids
+because the int8 export carries no `attention_mask`. It also ignores the
+`TaskType` prefix — the vision tower encodes an image with no prefix, so adding
+one moves the text vector off the space the two towers share.
+
+SigLIP 2 reuses the Gemma BPE vocabulary, so a `tokenizer.json` cannot be told
+apart by its vocabulary alone, and the [ONNX tokenizer loader](/docs/onnx)
+**refuses** such a file rather than reading it with Gemma's convention and
+returning a plausible but wrong vector.
+
+To tell whether an export is the one this profile expects, look at two blocks of
+its `tokenizer.json` — the same two the refusal keys on:
+
+- `"padding"` declares a fixed width — `"strategy": {"Fixed": …}`, not `"BatchLongest"`
+- `"post_processor"` appends `<eos>` and prepends **no** `<bos>`
+
+The refusal needs **both**, so there are three outcomes rather than two. A file
+matching both is SigLIP 2's convention. One that prepends `<bos>` is an
+EmbeddingGemma-family file and belongs on the profiles above. A file failing
+**either** check — no `padding` block, `"BatchLongest"`, or a `post_processor`
+that is missing, empty, or does not end in a special token — is not classified
+at all: it is read with Gemma's convention and nothing is raised.
+
+So do not read the absence of an error as approval. A SigLIP 2 export that
+declares both blocks is caught, but one that dropped either — a re-export, or a
+tool that strips them — reaches the Gemma path and produces exactly the silently
+wrong vector this section warns about.
+
+Wire it yourself:
+
+```dart
+import 'package:flutter_gemma_embeddings/embedding_tokenizer.dart'
+    show loadSiglipSentencePieceEmbeddingTokenizer;
+```
+
+and pass that as the tokenizer factory of the `ForwardPassDescriptor` you give
+to `CommonEmbeddingModel.create`. That library is native-only. See the
+[`flutter_gemma_embeddings` README](https://pub.dev/packages/flutter_gemma_embeddings)
+for the full profile, and [ONNX Runtime](/docs/onnx) for why the factory
+declines to guess.

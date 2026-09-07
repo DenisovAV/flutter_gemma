@@ -1,6 +1,6 @@
 name: flutter_gemma_embeddings
-description: "Runtime-agnostic on-device text embedding pipeline (tokenization, isolate worker, pooling/normalization) for flutter_gemma. Pair with an engine package (e.g. flutter_gemma_litertlm) for a concrete EmbeddingBackendProvider."
-version: 2.1.0
+description: "Runtime-agnostic on-device text embedding pipeline for flutter_gemma: tokenization, isolate worker, pooling and normalization. Pair with an engine package for a backend."
+version: 2.1.1
 homepage: https://fluttergemma.dev
 repository: https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_gemma_embeddings
 topics: [embeddings, gemma, litert, rag, on-device]
@@ -26,13 +26,28 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_gemma: ^1.5.9
-  # Upper bound is deliberate, not laziness. 1.3.3 carries the list-form
-  # `merges` parser SigLIP2's tokenizer.json needs (upstream #26). 1.4.0 then
-  # ADDED `pre_tokenizer` validation without a `Split` case and now rejects that
-  # same file — a compatibility regression, reported upstream. `^1.3.3` would
-  # resolve to it and break the SigLIP2 profile on any fresh `pub get`. Relax to
-  # `^1.3.3` once a release accepts `Split` again.
-  dart_sentencepiece_tokenizer: ">=1.3.3 <1.4.0"
+  # Floor is 1.4.1, not 1.3.3, and that is deliberate. 1.4.0 added
+  # `pre_tokenizer` validation with no `Split` case and rejected the
+  # Gemma-family tokenizer.json this package loads (upstream #35); 1.4.1 accepts
+  # it again, guarded on the normalizer proving no literal space survives.
+  #
+  # 1.4.x also began applying the file's own `padding` and `truncation` blocks,
+  # which 1.3.3 ignored — so `encode()` no longer returns bare content by
+  # default. `loadEmbeddingTokenizer` calls `noPadding()`/`noTruncation()` to
+  # pin that contract, and `siglip_loader_contract_test.dart` fails if a future
+  # release changes it again. Do NOT lower this floor — but note that nothing
+  # enforces it: `noPadding()`/`noTruncation()` exist in 1.3.3 too, so a lowered
+  # floor would compile and probably run green.
+  #
+  # The binding reason is the CARET, not 1.3.3 itself: `^1.3.3` admits 1.4.0,
+  # which rejects the `Split` block outright. 1.4.1 is the first version that
+  # both accepts the file and is inside a caret range.
+  #
+  # 1.3.x also ZigZag-decoded a `.model`'s signed varints, reading unk/bos/eos as
+  # -2/1/-1 instead of 3/2/1 (`pad` = 0 survives, being its own ZigZag). Not the
+  # reason for the floor and not a safe thing to reason about casually — leave it
+  # as one more thing 1.3.x gets wrong.
+  dart_sentencepiece_tokenizer: "^1.4.1"
 
 dev_dependencies:
   flutter_test:

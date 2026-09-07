@@ -6,6 +6,9 @@ import 'chat_page.dart';
 import 'download_page.dart';
 import 'model.dart';
 
+/// The one model this codelab runs, from here to the end.
+const _model = Models.gemma4;
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -19,38 +22,20 @@ Future<void> main() async {
   runApp(const MultimodalApp());
 }
 
-class MultimodalApp extends StatefulWidget {
+class MultimodalApp extends StatelessWidget {
   const MultimodalApp({super.key});
-
-  @override
-  State<MultimodalApp> createState() => _MultimodalAppState();
-}
-
-class _MultimodalAppState extends State<MultimodalApp> {
-  /// Which model the app is running. The default is the small one: 0.36 GB
-  /// downloads on a phone network, and a user who wants audio can pay the
-  /// 2.59 GB deliberately rather than discover it on first launch.
-  ModelChoice _choice = Models.smolVlm2;
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Gemma Multimodal',
       theme: ThemeData(colorSchemeSeed: Colors.indigo),
-      // A new key per model restarts the gate from scratch on a switch —
-      // otherwise the gate would keep the previous model's "installed" answer
-      // and hand the chat page a model that is not on the device.
-      home: ModelGate(
-        key: ValueKey(_choice.fileName),
-        model: _choice,
-        onSwitch: (next) => setState(() => _choice = next),
-      ),
+      home: const ModelGate(model: _model),
     );
   }
 }
 
-/// Asks, on every cold start — and on every switch — whether the model is
-/// already installed.
+/// Asks, on every cold start, whether the model is already installed.
 ///
 /// `install()` is idempotent, so the bytes are only ever fetched once. What a
 /// drifted id costs you is this gate: it answers "no" forever, so the app
@@ -58,12 +43,9 @@ class _MultimodalAppState extends State<MultimodalApp> {
 /// instantly, and you land straight back here. Delete the model with the chat's
 /// delete button and relaunch to watch this branch flip back.
 class ModelGate extends StatefulWidget {
-  const ModelGate({super.key, required this.model, required this.onSwitch});
+  const ModelGate({super.key, required this.model});
 
   final ModelChoice model;
-
-  /// Asks the app to run a different model.
-  final ValueChanged<ModelChoice> onSwitch;
 
   @override
   State<ModelGate> createState() => _ModelGateState();
@@ -95,17 +77,12 @@ class _ModelGateState extends State<ModelGate> {
         if (snapshot.data ?? false) {
           return ChatPage(
             model: widget.model,
-            onSwitch: widget.onSwitch,
             onModelRemoved: () => setState(() => _installed = _check()),
           );
         }
         return DownloadPage(
           model: widget.model,
           onInstalled: () => setState(() => _installed = _check()),
-          // The setup screen can switch too: a user who lands on "2.59 GB"
-          // and changes their mind should not have to finish the download to
-          // get back to a choice.
-          onSwitch: widget.onSwitch,
         );
       },
     );

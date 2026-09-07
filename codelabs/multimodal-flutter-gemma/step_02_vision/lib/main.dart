@@ -6,8 +6,8 @@ import 'chat_page.dart';
 import 'download_page.dart';
 import 'model.dart';
 
-/// Change this one line to run the whole app on a different model.
-const _model = Models.smolVlm2;
+/// The one model this codelab runs, from here to the end.
+const _model = Models.gemma4;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();

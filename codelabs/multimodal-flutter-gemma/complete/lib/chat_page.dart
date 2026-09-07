@@ -17,9 +17,8 @@ import 'wav.dart';
 const _sampleRate = 16000;
 const _channels = 1;
 
-/// A clip long enough to ask a question and short enough not to eat the
-/// context window. Audio is not free: the encoder turns every second into
-/// tokens, and they come out of the same budget as the reply.
+/// Long enough to ask a question out loud, short enough that a forgotten
+/// recorder does not fill memory with samples.
 const _maxClip = Duration(seconds: 15);
 
 /// A chat that can carry a picture or a recording along with the question.
@@ -31,15 +30,10 @@ class ChatPage extends StatefulWidget {
   const ChatPage({
     super.key,
     required this.model,
-    required this.onSwitch,
     required this.onModelRemoved,
   });
 
   final ModelChoice model;
-
-  /// Asks the app to run a different model — and therefore to answer the
-  /// model half of every capability question differently.
-  final ValueChanged<ModelChoice> onSwitch;
 
   /// Lets the gate send the app back to the download screen.
   final VoidCallback onModelRemoved;
@@ -77,8 +71,8 @@ class _ChatPageState extends State<ChatPage> {
   Timer? _clipTimer;
   bool _recording = false;
 
-  /// Asked once, of both sides, and then used everywhere: to open the right
-  /// kind of session, to enable each button, and to say why not.
+  /// Asked once, of both sides, and then used everywhere: to open the session
+  /// with the right flags, to enable each button, and to say why not.
   late final Capability _imageCapability = imageCapability(widget.model);
   late final Capability _audioCapability = audioCapability(widget.model);
 
@@ -91,11 +85,8 @@ class _ChatPageState extends State<ChatPage> {
   Future<void> _load() async {
     try {
       // maxTokens is the CONTEXT WINDOW — prompt + history + reply share it.
-      // Both modalities spend it: the vision encoder turns one picture into
-      // hundreds of tokens and the audio encoder turns every second of sound
-      // into more. This is why a multimodal chat asks for a bigger window
-      // than a text one, not because the replies got longer.
-      final inference = await FlutterGemma.getActiveModel(maxTokens: 4096);
+      // It is NOT a reply-length cap; for that, pass maxOutputTokens below.
+      final inference = await FlutterGemma.getActiveModel(maxTokens: 1024);
       // Hold the runtime before opening a chat on it: `createChat` can throw,
       // and a model this page never stored is a model `dispose` can never
       // close. A page that is already gone holds nothing, so it closes it here.
@@ -107,11 +98,11 @@ class _ChatPageState extends State<ChatPage> {
 
       final chat = await inference.createChat(
         modelType: widget.model.modelType,
-        // BOTH halves of each question, in one expression. These map to
-        // `enableVisionModality` and `enableAudioModality` on the native
-        // session: asking for a modality the weights do not have fails at
-        // session creation, and asking for one the platform cannot carry
-        // opens a session nothing will ever feed.
+        // Still two session flags on one model — but no longer hard-coded
+        // `true`. Each is the AND of both answers: what the weights accept
+        // and what this platform will carry to them. Asking for a modality
+        // the platform cannot deliver opens a session nothing will ever
+        // feed, and on the web that failure is silent.
         supportImage: _imageCapability.available,
         supportAudio: _audioCapability.available,
         maxOutputTokens: 256,
@@ -164,18 +155,20 @@ class _ChatPageState extends State<ChatPage> {
 
   /// Starts capture, collecting raw samples in memory.
   ///
-  /// This is the third question, and it is not the model's or the platform's:
-  /// it is the device's. `hasPermission()` is the only honest way to ask it —
-  /// on an iOS Simulator with no input device, or after the user has said no
-  /// once, the answer is false however capable the model and the OS are.
+  /// `hasPermission()` is the device's own answer, and it is not the model's
+  /// or the platform's: on a simulator with no input device, or after the
+  /// user has declined once, it is false however capable the rest is.
   Future<void> _startRecording() async {
     try {
       if (!await _recorder.hasPermission()) {
+        // A third answer, and it belongs to neither of the two above: unlike
+        // them it can change while the app is running, so it is asked here
+        // rather than baked into a `Capability`.
         if (mounted) {
           setState(
             () => _notice =
                 'No microphone. Grant the permission, or run on a device that '
-                'has one — this is the device saying no, not the model.',
+                'has one.',
           );
         }
         return;
@@ -331,19 +324,27 @@ class _ChatPageState extends State<ChatPage> {
     return Message.text(text: text, isUser: true);
   }
 
-  Future<void> _onAction(_Action action) async {
+  /// Frees the disk. Close the runtime first — the file is mapped while a
+  /// model is open, and deleting it underneath the engine is a crash waiting
+  /// to happen.
+  Future<void> _removeModel() async {
     try {
-      switch (action) {
-        case _Switch(:final model):
-          await _switchTo(model);
-        case _Remove():
-          await _removeModel();
+      await _inference?.close();
+      // Inside `setState`: dropping the chat has to repaint, or the screen
+      // keeps showing an enabled composer over a runtime that is gone.
+      if (mounted) {
+        setState(() {
+          _inference = null;
+          _chat = null;
+        });
       }
+      await FlutterGemma.uninstallModel(widget.model.fileName);
+      if (mounted) widget.onModelRemoved();
     } catch (error) {
-      // Closing a runtime and deleting a file can both fail. Surface it the
-      // way a failed load is surfaced, and drop the chat with it: a `close()`
-      // that threw leaves `_chat` non-null, and "The model did not load." over
-      // an enabled composer is a lie.
+      // Deleting can fail too — a missing install record, a file the OS still
+      // holds. Show it the way a failed load is shown, and drop the chat with
+      // it: a `close()` that threw leaves `_chat` non-null, and "The model did
+      // not load." over a working composer is a lie.
       if (mounted) {
         setState(() {
           _chat = null;
@@ -351,37 +352,6 @@ class _ChatPageState extends State<ChatPage> {
         });
       }
     }
-  }
-
-  /// Release this model's runtime before the app activates another one. Each
-  /// holds native memory, and a 2.59 GB model held open while a second one
-  /// loads is how a phone runs out of it.
-  Future<void> _switchTo(ModelChoice next) async {
-    await _inference?.close();
-    // Inside `setState`: dropping the chat has to repaint, or the screen keeps
-    // showing an enabled composer over a runtime that is gone.
-    if (mounted) {
-      setState(() {
-        _inference = null;
-        _chat = null;
-      });
-      widget.onSwitch(next);
-    }
-  }
-
-  /// Frees the disk. Close the runtime first — the file is mapped while a
-  /// model is open, and deleting it underneath the engine is a crash waiting
-  /// to happen.
-  Future<void> _removeModel() async {
-    await _inference?.close();
-    if (mounted) {
-      setState(() {
-        _inference = null;
-        _chat = null;
-      });
-    }
-    await FlutterGemma.uninstallModel(widget.model.fileName);
-    if (mounted) widget.onModelRemoved();
   }
 
   void _showCapabilities() {
@@ -419,7 +389,7 @@ class _ChatPageState extends State<ChatPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.model.label),
-        // What this run can and cannot do, on one line, always visible.
+        // What this run can do, on one line, always visible.
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(20),
           child: Padding(
@@ -437,25 +407,13 @@ class _ChatPageState extends State<ChatPage> {
             onPressed: _showCapabilities,
             icon: const Icon(Icons.info_outline),
           ),
-          PopupMenuButton<_Action>(
-            // Not while the model is still opening: switching or deleting
+          IconButton(
+            tooltip: 'Delete the downloaded model',
+            // Not while the model is still opening: deleting the file
             // underneath an in-flight `getActiveModel()` is the crash the
             // comment on `_removeModel` warns about.
-            enabled: !_busy && !_recording && (ready || error != null),
-            onSelected: _onAction,
-            itemBuilder: (context) => [
-              for (final m in Models.all)
-                if (m.fileName != widget.model.fileName)
-                  PopupMenuItem(
-                    value: _Switch(m),
-                    child: Text('Use ${m.label} (${m.sizeLabel})'),
-                  ),
-              const PopupMenuDivider(),
-              const PopupMenuItem(
-                value: _Remove(),
-                child: Text('Forget this model'),
-              ),
-            ],
+            onPressed: _busy || (!ready && error == null) ? null : _removeModel,
+            icon: const Icon(Icons.delete_outline),
           ),
         ],
       ),
@@ -486,13 +444,17 @@ class _ChatPageState extends State<ChatPage> {
               label: 'Image attached to the next message',
               onClear: () => setState(() => _image = null),
             ),
-          if (_audio case final audio?)
+          if (_audio != null)
             _Attachment(
               preview: const Icon(Icons.graphic_eq, size: 40),
-              label:
-                  'Recording attached — ${(audio.lengthInBytes - 44) ~/ (_sampleRate * 2)}s',
+              label: 'Recording attached to the next message',
               onClear: () => setState(() => _audio = null),
             ),
+          // Say it, do not just grey it out. A disabled button teaches the
+          // user that the app is broken; a sentence naming the side that
+          // refused teaches them whether to change the model or the device.
+          _BlockedLine(what: 'Image input', capability: _imageCapability),
+          _BlockedLine(what: 'Audio input', capability: _audioCapability),
           if (_notice case final notice?)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -503,11 +465,6 @@ class _ChatPageState extends State<ChatPage> {
                 ),
               ),
             ),
-          // Say it, do not just grey it out. A disabled button teaches the
-          // user that the app is broken; a sentence naming the side that
-          // refused teaches them whether to change the model or the device.
-          _BlockedLine(what: 'Image input', capability: _imageCapability),
-          _BlockedLine(what: 'Audio input', capability: _audioCapability),
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
@@ -526,7 +483,9 @@ class _ChatPageState extends State<ChatPage> {
                     icon: const Icon(Icons.image_outlined),
                   ),
                   IconButton(
-                    tooltip: _audioCapability.blockedBecause ?? 'Record a clip',
+                    tooltip:
+                        _audioCapability.blockedBecause ??
+                        (_recording ? 'Stop' : 'Record a clip'),
                     onPressed: _audioCapability.available && ready && !_busy
                         ? (_recording ? _stopRecording : _startRecording)
                         : null,
@@ -567,9 +526,9 @@ class _ChatPageState extends State<ChatPage> {
 
 /// The two questions, asked out loud, for both modalities at once.
 ///
-/// This is the screen the codelab exists for: it never says "not supported".
-/// It says which of the two independent answers was no, so the user knows
-/// whether to change the model or to change the device.
+/// This is the screen the codelab exists for. It never says "not supported".
+/// It shows both answers separately, so the user can tell a model that cannot
+/// from a place that will not.
 class _CapabilitySheet extends StatelessWidget {
   const _CapabilitySheet({
     required this.model,
@@ -768,17 +727,4 @@ class _Bubble extends StatelessWidget {
       ),
     );
   }
-}
-
-sealed class _Action {
-  const _Action();
-}
-
-final class _Switch extends _Action {
-  const _Switch(this.model);
-  final ModelChoice model;
-}
-
-final class _Remove extends _Action {
-  const _Remove();
 }

@@ -13,21 +13,12 @@ class DownloadPage extends StatefulWidget {
     super.key,
     required this.model,
     required this.onInstalled,
-    required this.onSwitch,
   });
 
   final ModelChoice model;
 
   /// Called once the model is installed, so the app can move on.
   final VoidCallback onInstalled;
-
-  /// Asks the app for a different model, exactly as the chat's menu does.
-  ///
-  /// Until a model is on the device this screen IS the app, so the choice
-  /// between 0.36 GB and 2.59 GB has to be reachable from here. A learner who
-  /// only wants to look at pictures should never have to download an audio
-  /// encoder to find that out.
-  final ValueChanged<ModelChoice> onSwitch;
 
   @override
   State<DownloadPage> createState() => _DownloadPageState();
@@ -99,21 +90,6 @@ class _DownloadPageState extends State<DownloadPage> {
                   const SizedBox(height: 16),
                   _ErrorCard(error: _error!),
                 ],
-                // What each model can do, and what it costs, side by side —
-                // stated before the download rather than after it.
-                for (final other in Models.all)
-                  if (other.fileName != widget.model.fileName) ...[
-                    const SizedBox(height: 16),
-                    OutlinedButton(
-                      onPressed: _downloading
-                          ? null
-                          : () => widget.onSwitch(other),
-                      child: Text(
-                        'Use ${other.label} instead '
-                        '(${other.sizeLabel}, ${_modalities(other)})',
-                      ),
-                    ),
-                  ],
               ],
             ),
           ),
@@ -122,15 +98,6 @@ class _DownloadPageState extends State<DownloadPage> {
     );
   }
 }
-
-/// The modalities a model's WEIGHTS carry, as a phrase for a button.
-String _modalities(ModelChoice model) =>
-    switch ((model.supportsImage, model.supportsAudio)) {
-      (true, true) => 'images and audio',
-      (true, false) => 'images only',
-      (false, true) => 'audio only',
-      (false, false) => 'text only',
-    };
 
 /// Says what failed, in the plugin's own words where it has any.
 class _ErrorCard extends StatelessWidget {

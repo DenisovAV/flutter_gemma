@@ -2,7 +2,6 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gemma_quickstart/capabilities.dart';
 import 'package:gemma_quickstart/download_page.dart';
 import 'package:gemma_quickstart/model.dart';
 import 'package:gemma_quickstart/wav.dart';
@@ -10,60 +9,11 @@ import 'package:gemma_quickstart/wav.dart';
 void main() {
   // `isModelInstalled` is keyed by file name. `install()` skips bytes it
   // already has, so a name that drifts from its URL does not re-download — it
-  // strands the app on a download screen the gate is never satisfied by.
-  test('every model id matches the last segment of its URL', () {
-    for (final model in [Models.smolVlm2, Models.gemma4]) {
-      expect(model.fileName, model.url.split('/').last, reason: model.label);
-    }
-  });
-
-  // The two flags are what the app ANDs against the platform, so a typo here
-  // would silently disable a modality the model has, or enable one it has not.
-  test('the two models differ in exactly one modality', () {
-    expect(Models.smolVlm2.supportsImage, isTrue);
-    expect(Models.smolVlm2.supportsAudio, isFalse);
-    expect(Models.gemma4.supportsImage, isTrue);
-    expect(Models.gemma4.supportsAudio, isTrue);
-  });
-
-  // The whole point of the type: two independent answers, and a message that
-  // names the one that said no. A single bool could not tell these apart.
-  group('Capability reports which side refused', () {
-    const modelReason = 'the model has no audio encoder';
-    const platformReason = 'the platform cannot carry audio';
-
-    Capability of({required bool byModel, required bool byPlatform}) =>
-        Capability(
-          byModel: byModel,
-          byPlatform: byPlatform,
-          modelReason: modelReason,
-          platformReason: platformReason,
-        );
-
-    test('both yes: available, nothing to explain', () {
-      final c = of(byModel: true, byPlatform: true);
-      expect(c.available, isTrue);
-      expect(c.blockedBecause, isNull);
-    });
-
-    test('the model said no', () {
-      final c = of(byModel: false, byPlatform: true);
-      expect(c.available, isFalse);
-      expect(c.blockedBecause, modelReason);
-    });
-
-    test('the platform said no', () {
-      final c = of(byModel: true, byPlatform: false);
-      expect(c.available, isFalse);
-      expect(c.blockedBecause, platformReason);
-    });
-
-    test('both said no — fixing either one alone changes nothing', () {
-      final c = of(byModel: false, byPlatform: false);
-      expect(c.available, isFalse);
-      expect(c.blockedBecause, contains(modelReason));
-      expect(c.blockedBecause, contains(platformReason));
-    });
+  // strands the app on a download screen the gate is never satisfied by. At
+  // 2.59 GB that is not a small mistake.
+  test('the model id matches the last segment of its URL', () {
+    const model = Models.gemma4;
+    expect(model.fileName, model.url.split('/').last, reason: model.label);
   });
 
   // Forty-four bytes the model has to be able to parse. A wrong length or a

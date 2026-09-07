@@ -1,12 +1,12 @@
 // End-to-end check of a multimodal turn on a real device or desktop.
 //
-// Downloads SmolVLM2 (0.36 GB, ungated — no Hugging Face token), opens a
-// vision session, sends an image with a question, and asserts the model
-// answered. Then it asserts the other half of this codelab's idea: that the
-// app asks BOTH sides before it opens a session, and opens the session the
-// answers allow rather than the one the model name suggests.
+// Downloads Gemma 4 E2B (2.59 GB, ungated — no Hugging Face token), opens ONE
+// session with both modality flags set to whatever this platform allows, and
+// sends an image through it. The claim under test is the codelab's thesis: a
+// modality is a session flag on the same weights, and the flags the app sets
+// are the ones the platform agreed to.
 //
-// Not part of CI (needs a device and a ~0.36 GB download):
+// Not part of CI (needs a device and a 2.59 GB download):
 //   flutter test integration_test/multimodal_test.dart -d <device-id>
 import 'dart:convert';
 
@@ -27,7 +27,7 @@ final _redSquarePng = base64Decode(
 );
 
 /// Downloads the model if it is not here, and makes it the active one either
-/// way. `install()` is idempotent, so the second call costs nothing.
+/// way. `install()` is idempotent, so a second run costs nothing.
 Future<void> _install(ModelChoice model) async {
   var last = -1;
   await FlutterGemma.installModel(
@@ -44,89 +44,68 @@ Future<void> _install(ModelChoice model) async {
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('a picture reaches the model and the model answers about it', (
+  testWidgets('one model, one session, both flags the platform allows', (
     tester,
   ) async {
     await FlutterGemma.initialize(inferenceEngines: [LiteRtLmEngine()]);
 
-    const model = Models.smolVlm2;
+    const model = Models.gemma4;
     final image = imageCapability(model);
+    final audio = audioCapability(model);
     debugPrint(
       '[multimodal] image — model: ${image.byModel}, '
       'platform: ${image.byPlatform}',
     );
-    // On a platform that cannot carry images this suite has nothing to prove.
-    // Saying so beats a green run that never sent a pixel.
-    if (!image.available) {
-      debugPrint('[multimodal] SKIPPED: ${image.blockedBecause}');
-      return;
-    }
+    debugPrint(
+      '[multimodal] audio — model: ${audio.byModel}, '
+      'platform: ${audio.byPlatform}',
+    );
+
+    // The model half is yes for both on this checkpoint, everywhere. Anything
+    // else means the flags on `Models.gemma4` drifted from the weights.
+    expect(image.byModel, isTrue);
+    expect(audio.byModel, isTrue);
 
     await _install(model);
     expect(await FlutterGemma.isModelInstalled(model.fileName), isTrue);
 
-    final inference = await FlutterGemma.getActiveModel(maxTokens: 4096);
+    final inference = await FlutterGemma.getActiveModel(maxTokens: 1024);
+    // Exactly what the app opens: both flags, each ANDed with the platform.
     final chat = await inference.createChat(
       modelType: model.modelType,
       supportImage: image.available,
+      supportAudio: audio.available,
       maxOutputTokens: 64,
     );
-    await chat.addQueryChunk(
-      Message.withImages(
-        text: 'What colour is this image? Answer in one word.',
-        imageBytes: [_redSquarePng],
-        isUser: true,
-      ),
-    );
+
+    if (image.available) {
+      await chat.addQueryChunk(
+        Message.withImages(
+          text: 'What colour is this image? Answer in one word.',
+          imageBytes: [_redSquarePng],
+          isUser: true,
+        ),
+      );
+    } else {
+      // Nothing to prove about pixels here; say so, and check the same session
+      // still answers in text.
+      debugPrint('[multimodal] image SKIPPED: ${image.blockedBecause}');
+      await chat.addQueryChunk(
+        Message.text(text: 'Name one colour. One word.', isUser: true),
+      );
+    }
+
     final buffer = StringBuffer();
     await for (final chunk in chat.generateChatResponseAsync()) {
       if (chunk is TextResponse) buffer.write(chunk.token);
     }
     debugPrint('[multimodal] reply: ${buffer.toString().trim()}');
-    // Not an assertion about the colour: a 500M model is allowed to be wrong.
-    // The claim under test is that a vision session accepted image bytes and
-    // produced a reply instead of dropping them.
+    // Not an assertion about the colour — the claim under test is that the
+    // session accepted the input and produced a reply instead of dropping it.
     expect(buffer.toString().trim(), isNotEmpty);
 
     await inference.close();
-  }, timeout: const Timeout(Duration(minutes: 30)));
-
-  testWidgets('a vision-only model opens a text session and still answers', (
-    tester,
-  ) async {
-    await FlutterGemma.initialize(inferenceEngines: [LiteRtLmEngine()]);
-
-    const model = Models.smolVlm2;
-    final audio = audioCapability(model);
-    // The model half says no for this checkpoint, on every platform. That is
-    // what the app is expected to honour — it must not ask the runtime for an
-    // audio session these weights cannot build.
-    expect(audio.byModel, isFalse);
-    expect(audio.available, isFalse);
-    expect(audio.blockedBecause, contains('no audio encoder'));
-
-    await _install(model);
-    final inference = await FlutterGemma.getActiveModel(maxTokens: 4096);
-    final chat = await inference.createChat(
-      modelType: model.modelType,
-      supportImage: imageCapability(model).available,
-      // Exactly what the app passes: the AND of both answers, which is false
-      // here because of the weights, whatever the platform said.
-      supportAudio: audio.available,
-      maxOutputTokens: 64,
-    );
-    await chat.addQueryChunk(
-      Message.text(text: 'Name one colour. One word.', isUser: true),
-    );
-    final buffer = StringBuffer();
-    await for (final chunk in chat.generateChatResponseAsync()) {
-      if (chunk is TextResponse) buffer.write(chunk.token);
-    }
-    debugPrint('[multimodal] text reply: ${buffer.toString().trim()}');
-    expect(buffer.toString().trim(), isNotEmpty);
-
-    await inference.close();
-  }, timeout: const Timeout(Duration(minutes: 30)));
+  }, timeout: const Timeout(Duration(minutes: 60)));
 
   test('the WAV header the recorder produces is the one the model expects', () {
     final wav = wavFromPcm16(Uint8List(3200), sampleRate: 16000, channels: 1);

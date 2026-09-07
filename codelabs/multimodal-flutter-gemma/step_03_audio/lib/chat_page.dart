@@ -6,7 +6,6 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:record/record.dart';
 
-import 'capabilities.dart';
 import 'model.dart';
 import 'wav.dart';
 
@@ -17,9 +16,8 @@ import 'wav.dart';
 const _sampleRate = 16000;
 const _channels = 1;
 
-/// A clip long enough to ask a question and short enough not to eat the
-/// context window. Audio is not free: the encoder turns every second into
-/// tokens, and they come out of the same budget as the reply.
+/// Long enough to ask a question out loud, short enough that a forgotten
+/// recorder does not fill memory with samples.
 const _maxClip = Duration(seconds: 15);
 
 /// A chat that can carry a picture or a recording along with the question.
@@ -72,11 +70,6 @@ class _ChatPageState extends State<ChatPage> {
   Timer? _clipTimer;
   bool _recording = false;
 
-  /// Asked once, of both sides, and then used everywhere: to open the right
-  /// kind of session, to enable each button, and to say why not.
-  late final Capability _imageCapability = imageCapability(widget.model);
-  late final Capability _audioCapability = audioCapability(widget.model);
-
   @override
   void initState() {
     super.initState();
@@ -86,11 +79,8 @@ class _ChatPageState extends State<ChatPage> {
   Future<void> _load() async {
     try {
       // maxTokens is the CONTEXT WINDOW — prompt + history + reply share it.
-      // Both modalities spend it: the vision encoder turns one picture into
-      // hundreds of tokens and the audio encoder turns every second of sound
-      // into more. This is why a multimodal chat asks for a bigger window
-      // than a text one, not because the replies got longer.
-      final inference = await FlutterGemma.getActiveModel(maxTokens: 4096);
+      // It is NOT a reply-length cap; for that, pass maxOutputTokens below.
+      final inference = await FlutterGemma.getActiveModel(maxTokens: 1024);
       // Hold the runtime before opening a chat on it: `createChat` can throw,
       // and a model this page never stored is a model `dispose` can never
       // close. A page that is already gone holds nothing, so it closes it here.
@@ -102,13 +92,13 @@ class _ChatPageState extends State<ChatPage> {
 
       final chat = await inference.createChat(
         modelType: widget.model.modelType,
-        // BOTH halves of each question, in one expression. These map to
-        // `enableVisionModality` and `enableAudioModality` on the native
-        // session: asking for a modality the weights do not have fails at
-        // session creation, and asking for one the platform cannot carry
-        // opens a session nothing will ever feed.
-        supportImage: _imageCapability.available,
-        supportAudio: _audioCapability.available,
+        // Two flags, one model. They map to `enableVisionModality` and
+        // `enableAudioModality` on the native session. Nothing was downloaded
+        // for the second one: the weights that read your photograph in Step 2
+        // are the weights that hear you now — the only thing that changed is
+        // which capabilities this session was opened with.
+        supportImage: true,
+        supportAudio: true,
         maxOutputTokens: 256,
       );
       if (!mounted) return;
@@ -159,10 +149,9 @@ class _ChatPageState extends State<ChatPage> {
 
   /// Starts capture, collecting raw samples in memory.
   ///
-  /// This is the third question, and it is not the model's or the platform's:
-  /// it is the device's. `hasPermission()` is the only honest way to ask it —
-  /// on an iOS Simulator with no input device, or after the user has said no
-  /// once, the answer is false however capable the model and the OS are.
+  /// `hasPermission()` is the device's own answer, and it is not the model's
+  /// or the platform's: on a simulator with no input device, or after the
+  /// user has declined once, it is false however capable the rest is.
   Future<void> _startRecording() async {
     try {
       if (!await _recorder.hasPermission()) {
@@ -170,7 +159,7 @@ class _ChatPageState extends State<ChatPage> {
           setState(
             () => _notice =
                 'No microphone. Grant the permission, or run on a device that '
-                'has one — this is the device saying no, not the model.',
+                'has one.',
           );
         }
         return;
@@ -418,11 +407,10 @@ class _ChatPageState extends State<ChatPage> {
               label: 'Image attached to the next message',
               onClear: () => setState(() => _image = null),
             ),
-          if (_audio case final audio?)
+          if (_audio != null)
             _Attachment(
               preview: const Icon(Icons.graphic_eq, size: 40),
-              label:
-                  'Recording attached — ${(audio.lengthInBytes - 44) ~/ (_sampleRate * 2)}s',
+              label: 'Recording attached to the next message',
               onClear: () => setState(() => _audio = null),
             ),
           if (_notice case final notice?)
@@ -435,31 +423,21 @@ class _ChatPageState extends State<ChatPage> {
                 ),
               ),
             ),
-          // Say it, do not just grey it out. A disabled button teaches the
-          // user that the app is broken; a sentence naming the side that
-          // refused teaches them whether to change the model or the device.
-          _BlockedLine(what: 'Image input', capability: _imageCapability),
-          _BlockedLine(what: 'Audio input', capability: _audioCapability),
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
               child: Row(
                 children: [
                   IconButton(
-                    tooltip:
-                        _imageCapability.blockedBecause ?? 'Attach an image',
-                    onPressed:
-                        _imageCapability.available &&
-                            ready &&
-                            !_busy &&
-                            !_recording
+                    tooltip: 'Attach an image',
+                    onPressed: ready && !_busy && !_recording
                         ? _pickImage
                         : null,
                     icon: const Icon(Icons.image_outlined),
                   ),
                   IconButton(
-                    tooltip: _audioCapability.blockedBecause ?? 'Record a clip',
-                    onPressed: _audioCapability.available && ready && !_busy
+                    tooltip: _recording ? 'Stop' : 'Record a clip',
+                    onPressed: ready && !_busy
                         ? (_recording ? _stopRecording : _startRecording)
                         : null,
                     color: _recording ? theme.colorScheme.error : null,
@@ -492,28 +470,6 @@ class _ChatPageState extends State<ChatPage> {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// One line naming a modality this app cannot use here, and which side of the
-/// question refused it. Renders nothing when the modality works.
-class _BlockedLine extends StatelessWidget {
-  const _BlockedLine({required this.what, required this.capability});
-
-  final String what;
-  final Capability capability;
-
-  @override
-  Widget build(BuildContext context) {
-    final why = capability.blockedBecause;
-    if (why == null) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
-      child: Text(
-        '$what is off — $why.',
-        style: Theme.of(context).textTheme.labelSmall,
       ),
     );
   }

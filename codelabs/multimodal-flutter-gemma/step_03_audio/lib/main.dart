@@ -6,10 +6,7 @@ import 'chat_page.dart';
 import 'download_page.dart';
 import 'model.dart';
 
-/// Change this one line to run the whole app on a different model.
-///
-/// Audio needs a model with an audio encoder, and SmolVLM2 has none — so this
-/// step runs Gemma 4, and pays 2.59 GB for the privilege.
+/// The one model this codelab runs, from here to the end.
 const _model = Models.gemma4;
 
 Future<void> main() async {

@@ -10,18 +10,17 @@ import 'package:gemma_quickstart/wav.dart';
 void main() {
   // `isModelInstalled` is keyed by file name. `install()` skips bytes it
   // already has, so a name that drifts from its URL does not re-download — it
-  // strands the app on a download screen the gate is never satisfied by.
-  test('every model id matches the last segment of its URL', () {
-    for (final model in Models.all) {
-      expect(model.fileName, model.url.split('/').last, reason: model.label);
-    }
+  // strands the app on a download screen the gate is never satisfied by. At
+  // 2.59 GB that is not a small mistake.
+  test('the model id matches the last segment of its URL', () {
+    const model = Models.gemma4;
+    expect(model.fileName, model.url.split('/').last, reason: model.label);
   });
 
-  // The two flags are what the app ANDs against the platform, so a typo here
-  // would silently disable a modality the model has, or enable one it has not.
-  test('the two models differ in exactly one modality', () {
-    expect(Models.smolVlm2.supportsImage, isTrue);
-    expect(Models.smolVlm2.supportsAudio, isFalse);
+  // The model half of both questions, for the one checkpoint this codelab
+  // runs. These are what the app ANDs against the platform, so a wrong value
+  // here silently disables a modality the weights have.
+  test('the model accepts both modalities', () {
     expect(Models.gemma4.supportsImage, isTrue);
     expect(Models.gemma4.supportsAudio, isTrue);
   });
@@ -30,7 +29,7 @@ void main() {
   // names the one that said no. A single bool could not tell these apart.
   group('Capability reports which side refused', () {
     const modelReason = 'the model has no audio encoder';
-    const platformReason = 'the platform cannot carry audio';
+    const platformReason = 'the platform has no audio input';
 
     Capability of({required bool byModel, required bool byPlatform}) =>
         Capability(
@@ -95,35 +94,10 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
-        home: DownloadPage(
-          model: Models.gemma4,
-          onInstalled: () {},
-          onSwitch: (_) {},
-        ),
+        home: DownloadPage(model: Models.gemma4, onInstalled: () {}),
       ),
     );
     expect(find.text('Gemma 4 E2B'), findsOneWidget);
     expect(find.text('Download model'), findsOneWidget);
-  });
-
-  // The way out of a 2.59 GB download has to exist BEFORE the download does.
-  testWidgets('the setup screen offers the other model, with its cost', (
-    tester,
-  ) async {
-    ModelChoice? switched;
-    await tester.pumpWidget(
-      MaterialApp(
-        home: DownloadPage(
-          model: Models.gemma4,
-          onInstalled: () {},
-          onSwitch: (m) => switched = m,
-        ),
-      ),
-    );
-    final other = find.textContaining('Use SmolVLM2 500M instead');
-    expect(other, findsOneWidget);
-    expect(find.textContaining('0.36 GB'), findsOneWidget);
-    await tester.tap(other);
-    expect(switched, same(Models.smolVlm2));
   });
 }

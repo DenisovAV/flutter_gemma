@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:image_picker/image_picker.dart';
 
-import 'capabilities.dart';
 import 'model.dart';
 
 /// A chat that can carry a picture along with the question.
@@ -45,10 +44,6 @@ class _ChatPageState extends State<ChatPage> {
   /// that would not decode, a permission the user declined.
   String? _notice;
 
-  /// Asked once, of both sides, and then used everywhere: to open the right
-  /// kind of session, to enable the attach button, and to say why not.
-  late final Capability _imageCapability = imageCapability(widget.model);
-
   @override
   void initState() {
     super.initState();
@@ -58,10 +53,8 @@ class _ChatPageState extends State<ChatPage> {
   Future<void> _load() async {
     try {
       // maxTokens is the CONTEXT WINDOW — prompt + history + reply share it.
-      // An image is not free there: the vision encoder turns one picture into
-      // hundreds of tokens, so a multimodal turn eats context a text turn
-      // would not.
-      final inference = await FlutterGemma.getActiveModel(maxTokens: 2048);
+      // It is NOT a reply-length cap; for that, pass maxOutputTokens below.
+      final inference = await FlutterGemma.getActiveModel(maxTokens: 1024);
       // Hold the runtime before opening a chat on it: `createChat` can throw,
       // and a model this page never stored is a model `dispose` can never
       // close. A page that is already gone holds nothing, so it closes it here.
@@ -73,12 +66,10 @@ class _ChatPageState extends State<ChatPage> {
 
       final chat = await inference.createChat(
         modelType: widget.model.modelType,
-        // BOTH halves of the question, in one expression. `supportImage: true`
-        // maps to `enableVisionModality` on the native session: asking for it
-        // on weights with no vision encoder fails at session creation, and
-        // asking for it on a platform that cannot carry images opens a vision
-        // session nothing will ever feed.
-        supportImage: _imageCapability.available,
+        // The whole of "this chat can see". It maps to `enableVisionModality`
+        // on the native session — a session flag, not a different model. The
+        // same weights, opened with one more capability switched on.
+        supportImage: true,
         maxOutputTokens: 256,
       );
       if (!mounted) return;
@@ -97,7 +88,7 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   /// Reads a picture into memory. The plugin takes bytes, not a path — which
-  /// is why this works the same on a phone and on a desktop file dialog.
+  /// is why this works the same on a phone and in a desktop file dialog.
   Future<void> _pickImage() async {
     try {
       final file = await _picker.pickImage(
@@ -271,21 +262,14 @@ class _ChatPageState extends State<ChatPage> {
                 ),
               ),
             ),
-          // Say it, do not just grey it out. A disabled button teaches the
-          // user that the app is broken; a sentence naming the side that
-          // refused teaches them whether to change the model or the device.
-          _BlockedLine(what: 'Image input', capability: _imageCapability),
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
               child: Row(
                 children: [
                   IconButton(
-                    tooltip:
-                        _imageCapability.blockedBecause ?? 'Attach an image',
-                    onPressed: _imageCapability.available && ready && !_busy
-                        ? _pickImage
-                        : null,
+                    tooltip: 'Attach an image',
+                    onPressed: ready && !_busy ? _pickImage : null,
                     icon: const Icon(Icons.image_outlined),
                   ),
                   Expanded(
@@ -313,28 +297,6 @@ class _ChatPageState extends State<ChatPage> {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// One line naming a modality this app cannot use here, and which side of the
-/// question refused it. Renders nothing when the modality works.
-class _BlockedLine extends StatelessWidget {
-  const _BlockedLine({required this.what, required this.capability});
-
-  final String what;
-  final Capability capability;
-
-  @override
-  Widget build(BuildContext context) {
-    final why = capability.blockedBecause;
-    if (why == null) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
-      child: Text(
-        '$what is off — $why.',
-        style: Theme.of(context).textTheme.labelSmall,
       ),
     );
   }

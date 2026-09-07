@@ -1,7 +1,5 @@
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart'
-    show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 
@@ -90,21 +88,19 @@ class _ChatPageState extends State<ChatPage> {
       // maxTokens 1024 is what this checkpoint is built for; the example app
       // uses the same, and it is the value this was measured at.
       //
-      // The backend is asked for only on macOS, and only because of a measured
-      // failure there: on 2026-09-07, built for the GPU (Metal), these weights
-      // answered every prompt with `<pad>` to the token limit — no exception,
-      // no warning, a chat that looks alive and returns filler. On CPU the same
-      // model asked for the tool correctly. A 270M model does not need a GPU,
-      // so on that one platform this asks for the backend that works.
+      // This checkpoint is asked to run on the CPU, and the reason is the
+      // FILE, not the platform and not the model. The published artifact was
+      // converted before litetune 0.1.4 began setting `prefer_activation_type=fp32`,
+      // and without that key the GPU path answers every prompt with `<pad>` to
+      // the token limit — measured on Android and on macOS Metal alike, with no
+      // exception and no warning, a chat that looks alive and returns filler.
       //
-      // Everywhere else the default stands. Do NOT read this as "FunctionGemma
-      // needs CPU": on Android it runs on the GPU, which is what the plugin's
-      // own example configures.
+      // Re-converted with a current litetune — which Step 4 does — the same
+      // weights score identically on GPU and run about 1.5x faster. So this is
+      // a workaround for one downloadable file, not a property of FunctionGemma.
       final inference = await FlutterGemma.getActiveModel(
         maxTokens: 1024,
-        preferredBackend: defaultTargetPlatform == TargetPlatform.macOS
-            ? PreferredBackend.cpu
-            : null,
+        preferredBackend: PreferredBackend.cpu,
       );
       // Hold the runtime before opening a chat on it: `createChat` can throw,
       // and a model this page never stored is a model `dispose` can never

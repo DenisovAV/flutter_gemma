@@ -307,9 +307,7 @@ turn. There is no second place here:
 ```dart
       final inference = await FlutterGemma.getActiveModel(
         maxTokens: 1024,
-        preferredBackend: defaultTargetPlatform == TargetPlatform.macOS
-            ? PreferredBackend.cpu
-            : null,
+        preferredBackend: PreferredBackend.cpu,
       );
 ```
 
@@ -317,14 +315,20 @@ turn. There is no second place here:
 you declare a function. Tools belong to the session.
 
 The two arguments it *does* take are worth a moment. `maxTokens: 1024` is what
-this checkpoint is built for. The backend is asked for on **macOS only**, and
-only because of one measured failure: built for the GPU there, these weights
-answered every prompt with `<pad>` repeated to the token limit — no exception,
-no warning, a chat that looks alive and returns filler; on CPU the same model
-asked for `multiply` correctly. Read that narrowly. FunctionGemma runs on the
-GPU on Android, which is how the plugin's own example configures it, and this
-codelab leaves the default alone everywhere except the one platform where it
-was seen to fail. What changes with tools
+this checkpoint is built for. The CPU backend is a workaround for **this file**,
+and the distinction matters more than the workaround does.
+
+The `.litertlm` you just downloaded was converted before litetune began setting
+`prefer_activation_type=fp32`. Without that key the GPU path answers every
+prompt with `<pad>` repeated to the token limit — measured on Android and on
+macOS Metal alike, with no exception, no warning, and a chat that looks alive
+while it returns filler. On CPU the same weights ask for `multiply` correctly.
+
+So this is not "FunctionGemma needs a CPU", and it is not a platform bug. It is
+one published artifact carrying a conversion setting that predates the fix. Step
+4 converts the model again with a current litetune, and that artifact scores the
+same on GPU as on CPU and runs about 1.5× faster — which is a fair summary of
+what the fine-tuning step buys you even before you change a single training row. What changes with tools
 is not the number but what has to fit under it: the declarations are rendered
 into the prompt once and stay in the history for the rest of the conversation,
 and every call and every tool response is another turn inside the same 1024 —

@@ -151,6 +151,17 @@ for row in "${SHARED_STEPS[@]}"; do
   IFS='|' read -r src dst same differs <<< "$row"
   echo ""
   echo "=== $dst shares all but $differs with $src ==="
+
+  # Fail closed on a half-emptied row, the way the table itself does above. An
+  # empty file list runs the loop below zero times and reports nothing, and an
+  # empty last field leaves the other half of the invariant unasserted — both
+  # read as "checked and fine" without a single comparison having happened.
+  if [ -z "$same" ] || [ -z "$differs" ]; then
+    echo "::error::the SHARED_STEPS row for $dst is missing a file list — the check cannot run"
+    failed=1
+    continue
+  fi
+
   for f in $same; do
     # Fail closed: a renamed file must not read as "nothing to compare".
     if [ ! -f "$src/$f" ] || [ ! -f "$dst/$f" ]; then
@@ -158,15 +169,30 @@ for row in "${SHARED_STEPS[@]}"; do
       failed=1
       continue
     fi
+    # Every non-zero status fails here — 1 (they differ) and 2 (could not be
+    # compared) alike — which is what makes this half safe by construction.
     diff "$src/$f" "$dst/$f" \
       || { echo "::error::$dst/$f has drifted from $src/$f — the text says these are identical"; failed=1; }
   done
+
   if [ ! -f "$src/$differs" ] || [ ! -f "$dst/$differs" ]; then
     echo "::error::$src/$differs or $dst/$differs is missing — the shared-file check cannot run"
     failed=1
-  elif diff -q "$src/$differs" "$dst/$differs" >/dev/null; then
-    echo "::error::$dst/$differs is identical to $src/$differs — this step teaches nothing"
-    failed=1
+  else
+    # The other half cannot be written the same way, because here a difference
+    # is the PASS. `diff` exits 0 identical, 1 different, and >1 when it could
+    # not compare at all — and `elif diff -q …; then` reads every non-zero
+    # alike, so an unreadable file (2) took the "they differ" branch and this
+    # invariant passed without having been checked. Status 1 has to be named.
+    # `|| status=$?` and not a bare call: under `set -e` an untested non-zero
+    # would abort the script before the case could run.
+    status=0
+    diff -q "$src/$differs" "$dst/$differs" >/dev/null || status=$?
+    case "$status" in
+      0) echo "::error::$dst/$differs is identical to $src/$differs — this step teaches nothing"; failed=1 ;;
+      1) ;;
+      *) echo "::error::diff could not compare $src/$differs with $dst/$differs (status $status)"; failed=1 ;;
+    esac
   fi
 done
 

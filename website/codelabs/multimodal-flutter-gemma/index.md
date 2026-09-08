@@ -71,8 +71,8 @@ this codelab hands you one of each.
 * [Getting Started with On-Device LLMs in Flutter](/codelabs/getting-started-flutter-gemma)
   builds the background this one assumes: installing a model, the gate that
   decides between the download screen and the chat, the streaming loop. Its
-  finished app is *not* the starter here, though — `step_01_starter` is this
-  codelab's own Step 2 with the vision flag taken out, so the model file never
+  finished app is *not* the starter here, though — `step_01_starter` runs the
+  same weights Step 2 does, opened as a text session, so the model file never
   changes between Step 1 and Step 2
 * **No Hugging Face token, in any step.** Both repositories this codelab
   downloads from are ungated, so every `flutter run` in it is a plain
@@ -134,8 +134,13 @@ text.
         'https://huggingface.co/litert-community/SmolVLM2-500M/resolve/main/'
         'SmolVLM2-500M.litertlm',
     fileName: 'SmolVLM2-500M.litertlm',
-    // `general` and not `gemmaIt`: SmolVLM2 is not a Gemma, and the chat
-    // template that ships inside the `.litertlm` is the right one to use.
+    // `general` and not `gemmaIt`, and the reason is not turn markers. For a
+    // `.litertlm` file the runtime owns the chat template on every platform
+    // this codelab targets except iOS (`extensions.dart:74-77` returns
+    // `raw`, which never consults this field). What the field still picks is
+    // what the SDK does to the reply on the way out: `gemmaIt` is on the
+    // thinking-tag-stripping list in `cleanResponse` and `general` is not.
+    // SmolVLM2 is not a Gemma, so it should not be post-processed as one.
     modelType: ModelType.general,
     sizeLabel: '0.36 GB',
   );
@@ -143,12 +148,25 @@ text.
 
 A vision-language model, running a text chat. That is deliberate, and it is
 what makes Step 2 readable: the file on disk will not change between here and
-there, so the one thing that turns the pictures on is the one thing you edit.
+there. Step 2 does write a fair amount of code — a picker, a preview, a
+thumbnail in the transcript — but none of that is what makes the model see.
+Two flags are, and because the checkpoint is held fixed you can watch them do
+it on their own.
 
-`ModelType.general` and not `gemmaIt` is the line worth pausing on: SmolVLM2 is
-not a Gemma, so the right chat template is the one shipped inside the
-`.litertlm` file. Naming the wrong family does not fail loudly — it wraps the
-prompt in another model's turn markers, and the answers simply get worse.
+`ModelType.general` and not `gemmaIt` is the line worth pausing on, and it is
+worth pausing on for a reason that is easy to get backwards. It is tempting to
+read this field as "which chat template" — it is not, at least not here. For a
+`.litertlm` model the runtime owns the template on Android, macOS, Windows,
+Linux and the web: `extensions.dart:74-77` returns `raw` for that file type on
+every one of them, and `raw` never looks at `modelType` at all. iOS is the lone
+exception, and there both `general` and `gemmaIt` emit Gemma's own
+`<start_of_turn>` markers — so neither of them is "the template inside the
+file".
+
+What the field does still decide is what the SDK does to the reply on the way
+out. `cleanResponse` strips thinking tags for a fixed list of families, and
+`gemmaIt` is on it while `general` is not. Declare SmolVLM2 a Gemma and you
+have asked for a Gemma's post-processing on a model that is not one.
 
 0.36 GB is roughly a minute of download, which is the other reason this
 codelab starts here rather than on the 2.59 GB model it ends on: you should be
@@ -251,9 +269,10 @@ Duration: 9
 `lib/model.dart` is untouched. `step_02_vision` opens the same
 `SmolVLM2-500M.litertlm` that Step 1 downloaded — same constant, same URL, same
 bytes on disk — so running this step fetches nothing. Diff the two apps and
-`model.dart`, `main.dart` and `download_page.dart` come back identical: beyond
-the package and the entitlement below, every line of Step 2 is in
-`chat_page.dart`.
+`model.dart`, `main.dart` and `download_page.dart` come back identical. Beyond
+`chat_page.dart` the diff prints only what the package below drags in with it:
+`pubspec.yaml`, the two entitlements files, and the five plugin registrants
+`flutter pub add` regenerates for Linux, macOS and Windows.
 
 That is the claim this codelab is making, and it is only checkable because
 Step 1 was already running these weights. If the checkpoint changed here too,
@@ -383,7 +402,14 @@ failure; an app that shows an error there is an app people learn to distrust.
 
 ### Send it
 
-One line changes in `_send`: which factory builds the message.
+`_send` changes in five places, and only the last one is about pictures
+reaching the model: the guard now lets a turn through with no text (a photo on
+its own is a valid question), the local `_Turn` carries the image so the
+transcript can draw it, and the picker state is cleared once the turn is
+committed. Housekeeping — but if you followed the diff instruction above, you
+will see it, so here it is named rather than glossed.
+
+The line that matters is which factory builds the message.
 
 ```dart
       await chat.addQueryChunk(

@@ -25,7 +25,11 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_gemma: ^1.7.0
+  # ^1.7.3, not ^1.7.0: this version's web function calling depends on core
+  # 1.7.3 fixing `createChat` to pass `tools` into `createSession`. With an
+  # older core it resolves and compiles fine and the tools silently never
+  # reach the model — the README would promise a feature that does nothing.
+  flutter_gemma: ^1.7.3
   flutter_gemma_embeddings: ^2.0.0
   ffi: ^2.1.0
   mutex: ^3.1.0

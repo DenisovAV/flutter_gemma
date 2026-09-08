@@ -21,7 +21,7 @@ enum Model implements InferenceModelInterface {
   // web-only MediaPipe (.task) twins live further down as *_web.
 
   // Gemma 4 E2B LiteRT-LM. On web, uses the `-web.litertlm` build optimised for
-  // WebGPU/WASM via @litert-lm/core (0.16.2+). Text-only on web; full
+  // WebGPU/WASM via @litert-lm/core. Text-only on web; full
   // multimodal on native.
   gemma4_E2B_litertlm(
     baseUrl:
@@ -276,7 +276,7 @@ enum Model implements InferenceModelInterface {
 
   // Gemma 3 Nano E2B LiteRT-LM (same model, different engine).
   // Web uses the `-Web.litertlm` build that `gemma3n_2B` already pointed at
-  // via `webUrl` (was loaded through MediaPipe before 0.16.2; now LiteRT-LM
+  // via `webUrl` (was loaded through MediaPipe before flutter_gemma 0.16.2; now LiteRT-LM
   // via @litert-lm/core).
   gemma3n_2B_litertlm(
     baseUrl:
@@ -303,7 +303,7 @@ enum Model implements InferenceModelInterface {
   ),
 
   // Gemma 3 Nano E4B LiteRT-LM (same model, different engine).
-  // Web variant (0.16.2+) via @litert-lm/core.
+  // Web variant, added in flutter_gemma 0.16.2, via @litert-lm/core.
   gemma3n_4B_litertlm(
     baseUrl:
         'https://huggingface.co/google/gemma-3n-E4B-it-litert-lm/resolve/main/gemma-3n-E4B-it-int4.litertlm',
@@ -825,7 +825,7 @@ enum Model implements InferenceModelInterface {
   final double topP;
   // Raw capability flags from the enum literal. The public [supportImage] /
   // [supportAudio] getters below suppress these on web for .litertlm models,
-  // where @litert-lm/core@0.14.0 does not expose the Vision/AudioExecutor
+  // where @litert-lm/core@0.17.0 does not expose the Vision/AudioExecutor
   // config yet — so image/audio inputs are silently dropped. Advertising them
   // in the UI would offer a picker that produces no result. Native and web
   // MediaPipe (.task) keep the declared value.

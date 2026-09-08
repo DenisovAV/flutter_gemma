@@ -1,3 +1,7 @@
+## 1.7.3
+- Fix `createChat` dropping `tools` — function calling on every non-FFI engine.
+- Docs: bump web `@litert-lm/core` setup snippet to 0.17.0.
+
 ## 1.7.2
 - Fix web sessions failing right after install because the active model was only half-saved.
 

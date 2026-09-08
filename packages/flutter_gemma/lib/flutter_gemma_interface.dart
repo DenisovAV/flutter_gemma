@@ -359,6 +359,16 @@ abstract class InferenceModel {
         enableAudioModality: supportAudio ?? false,
         systemInstruction: systemInstruction,
         enableThinking: isThinking,
+        // Load-bearing, and it was missing: for a format whose
+        // `runtimeInjectsToolDeclarations` is true (Gemma 4 ->
+        // SdkPassthroughFunctionCallFormat), `InferenceChat` deliberately does
+        // NOT weave a text tools prompt — it expects the runtime to have the
+        // declarations. Without this line they reached neither path, so tools
+        // were silently absent from the model's context. `openSession` below
+        // always passed them; only this creator dropped them, which is why the
+        // FFI engine (which overrides createChat) worked and every engine using
+        // this base did not.
+        tools: tools,
         maxOutputTokens: maxOutputTokens,
       ),
       maxTokens: maxTokens,

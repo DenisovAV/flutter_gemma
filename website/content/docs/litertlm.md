@@ -27,8 +27,7 @@ embedding backend — see [Embeddings & RAG](/docs/embeddings-and-rag).
 | Web | ⚠️ early preview via `@litert-lm/core` (text-only) |
 
 > **Web is a text-only preview.** It runs through `@litert-lm/core` (WebGPU/WASM)
-> and does **not** support vision, audio, thinking mode, function calling, or
-> LoRA. Native platforms have the full feature set. On web you also need the JS
+> supports function calling, but **not** vision, audio, thinking mode or LoRA. Native platforms have the full feature set. On web you also need the JS
 > handshake in `web/index.html` (see [Web setup](#web-setup)).
 
 ## Setup
@@ -123,7 +122,7 @@ awaits `window.litertLmReady` (which resolves to the `Engine` constructor):
 ```
 <script type="module">
 window.litertLmReady = (async () => {
-  const m = await import('https://cdn.jsdelivr.net/npm/@litert-lm/core@0.14.0/+esm');
+  const m = await import('https://cdn.jsdelivr.net/npm/@litert-lm/core@0.17.0/+esm');
   window.Engine = m.Engine;
   return m.Engine;
 })();

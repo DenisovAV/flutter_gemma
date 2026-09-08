@@ -91,6 +91,8 @@ for the `<script>` tag your app needs.
 ## Web setup (early preview)
 
 `.litertlm` web inference runs via `@litert-lm/core` (WebGPU/WASM, text-only).
+`createSession(maxOutputTokens:)` is honoured here as it is on native. Earlier
+releases of this package accepted the argument and logged that it was ignored.
 Add the handshake below to your app's `web/index.html` `<head>` — the ESM doesn't
 assign window globals and module scripts are deferred, so Dart awaits
 `window.litertLmReady` (which resolves to the `Engine` constructor):
@@ -98,7 +100,7 @@ assign window globals and module scripts are deferred, so Dart awaits
 ```html
 <script type="module">
 window.litertLmReady = (async () => {
-  const m = await import('https://cdn.jsdelivr.net/npm/@litert-lm/core@0.14.0/+esm');
+  const m = await import('https://cdn.jsdelivr.net/npm/@litert-lm/core@0.17.0/+esm');
   window.Engine = m.Engine;
   return m.Engine;
 })();

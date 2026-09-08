@@ -122,6 +122,54 @@ for pair in "${MIRRORS[@]}"; do
   done
 done
 
+# Consecutive steps INSIDE one codelab, where the whole lesson is that almost
+# nothing changed. MIRRORS cannot express this: it compares a lib/ directory
+# whole, and here exactly one file has to differ — it is the step.
+#
+# Multimodal's Step 2 text tells the learner to diff the two apps and says
+# which files come back identical. That sentence is the evidence for the
+# codelab's central claim — a modality is a session flag, not a second model —
+# so it has to be enforced rather than believed. Add a comment to
+# step_01_starter/lib/main.dart, forget step_02_vision, and without this the
+# text goes quietly false while every other check stays green.
+#
+# `<src>|<dst>|<same...>|<differs>`: the files that must match, then the one
+# that must NOT. Both halves are asserted. Guarding only the first would let a
+# step that teaches nothing pass — if chat_page.dart ever matched too, Step 2
+# would have no diff at all, and that is just as wrong as drift.
+SHARED_STEPS=(
+  "codelabs/multimodal-flutter-gemma/step_01_starter|codelabs/multimodal-flutter-gemma/step_02_vision|lib/model.dart lib/main.dart lib/download_page.dart|lib/chat_page.dart"
+)
+
+# Fail closed, as above: an emptied table must not read as "every step holds".
+if [ "${#SHARED_STEPS[@]}" -eq 0 ]; then
+  echo "::error::SHARED_STEPS is empty — the within-codelab check cannot run"
+  exit 1
+fi
+
+for row in "${SHARED_STEPS[@]}"; do
+  IFS='|' read -r src dst same differs <<< "$row"
+  echo ""
+  echo "=== $dst shares all but $differs with $src ==="
+  for f in $same; do
+    # Fail closed: a renamed file must not read as "nothing to compare".
+    if [ ! -f "$src/$f" ] || [ ! -f "$dst/$f" ]; then
+      echo "::error::$src/$f or $dst/$f is missing — the shared-file check cannot run"
+      failed=1
+      continue
+    fi
+    diff "$src/$f" "$dst/$f" \
+      || { echo "::error::$dst/$f has drifted from $src/$f — the text says these are identical"; failed=1; }
+  done
+  if [ ! -f "$src/$differs" ] || [ ! -f "$dst/$differs" ]; then
+    echo "::error::$src/$differs or $dst/$differs is missing — the shared-file check cannot run"
+    failed=1
+  elif diff -q "$src/$differs" "$dst/$differs" >/dev/null; then
+    echo "::error::$dst/$differs is identical to $src/$differs — this step teaches nothing"
+    failed=1
+  fi
+done
+
 # One identity per codelab, and the two halves pull in opposite directions, so
 # both are asserted:
 #

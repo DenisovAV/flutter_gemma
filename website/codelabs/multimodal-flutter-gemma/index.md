@@ -259,6 +259,11 @@ That is the claim this codelab is making, and it is only checkable because
 Step 1 was already running these weights. If the checkpoint changed here too,
 "a modality is a flag" would be a sentence you had to take on trust.
 
+Which is also why the paragraph above is a CI check and not a promise. This
+repository's `tool/check_codelabs.sh` asserts both halves of it on every run —
+that those three files match, and that `chat_page.dart` does **not**. A
+sentence in a codelab that nothing enforces is true on the day it is written.
+
 ### Add the package
 
 ```bash

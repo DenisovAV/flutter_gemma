@@ -1,4 +1,5 @@
 ## 1.7.3
+- Fix `createChat` dropping `tools` — function calling on every non-FFI engine.
 - Docs: bump web `@litert-lm/core` setup snippet to 0.17.0.
 
 ## 1.7.2

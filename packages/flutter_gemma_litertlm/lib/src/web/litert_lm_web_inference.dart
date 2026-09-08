@@ -409,7 +409,25 @@ class LiteRtLmWebInferenceModel extends InferenceModel with CloseNotifier {
         sessionConfig: sessionConfigJs,
         preface: prefaceJs,
         filterChannelContentFromKvCache: enableThinking ? true : null,
-        enableConstrainedDecoding: toolsForPreface.isNotEmpty ? true : null,
+        // Deliberately NOT enabled, unlike the FFI path. Upstream
+        // google-ai-edge/LiteRT-LM#2434: with constrained decoding on, the WASM
+        // grammar does not return to its start state after a completed
+        // `<|tool_call>...<tool_call|>` block, so the NEXT decode round in that
+        // conversation aborts with `Invalid token at state N` no matter what it
+        // contains. That kills every multi-turn tool flow — including the agent
+        // loop's call -> result -> continue, which cannot avoid that round.
+        //
+        // Measured on 0.17.0, seven cases in
+        // `example/integration_test/web_function_calling_test.dart`: with the
+        // flag off all pass, including the negative control (a non-action prompt
+        // still calls nothing) and the round-trip. Gemma 4 emits well-formed
+        // tool-call blocks without the grammar, and `SdkResponseParser` keeps its
+        // raw-token fallback for the case where it does not. With the flag on,
+        // any turn following a tool call fails.
+        //
+        // Native keeps it on: the C++ grammar resets correctly and is
+        // unaffected. Re-enable here once #2434 is fixed upstream.
+        enableConstrainedDecoding: null,
       ),
     );
     final conversation = await convoFuture.toDart;

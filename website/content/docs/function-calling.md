@@ -174,9 +174,10 @@ function calling is prompt-based rather than a native tool API — Gemini Nano
 on Web (Chrome Prompt API) multi-turn agent chaining is not supported.
 
 <Warning>
-Function calling / tool calls are **not** supported on the web `.litertlm` path
-(`@litert-lm/core` early preview). For function calling on web, use MediaPipe
-`.task` web models. See [Troubleshooting](/docs/troubleshooting).
+Function calling works on the web `.litertlm` path, with one upstream caveat:
+constrained decoding is left off there ([LiteRT-LM#2434](https://github.com/google-ai-edge/LiteRT-LM/issues/2434)
+aborts the next turn after a tool call when it is on), so the call's JSON shape
+is not grammar-enforced. See [Troubleshooting](/docs/troubleshooting).
 </Warning>
 
 See [Models](/docs/models#modeltype-reference) for the correct `ModelType` per

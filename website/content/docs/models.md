@@ -70,8 +70,8 @@ model to MediaPipe, which cannot read that format), `ModelFileType.task` for
 devices. The Simulator stays CPU-only because Metal sim has a 256 MB
 single-allocation cap.
 
-² Web `.litertlm` is an **early preview** via `@litert-lm/core` — text only. No
-vision, audio, thinking, function calling or LoRA; see the feature matrix in
+² Web `.litertlm` is an **early preview** via `@litert-lm/core` — text plus function calling. No
+vision, audio, thinking or LoRA; see the feature matrix in
 [Troubleshooting](/docs/troubleshooting). For full multimodal on web, use a
 MediaPipe `.task` build.
 

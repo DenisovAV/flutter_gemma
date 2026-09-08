@@ -106,7 +106,7 @@ Both formats require **manual chat template formatting** in your code.
 
 > ¹ iOS `.litertlm` runs on the FFI engine — vision and audio supported on physical devices. The Simulator stays CPU-only because Metal sim has a 256 MB single-allocation cap.
 >
-> ² Web `.litertlm` is an **early preview** via `@litert-lm/core` — text only. No vision, audio, thinking, function calling or LoRA. For full multimodal on web use a MediaPipe `.task` build. See [Web `.litertlm` feature matrix](#web-litertlm-early-preview-feature-matrix).
+> ² Web `.litertlm` is an **early preview** via `@litert-lm/core` — text plus function calling. No vision, audio, thinking or LoRA. For full multimodal on web use a MediaPipe `.task` build. See [Web `.litertlm` feature matrix](#web-litertlm-early-preview-feature-matrix).
 
 ## Model Capabilities
 
@@ -1788,7 +1788,7 @@ Function calling is currently supported by the following models:
 | **External Files (FileSource)** | ✅ Full | ✅ Full | ❌ Not supported | ✅ Full | No local FS on web |
 
 > **Web column note:** the **Web** ✅ marks above describe the MediaPipe `.task`
-> web path (image input, function calling, etc.). **Thinking Mode is not
+> web path (image input, etc.). **Thinking Mode is not
 > supported on Web yet** — MediaPipe `.task` web has no `extraContext` hook, and
 > the newer **web `.litertlm`** path (`@litert-lm/core`) is an early-preview
 > subset (text-only; vision/audio/thinking not verified). See
@@ -1887,15 +1887,13 @@ fully supported.
 - ❌ **Vision / image input** — `@litert-lm/core` does not expose the Vision executor config; image inputs are dropped with a debug warning
 - ❌ **Audio input** — same reason (no Audio executor config in the JS API)
 - ❌ **Thinking mode** — `extraContext` thinking channel is not wired on web
-- ❌ **Function calling / tool calls** — prefill+decode tool models aren't available on the web runtime
 - ❌ **LoRA weights** — `loraPath` throws `UnsupportedError`
 - ⚠️ **`stopGeneration()`** — closes the local Dart stream **and** calls the upstream `conversation.cancel()` to abort generation; the cancel is best-effort (the early-preview JS API may throw if nothing is in flight, which is swallowed)
 - ⚠️ **`WebStorageMode.none` + model > 2 GB** — the engine `fetch()`es the in-memory blob and trips Chrome's `ERR_BLOB_OUT_OF_MEMORY`; use `WebStorageMode.streaming` for large models
 
 > These limits track the upstream `@litert-lm/core` early-preview API and
-> will lift as Google extends the JS executor surface. For full vision /
-> audio / thinking / function calling on web today, use MediaPipe `.task`
-> web models instead.
+> will lift as Google extends the JS executor surface. For vision / audio /
+> thinking on web today, use MediaPipe `.task` web models instead.
 
 ### Mobile Platform Specifics
 

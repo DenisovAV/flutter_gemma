@@ -115,7 +115,7 @@ via OPFS streaming, GPU only.
 - ❌ **LoRA weights** — `loraPath` throws `UnsupportedError`.
 
 <Info>
-For full vision / audio / thinking / function calling on web today, use MediaPipe
+For vision / audio / thinking on web today, use MediaPipe
 `.task` web models instead. These web `.litertlm` limits track the upstream
 `@litert-lm/core` early-preview API and will lift as Google extends the JS
 executor surface.

@@ -577,7 +577,6 @@ enum Model implements InferenceModelInterface {
 
   // SmolLM3-3B — modern multilingual small LLM with a reasoning mode.
   smolLM3_3B(
-    hfRepo: 'litert-community/SmolLM3-3B',
     baseUrl:
         'https://huggingface.co/litert-community/SmolLM3-3B/resolve/main/SmolLM3-3B_q4_block32_ekv4096.litertlm',
     desktopUrl:
@@ -599,7 +598,6 @@ enum Model implements InferenceModelInterface {
 
   // Qwen2-VL-2B — vision-language model (image + text).
   qwen2VL_2B(
-    hfRepo: 'litert-community/Qwen2-VL-2B',
     baseUrl:
         'https://huggingface.co/litert-community/Qwen2-VL-2B/resolve/main/Qwen2-VL-2B.litertlm',
     desktopUrl:
@@ -643,7 +641,6 @@ enum Model implements InferenceModelInterface {
 
   // SmolVLM2-500M — compact vision-language model (image + text).
   smolVLM2_500M(
-    hfRepo: 'litert-community/SmolVLM2-500M',
     baseUrl:
         'https://huggingface.co/litert-community/SmolVLM2-500M/resolve/main/SmolVLM2-500M.litertlm',
     desktopUrl:
@@ -666,7 +663,6 @@ enum Model implements InferenceModelInterface {
 
   // LLaVA-OneVision-0.5B — compact vision-language model (image + text).
   llavaOneVision_0_5B(
-    hfRepo: 'litert-community/LLaVA-OneVision-0.5B',
     baseUrl:
         'https://huggingface.co/litert-community/LLaVA-OneVision-0.5B/resolve/main/LLaVA-OneVision-0.5B.litertlm',
     desktopUrl:
@@ -850,10 +846,20 @@ enum Model implements InferenceModelInterface {
   /// revision-pinned variant and returns the runtime defaults, so none of the
   /// url/filename/backend fields above are consulted.
   ///
-  /// Only set it for repos that actually ship a manifest — 4 of the 42 repos
-  /// this catalogue references do. Everything else keeps [baseUrl] and the
-  /// `fromNetwork` path; a missing manifest is a resolve failure, not a
-  /// fallback.
+  /// Two conditions, not one. The repo must ship a manifest — 5 of the 42 repos
+  /// this catalogue references do — AND the entry must have been run on the
+  /// manifest's own defaults, because those defaults WIN here: passing
+  /// `maxTokens`/`preferredBackend` as null is what lets them through, so a
+  /// manifest saying `default_backend: cpu` silently moves an entry off gpu.
+  ///
+  /// That is why only LFM2.5-230M carries it today. The other four
+  /// manifest-backed repos (SmolLM3-3B, Qwen2-VL-2B, SmolVLM2-500M,
+  /// LLaVA-OneVision-0.5B) all declare `default_backend: cpu` against a
+  /// catalogue that runs them on gpu — plausibly correct, since each carries
+  /// `known_issues`, but it is a behaviour change nobody has measured. They keep
+  /// [baseUrl] and `fromNetwork` until someone does.
+  ///
+  /// A missing manifest is a resolve failure, not a fallback.
   final String? hfRepo;
 
   @override

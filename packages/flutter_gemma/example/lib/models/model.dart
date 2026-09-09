@@ -272,6 +272,46 @@ enum Model implements InferenceModelInterface {
     supportsFunctionCalls: false,
   ),
 
+  // LFM2.5 230M — the smallest entry here (int4, 168 MB) and the only one that
+  // needs no HuggingFace token. LiquidAI's lfm2 architecture, a ShortConv /
+  // attention hybrid (14 layers: 8 conv + 6 GQA) rather than a plain
+  // transformer, which is what makes it viable on low-end hardware.
+  //
+  // Installed through `fromHuggingFace(repo)`: the repo ships a
+  // litertlm_manifest.json, so the resolver supplies the variant, the backend
+  // and maxTokens. The url/filename/backend fields below are what the manifest
+  // resolves to today — they are here so the entry still renders in the picker,
+  // not because the install path reads them.
+  //
+  // Verified end to end on macOS 26.5.1 (Apple Silicon), Android 12 (RayNeo
+  // ARGF20, arm64), Windows 10 Pro 26200 and Ubuntu + Tesla T4 — gpu on all
+  // four, no manual override. See
+  // example/integration_test/hf_fileless_install_device_test.dart.
+  //
+  // Instruction-following is weak at this size: "say hello in one word"
+  // produced a one-word reply on one of the four runs and a polite paragraph on
+  // the other three. Fine for checking the pipeline works; not a quality bar.
+  lfm25_230m(
+    hfRepo: 'litert-community/LFM2.5-230M',
+    baseUrl:
+        'https://huggingface.co/litert-community/LFM2.5-230M/resolve/main/LFM2.5-230M_int4.litertlm',
+    desktopUrl:
+        'https://huggingface.co/litert-community/LFM2.5-230M/resolve/main/LFM2.5-230M_int4.litertlm',
+    filename: 'LFM2.5-230M_int4.litertlm',
+    displayName: 'LFM2.5 230M (int4)',
+    size: '0.17GB',
+    licenseUrl: 'https://huggingface.co/litert-community/LFM2.5-230M',
+    needsAuth: false,
+    preferredBackend: PreferredBackend.gpu,
+    modelType: ModelType.general,
+    fileType: ModelFileType.litertlm,
+    temperature: 1.0,
+    topK: 64,
+    topP: 0.95,
+    maxTokens: 4096,
+    supportsFunctionCalls: false,
+  ),
+
   // === LiteRT-LM ENGINE MODELS (for testing parity with MediaPipe) ===
 
   // Gemma 3 Nano E2B LiteRT-LM (same model, different engine).
@@ -801,6 +841,27 @@ enum Model implements InferenceModelInterface {
   final String? webUrl;
   final String? desktopUrl;
 
+  /// Hugging Face repo for the one-call `installModel(...).fromHuggingFace(repo)`
+  /// path: the resolver fetches the repo's `litertlm_manifest.json`, picks the
+  /// revision-pinned variant and returns the runtime defaults, so none of the
+  /// url/filename/backend fields above are consulted.
+  ///
+  /// Two conditions, not one. The repo must ship a manifest — 5 of the 42 repos
+  /// this catalogue references do — AND the entry must have been run on the
+  /// manifest's own defaults, because those defaults WIN here: passing
+  /// `maxTokens`/`preferredBackend` as null is what lets them through, so a
+  /// manifest saying `default_backend: cpu` silently moves an entry off gpu.
+  ///
+  /// That is why only LFM2.5-230M carries it today. The other four
+  /// manifest-backed repos (SmolLM3-3B, Qwen2-VL-2B, SmolVLM2-500M,
+  /// LLaVA-OneVision-0.5B) all declare `default_backend: cpu` against a
+  /// catalogue that runs them on gpu — plausibly correct, since each carries
+  /// `known_issues`, but it is a behaviour change nobody has measured. They keep
+  /// [baseUrl] and `fromNetwork` until someone does.
+  ///
+  /// A missing manifest is a resolve failure, not a fallback.
+  final String? hfRepo;
+
   @override
   final String filename;
   @override
@@ -908,6 +969,7 @@ enum Model implements InferenceModelInterface {
     this.agentic = false,
     this.fileType = ModelFileType.task,
     this.foregroundDownload,
+    this.hfRepo,
   }) : _supportImageRaw = supportImage,
        _supportAudioRaw = supportAudio;
 

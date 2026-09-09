@@ -24,6 +24,7 @@ and then continue the conversation with the result.
 
 - **Gemma 3 270M** — text generation only.
 - **SmolLM 135M** — text generation only.
+- **LFM2.5 230M** — text generation only.
 - **SmolLM3 3B** — text generation with reasoning, no function calling.
 - **Phi-4 Mini Reasoning** — reasoning model, no function calling.
 - **FastVLM 0.5B** — vision model, no function calling.

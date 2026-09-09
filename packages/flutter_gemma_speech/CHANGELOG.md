@@ -1,4 +1,4 @@
-## 0.5.0
+## 0.4.4
 - Whisper: output language is a parameter, no longer hardcoded English (#500).
 
 ## 0.4.3

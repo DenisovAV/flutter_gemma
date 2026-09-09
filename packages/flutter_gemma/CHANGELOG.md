@@ -1,4 +1,4 @@
-## 1.8.0
+## 1.7.5
 - Add `getActiveStt(language:)` — Whisper output language (#500).
 
 ## 1.7.4

@@ -1,5 +1,5 @@
 ## 1.7.5
-- Add `getActiveStt(language:)` — Whisper output language (#500).
+- Whisper output language on `getActiveStt` and `transcribe` (#500).
 
 ## 1.7.4
 - Example: LFM2.5-230M and the `fromHuggingFace` install path.

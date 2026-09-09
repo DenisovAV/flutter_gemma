@@ -357,18 +357,30 @@ see [Speech](/docs/speech).
 | **[Parakeet](https://huggingface.co/litert-community/parakeet-ctc-0.6b)** (CTC 0.6B) | log-mel | — | ✅ end-to-end | ❌ |
 
 Whisper is **multilingual** — the shipped checkpoints are the multilingual ones
-(no `.en` suffix), so all 99 of Whisper's languages are available. Pass the
-language to `getActiveStt`:
+(no `.en` suffix), so all 99 of Whisper's languages are available. Set a default
+for the recognizer, override it per transcription, or both:
 
 ```dart
+// Default for every transcription on this recognizer.
 final stt = await FlutterGemma.getActiveStt(language: 'de');
+final german = await stt.transcribe(germanPcm);
+
+// One call in another language — same recognizer, nothing reloaded.
+final french = await stt.transcribe(frenchPcm, language: 'fr');
 ```
 
-It defaults to `'en'`. The value is Whisper's own language code without the
-delimiters, and it decides the OUTPUT language only — the weights understand the
+Both are free: the language is one token in the decoder's seed prompt, and that
+prompt is rebuilt on every transcription. Switching languages never reloads the
+model or invalidates the recognizer you are holding.
+
+The value is Whisper's own language code without the delimiters, and it defaults
+to `'en'`. It decides the OUTPUT language only — the weights understand the
 audio either way, so asking for `'en'` on German speech returns an English
-translation rather than an error. Moonshine and Parakeet ignore the parameter;
-Parakeet CTC 0.6B is English-only.
+translation rather than an error.
+
+Moonshine and Parakeet have no language token in their decoder prompt and
+**reject** the parameter with an `ArgumentError` rather than ignoring it; both
+transcribe the language they hear (Parakeet CTC 0.6B is English-only).
 
 **Text-to-speech**
 

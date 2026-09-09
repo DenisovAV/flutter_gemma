@@ -355,6 +355,12 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     }
 
     if (_initializedSttModel != null) {
+      // Same model — reuse the singleton, RETARGETED to the requested
+      // language. Without this the caller gets back the recognizer built for
+      // the FIRST language and transcribes into it with no error; see the
+      // matching branch in the mobile shell. The decoder prompt is rebuilt
+      // per transcription, so this is a field write, not a reload.
+      _initializedSttModel!.language = language;
       return _initializedSttModel!;
     }
 

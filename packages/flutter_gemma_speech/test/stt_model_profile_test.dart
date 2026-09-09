@@ -65,7 +65,7 @@ void main() {
       expect(p.decoderMaskConvention, SttDecoderMaskConvention.causal);
     });
 
-    test('forced English prompt, resolved by name (not hardcoded id)', () {
+    test('default English prompt, resolved by name (not hardcoded id)', () {
       final p = SttModelProfile.whisper();
       expect(p.decoderPromptTokens, [
         const SttTokenRef.name('<|startoftranscript|>'),

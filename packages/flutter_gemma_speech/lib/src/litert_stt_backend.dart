@@ -3,7 +3,7 @@ import 'package:flutter_gemma/core/registry/runtime_config.dart';
 import 'package:flutter_gemma/flutter_gemma_interface.dart'
     show SpeechRecognizer;
 import 'package:flutter_gemma/core/model_management/model_specs.dart'
-    show SttModelSpec;
+    show SttModelSpec, SttModelType;
 import 'litert/litert_speech_recognizer.dart';
 import 'model/stt_model_profile.dart';
 
@@ -37,18 +37,36 @@ class LiteRtSttBackend implements SttBackendProvider {
         'from the active STT model).',
       );
     }
+    // `config.language` reaches here from `getActiveStt(language:)`. It is NOT
+    // baked into the profile: it becomes the recognizer's mutable default, so
+    // the same recognizer can later be retargeted or overridden per call
+    // without reloading the model. The profile keeps its own default (`<|en|>`
+    // for whisper), which is what a null here means.
+    //
+    // Validated for SHAPE at create time so `language: 'de-DE'` fails here
+    // rather than on the first transcription; the exact per-checkpoint code is
+    // checked against the tokenizer's own index inside `SttCore`.
+    final language = config.language;
+    if (language != null) {
+      if (spec.sttModelType != SttModelType.whisper) {
+        throw ArgumentError.value(
+          language,
+          'language',
+          'only SttModelType.whisper has a decoder-prompt language token; '
+              '${spec.sttModelType.name} transcribes in the language it hears',
+        );
+      }
+      assertWhisperLanguage(language);
+    }
+
     // spec.sttModelType (e.g. SttModelType.moonshine) selects the runtime
     // profile — this backend never hardcodes a model.
     return LiteRtSpeechRecognizer.create(
-      // config.language reaches here from `getActiveStt(language:)`. Whisper
-      // bakes it into the decoder prompt; moonshine and parakeet ignore it.
-      profile: SttModelProfile.forType(
-        spec.sttModelType,
-        language: config.language,
-      ),
+      profile: SttModelProfile.forType(spec.sttModelType),
       modelPath: config.modelPath,
       tokenizerPath: tokenizerPath,
       preferredBackend: config.preferredBackend,
+      language: language,
       onClose: () {},
     );
   }

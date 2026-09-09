@@ -19,7 +19,10 @@ import 'package:flutter_test/flutter_test.dart';
 
 class _NoopRecognizer implements SpeechRecognizer {
   @override
-  Future<String> transcribe(Uint8List pcm) async => '';
+  String? language;
+
+  @override
+  Future<String> transcribe(Uint8List pcm, {String? language}) async => '';
   @override
   void addCloseListener(void Function() l) {}
   @override
@@ -29,7 +32,10 @@ class _NoopRecognizer implements SpeechRecognizer {
 /// Fixed transcript so a turn actually runs.
 class _FixedRecognizer implements SpeechRecognizer {
   @override
-  Future<String> transcribe(Uint8List pcm) async => 'hi';
+  String? language;
+
+  @override
+  Future<String> transcribe(Uint8List pcm, {String? language}) async => 'hi';
   @override
   void addCloseListener(void Function() l) {}
   @override

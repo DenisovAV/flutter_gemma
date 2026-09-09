@@ -36,11 +36,14 @@ class _Ready {
 
 /// Request: transcribe [samples] (already `[-1,1]`-normalized float32,
 /// window-sized by the caller or by `SttCore.transcribe`'s pad/trim). [id]
-/// correlates the reply.
+/// correlates the reply. [language] overrides the loaded profile's default
+/// decoder-prompt language for this one request (`null` = use the default);
+/// a plain `String?` is sendable, so it crosses the port like [id] does.
 class _TranscribeRequest {
-  _TranscribeRequest(this.id, this.samples);
+  _TranscribeRequest(this.id, this.samples, this.language);
   final int id;
   final Float32List samples;
+  final String? language;
 }
 
 /// Reply carrying the transcript (or an error message).
@@ -192,14 +195,18 @@ class SttWorker {
 
   /// Transcribe one window of already-normalized `[-1,1]` float32 [samples].
   /// The forward passes run in the worker; the UI isolate stays free.
-  Future<String> transcribe(Float32List samples) {
+  ///
+  /// [language] retargets the decoder prompt for this request only. It does
+  /// NOT reload anything — the worker keeps its language→id map from load, so
+  /// consecutive requests may each use a different language.
+  Future<String> transcribe(Float32List samples, {String? language}) {
     if (_closed) {
       return Future.error(StateError('SttWorker is closed'));
     }
     final id = _nextId++;
     final completer = Completer<String>();
     _pending[id] = completer;
-    _commandPort.send(_TranscribeRequest(id, samples));
+    _commandPort.send(_TranscribeRequest(id, samples, language));
     return completer.future;
   }
 
@@ -249,7 +256,7 @@ Future<void> _workerEntry(_WorkerInit init) async {
     await for (final msg in commandPort) {
       if (msg is _TranscribeRequest) {
         try {
-          final text = core.transcribe(msg.samples);
+          final text = core.transcribe(msg.samples, language: msg.language);
           init.replyTo.send(_TranscribeReply(msg.id, text, null));
         } catch (e) {
           init.replyTo.send(_TranscribeReply(msg.id, null, e.toString()));

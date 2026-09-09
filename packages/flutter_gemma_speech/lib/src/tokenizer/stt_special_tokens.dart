@@ -103,6 +103,36 @@ class SttSpecialTokenResolver {
     }
     return id;
   }
+
+  /// This checkpoint's language codes → their token ids, harvested from the
+  /// same index [resolve] uses: every `<|xx|>` / `<|xxx|>` whose inner text is
+  /// 2-3 lowercase letters, keyed WITHOUT the delimiters (`'de' -> 50261`).
+  ///
+  /// This is the allow-list for `transcribe(language:)`, and the reason there
+  /// is no hardcoded list of Whisper's 99 codes anywhere in the package: it is
+  /// derived from the tokenizer that is actually installed, so it cannot go
+  /// stale, and an `.en`-only checkpoint correctly reports (almost) none.
+  ///
+  /// A handful of non-language specials share the shape and are excluded by
+  /// name; the rest of Whisper's control tokens (`<|transcribe|>`,
+  /// `<|notimestamps|>`, `<|startoftranscript|>`, the `<|0.00|>` timestamp
+  /// block) are longer than three characters or contain non-letters, so the
+  /// pattern already rejects them. Without this filter `language: 'translate'`
+  /// resolves CLEANLY — the token exists — and silently rewrites the prompt's
+  /// task slot instead of its language slot.
+  late final Map<String, int> languageIds = {
+    for (final entry in _byName.entries)
+      if (_languageTokenPattern.hasMatch(entry.key) &&
+          !_nonLanguageCodes.contains(entry.key))
+        entry.key.substring(2, entry.key.length - 2): entry.value,
+  };
+
+  static final RegExp _languageTokenPattern = RegExp(r'^<\|[a-z]{2,3}\|>$');
+
+  /// Shape-alike tokens that are not languages. `<|nospeech|>` and the task
+  /// tokens are too long to match, so this is short by construction — but it is
+  /// the place to add one if a future checkpoint introduces another.
+  static const Set<String> _nonLanguageCodes = {'<|nst|>', '<|nsp|>'};
 }
 
 /// Runtime-resolved logit suppression, ready for `SttCore._decodeLoop` to

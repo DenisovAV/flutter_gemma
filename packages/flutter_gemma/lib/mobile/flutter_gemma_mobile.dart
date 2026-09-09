@@ -650,11 +650,22 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
           _initializedSttModel = null;
           _lastActiveSttSpec = null;
         } else {
-          // Same model - return existing singleton
+          // Same model - return existing singleton, RETARGETED to the requested
+          // language.
+          //
+          // Load-bearing, and the reason `SpeechRecognizer.language` is
+          // settable: this branch is the common case (a recognizer built at
+          // startup, a language picked later), and without the assignment the
+          // caller gets back the recognizer built for the FIRST language and
+          // transcribes into it with no error — a documented parameter that
+          // works exactly once per process. Whisper's decoder prompt is rebuilt
+          // per transcription, so this is a field write, not a reload.
           gemmaLog(
             'ℹ️  Reusing existing STT model instance for ${requestedSpec.name}',
           );
-          return _initSttCompleter!.future;
+          final cached = await _initSttCompleter!.future;
+          cached.language = language;
+          return cached;
         }
       }
 

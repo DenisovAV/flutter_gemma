@@ -566,7 +566,14 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
         _initializedSttModel = null;
         _lastActiveSttModelName = null;
       } else {
-        return _initSttCompleter!.future;
+        // Same model — reuse the singleton, RETARGETED to the requested
+        // language. Without this the caller gets back the recognizer built for
+        // the FIRST language and transcribes into it with no error; see the
+        // matching branch in the mobile shell. The decoder prompt is rebuilt
+        // per transcription, so this is a field write, not a reload.
+        final cached = await _initSttCompleter!.future;
+        cached.language = language;
+        return cached;
       }
     }
 

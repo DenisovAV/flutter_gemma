@@ -40,11 +40,17 @@ Float32List pcm16LEToFloat32(Uint8List pcm) {
 /// new profile (+ a mel frontend for log-mel models) is enough to support a
 /// new STT family without a new recognizer class.
 class LiteRtSpeechRecognizer extends SpeechRecognizer with CloseNotifier {
-  LiteRtSpeechRecognizer._(this._worker, this.onClose);
+  LiteRtSpeechRecognizer._(this._worker, this.onClose, this.language);
 
   final SttWorker _worker;
   final VoidCallback onClose;
   bool _isClosed = false;
+
+  /// The default output language for [transcribe] calls that pass none.
+  /// Plain mutable state: the worker resolves the decoder prompt per request,
+  /// so changing this needs no reload and no message of its own.
+  @override
+  String? language;
 
   /// Load [profile]'s model + tokenizer and prepare it for transcription on
   /// a background isolate.
@@ -60,6 +66,7 @@ class LiteRtSpeechRecognizer extends SpeechRecognizer with CloseNotifier {
     required String tokenizerPath,
     PreferredBackend? preferredBackend,
     VoidCallback? onClose,
+    String? language,
   }) async {
     final worker = await SttWorker.spawn(
       modelPath: modelPath,
@@ -67,7 +74,9 @@ class LiteRtSpeechRecognizer extends SpeechRecognizer with CloseNotifier {
       profile: profile,
       backend: preferredBackend,
     );
-    return LiteRtSpeechRecognizer._(worker, onClose ?? () {});
+    // Kept as the mutable default rather than baked into the profile: the
+    // caller may retarget it later without a reload (see [language]).
+    return LiteRtSpeechRecognizer._(worker, onClose ?? () {}, language);
   }
 
   void _assertNotClosed() {
@@ -79,10 +88,12 @@ class LiteRtSpeechRecognizer extends SpeechRecognizer with CloseNotifier {
   }
 
   @override
-  Future<String> transcribe(Uint8List pcm16kMono) {
+  Future<String> transcribe(Uint8List pcm16kMono, {String? language}) {
     _assertNotClosed();
     final samples = pcm16LEToFloat32(pcm16kMono);
-    return _worker.transcribe(samples);
+    // Per-call value wins; otherwise the recognizer's current default. Both may
+    // be null, which leaves the profile's own default in place.
+    return _worker.transcribe(samples, language: language ?? this.language);
   }
 
   @override

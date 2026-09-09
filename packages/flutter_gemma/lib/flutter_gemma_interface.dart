@@ -122,6 +122,7 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
     String? modelPath,
     String? tokenizerPath,
     PreferredBackend? preferredBackend,
+    String? language,
   });
 
   /// Creates and returns a new [SpeechSynthesizer] for the active TTS model.

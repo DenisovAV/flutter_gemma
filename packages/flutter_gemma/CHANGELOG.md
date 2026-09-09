@@ -1,3 +1,6 @@
+## 1.8.0
+- Add `getActiveStt(language:)` — Whisper output language (#500).
+
 ## 1.7.4
 - Example: LFM2.5-230M and the `fromHuggingFace` install path.
 

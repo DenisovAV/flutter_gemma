@@ -40,7 +40,12 @@ class LiteRtSttBackend implements SttBackendProvider {
     // spec.sttModelType (e.g. SttModelType.moonshine) selects the runtime
     // profile — this backend never hardcodes a model.
     return LiteRtSpeechRecognizer.create(
-      profile: SttModelProfile.forType(spec.sttModelType),
+      // config.language reaches here from `getActiveStt(language:)`. Whisper
+      // bakes it into the decoder prompt; moonshine and parakeet ignore it.
+      profile: SttModelProfile.forType(
+        spec.sttModelType,
+        language: config.language,
+      ),
       modelPath: config.modelPath,
       tokenizerPath: tokenizerPath,
       preferredBackend: config.preferredBackend,

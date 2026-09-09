@@ -35,7 +35,7 @@ void main() {
 
     test('whisper: resolves the 4 forced-English prompt ids + eos + '
         'suppression by name', () {
-      const profile = SttModelProfile.whisper();
+      final profile = SttModelProfile.whisper();
       final tokenizerJson = {
         'model': {
           'vocab': {'Ġ': 5},
@@ -57,7 +57,7 @@ void main() {
     });
 
     test('an unresolvable name throws a StateError naming it', () {
-      const profile = SttModelProfile.whisper();
+      final profile = SttModelProfile.whisper();
       expect(
         () => resolveSttSpecialTokens(profile, {
           'model': {'vocab': <String, dynamic>{}},

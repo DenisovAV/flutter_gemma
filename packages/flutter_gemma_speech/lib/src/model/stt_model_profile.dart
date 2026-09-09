@@ -92,8 +92,8 @@ class SttModelProfile {
   /// `docs/superpowers/notes/stt-transcript-recipe.md`. BOS=1/EOS=2 are
   /// given as fixed ids (not names) — moonshine needs no tokenizer.json
   /// resolution, matching the original verified recipe exactly.
-  const SttModelProfile.moonshine()
-    : inputType = SttInputType.rawPcm,
+  const SttModelProfile.moonshine() : language = '',
+      inputType = SttInputType.rawPcm,
       sampleRate = 16000,
       windowSamples = 80000,
       nMels = null,
@@ -122,7 +122,20 @@ class SttModelProfile {
   /// (docs/superpowers/notes/whisper-stt-spike-findings.md) — `causal` is
   /// the verified winner (whisper's decoder is genuinely causal, unlike
   /// moonshine's export).
-  const SttModelProfile.whisper()
+  /// [language] is the Whisper language token WITHOUT the delimiters — `'en'`,
+  /// `'de'`, `'uk'`, any of Whisper's 99. It is baked into the decoder prompt as
+  /// `<|xx|>`, which is the only thing that decides the OUTPUT language: the
+  /// shipped `whisper-tiny`/`whisper-base` are the multilingual checkpoints (no
+  /// `.en` suffix), so the weights understand the audio either way.
+  ///
+  /// Measured on a German clip, same audio and build, one token apart:
+  ///   `<|en|>` -> " This weather is very beautiful and the sun is shining."
+  ///   `<|de|>` -> " Das Wetter ist heute sehr schön und die Sonne scheint."
+  /// With `<|en|>` the model does not garble non-English speech — it translates
+  /// it. So a wrong value here silently changes the output language rather than
+  /// failing, which is why it defaults to `'en'` (the previous hardcoded value)
+  /// rather than to something clever.
+  SttModelProfile.whisper({this.language = 'en'})
     : inputType = SttInputType.logMel,
       sampleRate = 16000,
       windowSamples = 480000,
@@ -138,11 +151,11 @@ class SttModelProfile {
       decodeType = SttDecodeType.seq2seq,
       maxDecodeTokens = 128,
       modes = const {SttMode.batch},
-      decoderPromptTokens = const [
-        SttTokenRef.name('<|startoftranscript|>'),
-        SttTokenRef.name('<|en|>'),
-        SttTokenRef.name('<|transcribe|>'),
-        SttTokenRef.name('<|notimestamps|>'),
+      decoderPromptTokens = [
+        const SttTokenRef.name('<|startoftranscript|>'),
+        SttTokenRef.name('<|$language|>'),
+        const SttTokenRef.name('<|transcribe|>'),
+        const SttTokenRef.name('<|notimestamps|>'),
       ],
       eosToken = const SttTokenRef.name('<|endoftext|>'),
       suppressTokens = const SttSuppressionSpec(
@@ -162,8 +175,8 @@ class SttModelProfile {
   /// on-device Dart, byte-identical). Desktop-only (2.35 GB f32) -- the
   /// example catalog gates it accordingly (a documentation note, not a
   /// runtime check -- see stt_model.dart).
-  const SttModelProfile.parakeet()
-    : inputType = SttInputType.logMel,
+  const SttModelProfile.parakeet() : language = '',
+      inputType = SttInputType.logMel,
       sampleRate = 16000,
       windowSamples = 80000, // 5 s @ 16 kHz
       nMels = 80,
@@ -265,13 +278,19 @@ class SttModelProfile {
   /// no blank concept.
   final int? blankId;
 
+  /// Whisper's language token without delimiters (`'en'`, `'de'`, …). Empty for
+  /// profiles whose prompt carries no language: moonshine and parakeet resolve
+  /// their own tokens, and CTC has no decoder prompt at all.
+  final String language;
+
   /// True if this model can drive a streaming (incremental) transcription.
   bool get supportsStreaming => modes.contains(SttMode.streaming);
 
   /// Resolve the runtime profile for [t].
-  factory SttModelProfile.forType(SttModelType t) => switch (t) {
+  factory SttModelProfile.forType(SttModelType t, {String? language}) =>
+      switch (t) {
     SttModelType.moonshine => const SttModelProfile.moonshine(),
-    SttModelType.whisper => const SttModelProfile.whisper(),
+    SttModelType.whisper => SttModelProfile.whisper(language: language ?? 'en'),
     SttModelType.parakeet => const SttModelProfile.parakeet(),
   };
 }

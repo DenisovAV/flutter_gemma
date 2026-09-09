@@ -353,8 +353,22 @@ see [Speech](/docs/speech).
 | Model | Input | Size | Status | Auth |
 |---|---|---|---|---|
 | **[moonshine-tiny](https://huggingface.co/litert-community/moonshine-tiny)** | raw 16 kHz PCM | ~104 MB | ✅ end-to-end | ❌ |
-| **Whisper** (tiny, English) | log-mel | — | ✅ end-to-end | ❌ |
-| **Parakeet** (CTC) | log-mel | — | ✅ end-to-end | ❌ |
+| **[Whisper](https://huggingface.co/litert-community/whisper-tiny)** (tiny / base) | log-mel | — | ✅ end-to-end | ❌ |
+| **[Parakeet](https://huggingface.co/litert-community/parakeet-ctc-0.6b)** (CTC 0.6B) | log-mel | — | ✅ end-to-end | ❌ |
+
+Whisper is **multilingual** — the shipped checkpoints are the multilingual ones
+(no `.en` suffix), so all 99 of Whisper's languages are available. Pass the
+language to `getActiveStt`:
+
+```dart
+final stt = await FlutterGemma.getActiveStt(language: 'de');
+```
+
+It defaults to `'en'`. The value is Whisper's own language code without the
+delimiters, and it decides the OUTPUT language only — the weights understand the
+audio either way, so asking for `'en'` on German speech returns an English
+translation rather than an error. Moonshine and Parakeet ignore the parameter;
+Parakeet CTC 0.6B is English-only.
 
 **Text-to-speech**
 

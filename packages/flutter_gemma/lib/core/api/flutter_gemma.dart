@@ -727,6 +727,7 @@ class FlutterGemma {
   /// ```
   static Future<SpeechRecognizer> getActiveStt({
     PreferredBackend? preferredBackend,
+    String? language,
   }) async {
     final manager = FlutterGemmaPlugin.instance.modelManager;
     final activeSpec = manager.activeSttModel;
@@ -747,6 +748,7 @@ class FlutterGemma {
     // Create SpeechRecognizer using active spec (paths resolved automatically)
     return await FlutterGemmaPlugin.instance.createSttModel(
       preferredBackend: preferredBackend,
+      language: language,
     );
   }
 

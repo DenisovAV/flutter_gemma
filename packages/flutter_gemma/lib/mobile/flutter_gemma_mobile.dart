@@ -596,6 +596,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
     String? modelPath,
     String? tokenizerPath,
     PreferredBackend? preferredBackend,
+    String? language,
   }) async {
     // Modern API: Use active STT model if paths not provided
     if (modelPath == null || tokenizerPath == null) {
@@ -724,6 +725,10 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
         modelPath: modelPath,
         tokenizerPath: tokenizerPath,
         preferredBackend: preferredBackend,
+        // Whisper's output language. Dropping it here is invisible: the
+        // recognizer still works and still returns text, just always in
+        // English, because the profile falls back to its `<|en|>` default.
+        language: language,
       );
       // The backend's createModel(spec, config) signature requires a non-null
       // spec, but it resolves paths exclusively from config. On the legacy

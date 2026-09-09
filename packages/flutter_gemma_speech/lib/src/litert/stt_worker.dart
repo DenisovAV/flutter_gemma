@@ -48,10 +48,25 @@ class _TranscribeRequest {
 
 /// Reply carrying the transcript (or an error message).
 class _TranscribeReply {
-  _TranscribeReply(this.id, this.text, this.error, {this.badArgument = false});
+  _TranscribeReply(
+    this.id,
+    this.text,
+    this.error, {
+    this.badArgument = false,
+    this.argName,
+    this.argValue,
+  });
   final int id;
   final String? text;
   final String? error;
+
+  /// [ArgumentError.name] and [ArgumentError.invalidValue], carried separately
+  /// so the rebuilt error keeps them. Rebuilding from `toString()` alone gives
+  /// `name == null`, `invalidValue == null` and a doubled `Invalid argument(s):`
+  /// prefix, so no caller downstream of the port could assert on the field that
+  /// says WHICH argument was wrong.
+  final String? argName;
+  final String? argValue;
 
   /// The worker rejected the CALLER's input (an [ArgumentError]) rather than
   /// failing at runtime. Carried as a flag because an exception object is not
@@ -59,6 +74,10 @@ class _TranscribeReply {
   /// so `transcribe(language: 'zz')` could not be caught as the argument error
   /// it is. Only the type is reconstructed; the worker-side stack is already
   /// lost here (pre-existing).
+  /// Deliberately NOT set for a [RangeError]: `RangeError` and `IndexError`
+  /// both EXTEND `ArgumentError` in dart:core, so a plain `e is ArgumentError`
+  /// reports every out-of-range index in the decode path — a mismatched mel
+  /// filterbank, a short logits row — to the app as a bad `language` argument.
   final bool badArgument;
 }
 
@@ -179,7 +198,9 @@ class SttWorker {
       if (completer == null) return;
       if (msg.error != null) {
         completer.completeError(
-          msg.badArgument ? ArgumentError(msg.error!) : StateError(msg.error!),
+          msg.badArgument
+              ? ArgumentError.value(msg.argValue, msg.argName, msg.error)
+              : StateError(msg.error!),
         );
       } else {
         completer.complete(msg.text!);
@@ -269,12 +290,18 @@ Future<void> _workerEntry(_WorkerInit init) async {
           final text = core.transcribe(msg.samples, language: msg.language);
           init.replyTo.send(_TranscribeReply(msg.id, text, null));
         } catch (e) {
+          // `e is! RangeError` is load-bearing — see _TranscribeReply.badArgument.
+          final bad = e is ArgumentError && e is! RangeError;
           init.replyTo.send(
             _TranscribeReply(
               msg.id,
               null,
-              e.toString(),
-              badArgument: e is ArgumentError,
+              bad ? (e as ArgumentError).message?.toString() ?? '$e' : '$e',
+              badArgument: bad,
+              argName: bad ? (e as ArgumentError).name : null,
+              argValue: bad
+                  ? (e as ArgumentError).invalidValue?.toString()
+                  : null,
             ),
           );
         }

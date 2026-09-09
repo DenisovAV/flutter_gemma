@@ -43,22 +43,11 @@ class LiteRtSttBackend implements SttBackendProvider {
     // without reloading the model. The profile keeps its own default (`<|en|>`
     // for whisper), which is what a null here means.
     //
-    // Validated for SHAPE at create time so `language: 'de-DE'` fails here
-    // rather than on the first transcription; the exact per-checkpoint code is
-    // checked against the tokenizer's own index inside `SttCore`.
-    final language = config.language;
-    if (language != null) {
-      if (spec.sttModelType != SttModelType.whisper) {
-        throw ArgumentError.value(
-          language,
-          'language',
-          'only SttModelType.whisper has a decoder-prompt language token; '
-              '${spec.sttModelType.name} transcribes in the language it hears',
-        );
-      }
-      assertWhisperLanguage(language);
-    }
-
+    // Not validated here on purpose — `LiteRtSpeechRecognizer`'s `language`
+    // setter owns that, and `create` assigns through it. A copy of the check
+    // here would be a second place to keep in sync, and would still not cover
+    // the shells' retarget path or a direct `recognizer.language = …`.
+    //
     // spec.sttModelType (e.g. SttModelType.moonshine) selects the runtime
     // profile — this backend never hardcodes a model.
     return LiteRtSpeechRecognizer.create(
@@ -66,7 +55,7 @@ class LiteRtSttBackend implements SttBackendProvider {
       modelPath: config.modelPath,
       tokenizerPath: tokenizerPath,
       preferredBackend: config.preferredBackend,
-      language: language,
+      language: config.language,
       onClose: () {},
     );
   }

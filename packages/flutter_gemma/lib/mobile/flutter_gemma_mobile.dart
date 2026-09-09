@@ -677,7 +677,12 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
       // Legacy API with explicit paths - check if singleton exists
       if (_initSttCompleter case Completer<SpeechRecognizer> completer) {
         gemmaLog('ℹ️  Reusing existing STT model instance (Legacy API)');
-        return completer.future;
+        // `createSttModel`'s dartdoc promises it retargets an existing
+        // recognizer. On this arm it did not, so a second explicit-paths call
+        // with a new language returned the first one's, silently.
+        final cached = await completer.future;
+        cached.language = language;
+        return cached;
       }
     }
 
@@ -687,7 +692,13 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
     // through and spawn a SECOND SttWorker/native model. Mirrors the desktop
     // shell (which the Modern-API branch above otherwise lacked).
     if (_initSttCompleter case Completer<SpeechRecognizer> completer) {
-      return completer.future;
+      // A caller arriving DURING the first load gets that load's recognizer —
+      // so it must still be retargeted, or a language picked while the model is
+      // still loading is dropped with no error. The window is wide: an isolate
+      // spawn plus a ~51k-entry tokenizer parse plus a model compile.
+      final cached = await completer.future;
+      cached.language = language;
+      return cached;
     }
 
     final completer = _initSttCompleter = Completer<SpeechRecognizer>();

@@ -39,18 +39,70 @@ Float32List pcm16LEToFloat32(Uint8List pcm) {
 /// [SttModelProfile] describes — it is NOT hardcoded to moonshine; adding a
 /// new profile (+ a mel frontend for log-mel models) is enough to support a
 /// new STT family without a new recognizer class.
+/// Reject a [language] this model cannot use, before anything is loaded.
+///
+/// One home for the whole rule, called from both `LiteRtSpeechRecognizer.create`
+/// (before the isolate spawns) and its `language` setter (which every retarget
+/// and every direct assignment goes through). Splitting it produced the shape
+/// where the create path threw and the retarget path accepted the same value,
+/// then failed on every later transcription — including ones passing no
+/// language at all.
+///
+/// `null` is always valid: it means "the model's own default".
+void validateSttLanguage(String? language, {required bool supportsLanguage}) {
+  if (language == null) return;
+  if (!supportsLanguage) {
+    throw ArgumentError.value(
+      language,
+      'language',
+      'this model has no decoder-prompt language token; only whisper '
+          'profiles accept a language',
+    );
+  }
+  assertWhisperLanguage(language);
+}
+
 class LiteRtSpeechRecognizer extends SpeechRecognizer with CloseNotifier {
-  LiteRtSpeechRecognizer._(this._worker, this.onClose, this.language);
+  LiteRtSpeechRecognizer._(
+    this._worker,
+    this.onClose,
+    this._supportsLanguage,
+    String? language,
+  ) {
+    // Through the setter, so the create path is validated by the same code as
+    // every later assignment — there is no "first call is checked, the rest are
+    // not" asymmetry to reason about.
+    this.language = language;
+  }
 
   final SttWorker _worker;
   final VoidCallback onClose;
+
+  /// Whether this model's decoder prompt HAS a language slot (whisper yes,
+  /// moonshine/parakeet no). Captured at create from the profile, because the
+  /// profile itself lives in the worker isolate and the setter has to answer
+  /// synchronously.
+  final bool _supportsLanguage;
+
   bool _isClosed = false;
 
+  String? _language;
+
   /// The default output language for [transcribe] calls that pass none.
-  /// Plain mutable state: the worker resolves the decoder prompt per request,
-  /// so changing this needs no reload and no message of its own.
+  ///
+  /// The setter is where every write is validated — the shells assign here when
+  /// they retarget a cached recognizer, and an app may assign directly. Putting
+  /// the check anywhere else leaves a path that accepts a language the model
+  /// cannot use and then fails on every subsequent transcription, including
+  /// calls that pass no language at all.
   @override
-  String? language;
+  String? get language => _language;
+
+  @override
+  set language(String? value) {
+    validateSttLanguage(value, supportsLanguage: _supportsLanguage);
+    _language = value;
+  }
 
   /// Load [profile]'s model + tokenizer and prepare it for transcription on
   /// a background isolate.
@@ -68,6 +120,12 @@ class LiteRtSpeechRecognizer extends SpeechRecognizer with CloseNotifier {
     VoidCallback? onClose,
     String? language,
   }) async {
+    // BEFORE the spawn: the constructor's own assignment would throw only after
+    // the isolate is up and the model loaded, orphaning the worker.
+    validateSttLanguage(
+      language,
+      supportsLanguage: profile.languagePromptIndex != null,
+    );
     final worker = await SttWorker.spawn(
       modelPath: modelPath,
       tokenizerPath: tokenizerPath,
@@ -76,7 +134,12 @@ class LiteRtSpeechRecognizer extends SpeechRecognizer with CloseNotifier {
     );
     // Kept as the mutable default rather than baked into the profile: the
     // caller may retarget it later without a reload (see [language]).
-    return LiteRtSpeechRecognizer._(worker, onClose ?? () {}, language);
+    return LiteRtSpeechRecognizer._(
+      worker,
+      onClose ?? () {},
+      profile.languagePromptIndex != null,
+      language,
+    );
   }
 
   void _assertNotClosed() {

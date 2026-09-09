@@ -18,6 +18,8 @@ import 'package:flutter_gemma/core/model_management/model_specs.dart'
     show SttModelType;
 import 'package:flutter_gemma_speech/src/litert/stt_core.dart'
     show promptForLanguage, resolveSttSpecialTokens;
+import 'package:flutter_gemma_speech/src/litert/litert_speech_recognizer.dart'
+    show validateSttLanguage;
 import 'package:flutter_gemma_speech/src/model/stt_model_profile.dart';
 import 'package:flutter_gemma_speech/src/tokenizer/stt_special_tokens.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -36,7 +38,8 @@ Map<String, dynamic> _whisperTokenizerJson() => {
     {'id': 50259, 'content': '<|en|>'},
     {'id': 50261, 'content': '<|de|>'},
     {'id': 50265, 'content': '<|fr|>'},
-    {'id': 50325, 'content': '<|yue|>'},
+    {'id': 50325, 'content': '<|yo|>'},
+    {'id': 50322, 'content': '<|haw|>'},
     {'id': 50357, 'content': '<|nospeech|>'},
     {'id': 50358, 'content': '<|translate|>'},
     {'id': 50359, 'content': '<|transcribe|>'},
@@ -54,9 +57,12 @@ void main() {
 
       expect(resolver.languageIds['de'], 50261);
       expect(resolver.languageIds['en'], 50259);
-      // Three-letter codes are real (Cantonese) — the pattern must not be
-      // `[a-z]{2}`.
-      expect(resolver.languageIds['yue'], 50325);
+      // Three-letter codes are real — `haw` (Hawaiian) is in whisper-tiny's
+      // actual tokenizer, so the pattern must not be `[a-z]{2}`. Checked
+      // against the real file: `<|yo|>` holds 50325, and `<|haw|>` is the only
+      // 3-letter code in that checkpoint.
+      expect(resolver.languageIds['haw'], 50322);
+      expect(resolver.languageIds['yo'], 50325);
     });
 
     test('excludes task and control tokens reachable by the same syntax', () {
@@ -196,7 +202,7 @@ void main() {
     test('accepts two- and three-letter lowercase codes', () {
       expect(assertWhisperLanguage('en'), 'en');
       expect(assertWhisperLanguage('de'), 'de');
-      expect(assertWhisperLanguage('yue'), 'yue');
+      expect(assertWhisperLanguage('haw'), 'haw');
     });
 
     test('rejects the shapes a caller actually reaches for', () {
@@ -241,6 +247,41 @@ void main() {
       expect(
         SttModelProfile.forType(SttModelType.parakeet).languagePromptIndex,
         isNull,
+      );
+    });
+  });
+  group('validateSttLanguage', () {
+    // One home for the whole rule: `LiteRtSpeechRecognizer.create` calls it
+    // before spawning the isolate, and its `language` setter calls it on every
+    // later assignment — which is what the shells' retarget path goes through.
+    // Splitting the rule is what produced "the create call throws, the retarget
+    // call accepts the same value and breaks every later transcription".
+    test('null is always fine — it means the model default', () {
+      expect(
+        () => validateSttLanguage(null, supportsLanguage: false),
+        returnsNormally,
+      );
+    });
+
+    test('a model with no language slot rejects any language', () {
+      expect(
+        () => validateSttLanguage('de', supportsLanguage: false),
+        throwsA(
+          isA<ArgumentError>()
+              .having((e) => e.name, 'name', 'language')
+              .having((e) => e.invalidValue, 'invalidValue', 'de'),
+        ),
+      );
+    });
+
+    test('a malformed code is rejected even where language is supported', () {
+      expect(
+        () => validateSttLanguage('de-DE', supportsLanguage: true),
+        throwsArgumentError,
+      );
+      expect(
+        () => validateSttLanguage('de', supportsLanguage: true),
+        returnsNormally,
       );
     });
   });

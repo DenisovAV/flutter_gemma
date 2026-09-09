@@ -577,9 +577,13 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
       }
     }
 
-    // Return existing if initialization in progress
+    // Return existing if initialization in progress — retargeted, for the same
+    // reason as the mobile shell: a language requested while the first load is
+    // still running would otherwise be dropped silently.
     if (_initSttCompleter case Completer<SpeechRecognizer> completer) {
-      return completer.future;
+      final cached = await completer.future;
+      cached.language = language;
+      return cached;
     }
 
     final completer = _initSttCompleter = Completer<SpeechRecognizer>();

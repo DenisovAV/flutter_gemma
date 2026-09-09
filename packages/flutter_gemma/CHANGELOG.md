@@ -1,5 +1,6 @@
-## 1.7.5
+## 1.8.0
 - Whisper output language on `getActiveStt` and `transcribe` (#500).
+- **Breaking for custom `SpeechRecognizer` implementations**: `transcribe` gained `language:` and the type gained a `language` field.
 
 ## 1.7.4
 - Example: LFM2.5-230M and the `fromHuggingFace` install path.

@@ -641,8 +641,14 @@ abstract class SpeechRecognizer {
   /// recognizer built for the FIRST language and transcribe into it with no
   /// error. Retargeting is free here, so there is nothing to invalidate.
   ///
-  /// `null` means the model's own default (`'en'` for Whisper).
-  String? language;
+  /// Setting an unusable value must throw [ArgumentError] — a malformed code,
+  /// or any code on a model with no language token. `abstract` for exactly that
+  /// reason: a plain field cannot validate, and a stored-but-never-read value
+  /// is the shape of the bug this whole API exists to fix (#500).
+  ///
+  /// `null` means the model's own default (`'en'` for Whisper), and assigning
+  /// `null` CLEARS a previously set language rather than leaving it in place.
+  abstract String? language;
 
   /// See [InferenceModel.addCloseListener].
   void addCloseListener(void Function() listener);

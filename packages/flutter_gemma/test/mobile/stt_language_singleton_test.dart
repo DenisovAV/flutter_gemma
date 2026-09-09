@@ -73,11 +73,17 @@ void main() {
     }
   });
 
-  Future<_FakeSttBackend> installWhisper() async {
+  Future<_FakeSttBackend> installWhisper({
+    Duration? loadDelay,
+    bool rejectLanguage = false,
+  }) async {
     await ServiceRegistry.initialize(
       downloadService: _FixtureDownloadService(_fakeBundleBytes),
     );
-    final backend = _FakeSttBackend();
+    final backend = _FakeSttBackend(
+      loadDelay: loadDelay,
+      rejectLanguage: rejectLanguage,
+    );
     SttRegistry.instance.registerAll([backend]);
 
     await FlutterGemma.installStt()
@@ -165,9 +171,93 @@ void main() {
       await recognizer.close();
     },
   );
+  test(
+    'a caller arriving DURING the first load still gets its language',
+    () async {
+      // The in-flight-completer branch. The first fix patched only the
+      // already-built branch, so a language picked while the model was still
+      // loading was dropped with no error — the #500 failure, narrowed to a
+      // window wide enough to hold an isolate spawn and a tokenizer parse.
+      final backend = await installWhisper(
+        loadDelay: const Duration(milliseconds: 50),
+      );
+
+      final first = FlutterGemma.getActiveStt(); // deliberately not awaited
+      final second = await FlutterGemma.getActiveStt(language: 'de');
+      final firstResolved = await first;
+
+      expect(backend.createModelCallCount, 1, reason: 'must not build twice');
+      expect(identical(second, firstResolved), isTrue);
+      expect(second.language, 'de');
+
+      await second.close();
+    },
+  );
+
+  test('the explicit-paths API retargets too', () async {
+    // `createSttModel`'s dartdoc promises it retargets an existing recognizer.
+    // On the legacy arm it returned the first call's recognizer unchanged.
+    final backend = await installWhisper();
+
+    final first = await FlutterGemmaPlugin.instance.createSttModel(
+      modelPath: '/tmp/whisper.tflite',
+      tokenizerPath: '/tmp/tokenizer.json',
+      language: 'de',
+    );
+    expect(first.language, 'de');
+
+    final second = await FlutterGemmaPlugin.instance.createSttModel(
+      modelPath: '/tmp/whisper.tflite',
+      tokenizerPath: '/tmp/tokenizer.json',
+      language: 'fr',
+    );
+
+    expect(identical(second, first), isTrue);
+    expect(second.language, 'fr');
+    expect(backend.createModelCallCount, 1);
+
+    await first.close();
+  });
+
+  test(
+    'a rejected language propagates instead of poisoning the recognizer',
+    () async {
+      // The real recognizer's setter throws for a language its model cannot use
+      // (moonshine has no language token). Before validation moved into the
+      // setter, the retarget branch assigned it anyway and returned normally —
+      // and then EVERY later transcribe(), including ones passing no language,
+      // failed. A call documented to throw instead broke the recognizer.
+      final backend = await installWhisper(rejectLanguage: true);
+
+      final recognizer = await FlutterGemma.getActiveStt();
+      expect(recognizer.language, isNull);
+
+      await expectLater(
+        FlutterGemma.getActiveStt(language: 'de'),
+        throwsArgumentError,
+      );
+
+      // …and the rejected value must not have been stored.
+      expect(recognizer.language, isNull);
+      expect(backend.createModelCallCount, 1);
+
+      await recognizer.close();
+    },
+  );
 }
 
 class _FakeSttBackend implements SttBackendProvider {
+  _FakeSttBackend({this.loadDelay, this.rejectLanguage = false});
+
+  /// Holds `createModel` open so a second caller lands on the in-flight
+  /// completer branch instead of the already-built one.
+  final Duration? loadDelay;
+
+  /// Makes the recognizer's `language` setter throw, the way
+  /// `LiteRtSpeechRecognizer` does for a language its model cannot use. The
+  /// shells must let that propagate rather than swallow it.
+  final bool rejectLanguage;
+
   RuntimeConfig? lastConfig;
   int createModelCallCount = 0;
   late _FakeSpeechRecognizer recognizer;
@@ -188,7 +278,11 @@ class _FakeSttBackend implements SttBackendProvider {
   ) async {
     createModelCallCount++;
     lastConfig = config;
-    return recognizer = _FakeSpeechRecognizer(config.language);
+    if (loadDelay != null) await Future<void>.delayed(loadDelay!);
+    return recognizer = _FakeSpeechRecognizer(
+      config.language,
+      rejectLanguage: rejectLanguage,
+    );
   }
 }
 
@@ -196,10 +290,22 @@ class _FakeSttBackend implements SttBackendProvider {
 /// test: `language` is mutable state consulted per `transcribe`, with the
 /// per-call argument winning.
 class _FakeSpeechRecognizer extends SpeechRecognizer with CloseNotifier {
-  _FakeSpeechRecognizer(this.language);
+  _FakeSpeechRecognizer(String? language, {this.rejectLanguage = false})
+    : _language = language;
+
+  final bool rejectLanguage;
+  String? _language;
 
   @override
-  String? language;
+  String? get language => _language;
+
+  @override
+  set language(String? value) {
+    if (value != null && rejectLanguage) {
+      throw ArgumentError.value(value, 'language', 'model has no language');
+    }
+    _language = value;
+  }
 
   String? lastTranscribeLanguage;
 

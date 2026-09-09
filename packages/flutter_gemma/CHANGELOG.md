@@ -1,3 +1,6 @@
+## 1.7.4
+- Example: LFM2.5-230M and the `fromHuggingFace` install path.
+
 ## 1.7.3
 - Fix `createChat` dropping `tools` — function calling on every non-FFI engine.
 - Docs: bump web `@litert-lm/core` setup snippet to 0.17.0.

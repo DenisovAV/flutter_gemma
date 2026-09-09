@@ -29,7 +29,7 @@ dependencies:
 
 ```
 dependencies:
-  flutter_gemma: ^1.7.3                 # core — always required
+  flutter_gemma: ^1.7.4                 # core — always required
   flutter_gemma_litertlm: ^1.6.3        # add if you run .litertlm models (also provides LiteRtEmbeddingBackend)
   flutter_gemma_mediapipe: ^1.0.5       # add if you run .task / .bin models
   flutter_gemma_embeddings: ^2.1.1      # add if you compute embeddings (needs a backend, see above)

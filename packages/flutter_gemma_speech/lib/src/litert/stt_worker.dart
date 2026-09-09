@@ -48,10 +48,18 @@ class _TranscribeRequest {
 
 /// Reply carrying the transcript (or an error message).
 class _TranscribeReply {
-  _TranscribeReply(this.id, this.text, this.error);
+  _TranscribeReply(this.id, this.text, this.error, {this.badArgument = false});
   final int id;
   final String? text;
   final String? error;
+
+  /// The worker rejected the CALLER's input (an [ArgumentError]) rather than
+  /// failing at runtime. Carried as a flag because an exception object is not
+  /// sendable across a port — without it every error arrives as a `StateError`,
+  /// so `transcribe(language: 'zz')` could not be caught as the argument error
+  /// it is. Only the type is reconstructed; the worker-side stack is already
+  /// lost here (pre-existing).
+  final bool badArgument;
 }
 
 /// Sentinel asking the worker to tear down the native model and exit.
@@ -170,7 +178,9 @@ class SttWorker {
       final completer = _pending.remove(msg.id);
       if (completer == null) return;
       if (msg.error != null) {
-        completer.completeError(StateError(msg.error!));
+        completer.completeError(
+          msg.badArgument ? ArgumentError(msg.error!) : StateError(msg.error!),
+        );
       } else {
         completer.complete(msg.text!);
       }
@@ -259,7 +269,14 @@ Future<void> _workerEntry(_WorkerInit init) async {
           final text = core.transcribe(msg.samples, language: msg.language);
           init.replyTo.send(_TranscribeReply(msg.id, text, null));
         } catch (e) {
-          init.replyTo.send(_TranscribeReply(msg.id, null, e.toString()));
+          init.replyTo.send(
+            _TranscribeReply(
+              msg.id,
+              null,
+              e.toString(),
+              badArgument: e is ArgumentError,
+            ),
+          );
         }
       } else if (msg is _Close) {
         commandPort.close();

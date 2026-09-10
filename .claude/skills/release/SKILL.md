@@ -52,7 +52,8 @@ silently do the other thing.
 [ ] 8   dart pub publish --dry-run → 0 warnings, every package
 [ ] 12a website + README version pins bumped to the just-published versions
 [ ] 12b new/changed public API + behavior documented (README + website)  ← SAME PR
-[ ] 12d skills/ updated for the change, and `bash tool/check_skills.sh` green
+[ ] 12d skills/: `skills_review.sh <last-tag>` run, every flagged skill READ,
+        updated where the prose drifted, and `check_skills.sh` green
 [ ] 12c after merge: firebase-hosting-merge run == success (not just triggered)
 ```
 
@@ -641,7 +642,24 @@ Map the change to the skill that covers it:
 | STT, TTS, `VoiceSession` | `flutter-gemma-speech` |
 | embeddings, vector stores | `flutter-gemma-rag` |
 
-Then run the gate:
+**Do not go looking by hand.** Ask the diff which skills it puts in doubt:
+
+```bash
+bash tool/skills_review.sh <last-tag>      # e.g. v1.8.0
+```
+
+For each skill it prints the symbols that skill NAMES and this release TOUCHED.
+Run against the STT release it names `flutter-gemma-speech` with
+`getActiveStt`, `language`, `SttModelType.whisper`; against the
+`createChat`-tools fix it names `flutter-gemma-tools` and leaves speech alone.
+That is the routing — a skill with hits gets opened, a skill without one gets
+skipped with a clear conscience.
+
+**Then open every flagged skill and read it against the change.** This is the
+step, not the script. The script cannot tell whether the prose is still true;
+it only says where to look.
+
+Finally the mechanical gate:
 
 ```bash
 bash tool/check_skills.sh     # exit 0 required
@@ -652,11 +670,12 @@ inside ```dart fences, and dotted members — and fails if one no longer exists 
 `packages/*/lib/`. Read the count it prints, not just the exit code: a run that
 examined nothing exits 2 rather than reporting a pass.
 
-**What the gate cannot catch, and you must:** a symbol that still exists but
-changed MEANING. `getActiveStt(language:)` went from "the language this
-recognizer was built with" to "the default for its transcriptions" without a
-single rename — the script stayed green through both. When a behaviour changes,
-open the skill and read it.
+**Why both.** `check_skills.sh` answers "does every name still exist" — renames
+and deletions. It stays green when a symbol survives and its MEANING moves,
+which is the failure that actually happened here: `getActiveStt(language:)` went
+from "the language this recognizer was built with" to "the default for its
+transcriptions" with no rename anywhere. `skills_review.sh` is what puts that
+change in front of your eyes; only reading closes it.
 
 Skills live only in `flutter_gemma`, so a fix to any of them is one publish of
 core. That is why they are all there rather than in the packages they describe.

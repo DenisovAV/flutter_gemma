@@ -1,9 +1,9 @@
 ---
-name: flutter-gemma-speech-stt
-description: Use when transcribing audio with flutter_gemma_speech — installing an STT model, choosing between moonshine/Whisper/Parakeet, or setting the output language. Whisper is multilingual and the language is a per-transcription property, not a property of the loaded model.
+name: flutter-gemma-speech
+description: Use when adding speech to a flutter_gemma app — transcription (moonshine/Whisper/Parakeet), synthesis (Matcha/Qwen3/Inflect), or the VoiceSession loop. Audio must be 16 kHz mono 16-bit PCM, and the Whisper output language is a property of a transcription rather than of the loaded model.
 ---
 
-# Speech-to-text with flutter_gemma_speech
+# Speech with flutter_gemma_speech
 
 ## Register the backend first
 
@@ -13,7 +13,10 @@ STT is opt-in. Core registers nothing:
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_speech/flutter_gemma_speech.dart';
 
-await FlutterGemma.initialize(sttBackends: [LiteRtSttBackend()]);
+await FlutterGemma.initialize(
+  sttBackends: [LiteRtSttBackend()],   // transcription
+  ttsBackends: [LiteRtTtsBackend()],   // synthesis
+);
 ```
 
 Native only — Android, iOS, macOS, Windows, Linux. The web arm is a stub that
@@ -116,10 +119,54 @@ language is indistinguishable from success.
 - `flutter_gemma_speech` requires a matching core — check its `flutter_gemma`
   constraint. A core too old accepts `language:` and drops it.
 
+## Text-to-speech
+
+```dart
+await FlutterGemma.installTts()
+    .fromNetwork('https://huggingface.co/litert-community/Matcha-TTS/resolve/main/')
+    .ofType(TtsModelType.matcha)
+    .install();
+
+final synth = await FlutterGemma.getActiveTts();
+try {
+  final pcm = await synth.synthesize('Hello world.');   // Uint8List, 16-bit PCM
+  print(synth.sampleRate);                              // 22050 for Matcha
+} finally {
+  await synth.close();
+}
+```
+
+`sampleRate` differs per model — read it rather than assuming, or playback is
+pitched wrong.
+
+| `TtsModelType` | Languages | Notes |
+| --- | --- | --- |
+| `matcha` | its bundle's locale | fast, no runtime language parameter |
+| `qwen3` | many, selectable | pass `language:` to `getActiveTts` |
+| `inflect` | English only | ~90x real time on CPU |
+
+## TTS language fails LOUD, unlike STT
+
+`getActiveTts` returns a process-wide singleton, and asking an existing
+synthesizer for a different language **throws** a `StateError` telling you to
+`close()` first. That is deliberate: reusing it would emit wrong-language audio
+with no error.
+
+```dart
+final en = await FlutterGemma.getActiveTts(language: 'english');
+await en.close();                                   // required
+final de = await FlutterGemma.getActiveTts(language: 'german');
+```
+
+Note the asymmetry with STT, which retargets silently and cheaply instead: a
+Whisper decoder prompt is rebuilt per transcription, a TTS voice is not. Values
+here are full lowercase names (`'english'`, `'german'`), not the ISO codes STT
+uses.
+
 ## Voice loop
 
-`VoiceSession` chains STT to an LLM to TTS for a push-to-talk turn. It inherits
-the recognizer's current language, so set it before starting the session:
+`VoiceSession` chains STT to an LLM to TTS for one push-to-talk turn, with
+barge-in.
 
 ```dart
 final session = VoiceSession.fromChat(
@@ -127,5 +174,19 @@ final session = VoiceSession.fromChat(
   chat: chat,
   synthesizer: await FlutterGemma.getActiveTts(),
 );
-await for (final event in session.runTurn(pcm)) { /* … */ }
+
+await for (final event in session.runTurn(pcm16kMono)) {
+  switch (event) {
+    case VoiceTranscriptEvent(:final text):            // show it
+    case VoiceReplyTextEvent(:final chunk):            // stream it
+    case VoiceReplyAudioEvent(:final pcm, :final sampleRate):  // play it
+    case VoiceTurnInterruptedEvent():                  // stop the player
+    case VoiceTurnCompleteEvent():
+    case VoiceErrorEvent():
+  }
+}
 ```
+
+The session inherits the recognizer's current language, so set it before
+starting. A chat with tools is supported — pass `onToolCall`; a tools-enabled
+chat arriving without a handler throws.

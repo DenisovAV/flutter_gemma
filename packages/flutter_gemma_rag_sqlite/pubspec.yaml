@@ -26,7 +26,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_gemma: ^1.7.3
+  flutter_gemma: ^1.8.1
   sqlite3: ^3.3.0
   # Native Assets hook deps — hook/build.dart fetches the per-platform
   # sqlite-vec (vec0) loadable extension from the native-sqlite-vec-v* GitHub

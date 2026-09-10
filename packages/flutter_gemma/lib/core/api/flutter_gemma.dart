@@ -709,9 +709,17 @@ class FlutterGemma {
   ///
   /// Runtime parameters:
   /// - [preferredBackend]: CPU or GPU preference (optional)
+  /// - [language]: the OUTPUT language for transcripts (Whisper only) — a bare
+  ///   lowercase code such as `'en'` or `'de'`. Sets
+  ///   [SpeechRecognizer.language], and retargets the recognizer if one already
+  ///   exists, so it takes effect on every call and not just the first.
+  ///   Override a single transcription with
+  ///   [SpeechRecognizer.transcribe]'s own `language` instead.
   ///
   /// Throws:
   /// - [StateError] if no active STT model is set
+  /// - [ArgumentError] for a malformed [language], or for any [language] on a
+  ///   model whose decoder prompt has no language token (moonshine, parakeet)
   ///
   /// Example:
   /// ```dart
@@ -724,9 +732,16 @@ class FlutterGemma {
   ///
   /// // Create with default backend
   /// final recognizer = await FlutterGemma.getActiveStt();
+  ///
+  /// // Whisper: transcribe German, then French, on the SAME recognizer —
+  /// // nothing is reloaded between the two.
+  /// final de = await FlutterGemma.getActiveStt(language: 'de');
+  /// final german = await de.transcribe(germanPcm);
+  /// final french = await de.transcribe(frenchPcm, language: 'fr');
   /// ```
   static Future<SpeechRecognizer> getActiveStt({
     PreferredBackend? preferredBackend,
+    String? language,
   }) async {
     final manager = FlutterGemmaPlugin.instance.modelManager;
     final activeSpec = manager.activeSttModel;
@@ -747,6 +762,7 @@ class FlutterGemma {
     // Create SpeechRecognizer using active spec (paths resolved automatically)
     return await FlutterGemmaPlugin.instance.createSttModel(
       preferredBackend: preferredBackend,
+      language: language,
     );
   }
 

@@ -596,6 +596,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
     String? modelPath,
     String? tokenizerPath,
     PreferredBackend? preferredBackend,
+    String? language,
   }) async {
     // Modern API: Use active STT model if paths not provided
     if (modelPath == null || tokenizerPath == null) {
@@ -649,11 +650,22 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
           _initializedSttModel = null;
           _lastActiveSttSpec = null;
         } else {
-          // Same model - return existing singleton
+          // Same model - return existing singleton, RETARGETED to the requested
+          // language.
+          //
+          // Load-bearing, and the reason `SpeechRecognizer.language` is
+          // settable: this branch is the common case (a recognizer built at
+          // startup, a language picked later), and without the assignment the
+          // caller gets back the recognizer built for the FIRST language and
+          // transcribes into it with no error — a documented parameter that
+          // works exactly once per process. Whisper's decoder prompt is rebuilt
+          // per transcription, so this is a field write, not a reload.
           gemmaLog(
             'ℹ️  Reusing existing STT model instance for ${requestedSpec.name}',
           );
-          return _initSttCompleter!.future;
+          final cached = await _initSttCompleter!.future;
+          cached.language = language;
+          return cached;
         }
       }
 
@@ -665,7 +677,12 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
       // Legacy API with explicit paths - check if singleton exists
       if (_initSttCompleter case Completer<SpeechRecognizer> completer) {
         gemmaLog('ℹ️  Reusing existing STT model instance (Legacy API)');
-        return completer.future;
+        // `createSttModel`'s dartdoc promises it retargets an existing
+        // recognizer. On this arm it did not, so a second explicit-paths call
+        // with a new language returned the first one's, silently.
+        final cached = await completer.future;
+        cached.language = language;
+        return cached;
       }
     }
 
@@ -675,7 +692,13 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
     // through and spawn a SECOND SttWorker/native model. Mirrors the desktop
     // shell (which the Modern-API branch above otherwise lacked).
     if (_initSttCompleter case Completer<SpeechRecognizer> completer) {
-      return completer.future;
+      // A caller arriving DURING the first load gets that load's recognizer —
+      // so it must still be retargeted, or a language picked while the model is
+      // still loading is dropped with no error. The window is wide: an isolate
+      // spawn plus a ~51k-entry tokenizer parse plus a model compile.
+      final cached = await completer.future;
+      cached.language = language;
+      return cached;
     }
 
     final completer = _initSttCompleter = Completer<SpeechRecognizer>();
@@ -724,6 +747,10 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
         modelPath: modelPath,
         tokenizerPath: tokenizerPath,
         preferredBackend: preferredBackend,
+        // Whisper's output language. Dropping it here is invisible: the
+        // recognizer still works and still returns text, just always in
+        // English, because the profile falls back to its `<|en|>` default.
+        language: language,
       );
       // The backend's createModel(spec, config) signature requires a non-null
       // spec, but it resolves paths exclusively from config. On the legacy

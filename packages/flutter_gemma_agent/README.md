@@ -36,13 +36,15 @@ package serves each skill's assets over a loopback HTTP server
 works identically across all native engines (WebView2 / WKWebView / Android
 WebView), verified on hardware. On web the skill runs in a sandboxed `<iframe>`.
 
-> **Web is not supported yet.** The table shows where each skill *type* runs
-> once invoked, but the agent loop needs the model to reliably emit well-formed
-> tool calls, and today's browser LLM runtimes don't — the LiteRT-LM web runtime
-> (`@litert-lm/core`) doesn't consistently emit the tool-call tokens, and the
-> small models miss required arguments or produce malformed JSON, so skills
-> don't run end-to-end. The agent is verified on **Android, iOS, macOS, and
-> Windows** — use those.
+> **Web is unverified.** The table shows where each skill *type* runs once
+> invoked, and the pieces the loop needs are in place: the web `.litertlm` path
+> does emit well-formed tool calls and does survive the call -> result -> continue
+> round-trip (`example/integration_test/web_function_calling_test.dart`). What is
+> missing is a run of the agent itself on web — nothing here has been driven
+> end-to-end in a browser, and `sizeInTokens` is approximate there, which the
+> loop's context balancing depends on. Native-intent skills are stubbed on web by
+> design. The agent is verified on **Android, iOS, macOS, and Windows** — use
+> those until a web run exists.
 
 ## What's in the box
 

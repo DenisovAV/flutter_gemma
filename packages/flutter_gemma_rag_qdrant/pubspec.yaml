@@ -24,7 +24,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_gemma: ^1.7.3
+  flutter_gemma: ^1.8.1
   uuid: ^4.0.0
   # For the store's owned-subdir path handling (qdrant_edge_v1).
   path: ^1.9.0

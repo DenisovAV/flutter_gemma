@@ -1,3 +1,8 @@
+## 1.6.3
+- Web: move `@litert-lm/core` 0.14.0 -> 0.17.0.
+- Web: `maxOutputTokens` now caps generation instead of being ignored.
+- Web: function calling works; constrained decoding off (upstream #2434).
+
 ## 1.6.2
 - Fix macOS companion staging: repoint the load command LiteRtLm actually carries instead of a hardcoded one (#457).
 

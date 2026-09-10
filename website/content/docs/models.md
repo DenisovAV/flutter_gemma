@@ -70,8 +70,8 @@ model to MediaPipe, which cannot read that format), `ModelFileType.task` for
 devices. The Simulator stays CPU-only because Metal sim has a 256 MB
 single-allocation cap.
 
-² Web `.litertlm` is an **early preview** via `@litert-lm/core` — text only. No
-vision, audio, thinking, function calling or LoRA; see the feature matrix in
+² Web `.litertlm` is an **early preview** via `@litert-lm/core` — text plus function calling. No
+vision, audio, thinking or LoRA; see the feature matrix in
 [Troubleshooting](/docs/troubleshooting). For full multimodal on web, use a
 MediaPipe `.task` build.
 
@@ -95,6 +95,7 @@ MediaPipe `.task` build.
 | **Gemma 3 270M** | Ideal for fine-tuning (LoRA) for specific tasks | ❌ | ❌ | ❌ | Multilingual | 0.3GB |
 | **FunctionGemma 270M** | Specialized for function calling on-device | ✅ | ❌ | ❌ | Multilingual | 284MB |
 | **SmolLM 135M** | Ultra-compact, resource-constrained devices | ❌ | ❌ | ❌ | English | 135MB |
+| **LFM2.5 230M** | Smallest entry; no HF token needed | ❌ | ❌ | ❌ | Multilingual | 168MB |
 | **SmolLM3 3B** | Multilingual small LLM with reasoning mode | ❌ | ✅ | ❌ | Multilingual | 2.0GB |
 | **TranslateGemma 4B** † | Single-shot 55-language translation | ❌ | ❌ | ❌ | 55 languages | 2-4GB |
 
@@ -127,7 +128,7 @@ When installing models, specify the correct `ModelType`:
 | **Qwen 3** | `ModelType.qwen3` | Qwen3 0.6B |
 | **FunctionGemma** | `ModelType.functionGemma` | FunctionGemma 270M IT |
 | **Phi** | `ModelType.general` | Phi-4 Mini |
-| **General** | `ModelType.general` | FastVLM 0.5B, SmolLM 135M, SmolLM3 3B, Phi-4 Mini Reasoning, Qwen2-VL 2B, SmolVLM2 500M, LLaVA-OneVision 0.5B |
+| **General** | `ModelType.general` | FastVLM 0.5B, SmolLM 135M, LFM2.5 230M, SmolLM3 3B, Phi-4 Mini Reasoning, Qwen2-VL 2B, SmolVLM2 500M, LLaVA-OneVision 0.5B |
 
 <Info>
 Gemma 4 uses `ModelType.gemma4` so its native tool-call tokens are routed through
@@ -170,6 +171,7 @@ await FlutterGemma.installModel(modelType: ModelType.general)
 | [Qwen 2.5 1.5B](https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct) | 1.6GB | ✅ | ✅ | ❌ |
 | [Qwen 2.5 0.5B](https://huggingface.co/litert-community/Qwen2.5-0.5B-Instruct) | 0.5GB | ❌ | ✅ | ❌ |
 | [SmolLM 135M](https://huggingface.co/litert-community/SmolLM-135M-Instruct) | 135MB | ❌ | ✅ | ❌ |
+| [LFM2.5 230M](https://huggingface.co/litert-community/LFM2.5-230M) | 168MB | ❌ | ✅ | ❌ |
 | [SmolLM3 3B](https://huggingface.co/litert-community/SmolLM3-3B) | 2.0GB | ✅ | ✅ | ❌ |
 | [Phi-4 Mini](https://huggingface.co/litert-community/Phi-4-mini-instruct) | 3.9GB | ✅ | ✅ | ✅ |
 | [Phi-4 Mini Reasoning](https://huggingface.co/litert-community/Phi-4-mini-reasoning) | 2.8GB | ✅ | ✅ | ❌ |
@@ -351,8 +353,34 @@ see [Speech](/docs/speech).
 | Model | Input | Size | Status | Auth |
 |---|---|---|---|---|
 | **[moonshine-tiny](https://huggingface.co/litert-community/moonshine-tiny)** | raw 16 kHz PCM | ~104 MB | ✅ end-to-end | ❌ |
-| **Whisper** (tiny, English) | log-mel | — | ✅ end-to-end | ❌ |
-| **Parakeet** (CTC) | log-mel | — | ✅ end-to-end | ❌ |
+| **[Whisper](https://huggingface.co/litert-community/whisper-tiny)** (tiny / base) | log-mel | — | ✅ end-to-end | ❌ |
+| **[Parakeet](https://huggingface.co/litert-community/parakeet-ctc-0.6b)** (CTC 0.6B) | log-mel | — | ✅ end-to-end | ❌ |
+
+Whisper is **multilingual** — the shipped checkpoints are the multilingual ones
+(no `.en` suffix), so all 99 of Whisper's languages are available. Set a default
+for the recognizer, override it per transcription, or both:
+
+```dart
+// Default for every transcription on this recognizer.
+final stt = await FlutterGemma.getActiveStt(language: 'de');
+final german = await stt.transcribe(germanPcm);
+
+// One call in another language — same recognizer, nothing reloaded.
+final french = await stt.transcribe(frenchPcm, language: 'fr');
+```
+
+Both are free: the language is one token in the decoder's seed prompt, and that
+prompt is rebuilt on every transcription. Switching languages never reloads the
+model or invalidates the recognizer you are holding.
+
+The value is Whisper's own language code without the delimiters, and it defaults
+to `'en'`. It decides the OUTPUT language only — the weights understand the
+audio either way, so asking for `'en'` on German speech returns an English
+translation rather than an error.
+
+Moonshine and Parakeet have no language token in their decoder prompt and
+**reject** the parameter with an `ArgumentError` rather than ignoring it; both
+transcribe the language they hear (Parakeet CTC 0.6B is English-only).
 
 **Text-to-speech**
 

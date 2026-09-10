@@ -30,8 +30,8 @@ inference.
 
 ```
 dependencies:
-  flutter_gemma: ^1.7.1
-  flutter_gemma_speech: ^0.4.3
+  flutter_gemma: ^1.8.0
+  flutter_gemma_speech: ^0.5.0
 ```
 
 ## Register the backend
@@ -75,6 +75,29 @@ print(transcript); // "She had ... watch for all year."
 
 await recognizer.close();
 ```
+
+### Output language (Whisper)
+
+Whisper's shipped checkpoints are multilingual, and the output language is one
+token in the decoder's seed prompt. Set a default, or override a single call:
+
+```dart
+final recognizer = await FlutterGemma.getActiveStt(language: 'de');
+final german = await recognizer.transcribe(germanPcm);
+
+// Same recognizer, one call in French — nothing is reloaded.
+final french = await recognizer.transcribe(frenchPcm, language: 'fr');
+```
+
+`getActiveStt` returns a process-wide singleton, and calling it again with a new
+`language` retargets that recognizer rather than rebuilding it — so you never
+need to `close()` just to change language.
+
+The code is Whisper's own, without the delimiters (`'en'`, `'de'`, `'uk'`), and
+it defaults to `'en'`. It changes what the model WRITES, not what it hears:
+asking for `'en'` on German audio returns an English translation, not an error.
+An unknown or malformed code throws `ArgumentError`, as does any language on
+moonshine or Parakeet — neither has a language token to set.
 
 The moonshine repos are public, so no HuggingFace token is required. For gated
 models pass a token to `initialize(huggingFaceToken: ...)` or per source

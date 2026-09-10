@@ -180,7 +180,7 @@ packages:
       path: "../../flutter_gemma"
       relative: true
     source: path
-    version: "1.7.2"
+    version: "1.8.0"
   flutter_gemma_agent:
     dependency: "direct main"
     description:
@@ -201,14 +201,14 @@ packages:
       path: "../../flutter_gemma_litertlm"
       relative: true
     source: path
-    version: "1.6.2"
+    version: "1.6.3"
   flutter_gemma_speech:
     dependency: "direct main"
     description:
       path: ".."
       relative: true
     source: path
-    version: "0.4.3"
+    version: "0.5.0"
   flutter_inappwebview:
     dependency: transitive
     description:

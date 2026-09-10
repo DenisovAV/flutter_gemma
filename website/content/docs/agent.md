@@ -29,9 +29,9 @@ used below).
 
 ```
 dependencies:
-  flutter_gemma: ^1.7.1
+  flutter_gemma: ^1.8.0
   flutter_gemma_agent: ^0.2.5
-  flutter_gemma_litertlm: ^1.6.2   # an inference engine (LiteRtLmEngine)
+  flutter_gemma_litertlm: ^1.6.3   # an inference engine (LiteRtLmEngine)
 ```
 
 The agent is **not supported on Web** yet — see the note below.
@@ -62,14 +62,15 @@ serves each skill's assets over a loopback HTTP server (`http://127.0.0.1`, a W3
 WebView2 / WKWebView / Android WebView, verified on hardware. On the web the skill
 runs in a sandboxed `<iframe>`.
 
-> **Web is not supported yet.** The columns above describe where each skill
-> *type* can execute once invoked, but the agent loop depends on the model
-> reliably emitting well-formed tool calls, and today's browser LLM runtimes
-> don't: the LiteRT-LM web runtime (`@litert-lm/core`) doesn't consistently emit
-> the tool-call tokens, and even when it does the small models miss required
-> arguments or produce malformed JSON, so skills don't run end-to-end. The
-> agent is verified on **Android, iOS, macOS, and Windows** — use those. The
-> example app disables the agent on web accordingly.
+> **Web is unverified.** The columns above describe where each skill *type* can
+> execute once invoked, and the pieces the loop needs are in place: the web
+> `.litertlm` path emits well-formed tool calls and survives the
+> call → result → continue round-trip. What is missing is a run of the agent
+> itself in a browser — that has never been done, and the loop's context
+> balancing leans on `sizeInTokens`, which is approximate on web. Native-intent
+> skills are stubbed on web by design. The agent is verified on **Android, iOS,
+> macOS, and Windows** — use those until a web run exists. The example app
+> disables the agent on web accordingly.
 
 ## Quick start
 

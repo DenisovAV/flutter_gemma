@@ -52,6 +52,7 @@ silently do the other thing.
 [ ] 8   dart pub publish --dry-run → 0 warnings, every package
 [ ] 12a website + README version pins bumped to the just-published versions
 [ ] 12b new/changed public API + behavior documented (README + website)  ← SAME PR
+[ ] 12d skills/ updated for the change, and `bash tool/check_skills.sh` green
 [ ] 12c after merge: firebase-hosting-merge run == success (not just triggered)
 ```
 
@@ -614,6 +615,51 @@ Update each `^X.Y.Z` for the core packages (`flutter_gemma`, `flutter_gemma_lite
 - **New / changed public API** → the topic doc that covers it (e.g. a new `createSession` param → `getting-started.md`; multimodal → `multimodal.md`; models → `models.md`).
 - **Breaking changes / migrations** → `migration.md`.
 - **A bug class users hit** → `troubleshooting.md` (e.g. the #318 `maxTokens` vs `maxOutputTokens` confusion belongs here).
+
+### 12d. Update the shipped agent skills — they are read by a MACHINE
+
+`packages/flutter_gemma/skills/` holds eight `SKILL.md` files that ship inside
+the core archive and are installed into users' coding agents by
+`dart run skills@ get`. They are not a nice-to-have copy of the docs: an agent
+follows them literally when writing code against this package.
+
+That makes stale skills worse than stale docs. A human reading an outdated
+README notices the mismatch; an agent does not — it writes confident, wrong code
+against an API that moved, and the user blames the package.
+
+**If this release changed public API or behaviour, the skills change with it.**
+Map the change to the skill that covers it:
+
+| Area | Skill |
+|------|-------|
+| registry, install, `ModelFileType`, `maxTokens`, sessions, chat | `flutter-gemma-inference` |
+| function calling | `flutter-gemma-tools` |
+| `.litertlm` engine, backends, platform floors | `flutter-gemma-litertlm` |
+| `.task`/`.bin`, MediaPipe web | `flutter-gemma-mediapipe` |
+| ONNX / ORT-GenAI | `flutter-gemma-onnx` |
+| the OS built-in model | `flutter-gemma-builtin-ai` |
+| STT, TTS, `VoiceSession` | `flutter-gemma-speech` |
+| embeddings, vector stores | `flutter-gemma-rag` |
+
+Then run the gate:
+
+```bash
+bash tool/check_skills.sh     # exit 0 required
+```
+
+It extracts every API symbol the skills name — inline backticks, named arguments
+inside ```dart fences, and dotted members — and fails if one no longer exists in
+`packages/*/lib/`. Read the count it prints, not just the exit code: a run that
+examined nothing exits 2 rather than reporting a pass.
+
+**What the gate cannot catch, and you must:** a symbol that still exists but
+changed MEANING. `getActiveStt(language:)` went from "the language this
+recognizer was built with" to "the default for its transcriptions" without a
+single rename — the script stayed green through both. When a behaviour changes,
+open the skill and read it.
+
+Skills live only in `flutter_gemma`, so a fix to any of them is one publish of
+core. That is why they are all there rather than in the packages they describe.
 
 ### 12c. Deploy — it's automatic on merge to main
 

@@ -152,7 +152,11 @@ class _FakeSttBackend implements SttBackendProvider {
 
 class _FakeSpeechRecognizer extends SpeechRecognizer with CloseNotifier {
   @override
-  Future<String> transcribe(Uint8List pcm16kMono) async => 'fake transcript';
+  String? language;
+
+  @override
+  Future<String> transcribe(Uint8List pcm16kMono, {String? language}) async =>
+      'fake transcript';
 
   @override
   Future<void> close() async {

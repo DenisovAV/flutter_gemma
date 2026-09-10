@@ -550,6 +550,7 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
     String? modelPath,
     String? tokenizerPath,
     PreferredBackend? preferredBackend,
+    String? language,
   }) async {
     // Check if active STT model changed
     final currentActiveModel = _modelManager.activeSttModel;
@@ -565,13 +566,24 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
         _initializedSttModel = null;
         _lastActiveSttModelName = null;
       } else {
-        return _initSttCompleter!.future;
+        // Same model — reuse the singleton, RETARGETED to the requested
+        // language. Without this the caller gets back the recognizer built for
+        // the FIRST language and transcribes into it with no error; see the
+        // matching branch in the mobile shell. The decoder prompt is rebuilt
+        // per transcription, so this is a field write, not a reload.
+        final cached = await _initSttCompleter!.future;
+        cached.language = language;
+        return cached;
       }
     }
 
-    // Return existing if initialization in progress
+    // Return existing if initialization in progress — retargeted, for the same
+    // reason as the mobile shell: a language requested while the first load is
+    // still running would otherwise be dropped silently.
     if (_initSttCompleter case Completer<SpeechRecognizer> completer) {
-      return completer.future;
+      final cached = await completer.future;
+      cached.language = language;
+      return cached;
     }
 
     final completer = _initSttCompleter = Completer<SpeechRecognizer>();
@@ -633,6 +645,10 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
         modelPath: modelPath,
         tokenizerPath: tokenizerPath,
         preferredBackend: preferredBackend,
+        // Whisper's output language. Dropping it here is invisible: the
+        // recognizer still works and still returns text, just always in
+        // English, because the profile falls back to its `<|en|>` default.
+        language: language,
       );
       // The backend's createModel(spec, config) signature requires a non-null
       // spec, but it resolves paths exclusively from config. On the legacy

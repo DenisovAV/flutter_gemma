@@ -288,6 +288,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     String? modelPath,
     String? tokenizerPath,
     PreferredBackend? preferredBackend,
+    String? language,
   }) async {
     // Modern API: Use active STT model if paths not provided
     if (modelPath == null || tokenizerPath == null) {
@@ -354,6 +355,12 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     }
 
     if (_initializedSttModel != null) {
+      // Same model — reuse the singleton, RETARGETED to the requested
+      // language. Without this the caller gets back the recognizer built for
+      // the FIRST language and transcribes into it with no error; see the
+      // matching branch in the mobile shell. The decoder prompt is rebuilt
+      // per transcription, so this is a field write, not a reload.
+      _initializedSttModel!.language = language;
       return _initializedSttModel!;
     }
 
@@ -382,6 +389,10 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
       modelPath: modelPath,
       tokenizerPath: tokenizerPath,
       preferredBackend: preferredBackend,
+      // Whisper's output language. Dropping it here is invisible: the
+      // recognizer still works and still returns text, just always in
+      // English, because the profile falls back to its `<|en|>` default.
+      language: language,
     );
     // The backend's createModel(spec, config) requires a non-null spec but
     // resolves paths exclusively from config; synthesize one from the resolved

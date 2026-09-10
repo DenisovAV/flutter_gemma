@@ -103,6 +103,33 @@ class SttSpecialTokenResolver {
     }
     return id;
   }
+
+  /// This checkpoint's language codes → their token ids, harvested from the
+  /// same index [resolve] uses: every `<|xx|>` / `<|xxx|>` whose inner text is
+  /// 2-3 lowercase letters, keyed WITHOUT the delimiters (`'de' -> 50261`).
+  ///
+  /// This is the allow-list for `transcribe(language:)`, and the reason there
+  /// is no hardcoded list of Whisper's 99 codes anywhere in the package: it is
+  /// derived from the tokenizer that is actually installed, so it cannot go
+  /// stale, and an `.en`-only checkpoint correctly reports none.
+  ///
+  /// The shape alone is enough. Measured against `openai/whisper-tiny`'s real
+  /// `tokenizer.json`: the pattern matches exactly 99 entries — every language
+  /// code including the 3-letter `haw`, and nothing else. Whisper's control
+  /// tokens are all either longer than three characters (`<|transcribe|>`,
+  /// `<|translate|>`, `<|nospeech|>`, `<|startofprev|>`, `<|notimestamps|>`)
+  /// or contain a non-letter (the `<|0.00|>` timestamp block), so no
+  /// by-name exclusion list is needed. `<|translate|>` is the one that matters:
+  /// it exists, and without the length bound `language: 'translate'` would
+  /// resolve cleanly and rewrite the prompt's TASK slot instead of its
+  /// language slot.
+  late final Map<String, int> languageIds = {
+    for (final entry in _byName.entries)
+      if (_languageTokenPattern.hasMatch(entry.key))
+        entry.key.substring(2, entry.key.length - 2): entry.value,
+  };
+
+  static final RegExp _languageTokenPattern = RegExp(r'^<\|[a-z]{2,3}\|>$');
 }
 
 /// Runtime-resolved logit suppression, ready for `SttCore._decodeLoop` to

@@ -192,12 +192,65 @@ void applySuppression(
   }
 }
 
+/// Build the decoder seed prompt for one transcription.
+///
+/// [language] `null` returns [defaultPromptIds] unchanged. Otherwise the id at
+/// [languagePromptIndex] is replaced with [language]'s id — a COPY, so the
+/// default is never mutated.
+///
+/// This is why the output language is a per-call knob: `SttCore._decodeLoop`
+/// already copies the seed on every transcription, so retargeting it costs one
+/// map lookup and never touches the loaded model. Pure — no native calls, no
+/// I/O — so the substitution is unit-testable without a checkpoint on disk,
+/// matching this file's other pure helpers.
+///
+/// Throws [ArgumentError] rather than falling back to [defaultPromptIds]: a
+/// caller who asked for German and silently got English is the exact failure
+/// this path exists to prevent (#500).
+List<int> promptForLanguage(
+  String? language, {
+  required List<int> defaultPromptIds,
+  required int? languagePromptIndex,
+  required Map<String, int> languageIds,
+}) {
+  if (language == null) return defaultPromptIds;
+
+  if (languagePromptIndex == null) {
+    throw ArgumentError.value(
+      language,
+      'language',
+      'this model has no decoder-prompt language token; only whisper '
+          'profiles accept a language',
+    );
+  }
+
+  final id = languageIds[language];
+  if (id == null) {
+    final known = languageIds.keys.toList()..sort();
+    throw ArgumentError.value(
+      language,
+      'language',
+      'not one of the ${known.length} language codes in this checkpoint\'s '
+          'tokenizer'
+          '${known.isEmpty ? '' : ' (e.g. ${known.take(6).join(', ')}…)'}',
+    );
+  }
+
+  return List<int>.of(defaultPromptIds)..[languagePromptIndex] = id;
+}
+
 /// [SttCore.load]'s name→id resolution result: the decoder's seed prompt
-/// ids, its stop token id, and its (optional) resolved suppression.
+/// ids, its stop token id, its (optional) resolved suppression, and the
+/// checkpoint's language codes.
 typedef SttResolvedTokens = ({
   List<int> decoderPromptIds,
   int? eosId,
   ResolvedSuppression? suppression,
+
+  /// This checkpoint's `<|xx|>` codes → ids, kept so `transcribe(language:)`
+  /// can retarget the prompt's language slot per call. Empty for a profile
+  /// with no language slot, and for an `.en`-only checkpoint.
+  Map<String, int> languageIds,
 });
 
 /// Resolve [profile]'s [SttTokenRef]s (`decoderPromptTokens`, `eosToken`,
@@ -221,6 +274,11 @@ SttResolvedTokens resolveSttSpecialTokens(
     ],
     eosId: profile.eosToken?.resolve(resolver),
     suppression: profile.suppressTokens?.resolve(resolver),
+    // Only harvested for a profile that HAS a language slot: moonshine and
+    // parakeet would carry a map nothing can ever read.
+    languageIds: profile.languagePromptIndex == null
+        ? const <String, int>{}
+        : resolver.languageIds,
   );
 }
 
@@ -248,8 +306,10 @@ class SttCore {
     List<int>? decoderPromptIds,
     int? eosId,
     this._resolvedSuppression,
+    Map<String, int>? languageIds,
   }) : _decoderPromptIds = decoderPromptIds ?? const [sttDecodeBosId],
-       _eosId = eosId ?? sttDecodeEosId;
+       _eosId = eosId ?? sttDecodeEosId,
+       _languageIds = languageIds ?? const <String, int>{};
 
   final LiteRtBindings _bindings;
   final LiteRtEnvironment _environment;
@@ -265,12 +325,27 @@ class SttCore {
   /// `profile.melFilterAsset`.
   final Float32List? _melFilters;
 
-  /// Resolved decoder seed sequence (moonshine: `[1]`; whisper: the 4
-  /// forced-English-transcription ids), resolved once in `load()` via
-  /// `resolveSttSpecialTokens`. Defaults to moonshine's hardcoded single BOS
-  /// so this compiles standalone; every real call site passes the resolved
-  /// ids.
+  /// Resolved DEFAULT decoder seed sequence (moonshine: `[1]`; whisper: the 4
+  /// transcription ids seeded with the profile's default language), resolved
+  /// once in `load()` via `resolveSttSpecialTokens`. Defaults to moonshine's
+  /// hardcoded single BOS so this compiles standalone; every real call site
+  /// passes the resolved ids.
+  ///
+  /// Used verbatim unless [transcribe] is given a `language` — see
+  /// [_promptFor].
   final List<int> _decoderPromptIds;
+
+  /// This checkpoint's language codes → token ids (`'de' -> 50261`), empty for
+  /// a profile with no language slot. Read only by [_promptFor].
+  final Map<String, int> _languageIds;
+
+  /// The seed prompt for one transcription — see [promptForLanguage].
+  List<int> _promptFor(String? language) => promptForLanguage(
+    language,
+    defaultPromptIds: _decoderPromptIds,
+    languagePromptIndex: _profile.languagePromptIndex,
+    languageIds: _languageIds,
+  );
 
   /// Resolved stop token id (moonshine: 2; whisper: resolved
   /// `<|endoftext|>`), resolved once in `load()`. Defaults to moonshine's
@@ -373,6 +448,7 @@ class SttCore {
         decoderPromptIds: resolved.decoderPromptIds,
         eosId: resolved.eosId,
         resolvedSuppression: resolved.suppression,
+        languageIds: resolved.languageIds,
       );
     } catch (_) {
       if (compiled != null) bindings.destroyCompiledModel(compiled);
@@ -387,15 +463,22 @@ class SttCore {
   /// `profile.windowSamples`, run the encoder (signature 0), then the
   /// greedy autoregressive decode loop (signature 1) until EOS or
   /// `profile.maxDecodeTokens`, then detokenize.
-  String transcribe(Float32List samples) {
+  ///
+  /// [language] overrides the profile's default decoder-prompt language for
+  /// THIS call only (whisper). `null` uses the default the model was loaded
+  /// with. Nothing is reloaded either way.
+  String transcribe(Float32List samples, {String? language}) {
     if (_disposed) {
       throw StateError('SttCore is disposed');
     }
+    // Resolved before the encoder runs: a bad language code should cost a map
+    // lookup, not a full mel + encoder pass first.
+    final prompt = _promptFor(language);
     final windowed = padOrTrimToWindow(samples, _profile.windowSamples);
     final hidden = _encode(windowed);
     try {
       final ids = switch (_profile.decodeType) {
-        SttDecodeType.seq2seq => _decodeLoop(hidden),
+        SttDecodeType.seq2seq => _decodeLoop(hidden, prompt),
         SttDecodeType.ctc => _ctcDecode(hidden),
       };
       return _tokenizer.decode(ids);
@@ -591,7 +674,7 @@ class SttCore {
   /// (the encoder hidden state) is created once from [hidden] and reused
   /// unchanged for every step; `decode_args_1` (token ids) and
   /// `decode_args_2` (mask) are rewritten and recreated fresh each step.
-  List<int> _decodeLoop(_EncoderOutput hidden) {
+  List<int> _decodeLoop(_EncoderOutput hidden, List<int> promptIds) {
     final maxTokens = _profile.maxDecodeTokens;
 
     // Discover the decode output vocab size (dimension 2 of
@@ -651,7 +734,7 @@ class SttCore {
         maxTokens * maxTokens,
       );
 
-      final generated = List<int>.from(_decoderPromptIds);
+      final generated = List<int>.from(promptIds);
       while (true) {
         final len = generated.length;
 
@@ -769,7 +852,7 @@ class SttCore {
             );
             applySuppression(
               rowLogits,
-              step: len - _decoderPromptIds.length,
+              step: len - promptIds.length,
               suppression: _resolvedSuppression,
             );
             bestId = argmax(rowLogits);

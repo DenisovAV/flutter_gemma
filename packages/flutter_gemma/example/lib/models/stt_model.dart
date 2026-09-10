@@ -9,7 +9,7 @@ import 'package:flutter_gemma/flutter_gemma.dart' show SttModelType;
 /// new family later is a new catalog entry (+ a profile + a mel frontend for
 /// the log-mel families), not a new screen or a new backend/recognizer class.
 ///
-/// [moonshineTiny] (raw PCM) and [whisperTiny] (log-mel frontend, English-only)
+/// [moonshineTiny] (raw PCM) and [whisperTiny] (log-mel frontend, multilingual)
 /// have shipped `SttModelProfile`s. [moonshineTinyInt8], [whisperTinyInt8]
 /// and [whisperBaseInt8] reuse those same profiles (zero engine code — the
 /// SttModelType selects the profile, not the quantization); [isSupported]

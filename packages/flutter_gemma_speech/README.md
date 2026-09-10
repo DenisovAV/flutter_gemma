@@ -43,6 +43,26 @@ print(synth.sampleRate); // 22050
 await synth.close();
 ```
 
+### Speech-to-text output language (Whisper)
+
+Whisper's shipped checkpoints are multilingual. The output language is one token
+in the decoder's seed prompt, rebuilt per transcription — so it is a per-call
+knob, and switching it never reloads the model:
+
+```dart
+final recognizer = await FlutterGemma.getActiveStt(language: 'de');
+final german = await recognizer.transcribe(germanPcm);
+
+// Same recognizer, one call in French.
+final french = await recognizer.transcribe(frenchPcm, language: 'fr');
+```
+
+Codes are Whisper's own, without the delimiters (`'en'`, `'de'`, `'uk'`);
+default `'en'`. The setting changes what the model WRITES, not what it hears —
+`'en'` on German audio returns an English translation, not an error. moonshine
+and Parakeet have no language token and throw `ArgumentError` rather than
+ignoring the value.
+
 ## Voice loop
 
 `VoiceSession` chains STT → LLM → TTS into one push-to-talk turn with barge-in.

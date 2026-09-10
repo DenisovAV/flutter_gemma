@@ -33,7 +33,7 @@ There is an example of using:
 - **🖥️ Desktop Support:** Native desktop apps (macOS, Windows, Linux) with GPU acceleration via LiteRT-LM, called directly from Dart through `dart:ffi` — no JVM/JRE bundling. See [DESKTOP_SUPPORT.md](DESKTOP_SUPPORT.md) for details.
 - **🖼️ Multimodal Support:** Text + Image input with Gemma 4, Gemma3n, FastVLM, Qwen2-VL, SmolVLM2, and LLaVA-OneVision vision models (Gemma 4 / Gemma3n on all platforms incl. Web; Qwen2-VL / SmolVLM2 / LLaVA-OneVision on Android, iOS, and Desktop; FastVLM on Desktop)
 - **🎙️ Audio Input:** Record and send audio messages with Gemma 4 and Gemma3n E2B/E4B models (Android, iOS device, macOS/Windows/Linux via LiteRT-LM — not on Web)
-- **🎤 On-device Speech-to-Text:** Opt-in [`flutter_gemma_speech`](https://pub.dev/packages/flutter_gemma_speech) — transcribe audio fully offline with a selectable ASR model (moonshine, Whisper, Parakeet) via the LiteRT C API (Android, iOS, macOS, Windows, Linux; Web is a follow-on)
+- **🎤 On-device Speech-to-Text:** Opt-in [`flutter_gemma_speech`](https://pub.dev/packages/flutter_gemma_speech) — transcribe audio fully offline with a selectable ASR model (moonshine, Whisper, Parakeet) via the LiteRT C API (Android, iOS, macOS, Windows, Linux; Web is a follow-on). Whisper is multilingual: `getActiveStt(language: 'de')` sets the output language and `transcribe(pcm, language: 'fr')` overrides it for one call — neither reloads the model
 - **🔊 On-device Text-to-Speech:** Opt-in [`flutter_gemma_speech`](https://pub.dev/packages/flutter_gemma_speech) — synthesize speech fully offline with a selectable model (Matcha, Qwen3-TTS, Inflect-Nano-v2; kokoro / supertonic are follow-ons) via the LiteRT C API (Android, iOS, macOS, Windows, Linux; Web is a follow-on)
 - **🗣️ On-device Voice Loop:** `VoiceSession` in [`flutter_gemma_speech`](https://pub.dev/packages/flutter_gemma_speech) chains STT → LLM → TTS into one push-to-talk turn with barge-in — the full on-device speech-to-speech pipeline. `VoiceSession.fromChat(recognizer:, chat:, synthesizer:)` streams `VoiceEvent`s from recorded PCM (native only).
 - **🛠️ Function Calling:** Enable your models to call external functions and integrate with other services (supported by select models)
@@ -1771,7 +1771,7 @@ Function calling is currently supported by the following models:
 | **Text Generation** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | All models supported |
 | **Image Input (Multimodal)** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Verified on macOS Metal and Linux Vulkan (Gemma 4 + Gemma 3n) |
 | **Audio Input** | ✅ Full | ✅ Full ¹ | ❌ Not supported | ✅ `.litertlm` only | Gemma3n E2B/E4B + Gemma 4; iOS device-only; Desktop via FFI |
-| **Speech-to-Text** | ✅ Full | ✅ Full | ❌ Not supported | ✅ Full | `flutter_gemma_speech` (moonshine ASR); native only, arm64 on Android |
+| **Speech-to-Text** | ✅ Full | ✅ Full | ❌ Not supported | ✅ Full | `flutter_gemma_speech` (moonshine / Whisper / Parakeet); native only, arm64 on Android |
 | **Text-to-Speech** | ✅ Full | ✅ Full | ❌ Not supported | ✅ Full | `flutter_gemma_speech` (Matcha); native only, arm64 on Android |
 | **Function Calling** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Gemma 4 native (SDK chat template) |
 | **Thinking Mode** | ✅ Full | ✅ Full | ❌ Not supported | ✅ Full | Gemma 4 / DeepSeek / Qwen3 / SmolLM3 / Phi-4 Mini Reasoning; not available on Web yet (MediaPipe `.task` web has no `extraContext`; `.litertlm` web is not verified) |

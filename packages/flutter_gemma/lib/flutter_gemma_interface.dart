@@ -118,10 +118,19 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
   /// [modelPath] — path to the STT model file (optional if active model set).
   /// [tokenizerPath] — path to the tokenizer file (optional if active model set).
   /// [preferredBackend] — backend preference (e.g., CPU, GPU).
+  /// [language] — the OUTPUT language for transcripts, Whisper only: a bare
+  /// lowercase code (`'en'`, `'de'`, …). It sets [SpeechRecognizer.language],
+  /// the default for calls to [SpeechRecognizer.transcribe] that pass none, and
+  /// it RETARGETS the recognizer when one already exists — this returns a
+  /// process-wide singleton, so a language fixed at construction would take
+  /// effect only on the first call in a process. Throws [ArgumentError] for a
+  /// malformed code, or for any language on a model with no language token
+  /// (moonshine, parakeet). `null` leaves the model's own default in place.
   Future<SpeechRecognizer> createSttModel({
     String? modelPath,
     String? tokenizerPath,
     PreferredBackend? preferredBackend,
+    String? language,
   });
 
   /// Creates and returns a new [SpeechSynthesizer] for the active TTS model.
@@ -601,7 +610,45 @@ abstract class EmbeddingModel {
 abstract class SpeechRecognizer {
   /// Transcribe 16 kHz mono 16-bit little-endian PCM. Batch (fixed-window)
   /// for now; streaming is a follow-on.
-  Future<String> transcribe(Uint8List pcm16kMono);
+  ///
+  /// [language] selects the OUTPUT language for this call (Whisper only): a
+  /// bare lowercase code such as `'en'`, `'de'`, `'uk'`, any of Whisper's 99.
+  /// `null` uses the recognizer's current default.
+  ///
+  /// Whisper's shipped checkpoints are multilingual (no `.en` suffix), so this
+  /// changes what the model WRITES, not what it understands. Measured on one
+  /// German clip, same audio and build, one token apart:
+  ///
+  ///     'en' -> " This weather is very beautiful and the sun is shining."
+  ///     'de' -> " Das Wetter ist heute sehr schön und die Sonne scheint."
+  ///
+  /// So asking for the wrong language does not garble the output — it
+  /// TRANSLATES, fluently and without error, which is why a value that silently
+  /// failed to take effect was worth treating as a bug (#500).
+  ///
+  /// Cheap by construction: the decoder's seed prompt is rebuilt per call, so
+  /// switching language costs a map lookup and never reloads the model.
+  /// Throws [ArgumentError] for a code this checkpoint's tokenizer does not
+  /// have, and for any language on a model whose prompt has no language slot
+  /// (moonshine, parakeet) — it is never silently ignored.
+  Future<String> transcribe(Uint8List pcm16kMono, {String? language});
+
+  /// The output language used by [transcribe] calls that pass none.
+  ///
+  /// Settable, and that is load-bearing: `FlutterGemma.getActiveStt` returns a
+  /// process-wide singleton, so if the language were fixed at construction the
+  /// second `getActiveStt(language: …)` in a process would hand back the
+  /// recognizer built for the FIRST language and transcribe into it with no
+  /// error. Retargeting is free here, so there is nothing to invalidate.
+  ///
+  /// Setting an unusable value must throw [ArgumentError] — a malformed code,
+  /// or any code on a model with no language token. `abstract` for exactly that
+  /// reason: a plain field cannot validate, and a stored-but-never-read value
+  /// is the shape of the bug this whole API exists to fix (#500).
+  ///
+  /// `null` means the model's own default (`'en'` for Whisper), and assigning
+  /// `null` CLEARS a previously set language rather than leaving it in place.
+  abstract String? language;
 
   /// See [InferenceModel.addCloseListener].
   void addCloseListener(void Function() listener);

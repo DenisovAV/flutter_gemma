@@ -37,6 +37,17 @@ class LiteRtSttBackend implements SttBackendProvider {
         'from the active STT model).',
       );
     }
+    // `config.language` reaches here from `getActiveStt(language:)`. It is NOT
+    // baked into the profile: it becomes the recognizer's mutable default, so
+    // the same recognizer can later be retargeted or overridden per call
+    // without reloading the model. The profile keeps its own default (`<|en|>`
+    // for whisper), which is what a null here means.
+    //
+    // Not validated here on purpose — `LiteRtSpeechRecognizer`'s `language`
+    // setter owns that, and `create` assigns through it. A copy of the check
+    // here would be a second place to keep in sync, and would still not cover
+    // the shells' retarget path or a direct `recognizer.language = …`.
+    //
     // spec.sttModelType (e.g. SttModelType.moonshine) selects the runtime
     // profile — this backend never hardcodes a model.
     return LiteRtSpeechRecognizer.create(
@@ -44,6 +55,7 @@ class LiteRtSttBackend implements SttBackendProvider {
       modelPath: config.modelPath,
       tokenizerPath: tokenizerPath,
       preferredBackend: config.preferredBackend,
+      language: config.language,
       onClose: () {},
     );
   }

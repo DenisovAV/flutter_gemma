@@ -8,6 +8,12 @@ test_reports/
 **/*.md
 !README.md
 !CHANGELOG.md
+# Agent skills MUST ship inside the archive — `dart run skills@ get` resolves
+# the package on disk from package_config.json and reads `skills/` from there.
+# Without this exception the blanket `**/*.md` above silently strips every
+# SKILL.md and the skills reach nobody, with no error anywhere.
+!skills/
+!skills/**
 tools/
 
 # Build artifacts

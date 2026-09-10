@@ -1,3 +1,6 @@
+## 0.5.1
+- Ship an agent skill for speech-to-text (`dart run skills@ get`).
+
 ## 0.5.0
 - Whisper: output language is a parameter, no longer hardcoded English (#500).
 

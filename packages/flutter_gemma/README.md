@@ -56,6 +56,18 @@ There is an example of using:
 - **🔐 Typed Download Errors:** Catch the public `DownloadException` sealed type (401/403/404/429/5xx) for gated HuggingFace models instead of substring-matching error strings
 - **💾 Web Persistent Caching:** Models persist across browser restarts — Cache API for models <2GB, OPFS streaming for large ones (>2GB, e.g. Gemma 4 E4B) — no re-download on reload (Web only)
 
+## Teach your AI assistant this package
+
+`flutter_gemma` ships [agent skills](https://dart.dev/blog/skills-cli-1-0-bundle-and-distribute-ai-agent-skills-for-your-packages) — short instruction files your coding assistant reads so it uses this API correctly the first time:
+
+```bash
+dart run skills@ get
+```
+
+That scans your dependencies, offers the skills each one bundles, and installs them where your agent looks (Claude Code, Codex, Cursor, Antigravity, Cline, Copilot, OpenCode are all supported).
+
+What they cover: registering an engine (core ships none), routing by the declared `ModelFileType` rather than the filename, and the two defaults that fail quietly — `maxTokens` is the context window and not the reply length, and `Message.isUser` defaults to `false`.
+
 ## What's new in 1.6.4
 
 - 📱 **iOS deployment floor lowered to 15.0** — core, built-in AI and embeddings build from iOS 15.0 (only `flutter_gemma_mediapipe` still needs 16.0). Every OS-26-only Foundation Models call is `#available`-guarded ([#441](https://github.com/DenisovAV/flutter_gemma/issues/441)).

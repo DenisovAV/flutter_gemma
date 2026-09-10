@@ -1,3 +1,6 @@
+## 1.8.1
+- Ship agent skills — `dart run skills@ get` teaches your AI assistant this package.
+
 ## 1.8.0
 - Whisper output language on `getActiveStt` and `transcribe` (#500).
 - **Breaking for custom `SpeechRecognizer` implementations**: `transcribe` gained `language:` and the type gained a `language` field.

@@ -20,6 +20,14 @@ native bundle and exposes the LiteRt interpreter FFI (`LiteRtBindings`) used her
 Both backends are pure factories (`canHandle` always `true`) — the *model* is
 selected per-install via `SttModelType` / `TtsModelType`, not the backend.
 
+## Teach your AI assistant this package
+
+```bash
+dart run skills@ get
+```
+
+Installs a bundled skill covering STT model choice, the 16 kHz mono PCM input contract, and the Whisper output language — which is a property of a *transcription*, not of the loaded model.
+
 ## Usage
 
 ```dart

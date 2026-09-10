@@ -11,7 +11,6 @@ class ModelChoice {
     required this.fileName,
     required this.modelType,
     required this.sizeLabel,
-    required this.requiresToken,
   });
 
   final String label;
@@ -19,41 +18,44 @@ class ModelChoice {
   final String fileName;
   final ModelType modelType;
   final String sizeLabel;
-
-  /// Hugging Face serves this repo behind a licence gate. Accept the licence
-  /// once on the model page, then run with `--dart-define=HF_TOKEN=hf_...`.
-  final bool requiresToken;
 }
 
-/// The models this quickstart offers.
+/// The model this step runs.
 ///
-/// Both are `.litertlm`, the format the LiteRT-LM engine reads on Android,
-/// iOS, desktop and the web. (`.task` files are MediaPipe-only — a different
-/// engine package, and no desktop support.)
+/// The repository is ungated, so nothing here needs a Hugging Face token and
+/// no run needs `--dart-define`.
 abstract final class Models {
-  /// The plugin's namesake. `ekv4096` in the file name is the KV-cache the
-  /// weights were built for, so this model can carry a 4096-token context.
-  static const gemma3 = ModelChoice(
-    label: 'Gemma 3 1B',
+  /// A vision-language model small enough to feel like a text model. 0.36 GB
+  /// is roughly what a photo-heavy app already spends on its image cache, so
+  /// this is the version of "multimodal" you can put in a shipping app
+  /// without an argument about download size — about a minute of download,
+  /// and then it is looking at your photograph.
+  ///
+  /// It cannot hear, and that is not a gap in this step: it is a
+  /// vision-language model, and the plugin lists audio input for Gemma 4 and
+  /// Gemma 3n only (`flutter_gemma/README.md`). A session flag cannot switch
+  /// on an encoder the checkpoint does not carry. It is why Step 3
+  /// changes models, and it is the model half of the question `complete` asks
+  /// at the end — a half that says no here while the device, happily holding
+  /// a microphone, says yes.
+  /// Run on macOS 2026-09-07: installs (0.36 GB) and answers "RED" to a
+  /// 16x16 red square, with `supportImage` set on both `getActiveModel` and
+  /// `createChat`. Nothing in CI runs a model, so this line is the only
+  /// evidence these weights were ever executed.
+  static const smolVlm2 = ModelChoice(
+    label: 'SmolVLM2 500M',
     url:
-        'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/'
-        'Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm',
-    fileName: 'Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm',
-    modelType: ModelType.gemmaIt,
-    sizeLabel: '0.5 GB',
-    requiresToken: true,
-  );
-
-  /// No Hugging Face account? This repo is ungated. Same code path — the only
-  /// thing that changes is which constant you hand to the app.
-  static const qwen3 = ModelChoice(
-    label: 'Qwen3 0.6B',
-    url:
-        'https://huggingface.co/litert-community/Qwen3-0.6B/resolve/main/'
-        'Qwen3-0.6B.litertlm',
-    fileName: 'Qwen3-0.6B.litertlm',
-    modelType: ModelType.qwen3,
-    sizeLabel: '0.6 GB',
-    requiresToken: false,
+        'https://huggingface.co/litert-community/SmolVLM2-500M/resolve/main/'
+        'SmolVLM2-500M.litertlm',
+    fileName: 'SmolVLM2-500M.litertlm',
+    // `general` and not `gemmaIt`, and the reason is not turn markers. For a
+    // `.litertlm` file the runtime owns the chat template on every platform
+    // this codelab targets except iOS (`extensions.dart:74-77` returns
+    // `raw`, which never consults this field). What the field still picks is
+    // what the SDK does to the reply on the way out: `gemmaIt` is on the
+    // thinking-tag-stripping list in `cleanResponse` and `general` is not.
+    // SmolVLM2 is not a Gemma, so it should not be post-processed as one.
+    modelType: ModelType.general,
+    sizeLabel: '0.36 GB',
   );
 }

@@ -130,11 +130,51 @@ abstract class VectorStoreRepository {
   /// than report an unreadable corpus as an empty one.
   Future<void> clear();
 
+  /// Persist everything written so far, without closing the store.
+  ///
+  /// Call it once after a bulk index. Writes are not necessarily on disk when
+  /// [addDocument] returns: a store is free to hold them in memory and settle
+  /// up later, and one of them does.
+  ///
+  /// **Per backend**:
+  /// - SQLite (native and web): already durable. `sqlite3` runs in autocommit,
+  ///   so each statement is its own transaction, and the web VFS persists to
+  ///   OPFS or IndexedDB. This is a no-op there.
+  /// - Qdrant: **required.** Points added through the UniFFI shard live in its
+  ///   in-RAM segment until the shard is flushed or unloaded. An index built
+  ///   without this is gone when the process ends, and the corpus is embedded
+  ///   again from scratch on the next launch.
+  ///
+  /// [close] persists too, so a store that is closed cleanly does not need
+  /// this. What it cannot cover is a process that never gets to close — an
+  /// Android app the system kills in the background is the ordinary case, not
+  /// the exceptional one — which is what this exists for.
+  ///
+  /// Safe on a store that was never initialized, and safe to call repeatedly:
+  /// implementations must not throw for either — there is nothing pending, so
+  /// there is nothing to report.
+  ///
+  /// Otherwise this method's job is to be **loud**. An implementation that
+  /// cannot persist — the write failed, or the store is on a backend with no
+  /// durable storage behind it — must throw [VectorStoreException] rather than
+  /// return normally. Silence is the failure this method exists to prevent:
+  /// the caller asked for durability, and a quiet success tells them they have
+  /// it while the index is still only in memory.
+  ///
+  /// The default body is a no-op, for backends that are already durable. Note
+  /// that every implementation in this repository uses `implements` rather
+  /// than `extends`, so none of them inherits it; it is here for the contract
+  /// and for any future implementation that does extend.
+  Future<void> flush() async {}
+
   /// Close vector store and release resources
   ///
   /// **Resource cleanup**:
   /// - Mobile: Closes SQLite database connection
   /// - Web: Closes IndexedDB connection
+  ///
+  /// Persists pending writes on the way out, so an explicit [flush] before
+  /// this is redundant.
   ///
   /// Idempotent: Safe to call multiple times
   Future<void> close();
@@ -154,9 +194,12 @@ abstract class VectorStoreRepository {
 
   /// The filterable-metadata schema this store was configured with.
   ///
-  /// Concrete (bodied) member with a no-op default so that adding it does NOT
-  /// force an override on existing or external `implements`-ers (this is an
-  /// `abstract class`, not an `interface class`, so the body is inherited).
+  /// Concrete (bodied) member with a no-op default, so an implementation that
+  /// `extends` this class gets it for free. That does NOT spare an
+  /// `implements`-er: `implements` inherits no bodies, so every store in this
+  /// repository — all of which use `implements` — declares this itself, and
+  /// adding a bodied member here is still a source-breaking change for an
+  /// external `implements`-er.
   /// Stores that honor [Filter] (qdrant, sqlite/vec0) override [configure] to
   /// stash the schema and expose it here; everyone else keeps the empty default.
   FilterSchema get filterSchema => const FilterSchema();

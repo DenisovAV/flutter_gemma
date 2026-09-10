@@ -1,3 +1,6 @@
+## 1.4.0
+- Add `flush()`; without it an index was lost when the process ended (#492).
+
 ## 1.3.0
 - **Breaking:** moved onto the official `qdrant_edge` UniFFI SDK.
 - **Breaking:** a 1.x store is not readable — remove its files, then re-index.

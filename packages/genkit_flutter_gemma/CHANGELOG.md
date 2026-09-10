@@ -1,3 +1,6 @@
+## 0.6.1
+- Relicensed from BSD-3-Clause to MIT, matching every other package.
+
 ## 0.6.0
 
 - Upgrade to `genkit ^0.16.0` (from 0.15.1): `ActionType` is now a typed value (was `String`) and tool functions return `ToolResult` — `resolve()`/`list()` and the example's tools are updated accordingly.

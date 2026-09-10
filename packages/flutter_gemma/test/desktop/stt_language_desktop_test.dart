@@ -85,35 +85,41 @@ void main() {
     return backend;
   }
 
-  test('desktop: the language reaches RuntimeConfig on the first load', () async {
-    // The original #500 bug, on the shell no test covered: the parameter was
-    // accepted and dropped before RuntimeConfig. Deleting `language: language`
-    // from the desktop shell's sttConfig fails here.
-    final backend = await installWhisper();
+  test(
+    'desktop: the language reaches RuntimeConfig on the first load',
+    () async {
+      // The original #500 bug, on the shell no test covered: the parameter was
+      // accepted and dropped before RuntimeConfig. Deleting `language: language`
+      // from the desktop shell's sttConfig fails here.
+      final backend = await installWhisper();
 
-    final recognizer = await FlutterGemma.getActiveStt(language: 'de');
+      final recognizer = await FlutterGemma.getActiveStt(language: 'de');
 
-    expect(backend.lastConfig?.language, 'de');
-    expect(recognizer.language, 'de');
+      expect(backend.lastConfig?.language, 'de');
+      expect(recognizer.language, 'de');
 
-    await recognizer.close();
-  });
+      await recognizer.close();
+    },
+  );
 
-  test('desktop: a second call in a new language yields that language', () async {
-    // Contract-level on purpose — see the KNOWN GAP above. Whether the shell
-    // retargets the cached recognizer or rebuilds it, the object handed back
-    // must speak the requested language.
-    await installWhisper();
+  test(
+    'desktop: a second call in a new language yields that language',
+    () async {
+      // Contract-level on purpose — see the KNOWN GAP above. Whether the shell
+      // retargets the cached recognizer or rebuilds it, the object handed back
+      // must speak the requested language.
+      await installWhisper();
 
-    final first = await FlutterGemma.getActiveStt(language: 'de');
-    expect(first.language, 'de');
+      final first = await FlutterGemma.getActiveStt(language: 'de');
+      expect(first.language, 'de');
 
-    final second = await FlutterGemma.getActiveStt(language: 'fr');
-    expect(second.language, 'fr');
+      final second = await FlutterGemma.getActiveStt(language: 'fr');
+      expect(second.language, 'fr');
 
-    await second.close();
-    if (!identical(second, first)) await first.close();
-  });
+      await second.close();
+      if (!identical(second, first)) await first.close();
+    },
+  );
 }
 
 class _FakeSttBackend implements SttBackendProvider {

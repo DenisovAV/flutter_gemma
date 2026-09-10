@@ -290,18 +290,20 @@ Future<void> _workerEntry(_WorkerInit init) async {
           final text = core.transcribe(msg.samples, language: msg.language);
           init.replyTo.send(_TranscribeReply(msg.id, text, null));
         } catch (e) {
+          // Bound once, as a typed local, rather than re-tested per field: a
+          // `bool` flag leaves `e` an Object, so every read needs a cast — and
+          // whether the analyzer calls that cast redundant differs by SDK.
+          //
           // `e is! RangeError` is load-bearing — see _TranscribeReply.badArgument.
-          final bad = e is ArgumentError && e is! RangeError;
+          final argError = e is ArgumentError && e is! RangeError ? e : null;
           init.replyTo.send(
             _TranscribeReply(
               msg.id,
               null,
-              bad ? (e as ArgumentError).message?.toString() ?? '$e' : '$e',
-              badArgument: bad,
-              argName: bad ? (e as ArgumentError).name : null,
-              argValue: bad
-                  ? (e as ArgumentError).invalidValue?.toString()
-                  : null,
+              argError?.message?.toString() ?? '$e',
+              badArgument: argError != null,
+              argName: argError?.name,
+              argValue: argError?.invalidValue?.toString(),
             ),
           );
         }

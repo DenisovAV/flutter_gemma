@@ -3,7 +3,7 @@ import 'package:flutter_gemma/core/registry/runtime_config.dart';
 import 'package:flutter_gemma/flutter_gemma_interface.dart'
     show SpeechRecognizer;
 import 'package:flutter_gemma/core/model_management/model_specs.dart'
-    show SttModelSpec, SttModelType;
+    show SttModelSpec;
 import 'litert/litert_speech_recognizer.dart';
 import 'model/stt_model_profile.dart';
 

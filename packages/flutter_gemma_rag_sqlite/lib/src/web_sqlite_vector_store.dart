@@ -486,6 +486,14 @@ class WebSqliteVectorStore implements VectorStoreRepository {
   }
 
   @override
+  Future<void> flush() async {
+    // Same as the native arm: sqlite3 is in autocommit, so each statement is
+    // already committed. The persistent VFS (OPFS, else IndexedDB) writes
+    // through on commit, so a reload sees what a write returned — there is no
+    // separate step for this to perform.
+  }
+
+  @override
   Future<void> close() async {
     // Deliberately NOT gated on `_isInitialized` alone — same rule as the
     // native arm. A store whose initialize() failed is exactly the one still

@@ -1,3 +1,6 @@
+## 1.3.2
+- Implement `flush()`; a no-op here, since sqlite3 autocommits every write (#492).
+
 ## 1.3.1
 - Fix web inserts failing on a numeric metadata value or a missing number field.
 - Fix web filters with a `mustNot` upper bound returning the negative values they exclude.

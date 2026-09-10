@@ -911,4 +911,96 @@ void main() {
       },
     );
   });
+
+  group('flush', () {
+    // #492: the package never called EdgeShard.flush(), so points added through
+    // addDocument stayed in the shard's in-RAM segment. A corpus indexed in one
+    // session was gone in the next and had to be embedded again — and the
+    // reporter's Android trace named the missing piece exactly:
+    // "Failed to load ID tracker mappings".
+    //
+    // That is what these assert on, because it is the observable half of the
+    // bug that fits in one process. `close()` persists too, so a
+    // written-then-closed store cannot tell a working flush from a missing one;
+    // the id-tracker files can, and they are the ones the failure named.
+    Future<void> write(QdrantVectorStore store, int n) async {
+      for (var i = 0; i < n; i++) {
+        await store.addDocument(
+          id: 'doc$i',
+          content: 'content $i',
+          embedding: vec(4, i + 1.0),
+        );
+      }
+    }
+
+    List<String> idTrackerFiles(Directory root) {
+      final segments = Directory('${root.path}/$storeDirName/segments');
+      if (!segments.existsSync()) return const [];
+      return segments
+          .listSync(recursive: true)
+          .whereType<File>()
+          .map((f) => f.uri.pathSegments.last)
+          .where((name) => name.startsWith('mutable_id_tracker.'))
+          .toList()
+        ..sort();
+    }
+
+    test('writes the id tracker the next open needs', () async {
+      final store = QdrantVectorStore();
+      await store.initialize(tmp.path);
+      await write(store, 20);
+
+      // Not a weaker "the directory grew": the segment directory is populated
+      // well before this — vector storage, payload storage and segment.json are
+      // all already on disk. These two files are the ones that are not.
+      expect(
+        idTrackerFiles(tmp),
+        isEmpty,
+        reason: 'unflushed points should not have reached the id tracker yet',
+      );
+
+      await store.flush();
+
+      expect(idTrackerFiles(tmp), [
+        'mutable_id_tracker.mappings',
+        'mutable_id_tracker.versions',
+      ]);
+      await store.close();
+    });
+
+    test('leaves the store usable, and the data readable after it', () async {
+      // A flush is not a close: the same instance keeps serving, and what it
+      // wrote is still there for the next process.
+      final store = QdrantVectorStore();
+      await store.initialize(tmp.path);
+      await write(store, 5);
+      await store.flush();
+
+      expect((await store.getStats()).documentCount, 5);
+      await store.addDocument(id: 'after', content: 'a', embedding: vec(4, 9));
+      expect((await store.getStats()).documentCount, 6);
+      await store.close();
+
+      final reopened = QdrantVectorStore();
+      await reopened.initialize(tmp.path);
+      expect((await reopened.getStats()).documentCount, 6);
+      await reopened.close();
+    });
+
+    test('is quiet on a store that was never initialized', () async {
+      // Callers flush from lifecycle callbacks they cannot make conditional, so
+      // "nothing to persist" must not be an exception they have to catch.
+      await expectLater(QdrantVectorStore().flush(), completes);
+    });
+
+    test('is quiet after close, and when called twice', () async {
+      final store = QdrantVectorStore();
+      await store.initialize(tmp.path);
+      await write(store, 3);
+      await expectLater(store.flush(), completes);
+      await expectLater(store.flush(), completes);
+      await store.close();
+      await expectLater(store.flush(), completes);
+    });
+  });
 }

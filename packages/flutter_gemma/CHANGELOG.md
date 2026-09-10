@@ -1,3 +1,6 @@
+## 1.7.3
+- `VectorStoreRepository` gains `flush()` for stores that buffer writes in memory.
+
 ## 1.7.2
 - Fix web sessions failing right after install because the active model was only half-saved.
 

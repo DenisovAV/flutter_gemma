@@ -299,6 +299,22 @@ class QdrantEdgeClient {
     }
   }
 
+  /// Write the in-RAM segment out to disk, keeping the shard open.
+  ///
+  /// The crate declares this separately from [close]'s `unload()`, and the
+  /// difference is the whole point: `unload()` also persists, but it ends the
+  /// shard. This is what a caller reaches for after a bulk index when it wants
+  /// to keep using the store — and it is what stands between an index and a
+  /// process the OS kills without warning.
+  Future<void> flush() async {
+    _checkOpen();
+    try {
+      _shard.flush();
+    } catch (e) {
+      _rethrow(e);
+    }
+  }
+
   /// Close the shard. Idempotent — safe to call more than once.
   Future<void> close() async {
     if (_closed) return;

@@ -130,11 +130,40 @@ abstract class VectorStoreRepository {
   /// than report an unreadable corpus as an empty one.
   Future<void> clear();
 
+  /// Persist everything written so far, without closing the store.
+  ///
+  /// Call it once after a bulk index. Writes are not necessarily on disk when
+  /// [addDocument] returns: a store is free to hold them in memory and settle
+  /// up later, and one of them does.
+  ///
+  /// **Per backend**:
+  /// - SQLite (native and web): already durable. `sqlite3` runs in autocommit,
+  ///   so each statement is its own transaction, and the web VFS persists to
+  ///   OPFS or IndexedDB. This is a no-op there.
+  /// - Qdrant: **required.** Points added through the UniFFI shard live in its
+  ///   in-RAM segment until the shard is flushed or unloaded. An index built
+  ///   without this is gone when the process ends, and the corpus is embedded
+  ///   again from scratch on the next launch.
+  ///
+  /// [close] persists too, so a store that is closed cleanly does not need
+  /// this. What it cannot cover is a process that never gets to close — an
+  /// Android app the system kills in the background is the ordinary case, not
+  /// the exceptional one — which is what this exists for.
+  ///
+  /// Safe on a store that was never initialized, and safe to call repeatedly:
+  /// implementations must not throw for either.
+  ///
+  /// The default body is a no-op, for the backends that are already durable.
+  Future<void> flush() async {}
+
   /// Close vector store and release resources
   ///
   /// **Resource cleanup**:
   /// - Mobile: Closes SQLite database connection
   /// - Web: Closes IndexedDB connection
+  ///
+  /// Persists pending writes on the way out, so an explicit [flush] before
+  /// this is redundant.
   ///
   /// Idempotent: Safe to call multiple times
   Future<void> close();

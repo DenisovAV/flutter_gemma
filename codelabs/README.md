@@ -24,6 +24,15 @@ is organised.
 Skipping numbers is fine: the point of a step directory is to give someone a
 working app to resume from.
 
+**Almost every step directory is an app.** The exception today is
+`function-calling-flutter-gemma/step_04_finetune/`, whose step produces a model
+rather than code: it holds the training data and the commands for a
+[litetune](https://github.com/DenisovAV/litetune) run and has no
+`pubspec.yaml`, so `tool/check_codelabs.sh` — which discovers apps by their
+`pubspec.yaml` — does not see it. A step that ships something other than a
+Flutter app belongs in the codelab's own directory all the same; a learner
+looking for Step 4 should find it where Steps 3 and 5 are.
+
 ## Dependencies
 
 Step apps are **not** members of the repo's pub workspace. They depend on the
@@ -52,7 +61,10 @@ tool/check_codelabs.sh     # pub get + analyze + format + test, every step
 The same script also enforces the cross-codelab invariants declared in its
 `MIRRORS` table: a later codelab's starter is an earlier codelab's finished app,
 `lib/` and `test/` byte for byte, because both texts tell the learner so. Add a
-row there when a new codelab continues an existing one.
+row there when a new codelab continues an existing one — and only then. A
+starter may be its own app instead, and function-calling's is: inheriting a
+finished app whose model the next step replaces makes a learner pay for a
+download the codelab never uses.
 
 And it checks **application ids**, on Android, iOS, macOS and Linux: every app
 inside a codelab declares the same one — that is what lets a later step open the
@@ -88,6 +100,9 @@ flutter test integration_test/engines_test.dart -d <device-id>
 
 cd codelabs/multimodal-flutter-gemma/complete
 flutter test integration_test/multimodal_test.dart -d <device-id>
+
+cd codelabs/function-calling-flutter-gemma/complete
+flutter test integration_test/function_calling_test.dart -d <device-id>
 
 cd codelabs/hybrid-ai-flutter-genkit/complete
 flutter test integration_test/smoke_test.dart -d <device-id> \

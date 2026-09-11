@@ -61,10 +61,10 @@ There is an example of using:
 `flutter_gemma` ships [agent skills](https://dart.dev/blog/skills-cli-1-0-bundle-and-distribute-ai-agent-skills-for-your-packages) — short instruction files your coding assistant reads so it uses this API correctly the first time:
 
 ```bash
-dart run skills@ get
+dart run skills@ get --all
 ```
 
-That scans your dependencies, offers the skills each one bundles, and installs them where your agent looks (Claude Code, Codex, Cursor, Antigravity, Cline, Copilot, OpenCode are all supported).
+That scans your dependencies and installs every skill they bundle where your agent looks — Claude Code, Codex, Cursor, Antigravity, Cline, Copilot and OpenCode are supported. If it reports that it could not detect your agent, name it with `--agent claude` (or `codex`, `cursor`, …).
 
 What they cover: registering an engine (core ships none), routing by the declared `ModelFileType` rather than the filename, and the two defaults that fail quietly — `maxTokens` is the context window and not the reply length, and `Message.isUser` defaults to `false`.
 

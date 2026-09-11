@@ -5,19 +5,24 @@ description: Use when adding function calling (tool calling) to a flutter_gemma 
 
 # Function calling with flutter_gemma
 
+Packages, engine and model install are in the flutter-gemma-inference skill. This one starts from a loaded `InferenceModel`.
+
 ## Rules
 
-1. `createChat` needs three arguments: `tools`, `supportsFunctionCalls: true` and `modelType`. Without the flag the tools are dropped with a debug-only warning; without the type the call format cannot be derived.
-2. Switch over all four `ModelResponse` subtypes. It is sealed — a switch that leaves out `ThinkingResponse` does not compile.
-3. Return tool results as data, errors included. Never throw from a tool.
-4. Prefer `generateChatResponseWithTools` to a hand-written loop.
-5. Use a tool-capable model: Gemma 4, Gemma 3 1B, FunctionGemma, Phi-4 Mini, Qwen 2.5, Qwen3, DeepSeek R1. Gemma 3 270M and SmolLM cannot call tools.
+1. `createChat` needs `tools` and `supportsFunctionCalls: true`. Without the flag the tools are dropped with a debug-only warning and no call is parsed.
+2. Pass `modelType` on web and on ONNX. Native `.litertlm`, MediaPipe on Android and iOS, and built-in AI use the installed model's type when it is left out; the web engines and ONNX fall back to `gemmaIt`, and another model's calls then arrive as raw text.
+3. Switch over all four `ModelResponse` subtypes. It is sealed — a switch that leaves out `ThinkingResponse` does not compile.
+4. Return tool results as data, errors included. Never throw from a tool.
+5. Prefer `generateChatResponseWithTools` to a hand-written loop.
+6. Use a tool-capable model: Gemma 4, Gemma 3 1B, FunctionGemma, Phi-4 Mini, Qwen 2.5, Qwen3, DeepSeek R1. Gemma 3 270M and SmolLM cannot call tools.
 
 ## Declare a tool
 
 `parameters` is a JSON Schema object. The model matches the user's intent against `description`, so write it as an action and describe every parameter.
 
 ```dart
+import 'package:flutter_gemma/flutter_gemma.dart';
+
 const changeColor = Tool(
   name: 'change_color',
   description: 'Change the app background colour.',
@@ -34,7 +39,7 @@ const changeColor = Tool(
 ## Open the chat
 
 ```dart
-final chat = await model.createChat(
+final InferenceChat chat = await model.createChat(
   tools: myTools,
   supportsFunctionCalls: true,
   modelType: ModelType.gemma4,
@@ -43,17 +48,21 @@ final chat = await model.createChat(
 
 ## The built-in loop
 
-It calls your handler for each tool call, feeds the result back, and continues until the model answers in text or `maxToolTurns` is reached.
+It calls the handler for each tool call, feeds the result back, and continues until the model answers in text or `maxToolTurns` is reached.
 
 ```dart
 await chat.addQueryChunk(Message(text: prompt, isUser: true));
+final answer = StringBuffer();
 await for (final r in chat.generateChatResponseWithTools(
-  onToolCall: (call) => runTool(call.name, call.args),
+  onToolCall: (FunctionCallResponse call) => runTool(call.name, call.args),
   maxToolTurns: 8,
+  onMaxToolTurns: () => print('stopped after 8 tool turns'),
 )) {
-  if (r is TextResponse) stdout.write(r.token);
+  if (r is TextResponse) answer.write(r.token);
 }
 ```
+
+`onToolCall` receives a `FunctionCallResponse` with `name` and `args`, and returns the map the model reads back. The stream carries `TextResponse` and `ThinkingResponse`. Reaching `maxToolTurns` ends the stream without an error — `onMaxToolTurns` is the only signal. An exception from `onToolCall` is reported to the model, then rethrown on the stream.
 
 ## Handling calls yourself
 
@@ -98,7 +107,7 @@ The model can recover from an error it can read. An exception thrown out of a to
 
 **Model answers in prose**
 - Symptom: "I would change the colour to red" instead of a call.
-- Fix: check `supportsFunctionCalls: true` and `modelType`, then check the model is tool-capable.
+- Fix: check `supportsFunctionCalls: true`, pass `modelType` on web and ONNX, then check the model is tool-capable.
 
 **Raw markers in the text**
 - Symptom: `<|tool_call>` or `<tool_call|>` appears in `TextResponse` tokens.
@@ -106,13 +115,4 @@ The model can recover from an error it can read. An exception thrown out of a to
 
 ## Web
 
-Function calling works on the `.litertlm` web engine. Close each chat before creating the next one: a chat left open makes the following one fail with `Invalid token at state N`.
-
-```dart
-await chat.close();
-final next = await model.createChat(
-  tools: myTools,
-  supportsFunctionCalls: true,
-  modelType: ModelType.gemma4,
-);
-```
+Function calling works on the `.litertlm` web engine. Pass `modelType`, and close each chat before creating the next — the web engine holds one session at a time.

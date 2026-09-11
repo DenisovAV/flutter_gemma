@@ -1694,8 +1694,11 @@ await FlutterGemma.installEmbedder()
     )
     .install();
 
-// 2. Initialize the vector store (one shard per database path)
-await FlutterGemmaPlugin.instance.initializeVectorStore('rag_store');
+// 2. Initialize the vector store (one shard per database path). On native pass
+//    an absolute path: a bare name resolves against the process working
+//    directory, which is not writable on Android or iOS. On web a name is enough.
+final dir = await getApplicationDocumentsDirectory(); // package:path_provider
+await FlutterGemmaPlugin.instance.initializeVectorStore('${dir.path}/rag_store');
 
 // 3. Add documents — let the plugin compute embeddings for you
 for (final doc in docs) {

@@ -1,44 +1,76 @@
 ---
 name: flutter-gemma-builtin-ai
-description: Use when running the device's own model with flutter_gemma_builtin_ai — Gemini Nano on Android or in desktop Chrome, Apple Foundation Models on iPhone, iPad and Mac — with nothing to download or bundle. Also use when BuiltInAiUnavailableException is thrown, availability reports "downloadable", the Android build fails the manifest merge on minSdk, or the model is missing in Chrome. For models you download yourself, use flutter-gemma-inference.
+description: Use when running the device's own model with flutter_gemma_builtin_ai — Gemini Nano on Android or in desktop Chrome, Apple Foundation Models on iPhone, iPad and Mac — with nothing to download or bundle, or when falling back to a downloaded model where it is missing. Also use when BuiltInAiUnavailableException or a TimeoutException is thrown, availability reports "downloadable", the Android build fails the manifest merge on minSdk, or the model is missing in Chrome. For models the app downloads itself, use flutter-gemma-inference.
 ---
 
 # The built-in OS model
 
 ## Rules
 
-1. The OS owns the weights, but the model is still installed — as an identity: `fileType: ModelFileType.builtIn` with `.fromBundled(...)`. Nothing is downloaded by the app.
-2. Call `BuiltInAi.ensureReady()` before `getActiveModel()`, from a user action: on Android the first call downloads the model and can take minutes.
+1. The OS owns the weights, but the model is still installed — as an identity: `fileType: ModelFileType.builtIn` with `.fromBundled(...)`. The app downloads nothing.
+2. Call `BuiltInAi.ensureReady()` before `getActiveModel()`, from a user action: on Android the first call downloads the model and can take minutes. It throws `TimeoutException` after `timeout` — 10 minutes by default.
 3. Catch `BuiltInAiUnavailableException` and fall back to a downloadable model.
 4. Android apps need `minSdk 26`, or the manifest merge fails.
 5. There is no Windows or Linux support.
 
-## Setup
+## Setup with a fallback
+
+```sh
+flutter pub add flutter_gemma flutter_gemma_builtin_ai flutter_gemma_litertlm
+```
 
 ```dart
-import 'package:flutter/foundation.dart';
-import 'package:flutter_gemma_builtin_ai/flutter_gemma_builtin_ai.dart';
+import 'dart:async';
 
-await FlutterGemma.initialize(inferenceEngines: [BuiltInAiEngine()]);
+import 'package:flutter/foundation.dart';
+import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma_builtin_ai/flutter_gemma_builtin_ai.dart';
+import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
+
+await FlutterGemma.initialize(
+  inferenceEngines: [BuiltInAiEngine(), LiteRtLmEngine()],
+);
 
 final spec = kIsWeb || defaultTargetPlatform == TargetPlatform.android
     ? BuiltInAiModels.geminiNano
-    : BuiltInAiModels.appleFoundationModels;
+    : defaultTargetPlatform == TargetPlatform.iOS ||
+            defaultTargetPlatform == TargetPlatform.macOS
+        ? BuiltInAiModels.appleFoundationModels
+        : null; // Windows and Linux have no built-in model
 
-await FlutterGemma.installModel(
-  modelType: ModelType.general,
-  fileType: ModelFileType.builtIn,
-).fromBundled(spec.name).install();
+Future<InferenceModel> downloadGemma() async {
+  await FlutterGemma.installModel(
+    modelType: ModelType.gemma4,
+    fileType: ModelFileType.litertlm,
+  ).fromNetwork(
+    // 2.6 GB — ask first. On web: gemma-4-E2B-it-web.litertlm
+    'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm',
+  ).install();
+  return FlutterGemma.getActiveModel(maxTokens: 1024);
+}
 
-try {
-  await BuiltInAi.ensureReady(onProgress: (percent) => print('$percent%'));
-  final model = await FlutterGemma.getActiveModel(maxTokens: 4096);
-} on BuiltInAiUnavailableException catch (e) {
-  print('No built-in model here: $e — fall back to a downloadable one');
+InferenceModel model;
+if (spec == null) {
+  model = await downloadGemma();
+} else {
+  try {
+    await FlutterGemma.installModel(
+      modelType: ModelType.general,
+      fileType: ModelFileType.builtIn,
+    ).fromBundled(spec.name).install();
+    await BuiltInAi.ensureReady(onProgress: (int percent) => print('$percent%'));
+    model = await FlutterGemma.getActiveModel(maxTokens: 4096);
+  } on BuiltInAiUnavailableException {
+    model = await downloadGemma();
+  } on TimeoutException {
+    model = await downloadGemma();
+  }
 }
 ```
 
-## Checking before you offer the feature
+The latest install is the one `getActiveModel` loads, so the fallback replaces the built-in model. Sessions and chats then work as in the flutter-gemma-inference skill.
+
+## Checking before offering the feature
 
 ```dart
 final availability = await BuiltInAi.availability();
@@ -47,7 +79,14 @@ final usable = availability == BuiltInAiAvailability.available ||
     availability == BuiltInAiAvailability.downloading;
 ```
 
-`downloadable` and `downloading` mean "not yet", not "no" — `ensureReady` finishes the job. The `unavailable*` states are final for this device: `unavailableDeviceUnsupported`, `unavailableOsTooOld`, `unavailableDisabled`, `unavailableOther`.
+`downloadable` and `downloading` mean "not yet" — `ensureReady` finishes the job. The `unavailable*` states describe the device now, not forever:
+
+| State | Meaning |
+| --- | --- |
+| `unavailableDeviceUnsupported` | the hardware cannot run it |
+| `unavailableOsTooOld` | an OS update would enable it |
+| `unavailableDisabled` | the user can turn it on in system settings (Apple Intelligence on Apple devices) |
+| `unavailableOther` | anything else, including a probe that timed out after 20 seconds — worth asking again later |
 
 ## Platforms
 
@@ -55,7 +94,7 @@ final usable = availability == BuiltInAiAvailability.available ||
 | --- | --- | --- |
 | Android | Gemini Nano (AICore) | Pixel 9+, Galaxy S25+; `minSdk 26` |
 | iOS, macOS | Apple Foundation Models | iPhone 15 Pro+ or an Apple Silicon Mac, Apple Intelligence turned on |
-| Web | Gemini Nano (Chrome Prompt API) | desktop Chrome or Edge only — not mobile browsers, Firefox or Safari |
+| Web | Gemini Nano (Chrome Prompt API) | desktop Chrome — not Edge (its built-in model is Phi-4-mini), mobile browsers, Firefox or Safari |
 
 Images work on Android. On Apple platforms they need OS 27 — on OS 26 an image throws. The web model is text-only.
 
@@ -73,4 +112,4 @@ There is no script to add: the Prompt API is part of the browser. It has to be e
 
 ## Trade-offs
 
-No choice of weights, no LoRA, and capabilities that vary by OS version. Use it when zero download and zero disk matter more than picking the model.
+No choice of weights, no LoRA, and capabilities that vary by OS version. The right pick when zero download and zero disk matter more than choosing the model.

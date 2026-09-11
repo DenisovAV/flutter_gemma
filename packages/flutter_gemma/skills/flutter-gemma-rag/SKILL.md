@@ -1,94 +1,109 @@
 ---
 name: flutter-gemma-rag
-description: Use when building retrieval over on-device documents with flutter_gemma — embeddings via flutter_gemma_embeddings plus a vector store (rag_sqlite or rag_qdrant). Query and document embeddings need DIFFERENT TaskType prefixes or retrieval quality collapses, and embedding is CPU-only by design.
+description: Use when adding RAG, semantic search or text embeddings to a flutter_gemma app — searching the user's documents on-device, an embedding model plus a vector store (flutter_gemma_rag_sqlite or flutter_gemma_rag_qdrant). Also use when a metadata filter returns unfiltered results, retrieval quality is poor, addDocument throws about a missing embedding model, or the vector store throws UnimplementedError on web.
 ---
 
 # On-device RAG with flutter_gemma
 
-Three pieces: an embedding model, a vector store, and the retrieval call. All
-three are opt-in packages.
+## Rules
+
+1. Use the `FlutterGemma.rag` facade: `initialize`, `addDocument`, `searchSimilar`. It embeds documents and queries with the correct task types for you.
+2. Declare every field you will filter on in `filterSchema:` at `initialize`. A filter on an undeclared field — or any filter with no schema — is silently ignored and returns unfiltered results.
+3. Activate an embedding model with `getActiveEmbedder()` before `addDocument`.
+4. `LiteRtEmbeddingBackend` comes from `flutter_gemma_litertlm`, not `flutter_gemma_embeddings`.
+5. On web use `WebSqliteVectorStore`; `SqliteVectorStore` throws `UnimplementedError` there. `flutter_gemma_rag_qdrant` is native-only.
+6. Android needs `minSdk 30`.
+
+## Setup
 
 ```dart
+import 'package:flutter/foundation.dart';
+import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
+import 'package:flutter_gemma_rag_sqlite/flutter_gemma_rag_sqlite.dart';
+
 await FlutterGemma.initialize(
   inferenceEngines: [LiteRtLmEngine()],
-  embeddingBackends: [LiteRtEmbeddingBackend()],   // flutter_gemma_embeddings
-  vectorStore: SqliteVectorStore(),                // flutter_gemma_rag_sqlite
+  embeddingBackends: [LiteRtEmbeddingBackend()],
+  vectorStore: kIsWeb ? WebSqliteVectorStore() : SqliteVectorStore(),
+  filterSchema: const FilterSchema(fields: [
+    FilterField(name: 'lang', type: FilterFieldType.string),
+    FilterField(name: 'year', type: FilterFieldType.number),
+  ]),
 );
+
+await FlutterGemma.installEmbedder()
+    .modelFromNetwork(url)
+    .tokenizerFromNetwork(url)
+    .install();
+await FlutterGemma.getActiveEmbedder();
+
+await FlutterGemma.rag.initialize('rag.db');
 ```
 
-Without a `vectorStore` the default sentinel throws a clear "add a RAG package"
-error on first use. Without an embedding backend, `getActiveEmbedder` throws the
-same way.
+`rag.initialize` takes a database file for sqlite and a directory for qdrant.
 
-## Query and document must use DIFFERENT task types
-
-This is the mistake that silently ruins retrieval. Embedding models are trained
-asymmetrically: a question and the passage that answers it are encoded with
-different prefixes, and using one prefix for both collapses the similarity
-signal. Nothing errors — results are just bad.
+## Index and search
 
 ```dart
-// Indexing a document
-final docVector = await embedder.generateEmbedding(
+import 'dart:convert';
+
+await FlutterGemma.rag.addDocument(
+  id: 'doc-1',
+  content: chunk,
+  metadata: jsonEncode({'lang': 'en', 'year': 2024}),
+);
+
+final hits = await FlutterGemma.rag.searchSimilar(
+  query: question,
+  topK: 5,
+  filter: const Filter(
+    must: [FieldEquals(key: 'lang', value: 'en')],
+    mustNot: [FieldRange(key: 'year', lte: 2010)],
+  ),
+);
+for (final hit in hits) {
+  print('${hit.similarity.toStringAsFixed(2)} ${hit.content}');
+}
+```
+
+`searchSimilar` takes the question as text and embeds it itself. Filter operators: `FieldEquals`, `FieldRange` (`gte`, `lte`), `FieldMatchAny`, combined with `must`, `should` and `mustNot`.
+
+## Traps
+
+**Filter has no effect**
+- Symptom: results ignore the filter; no error.
+- Fix: declare the field in `filterSchema`. Names must match `^[A-Za-z][A-Za-z0-9_]*$` and cannot be `id`, `embedding`, `content`, `metadata`, `distance` or `k`. At most 16 fields.
+
+**Poor retrieval after embedding by hand**
+- Query and document embeddings are trained asymmetrically. `generateEmbedding` defaults to `TaskType.retrievalQuery`, so text embedded for indexing without a task type gets the query prefix.
+- Fix: pass `TaskType.retrievalDocument` when indexing yourself:
+
+```dart
+final vector = await embedder.generateEmbedding(
   chunk,
   taskType: TaskType.retrievalDocument,
 );
-
-// Searching with a question
-final queryVector = await embedder.generateEmbedding(
-  question,
-  taskType: TaskType.retrievalQuery,
+await FlutterGemma.rag.addDocumentWithEmbedding(
+  id: 'doc-2',
+  content: chunk,
+  embedding: vector,
 );
 ```
 
-The prefix strings live in one place in Dart and are applied for you — pass the
-right `TaskType` and do not prepend anything yourself.
+**`addDocument` throws**
+- Cause: no active embedding model. Call `FlutterGemma.getActiveEmbedder()` after installing one.
 
-## Embedding is CPU-only, and that is permanent
+## Backend
 
-EmbeddingGemma ships as int4, and the TFLite GPU delegate cannot execute int4.
-This is not a missing feature or a bug to work around: there is no GPU path.
-Asking for `PreferredBackend.gpu` on an embedder gains nothing.
+Leave the embedder on the default CPU backend. The GPU delegate does not produce valid vectors for EmbeddingGemma.
 
-Budget accordingly — embedding a large corpus on device is minutes of CPU, so
-do it in the background, batched, and persist the vectors rather than
-recomputing at startup.
+## Web
 
-## Picking a vector store
+- Copy `web/rag/sqlite3.wasm` from the `flutter_gemma_rag_sqlite` package into the app as `web/rag/sqlite3.wasm`.
+- Web embeddings need `litert_embeddings.js` and `sentencepiece.js` from the `flutter_gemma_embeddings` package's `web/` directory, copied into the app's `web/`, plus `<script type="module" src="litert_embeddings.js"></script>` in `web/index.html`.
 
-| Package | Platforms | Notes |
-| --- | --- | --- |
-| `flutter_gemma_rag_sqlite` | all six, web included | `sqlite-vec` KNN inside SQLite |
-| `flutter_gemma_rag_qdrant` | native only, no web | the official `qdrant_edge` SDK |
+Find a package's directory with `grep -A1 '"name": "flutter_gemma_rag_sqlite"' .dart_tool/package_config.json`.
 
-`rag_sqlite` on web needs a custom `sqlite3.wasm` with `vec0` linked in — copy
-it into the app's own `web/` directory. Nothing does that automatically.
+## Chunking
 
-## Filtering
-
-Both stores take the same sealed `Filter` DSL from core, so a query written
-against one works against the other:
-
-```dart
-final results = await FlutterGemma.rag.search(
-  queryVector,
-  limit: 5,
-  filter: Filter(must: [Condition.equals('lang', 'en')]),
-);
-```
-
-## Chunking is yours
-
-The package embeds what you give it. Splitting documents, choosing chunk size
-and overlap, and storing the text alongside the vector are all application
-decisions. A chunk longer than the model's input window is truncated silently —
-check the model's limit rather than assuming.
-
-## Do not double-normalise
-
-`meanPoolAndNormalize` accepts only token-level output shaped `[1, seq, dim]`
-and deliberately rejects rank-2 input. A model that already returns a pooled,
-normalised vector must not be pooled again — doing so distorts every distance in
-the index, and the failure is invisible until retrieval quality is measured. If
-a rank-2 rejection fires, the model's output contract is pooled-final; wire it
-as such rather than reshaping to get past the check.
+Splitting documents, chunk size and overlap are yours to decide. A chunk longer than the embedding model's input window is truncated without an error.

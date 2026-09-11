@@ -53,7 +53,7 @@ silently do the other thing.
 [ ] 12a website + README version pins bumped to the just-published versions
 [ ] 12b new/changed public API + behavior documented (README + website)  ← SAME PR
 [ ] 12d skills/: `skills_review.sh <last-tag>` run, every flagged skill READ,
-        updated where the prose drifted, and `check_skills.sh` green
+        updated where the prose drifted, and `dart tool/check_skills.dart` green
 [ ] 12c after merge: firebase-hosting-merge run == success (not just triggered)
 ```
 
@@ -633,9 +633,8 @@ Map the change to the skill that covers it:
 
 | Area | Skill |
 |------|-------|
-| registry, install, `ModelFileType`, `maxTokens`, sessions, chat | `flutter-gemma-inference` |
-| function calling | `flutter-gemma-tools` |
-| `.litertlm` engine, backends, platform floors | `flutter-gemma-litertlm` |
+| registry, install, `ModelFileType`, `maxTokens`, sessions, chat, the `.litertlm` engine, backends, platform setup | `flutter-gemma-inference` (+ `references/platform-setup.md`) |
+| function calling | `flutter-gemma-function-calling` |
 | `.task`/`.bin`, MediaPipe web | `flutter-gemma-mediapipe` |
 | ONNX / ORT-GenAI | `flutter-gemma-onnx` |
 | the OS built-in model | `flutter-gemma-builtin-ai` |
@@ -651,7 +650,8 @@ bash tool/skills_review.sh <last-tag>      # e.g. v1.8.0
 For each skill it prints the symbols that skill NAMES and this release TOUCHED.
 Run against the STT release it names `flutter-gemma-speech` with
 `getActiveStt`, `language`, `SttModelType.whisper`; against the
-`createChat`-tools fix it names `flutter-gemma-tools` and leaves speech alone.
+`createChat`-tools fix it names the function-calling skill and leaves speech
+alone.
 That is the routing — a skill with hits gets opened, a skill without one gets
 skipped with a clear conscience.
 
@@ -662,16 +662,22 @@ it only says where to look.
 Finally the mechanical gate:
 
 ```bash
-bash tool/check_skills.sh     # exit 0 required
+dart tool/check_skills.dart   # exit 0 required
 ```
 
-It extracts every API symbol the skills name — inline backticks, named arguments
-inside ```dart fences, and dotted members — and fails if one no longer exists in
-`packages/*/lib/`. Read the count it prints, not just the exit code: a run that
-examined nothing exits 2 rather than reporting a pass.
+It COMPILES the skills: every ```dart fence becomes a function body, every
+inline `Type` and `Type.member` in the prose becomes a declaration, and
+`dart analyze` runs over the result inside the example app, which depends on
+every package. A misspelt parameter, a method that moved, a switch that is no
+longer exhaustive — all fail. Read the count it prints, not just the exit code:
+a run that extracted nothing exits 2 rather than reporting a pass.
 
-**Why both.** `check_skills.sh` answers "does every name still exist" — renames
-and deletions. It stays green when a symbol survives and its MEANING moves,
+It replaced a grep-based check that was green on four APIs that did not exist —
+`gemma3` matched a model URL, `limit:` an unrelated argument. A text search
+cannot tell "this name exists" from "this code is right".
+
+**Why both.** `check_skills.dart` answers "does this code still compile" —
+renames, deletions, signature changes. It stays green when a symbol survives and its MEANING moves,
 which is the failure that actually happened here: `getActiveStt(language:)` went
 from "the language this recognizer was built with" to "the default for its
 transcriptions" with no rename anywhere. `skills_review.sh` is what puts that

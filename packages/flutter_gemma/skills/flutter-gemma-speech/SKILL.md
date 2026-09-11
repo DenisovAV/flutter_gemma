@@ -1,39 +1,34 @@
 ---
 name: flutter-gemma-speech
-description: Use when adding speech to a flutter_gemma app — transcription (moonshine/Whisper/Parakeet), synthesis (Matcha/Qwen3/Inflect), or the VoiceSession loop. Audio must be 16 kHz mono 16-bit PCM, and the Whisper output language is a property of a transcription rather than of the loaded model.
+description: Use when adding speech to a flutter_gemma app — speech-to-text (transcribe a voice note, dictation, Whisper, moonshine, Parakeet), text-to-speech (Matcha, Qwen3-TTS, Inflect), or a push-to-talk voice assistant with VoiceSession. Also use when transcripts come back in English for non-English audio, synthesized audio plays at the wrong pitch, or getActiveTts throws a StateError about the language. For LLM text generation, use flutter-gemma-inference.
 ---
 
 # Speech with flutter_gemma_speech
 
-## Register the backend first
+## Rules
 
-STT is opt-in. Core registers nothing:
+1. Audio input is 16 kHz, mono, 16-bit little-endian PCM. Not a WAV file (strip its 44-byte header), not 44.1 or 48 kHz. Nothing is resampled for you.
+2. Play synthesized audio at `synth.sampleRate`. It differs per model.
+3. Only Whisper has a selectable output language. moonshine-tiny and Parakeet are English-only, and passing a language to them throws `ArgumentError`.
+4. STT language: set a default with `getActiveStt(language:)` or override one call with `transcribe(pcm, language:)`. Nothing reloads.
+5. TTS language: `close()` the synthesizer first. Asking a live synthesizer for another language throws `StateError`.
+6. Android needs `minSdk 30`. There is no web support — the web backends throw `UnsupportedError`.
+7. Close recognizers and synthesizers.
+
+## Setup
 
 ```dart
-import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_speech/flutter_gemma_speech.dart';
 
 await FlutterGemma.initialize(
-  sttBackends: [LiteRtSttBackend()],   // transcription
-  ttsBackends: [LiteRtTtsBackend()],   // synthesis
+  sttBackends: [LiteRtSttBackend()],
+  ttsBackends: [LiteRtTtsBackend()],
 );
 ```
 
-Native only — Android, iOS, macOS, Windows, Linux. The web arm is a stub that
-throws `UnsupportedError`.
+## Speech-to-text
 
-## Pick the model deliberately
-
-| `SttModelType` | Input | Languages | Notes |
-| --- | --- | --- | --- |
-| `moonshine` | raw 16 kHz PCM | the language it hears | ~104 MB, 5 s window, fastest |
-| `whisper` | log-mel | 99, selectable | tiny / base, 30 s window |
-| `parakeet` | log-mel | English only | CTC 0.6B, 2.35 GB f32, desktop |
-
-Only Whisper has a selectable output language. The other two transcribe
-whatever they hear and **reject** a language argument rather than ignoring it.
-
-## Install and transcribe
+An STT model is two files — the model and its tokenizer — usually from different repos.
 
 ```dart
 await FlutterGemma.installStt()
@@ -42,82 +37,33 @@ await FlutterGemma.installStt()
     .ofType(SttModelType.whisper)
     .install();
 
-final recognizer = await FlutterGemma.getActiveStt();
+final recognizer = await FlutterGemma.getActiveStt(language: 'de');
 try {
-  // pcm: 16 kHz mono 16-bit little-endian PCM — the data chunk of a WAV,
-  // or frames from a recorder. NOT the WAV file itself.
-  final transcript = await recognizer.transcribe(pcm);
+  final german = await recognizer.transcribe(germanPcm);
+  final french = await recognizer.transcribe(frenchPcm, language: 'fr');
 } finally {
   await recognizer.close();
 }
 ```
 
-An STT model needs **two** files, a model and a tokenizer, and they usually come
-from different repos: the LiteRT conversion of the weights, and the original
-publisher's `tokenizer.json`.
+| `SttModelType` | Languages | Window |
+| --- | --- | --- |
+| `moonshine` | English | 5 s |
+| `whisper` | 99, selectable, default `'en'` | 30 s |
+| `parakeet` | English | 5 s, desktop only (2.35 GB) |
 
-## The output language is per transcription
+Longer audio has to be split by the caller.
 
-This is the part that is easy to model wrongly. The language is one token in
-Whisper's decoder seed prompt, and that prompt is rebuilt on every
-transcription. Changing it costs a map lookup — it never reloads the model and
-never invalidates a recognizer you are holding.
+## Traps
 
-```dart
-// A default for this recognizer.
-final stt = await FlutterGemma.getActiveStt(language: 'de');
-final german = await stt.transcribe(germanPcm);
+**Transcript comes back in English**
+- Symptom: German audio, fluent English text, no error.
+- Cause: Whisper's language token decides the output language, not what it understands — with `'en'` it translates. moonshine only ever produces English.
+- Fix: use Whisper and pass `language:`.
 
-// One call in another language — same recognizer, nothing reloaded.
-final french = await stt.transcribe(frenchPcm, language: 'fr');
-```
-
-`getActiveStt` returns a process-wide singleton, and calling it again with a new
-`language` retargets that recognizer. You never need to `close()` just to change
-language.
-
-Codes are Whisper's own, without the delimiters — `'en'`, `'de'`, `'uk'`, any of
-the 99 — and the default is `'en'`.
-
-## Language decides the OUTPUT, not comprehension
-
-The shipped Whisper checkpoints are the multilingual ones (no `.en` suffix), so
-the weights understand the audio either way. The token only decides what the
-model writes. Measured on one German clip, same audio and build, one token
-apart:
-
-```
-'en' -> " This weather is very beautiful and the sun is shining."
-'de' -> " Das Wetter ist heute sehr schön und die Sonne scheint."
-```
-
-So asking for the wrong language does not garble the output — it translates,
-fluently and without any error. If a user reports "it always answers in
-English", the language was never applied; it is not a model failure.
-
-## Bad values throw, they are never ignored
-
-- A malformed code (`'de-DE'`, `'DE'`, `'german'`, `''`) is rejected before the
-  model is loaded.
-- A well-formed code the installed checkpoint does not have (`'zz'`) is rejected
-  against that checkpoint's own tokenizer, with the valid set named in the
-  error.
-- Any language on `moonshine` or `parakeet` throws `ArgumentError` — those
-  models have no language token to set.
-
-Catch `ArgumentError` around a user-supplied language. Do not fall back to a
-default silently; the whole design here exists because a silently ignored
-language is indistinguishable from success.
-
-## Requirements
-
-- Audio must be **16 kHz mono 16-bit little-endian PCM**. Resample first; there
-  is no conversion inside the package.
-- Clips are padded or trimmed to the model's fixed window (moonshine 5 s,
-  Whisper 30 s). Longer audio needs chunking by the caller.
-- Transcription runs in a background isolate, so it does not block the UI.
-- `flutter_gemma_speech` requires a matching core — check its `flutter_gemma`
-  constraint. A core too old accepts `language:` and drops it.
+**A language is rejected**
+- Whisper codes are bare and lowercase: `'de'`, not `'de-DE'`, `'DE'` or `'german'`. Malformed codes throw `ArgumentError` from `getActiveStt`.
+- A well-formed code the installed checkpoint lacks (e.g. `'zz'`) throws `ArgumentError` from `transcribe`.
 
 ## Text-to-speech
 
@@ -129,64 +75,56 @@ await FlutterGemma.installTts()
 
 final synth = await FlutterGemma.getActiveTts();
 try {
-  final pcm = await synth.synthesize('Hello world.');   // Uint8List, 16-bit PCM
-  print(synth.sampleRate);                              // 22050 for Matcha
+  final audio = await synth.synthesize('Hello world.'); // 16-bit PCM
+  final rate = synth.sampleRate;                        // 22050 for Matcha
 } finally {
   await synth.close();
 }
 ```
 
-`sampleRate` differs per model — read it rather than assuming, or playback is
-pitched wrong.
+| `TtsModelType` | Languages |
+| --- | --- |
+| `matcha` | fixed by the installed bundle |
+| `qwen3` | `chinese`, `english`, `german`, `italian`, `portuguese`, `spanish`, `japanese`, `korean`, `french`, `russian`, or `auto` |
+| `inflect` | English |
 
-| `TtsModelType` | Languages | Notes |
-| --- | --- | --- |
-| `matcha` | its bundle's locale | fast, no runtime language parameter |
-| `qwen3` | many, selectable | pass `language:` to `getActiveTts` |
-| `inflect` | English only | ~90x real time on CPU |
+`supertonic` and `kokoro` are in the enum but throw `UnimplementedError` — do not use them.
 
-## TTS language fails LOUD, unlike STT
-
-`getActiveTts` returns a process-wide singleton, and asking an existing
-synthesizer for a different language **throws** a `StateError` telling you to
-`close()` first. That is deliberate: reusing it would emit wrong-language audio
-with no error.
+Switching the Qwen3 language — full lowercase names, not ISO codes:
 
 ```dart
-final en = await FlutterGemma.getActiveTts(language: 'english');
-await en.close();                                   // required
-final de = await FlutterGemma.getActiveTts(language: 'german');
+final english = await FlutterGemma.getActiveTts(language: 'english');
+await english.close();
+final german = await FlutterGemma.getActiveTts(language: 'german');
 ```
 
-Note the asymmetry with STT, which retargets silently and cheaply instead: a
-Whisper decoder prompt is rebuilt per transcription, a TTS voice is not. Values
-here are full lowercase names (`'english'`, `'german'`), not the ISO codes STT
-uses.
+## Voice assistant
 
-## Voice loop
-
-`VoiceSession` chains STT to an LLM to TTS for one push-to-talk turn, with
-barge-in.
+`VoiceSession` runs one push-to-talk turn: transcribe, generate, speak, with barge-in. It uses the recognizer's current language.
 
 ```dart
-final session = VoiceSession.fromChat(
+final voice = VoiceSession.fromChat(
   recognizer: await FlutterGemma.getActiveStt(language: 'de'),
   chat: chat,
   synthesizer: await FlutterGemma.getActiveTts(),
 );
 
-await for (final event in session.runTurn(pcm16kMono)) {
+await for (final event in voice.runTurn(pcm16kMono)) {
   switch (event) {
-    case VoiceTranscriptEvent(:final text):            // show it
-    case VoiceReplyTextEvent(:final chunk):            // stream it
-    case VoiceReplyAudioEvent(:final pcm, :final sampleRate):  // play it
-    case VoiceTurnInterruptedEvent():                  // stop the player
+    case VoiceTranscriptEvent(:final text):
+      print('heard: $text');
+    case VoiceReplyTextEvent(:final chunk):
+      stdout.write(chunk);
+    case VoiceReplyAudioEvent(:final sampleRate):
+      print('audio at $sampleRate Hz');
+    case VoiceTurnInterruptedEvent():
+      print('interrupted — stop the player');
     case VoiceTurnCompleteEvent():
-    case VoiceErrorEvent():
+      print('done');
+    case VoiceErrorEvent(:final error):
+      print('failed: $error');
   }
 }
 ```
 
-The session inherits the recognizer's current language, so set it before
-starting. A chat with tools is supported — pass `onToolCall`; a tools-enabled
-chat arriving without a handler throws.
+A chat created with tools also needs `onToolCall:` — without it `fromChat` throws.

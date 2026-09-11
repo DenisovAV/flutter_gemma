@@ -311,7 +311,7 @@ flutter analyze && dart format . && tool/test_all.sh
 | `hook/build.dart` | Native Assets hook — fetches the per-platform `vec0` loadable extension |
 | `web/rag/sqlite3.wasm` | custom `sqlite3.wasm` with `sqlite-vec`/`vec0` statically linked (app copies to its web root) |
 
-**`packages/flutter_gemma_builtin_ai/` (OS built-in AI; Gemini Nano on Android, Apple Foundation Models on iOS/macOS; no web/desktop):**
+**`packages/flutter_gemma_builtin_ai/` (OS built-in AI; Gemini Nano on Android and desktop Chrome via the Prompt API, Apple Foundation Models on iOS/macOS; no Windows/Linux):**
 
 | File | Purpose |
 |------|---------|
@@ -324,7 +324,7 @@ flutter analyze && dart format . && tool/test_all.sh
 | `android/src/.../` | Android ML Kit GenAI (AICore) native layer; declares `minSdk 26` |
 | `darwin/Classes/` (shared iOS+macOS source via `sharedDarwinSource: true`) | Apple Foundation Models native layer |
 
-**`packages/flutter_gemma_onnx/` (ONNX Runtime — ORT-GenAI inference + plain-ORT embeddings; macOS arm64 only in v1, no web):**
+**`packages/flutter_gemma_onnx/` (ONNX Runtime — ORT-GenAI inference + plain-ORT embeddings on macOS arm64 / Linux x64 / Windows x64 / Android arm64 / iOS arm64; web via Transformers.js + onnxruntime-web):**
 
 | File | Purpose |
 |------|---------|

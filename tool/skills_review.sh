@@ -2,8 +2,8 @@
 #
 # Which shipped skills does this release's diff put in doubt, and why.
 #
-# `check_skills.sh` answers "does every name still exist" — renames and
-# deletions. It stays green when a symbol survives but changes MEANING, which is
+# `check_skills.dart` answers "does this still compile" — renames, deletions
+# and signature changes. It stays green when a symbol survives but changes MEANING, which is
 # the failure that actually bit us: getActiveStt(language:) went from a
 # load-time property of the recognizer to a per-transcription one, with no
 # rename anywhere.

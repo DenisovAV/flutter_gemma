@@ -1,72 +1,71 @@
 ---
 name: flutter-gemma-onnx
-description: Use when running ONNX models through flutter_gemma_onnx — ORT-GenAI text generation or ORT embeddings. An ORT-GenAI model is a DIRECTORY, not a single file, so the ordinary single-file network install does not apply; the package is also gated to five specific host architectures.
+description: Use when running ONNX models with flutter_gemma_onnx — ORT-GenAI text generation (e.g. Phi-3.5-mini) or ONNX embeddings — on macOS arm64, Linux x64, Windows x64, Android arm64, iOS arm64, or in the browser through Transformers.js. Also use when an ONNX install is routed to the wrong engine, genai_config.json is missing, or getActiveModel throws "No inference engine can handle this model" on another platform. Not for .litertlm or .task models.
 ---
 
 # The ONNX engine
 
-`flutter_gemma_onnx` provides two things over `dart:ffi` in a worker isolate:
-text generation via ORT-GenAI (`OnnxEngine`) and embeddings via plain ORT
-(`OnnxEmbeddingBackend`).
+## Rules
+
+1. Declare `fileType: ModelFileType.onnx`. Without it the install defaults to `task` and never reaches `OnnxEngine`.
+2. An ORT-GenAI model is a directory — `genai_config.json`, the `.onnx` graph, its weights and a tokenizer. Install it with `fromHuggingFace(repo)`, which downloads the whole folder, or point `fromFile` at a local `genai_config.json`. A single-file download or a Flutter asset cannot produce it.
+3. Native generation runs on macOS arm64, Linux x64, Windows x64, Android arm64 and iOS arm64. Anywhere else no engine accepts the model and `getActiveModel` throws `No inference engine can handle this model`.
+4. Android needs `minSdk 24`. Phi-3.5-mini peaks near 3.7 GB of RAM — target 8 GB devices.
+5. Text only: no images, no audio, no LoRA.
+
+## Setup
 
 ```dart
+import 'package:flutter_gemma_onnx/flutter_gemma_onnx.dart';
+
 await FlutterGemma.initialize(
   inferenceEngines: [OnnxEngine()],
   embeddingBackends: [OnnxEmbeddingBackend()],
 );
+
+await FlutterGemma.installModel(
+  modelType: ModelType.general,
+  fileType: ModelFileType.onnx,
+).fromHuggingFace('microsoft/Phi-3.5-mini-instruct-onnx').install();
+
+final model = await FlutterGemma.getActiveModel(maxTokens: 4096);
 ```
 
-## An ORT-GenAI model is a DIRECTORY
+A repo with several execution-provider folders resolves to its CPU/mobile folder automatically — the bundled runtime is CPU-only.
 
-This is the difference that breaks the usual mental model. The model is not one
-file:
+A bundle you ship yourself:
 
-```
-phi-3.5-mini/
-  genai_config.json
-  model.onnx
-  model.onnx_data        # weights, often several GB
-  tokenizer.json
+```dart
+await FlutterGemma.installModel(
+  modelType: ModelType.general,
+  fileType: ModelFileType.onnx,
+).fromFile('$path/genai_config.json').install();
 ```
 
-`OnnxEngine.createModel` takes that directory's `genai_config.json` and loads
-the **parent directory**. The single-file `.fromNetwork(url)` install used for
-`.litertlm` and `.task` does not cover this — the files must arrive together,
-by bundling them as assets or fetching them into one directory yourself.
+## Web
 
-Embeddings are the exception: a plain `.onnx` embedding model is a single file
-and installs normally.
+On web `OnnxEngine` runs the model through Transformers.js. The model is a Hugging Face repo id (e.g. `onnx-community/Qwen2.5-0.5B-Instruct`) that the browser downloads and caches on first use. `PreferredBackend.cpu` forces WASM; anything else tries WebGPU first.
 
-## Only five host architectures
+Add to `web/index.html` `<head>`, before Flutter boots — the first script for generation, the second for embeddings:
 
-`OnnxEngine.canHandle` is gated to **macOS arm64, Linux x64, Windows x64,
-Android arm64 and iOS arm64**, in lockstep with the build hook that bundles the
-native archives. Anywhere else it declines and logs why, so the registry falls
-through to another engine rather than failing at load.
+```html
+<script type="module">
+window.transformersReady = (async () => {
+  const m = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0');
+  window.transformers = m;
+  return m;
+})();
+</script>
+<script type="module">
+window.ortReady = (async () => {
+  const m = await import('https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/ort.bundle.min.mjs');
+  m.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/';
+  window.ort = m;
+  return m;
+})();
+</script>
+```
 
-`OnnxEmbeddingBackend.canHandle` stays extension-based on every platform — so
-that LiteRT's catch-all cannot silently claim an `.onnx` file — and gates inside
-`createModel` instead. The error therefore arrives at model creation, not at
-registration.
+## Embeddings
 
-## Memory
-
-Phi-3.5-mini 3.8B int4 peaks around **3.74 GB RSS**. That needs a 6 GB+ phone;
-below that the OS kills the app during load rather than reporting an error you
-can catch.
-
-Measured throughput: macOS M4 Pro ~54 tok/s, Pixel 8 Pro ~10.4 tok/s, Linux
-~5.3-5.8 tok/s, Windows ~3.3 tok/s on CPU test VMs. Treat ONNX as the
-portability option, not the fast one — `.litertlm` is faster where both run.
-
-## No web
-
-There is no web arm. Use `.task` through MediaPipe or `.litertlm` in the
-browser.
-
-## Native libraries
-
-Fetched at build time from Microsoft's own GitHub releases by the package's
-`hook/build.dart` (Native Assets), not from a repo tag. On iOS the ORT runtime
-is statically linked into the GenAI framework, so there is one binary rather
-than two.
+`OnnxEmbeddingBackend` handles single-file `.onnx` embedding models, installed with `FlutterGemma.installEmbedder()` like any other — see the flutter-gemma-rag skill for the indexing flow.

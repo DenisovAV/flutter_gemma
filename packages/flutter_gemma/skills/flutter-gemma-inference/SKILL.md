@@ -1,93 +1,89 @@
 ---
 name: flutter-gemma-inference
-description: Use whenever writing flutter_gemma code — installing a model, calling FlutterGemma.initialize/getActiveModel/createSession, or generating text. Core registers no engine by default, maxTokens is the context window and NOT the reply length, and Message.isUser defaults to false; all three fail quietly.
+description: Use when adding on-device LLM inference to a Flutter app with flutter_gemma — offline chat, running Gemma, Qwen or Phi locally, streaming replies, image prompts — or setting up the default .litertlm engine on Android, iOS, macOS, Windows, Linux or web. Also use when a reply comes back empty, maxTokens does not shorten replies, getActiveModel throws "No inference engine can handle this model", or .litertlm fails to load on Android. For function calling, RAG, speech, .task files, ONNX or the OS built-in model, also use the matching flutter-gemma-* skill.
 ---
 
 # Running a model with flutter_gemma
 
-This is the path from an empty app to a generated token. Four defaults on it
-produce wrong behaviour rather than an error — start with those.
+## Rules
 
-## 1. Core ships no engine — register one
+1. Register an engine in `FlutterGemma.initialize(inferenceEngines: [...])`. Core ships none.
+2. Declare `fileType` on `installModel`. It defaults to `ModelFileType.task`, and the declaration — never the file name — picks the engine.
+3. `maxTokens` is the context window. Cap the reply with `maxOutputTokens` on the session.
+4. Pass `isUser: true` on every user `Message`.
+5. Close every session, chat and model in a `finally`.
+6. Never put a Hugging Face token in source. Read it with `String.fromEnvironment`.
+7. On Android, set `minSdk 30` for anything built on `.litertlm` — inference, embeddings, speech.
 
-`flutter_gemma` is the contracts, the registry and the platform shells. It has
-no inference runtime. Adding only `flutter_gemma` compiles fine and throws on
-the first `getActiveModel()`.
-
-| Package | Handles |
-| --- | --- |
-| `flutter_gemma_litertlm` | `.litertlm` — the main path, all six platforms |
-| `flutter_gemma_mediapipe` | `.task`, `.bin` — mobile + web |
-| `flutter_gemma_builtin_ai` | the OS model, no file to install |
-| `flutter_gemma_onnx` | ONNX / ORT-GenAI |
+## Setup — the default engine (.litertlm)
 
 ```dart
-import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 
-await FlutterGemma.initialize(inferenceEngines: [LiteRtLmEngine()]);
-```
+const hfToken = String.fromEnvironment('HUGGINGFACE_TOKEN');
 
-Every capability is opt-in the same way and defaults to an empty list —
-`embeddingBackends`, `sttBackends`, `ttsBackends`, `huggingFaceResolvers`. If a
-list is empty, the matching first call throws a `StateError` naming the package
-to add. Read that message rather than guessing.
+await FlutterGemma.initialize(
+  inferenceEngines: [LiteRtLmEngine()],
+  huggingFaceToken: hfToken.isEmpty ? null : hfToken, // gated repos only
+);
 
-## 2. The engine is chosen by the DECLARED file type, never the filename
-
-`installModel` defaults to `ModelFileType.task`. A `.litertlm` file installed
-without declaring its type is routed to MediaPipe, which cannot read it.
-
-```dart
-// WRONG — the name says .litertlm, the declaration says .task,
-// and the declaration is what routes it.
-await FlutterGemma.installModel(modelType: ModelType.gemma4)
-    .fromNetwork(url).install();
-
-// RIGHT
 await FlutterGemma.installModel(
   modelType: ModelType.gemma4,
   fileType: ModelFileType.litertlm,
 ).fromNetwork(url).install();
+
+final model = await FlutterGemma.getActiveModel(maxTokens: 1024);
 ```
 
-`modelType` is a separate axis: it drives the chat template and the model's
-capabilities (`gemma4`, `gemma3`, `qwen3`, `deepSeek`, `general`, …). Getting it
-wrong also fails quietly — the model generates, with the wrong prompt format.
+Build with `--dart-define=HUGGINGFACE_TOKEN=hf_...` when the model repo is gated.
 
-Sources: `.fromNetwork(url, token:)`, `.fromAsset(path)`, `.fromFile(file)`, and
-`.fromHuggingFace(repo)` when a resolver is registered.
-
-## 3. maxTokens is the CONTEXT WINDOW, not the reply length
-
-`maxTokens` is the whole KV-cache budget: system prompt + history + the current
-message + everything generated. It is not "how long the answer may be".
-
-Setting it small to get a short answer is the most common mistake with this
-package, and on `.litertlm` it does not truncate — it crashes, with a message
-naming an internal executor file and nothing else.
+When a Hugging Face repo publishes a deployment manifest, one call picks the variant and its tested runtime settings. The engine carries its own resolver, so registering `LiteRtLmEngine` is enough:
 
 ```dart
-// WRONG — meant "a 100-token reply", actually a 100-token context.
-final model = await FlutterGemma.getActiveModel(maxTokens: 100);
+final install = await FlutterGemma.installModel(
+  modelType: ModelType.general,
+  fileType: ModelFileType.litertlm,
+).fromHuggingFace('litert-community/LFM2.5-230M').install();
 
-// RIGHT — roomy context, capped output.
+final model = await FlutterGemma.getActiveModel(defaults: install.runtime);
+```
+
+Other sources on the same builder: `.fromAsset(path)` for a model bundled in the app, `.fromFile(path)` for one already on disk, `.fromBundled(name)` for a platform-bundled resource.
+
+`modelType` sets the chat template. Gemma 3 and Gemma 3n are `ModelType.gemmaIt` — there is no `gemma3`. The full set: `general`, `gemmaIt`, `gemma4`, `deepSeek`, `qwen`, `qwen3`, `llama`, `hammer`, `functionGemma`, `phi`. A wrong type still generates, with the wrong prompt format.
+
+## Traps
+
+**No engine registered**
+- Symptom: `StateError: No inference engine can handle this model (ModelFileType.litertlm). Add the engine package to pubspec.yaml and pass it in inferenceEngines: of FlutterGemma.initialize(...)`
+- Fix: add the engine package and register its provider — or fix `fileType` if the wrong engine is registered.
+
+**`maxTokens` used as a reply length**
+
+```dart
+// WRONG — asks for a 100-token context, not a 100-token reply
+final model = await FlutterGemma.getActiveModel(maxTokens: 100);
+```
+
+- Symptom: replies are as long as ever. On `.litertlm` the value is raised to 1024, the smallest context those models support, and only a debug-mode log says so.
+- Fix:
+
+```dart
 final model = await FlutterGemma.getActiveModel(maxTokens: 1024);
 final session = await model.createSession(maxOutputTokens: 100);
 ```
 
-Use 4096+ for vision or audio — one image is worth hundreds of tokens.
+Use 4096 or more with images or audio — one image costs hundreds of tokens.
 
-## 4. Message.isUser defaults to false
+**`isUser` left out**
+- Symptom: an empty response, no error. `Message.isUser` defaults to `false`, so the prompt is read as the model's own turn.
+- Fix: `Message(text: prompt, isUser: true)`.
 
-```dart
-const Message(text: 'Hello')                  // WRONG — empty response
-const Message(text: 'Hello', isUser: true)    // RIGHT
-```
+**Same reply every time**
+- Symptom: identical output for identical input. `createSession` defaults to `topK: 1`, which is greedy decoding.
+- Fix: pass `topK` (e.g. 40) and a `temperature`.
 
-No error is raised. The response is just empty.
-
-## Generating
+## Generate
 
 ```dart
 final session = await model.createSession(
@@ -96,28 +92,30 @@ final session = await model.createSession(
   maxOutputTokens: 256,
 );
 try {
-  await session.addQueryChunk(
-    const Message(text: 'Explain isolates briefly.', isUser: true),
-  );
-  final answer = await session.getResponse();
-  // streaming: await for (final chunk in session.getResponseAsync()) …
+  await session.addQueryChunk(Message(text: prompt, isUser: true));
+  final reply = await session.getResponse();
 } finally {
   await session.close();
 }
-await model.close();
 ```
 
-Sessions and models hold native resources — an isolate, a compiled model, GPU
-buffers. Always close them, in a `finally`.
+Streaming:
 
-## Multi-turn
+```dart
+await session.addQueryChunk(Message(text: prompt, isUser: true));
+await for (final token in session.getResponseAsync()) {
+  stdout.write(token);
+}
+```
 
-`InferenceChat` keeps history and applies the model's chat template:
+To stop early, call `await session.stopGeneration()`. Cancelling the stream subscription detaches Dart but does not stop native decoding on every engine.
+
+## Multi-turn chat
 
 ```dart
 final chat = await model.createChat(tokenBuffer: 256, maxOutputTokens: 512);
 try {
-  await chat.addQueryChunk(const Message(text: 'Hi', isUser: true));
+  await chat.addQueryChunk(Message(text: prompt, isUser: true));
   final response = await chat.generateChatResponse();
   if (response is TextResponse) print(response.token);
 } finally {
@@ -125,41 +123,76 @@ try {
 }
 ```
 
-`generateChatResponse()` returns a `ModelResponse`, not a `String`. With tools
-enabled it may be a function call — see the `flutter-gemma-tools` skill.
+`generateChatResponse()` returns a sealed `ModelResponse`: `TextResponse`, `FunctionCallResponse`, `ParallelFunctionCallResponse` or `ThinkingResponse`.
 
-Thinking models (Qwen3, DeepSeek R1) emit `<think>` blocks; pass
-`isThinking: true` to surface them as `ThinkingResponse`, or `false` to have
-them stripped.
+## Two conversations at once
 
-## Multimodal
-
-Declare support at model creation, then attach bytes:
+`createSession` and `createChat` fill a single slot on the model: a second call replaces the first, and the two chats corrupt each other. For concurrent conversations use `openSession` / `openChat`, and close each one.
 
 ```dart
-final model = await FlutterGemma.getActiveModel(
-  maxTokens: 4096,
-  supportImage: true,
-);
-await session.addQueryChunk(
+final summariser = await model.openChat();
+final assistant = await model.openChat();
+try {
+  await summariser.addQueryChunk(Message(text: chunk, isUser: true));
+  await assistant.addQueryChunk(Message(text: question, isUser: true));
+} finally {
+  await summariser.close();
+  await assistant.close();
+}
+```
+
+## Thinking models
+
+Gemma 4, Qwen3 and DeepSeek R1 can emit reasoning. Pass `isThinking: true` to `createChat`. Reasoning arrives as `ThinkingResponse` only from `generateChatResponseAsync()`; `generateChatResponse()` strips it. Not available on web.
+
+```dart
+final chat = await model.createChat(isThinking: true, modelType: ModelType.qwen3);
+await chat.addQueryChunk(Message(text: question, isUser: true));
+await for (final r in chat.generateChatResponseAsync()) {
+  switch (r) {
+    case ThinkingResponse(:final content):
+      print('reasoning: $content');
+    case TextResponse(:final token):
+      stdout.write(token);
+    case FunctionCallResponse() || ParallelFunctionCallResponse():
+      break;
+  }
+}
+await chat.close();
+```
+
+## Images
+
+```dart
+final model = await FlutterGemma.getActiveModel(maxTokens: 4096, supportImage: true);
+final chat = await model.createChat(supportImage: true);
+await chat.addQueryChunk(
   Message(text: 'What is in this photo?', isUser: true, imageBytes: bytes),
 );
 ```
 
-## Cost model
+## The model is a singleton
 
-Loading a model is expensive; creating a session is cheap. Load once, keep the
-model, create and close a session per interaction. Never call `getActiveModel`
-per message.
+`getActiveModel` returns one model per process. Calling it again with different runtime arguments rebuilds it and closes the previous one — a handle you still hold stops working. Load once at startup, then create and close sessions per interaction.
 
-`getActiveModel` returns a process-wide singleton. Calling it again with
-different runtime arguments rebuilds it and closes the previous instance — a
-handle you are still holding becomes unusable. Decide the runtime configuration
-once.
+## Backends
 
-## Engine-specific rules
+```dart
+final model = await FlutterGemma.getActiveModel(
+  maxTokens: 1024,
+  preferredBackend: PreferredBackend.gpu,
+);
+print(model.activeBackend); // what actually loaded
+```
 
-Platform floors, backend selection and format quirks live with each engine:
-`flutter-gemma-litertlm`, `flutter-gemma-mediapipe`, `flutter-gemma-onnx`,
-`flutter-gemma-builtin-ai`. Read the one for the engine in use — this skill
-covers only what is common to all of them.
+| `preferredBackend` | Tried in order |
+| --- | --- |
+| `null` or `gpu` | GPU, then CPU |
+| `npu` | NPU, GPU, CPU |
+| `cpu` | CPU only |
+
+Read `activeBackend` rather than assuming the requested one loaded. NPU needs a Snapdragon (Android) or Intel Lunar/Panther Lake (Windows). The iOS Simulator is CPU-only; web is GPU-only.
+
+## Platform setup
+
+Android needs `minSdk 30` and ships `arm64-v8a` only. iOS and macOS need Podfile and entitlement entries; web needs script tags in `web/index.html`. Read `references/platform-setup.md` before building for iOS, macOS or web — without those entries the model fails to load or the app runs out of memory.

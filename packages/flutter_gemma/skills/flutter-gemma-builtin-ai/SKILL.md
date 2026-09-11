@@ -1,80 +1,76 @@
 ---
 name: flutter-gemma-builtin-ai
-description: Use when running the OS's own model through flutter_gemma_builtin_ai — Gemini Nano on Android or Apple Foundation Models on iOS/macOS. There is no file to download or install; the OS owns the weights, so availability must be probed at runtime and can legitimately be "not yet downloaded".
+description: Use when running the device's own model with flutter_gemma_builtin_ai — Gemini Nano on Android or in desktop Chrome, Apple Foundation Models on iPhone, iPad and Mac — with nothing to download or bundle. Also use when BuiltInAiUnavailableException is thrown, availability reports "downloadable", the Android build fails the manifest merge on minSdk, or the model is missing in Chrome. For models you download yourself, use flutter-gemma-inference.
 ---
 
 # The built-in OS model
 
-`flutter_gemma_builtin_ai` runs the model the operating system already ships:
-Gemini Nano through ML Kit GenAI / AICore on Android, Apple Foundation Models on
-iOS and macOS.
+## Rules
+
+1. The OS owns the weights, but the model is still installed — as an identity: `fileType: ModelFileType.builtIn` with `.fromBundled(...)`. Nothing is downloaded by the app.
+2. Call `BuiltInAi.ensureReady()` before `getActiveModel()`, from a user action: on Android the first call downloads the model and can take minutes.
+3. Catch `BuiltInAiUnavailableException` and fall back to a downloadable model.
+4. Android apps need `minSdk 26`, or the manifest merge fails.
+5. There is no Windows or Linux support.
+
+## Setup
 
 ```dart
+import 'package:flutter/foundation.dart';
+import 'package:flutter_gemma_builtin_ai/flutter_gemma_builtin_ai.dart';
+
 await FlutterGemma.initialize(inferenceEngines: [BuiltInAiEngine()]);
+
+final spec = kIsWeb || defaultTargetPlatform == TargetPlatform.android
+    ? BuiltInAiModels.geminiNano
+    : BuiltInAiModels.appleFoundationModels;
+
+await FlutterGemma.installModel(
+  modelType: ModelType.general,
+  fileType: ModelFileType.builtIn,
+).fromBundled(spec.name).install();
+
+try {
+  await BuiltInAi.ensureReady(onProgress: (percent) => print('$percent%'));
+  final model = await FlutterGemma.getActiveModel(maxTokens: 4096);
+} on BuiltInAiUnavailableException catch (e) {
+  print('No built-in model here: $e — fall back to a downloadable one');
+}
 ```
 
-## There is no model file
-
-This is the difference from every other engine. `ModelFileType.builtIn` means
-the OS owns the weights — nothing to download, nothing to bundle, no storage
-budget, and `installModel` is not part of the flow. Ready-made specs are
-provided:
-
-```dart
-final model = await FlutterGemma.getActiveModel(
-  spec: BuiltInAiModels.geminiNano,            // or .appleFoundationModels
-);
-```
-
-The trade is that availability is not yours to control.
-
-## Probe availability before using it
+## Checking before you offer the feature
 
 ```dart
 final availability = await BuiltInAi.availability();
+final usable = availability == BuiltInAiAvailability.available ||
+    availability == BuiltInAiAvailability.downloadable ||
+    availability == BuiltInAiAvailability.downloading;
 ```
 
-`BuiltInAiAvailability` has seven states, and three of them are not failures:
-
-| State | Meaning |
-| --- | --- |
-| `available` | ready now |
-| `downloadable` | supported, weights not fetched yet |
-| `downloading` | fetch in progress |
-| `unavailableDeviceUnsupported` | this hardware will never support it |
-| `unavailableOsTooOld` | an OS upgrade would fix it |
-| `unavailableDisabled` | turned off by the user or by policy |
-| `unavailableOther` | something else |
-
-Treat `downloadable` and `downloading` as "not yet", not as "no". `ensureReady`
-triggers and awaits the download:
-
-```dart
-await BuiltInAi.ensureReady();
-```
-
-That can take minutes on first use and needs network, so drive it from an
-explicit user action with visible progress — never from app start.
-
-An unusable state throws `BuiltInAiUnavailableException`. Catch it and fall back
-to a downloadable model through another engine; do not let it reach the user as
-a crash.
-
-## Android needs minSdk 26
-
-ML Kit GenAI / AICore will not merge below API 26, so the manifest merger fails
-at build time with a `uses-sdk:minSdkVersion` conflict. Raise `minSdk` to 26 in
-`android/app/build.gradle(.kts)` for any app that includes this package.
+`downloadable` and `downloading` mean "not yet", not "no" — `ensureReady` finishes the job. The `unavailable*` states are final for this device: `unavailableDeviceUnsupported`, `unavailableOsTooOld`, `unavailableDisabled`, `unavailableOther`.
 
 ## Platforms
 
-Android, iOS and macOS only — **no web, no Windows, no Linux**. The engine
-declines elsewhere rather than throwing, so a registry with another engine
-registered still works.
+| Platform | Model | Needs |
+| --- | --- | --- |
+| Android | Gemini Nano (AICore) | Pixel 9+, Galaxy S25+; `minSdk 26` |
+| iOS, macOS | Apple Foundation Models | iPhone 15 Pro+ or an Apple Silicon Mac, Apple Intelligence turned on |
+| Web | Gemini Nano (Chrome Prompt API) | desktop Chrome or Edge only — not mobile browsers, Firefox or Safari |
 
-## What you give up
+Images work on Android. On Apple platforms they need OS 27 — on OS 26 an image throws. The web model is text-only.
 
-The OS model is small and its behaviour is set by the platform: no choice of
-weights, no LoRA, no control over quantisation, and capabilities that differ by
-OS version. Use it when "zero download, zero disk" matters more than
-capability; use `.litertlm` when you need a specific model.
+## Web
+
+There is no script to add: the Prompt API is part of the browser. It has to be enabled.
+
+- Production — register the origin for the Prompt API origin trial and add the token to `web/index.html`:
+
+```html
+<meta http-equiv="origin-trial" content="YOUR_TOKEN_HERE">
+```
+
+- Local development — enable `chrome://flags/#prompt-api-for-gemini-nano` and restart Chrome.
+
+## Trade-offs
+
+No choice of weights, no LoRA, and capabilities that vary by OS version. Use it when zero download and zero disk matter more than picking the model.

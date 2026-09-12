@@ -30,6 +30,14 @@ await FlutterGemma.initialize(
 sorted descending, filtered by `threshold` — the same contract as the qdrant
 store (vec0 returns distance; the store converts `1 - distance` at the boundary).
 
+`flush()` (`FlutterGemma.rag.flush()`) is a no-op on native: the connection
+autocommits, so a statement that returned is on disk. On web it drains the
+IndexedDB storage; on `sqlite3` >= 3.4.0 that drain does not wait for a write
+batch already in flight (upstream
+[sqlite3.dart#408](https://github.com/simolus3/sqlite3.dart/issues/408)), and
+`close()` is the stronger drain. When neither OPFS nor IndexedDB is available
+the store runs in memory, and `flush()` throws `VectorStoreException`.
+
 ## Declared-column filters
 
 `vec0` filters KNN only on **declared, typed metadata columns** (not arbitrary

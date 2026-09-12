@@ -1,6 +1,5 @@
 ## 1.8.1
-- `VectorStoreRepository` gains `flush()` for stores that buffer writes in memory.
-- **Breaking for custom `VectorStoreRepository` implementations**: they must declare `flush()`.
+- Add `VectorStoreRepository.flush()`; custom implementations must declare it (#492).
 
 ## 1.8.0
 - Whisper output language on `getActiveStt` and `transcribe` (#500).

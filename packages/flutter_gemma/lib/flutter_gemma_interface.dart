@@ -154,6 +154,12 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
   /// Initialize vector store database.
   Future<void> initializeVectorStore(String databasePath);
 
+  /// Persist everything written to the vector store so far, without closing it.
+  ///
+  /// See [VectorStoreRepository.flush] for what this means per backend — it is
+  /// required on qdrant, a no-op on native SQLite, and a partial drain on web.
+  Future<void> flushVectorStore();
+
   /// Add document to vector store with pre-computed embedding.
   Future<void> addDocumentWithEmbedding({
     required String id,

@@ -869,6 +869,35 @@ class QdrantVectorStore implements VectorStoreRepository {
   }
 
   @override
+  Future<void> flush() => _serializeLifecycle(_flush);
+
+  Future<void> _flush() async {
+    // On the lifecycle lane, not beside it: a flush that overlapped a close
+    // would reach a shard the other call had already unloaded.
+    //
+    // No client means nothing was written through this store, so there is
+    // nothing to persist — including the case where an earlier open failed.
+    // Callers flush from lifecycle callbacks they cannot make conditional
+    // (`didChangeAppLifecycleState` and the like), so "not initialized" has to
+    // be quiet rather than an exception nobody can act on.
+    final c = _client;
+    if (c == null) return;
+    try {
+      await c.flush();
+    } on QdrantException catch (e) {
+      // Translated, like every other method on this class. `QdrantException`
+      // is not a `VectorStoreException` and is not exported from the barrel,
+      // so letting it out would hand the caller a type they cannot name — and
+      // `on VectorStoreException`, the catch the contract tells them to write,
+      // would miss every flush failure.
+      throw VectorStoreException(
+        'Failed to flush the qdrant shard: ${e.message}',
+        e,
+      );
+    }
+  }
+
+  @override
   Future<void> close() => _serializeLifecycle(_close);
 
   Future<void> _close() async {

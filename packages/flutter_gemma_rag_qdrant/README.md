@@ -32,6 +32,7 @@ Then use the unchanged RAG API:
 await FlutterGemmaPlugin.instance.initializeVectorStore('rag_store'); // a directory
 await FlutterGemmaPlugin.instance.addDocument(/* ... */);
 final hits = await FlutterGemmaPlugin.instance.searchSimilar(query: query, topK: 5);
+await FlutterGemmaPlugin.instance.flushVectorStore(); // after indexing — see below
 ```
 
 `QdrantVectorStore` also honors the payload-aware `Filter` DSL on
@@ -49,6 +50,13 @@ refuses; if a schema must work on both, keep it inside sqlite's narrower set.
 
 ## Behavior notes
 
+- **Call `flushVectorStore()` (or `FlutterGemma.rag.flush()`) after indexing.**
+  New points stay in the shard's in-memory segment until it is flushed or
+  closed. A process that ends without either — an Android app killed in the
+  background — loses them, and the corpus is embedded again on the next launch
+  ([#492](https://github.com/DenisovAV/flutter_gemma/issues/492)). `close()`
+  persists too, but logs a failed save; `flush()` throws it as
+  `VectorStoreException`.
 - **Cross-platform web is not supported** — `QdrantVectorStore` is native-only.
 - `enableHnsw` is accepted but a no-op: qdrant decides indexing internally
   (brute-forces below ~20k points, which is already faster than the Dart HNSW

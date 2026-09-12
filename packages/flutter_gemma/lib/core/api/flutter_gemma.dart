@@ -1112,6 +1112,14 @@ class GemmaRag {
   Future<void> initialize(String databasePath) =>
       FlutterGemmaPlugin.instance.initializeVectorStore(databasePath);
 
+  /// Persist what has been indexed so far, keeping the store open.
+  ///
+  /// Call it after a bulk index, and from wherever the app learns it is going
+  /// away. On qdrant this is what makes an index survive the process at all —
+  /// without it the points sit in the shard's in-RAM segment and a background
+  /// kill takes them. See [VectorStoreRepository.flush] for the other backends.
+  Future<void> flush() => FlutterGemmaPlugin.instance.flushVectorStore();
+
   /// Add a document; its embedding is computed automatically (needs an active
   /// embedding model).
   Future<void> addDocument({

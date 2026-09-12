@@ -382,7 +382,15 @@ class QdrantEdgeClient {
     if (e is qe.UniffiInternalError) {
       throw QdrantException('qdrant-edge internal failure: $e');
     }
-    throw e;
+    // Everything else is wrapped too, rather than rethrown raw. This used to
+    // be a bare `throw e`, which meant any failure that is neither an
+    // `EdgeException` nor a `UniffiInternalError` crossed all twelve wrapper
+    // methods untouched — so `on QdrantException`, the catch every caller in
+    // this package writes, missed it, and the store's own translation to
+    // `VectorStoreException` never fired. The type is the contract; an escape
+    // hatch that skips it is the same silent-failure shape as the bug this
+    // package just fixed.
+    throw QdrantException('qdrant-edge failed with an unexpected error: $e');
   }
 
   // ---- Filter bridge: qdrant JSON envelope → typed qe.Filter ----------------

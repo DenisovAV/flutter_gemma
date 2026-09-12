@@ -137,18 +137,27 @@ abstract class VectorStoreRepository {
   /// up later, and one of them does.
   ///
   /// **Per backend**:
-  /// - SQLite (native and web): already durable. `sqlite3` runs in autocommit,
-  ///   so each statement is its own transaction, and the web VFS persists to
-  ///   OPFS or IndexedDB. This is a no-op there.
   /// - Qdrant: **required.** Points added through the UniFFI shard live in its
   ///   in-RAM segment until the shard is flushed or unloaded. An index built
   ///   without this is gone when the process ends, and the corpus is embedded
   ///   again from scratch on the next launch.
+  /// - SQLite, native: a genuine no-op. The connection is in autocommit and
+  ///   never opens a transaction, so a statement that returned is on disk.
+  /// - SQLite, web: **not** a no-op, and not a full guarantee either. The VFS
+  ///   Flutter web gets is IndexedDB (OPFS needs a dedicated worker), whose
+  ///   `xSync` does nothing and whose writes are asynchronous by design, so
+  ///   this call is the drain. On `sqlite3` >= 3.4.0 that drain is partial: it
+  ///   returns without awaiting a write batch already in flight (upstream
+  ///   regression). The exposure is bounded — the VFS streams writes
+  ///   continuously, so what is missed is the batch in flight, not the index.
   ///
-  /// [close] persists too, so a store that is closed cleanly does not need
-  /// this. What it cannot cover is a process that never gets to close — an
-  /// Android app the system kills in the background is the ordinary case, not
-  /// the exceptional one — which is what this exists for.
+  /// [close] persists too, and on web it is the *stronger* drain: it queues
+  /// behind the running batch on every version. What close cannot cover is a
+  /// process that never gets to close — an Android app the system kills in the
+  /// background is the ordinary case, not the exceptional one — which is what
+  /// this exists for. So the two are not interchangeable: prefer this one
+  /// while the store stays open, and note that on qdrant a failure is reported
+  /// by this call and swallowed by [close].
   ///
   /// Safe on a store that was never initialized, and safe to call repeatedly:
   /// implementations must not throw for either — there is nothing pending, so
@@ -173,8 +182,11 @@ abstract class VectorStoreRepository {
   /// - Mobile: Closes SQLite database connection
   /// - Web: Closes IndexedDB connection
   ///
-  /// Persists pending writes on the way out, so an explicit [flush] before
-  /// this is redundant.
+  /// Persists pending writes on the way out, so a [flush] immediately before
+  /// this adds nothing. It is not a substitute for [flush], though: a store
+  /// stays usable after flushing and does not after closing, and a failure
+  /// here is logged rather than thrown — implementations treat close as
+  /// cleanup the caller usually cannot act on, while [flush] reports.
   ///
   /// Idempotent: Safe to call multiple times
   Future<void> close();

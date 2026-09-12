@@ -1,6 +1,6 @@
 ---
 title: Built-in AI
-description: Run the device's own OS/browser AI as an engine — Gemini Nano (Android + Web) and Apple Foundation Models (iOS/macOS) — with no model to download, plus the availability-probe → open-model fallback pattern.
+description: Run the device's own OS/browser AI as an engine — Gemini Nano (Android + Chrome), Phi-4-mini (Edge) and Apple Foundation Models (iOS/macOS) — with no model to download, plus the availability-probe → open-model fallback pattern.
 image: https://fluttergemma.dev/images/og-image.png
 ---
 
@@ -17,10 +17,11 @@ want, and the platform owns the weights.
 |----------|----------------|---------|-----------------|
 | Android | **Gemini Nano** | ML Kit GenAI / AICore | Pixel 9+, Galaxy S25+ (`minSdk 26`) |
 | iOS / macOS | **Apple Foundation Models** (Apple Intelligence) | FoundationModels framework | iOS 26+ / macOS 26+ on iPhone 15 Pro+, Apple Silicon Macs — Apple Intelligence enabled |
-| Web | **Gemini Nano** | Chrome **Prompt API** (`self.LanguageModel`) | Desktop Chrome / Chromium-Edge only |
+| Web | **Gemini Nano** in Chrome, **Phi-4-mini** in Edge | **Prompt API** (`self.LanguageModel`) | Desktop Chrome; Microsoft Edge with a flag (see [Web setup](#web-setup)) |
 
-> **Note:** the Chrome Prompt API *is* Gemini Nano — the browser runs the same
-> on-device model, exposed through a JS API. **Windows and Linux have no OS
+> **Note:** in Chrome the Prompt API *is* Gemini Nano — the browser runs the same
+> on-device model, exposed through a JS API. Edge implements the same API with
+> Microsoft's own model, Phi-4-mini: the same calls, a different model. **Windows and Linux have no OS
 > built-in model** (no ML Kit, no Apple Foundation Models, no browser Prompt API
 > in a Flutter desktop app) — there `availability()` reports
 > `unavailableDeviceUnsupported`, and you fall back to a downloaded model
@@ -76,7 +77,7 @@ model list.
 
 `BuiltInAi.availability()` reports whether the OS model is ready.
 `BuiltInAi.ensureReady()` makes sure the feature is on — and drives the on-device
-download the first time it is used (Android), reporting progress:
+download the first time it is used (Android and web), reporting progress:
 
 ```dart
 final status = await BuiltInAi.availability();
@@ -87,6 +88,13 @@ await BuiltInAi.ensureReady(
 );
 // Throws BuiltInAiUnavailableException for any unavailable* status.
 ```
+
+**On web, call `ensureReady()` from a user gesture** — straight from a button's
+tap handler, with no other `await` in front of it. While the model still has to
+be downloaded, the browser refuses to start the session that downloads it unless
+the user has interacted with the page (`NotAllowedError: Requires a user gesture
+when availability is "downloading" or "downloadable"`). Chrome and Edge both
+enforce this.
 
 ## The fallback pattern
 
@@ -156,6 +164,9 @@ final response = await session.getResponse();
   older OS. Either way the count comes from core's `text.length / 4` estimate.
 
 - **Web is text-only in this release** (image/audio dropped with a one-time log).
+- **Edge:** measured on Edge 151 (macOS) with Phi-4-mini — streaming, stopping
+  and `measureContextUsage` work through the same calls, and the context window
+  is 9216 tokens. Function calling on Phi-4-mini has not been tested.
 
 ## Web setup
 
@@ -169,8 +180,14 @@ There is **no CDN `<script>` tag** — the Chrome Prompt API is a browser global
   <meta http-equiv="origin-trial" content="YOUR_TOKEN_HERE">
   ```
 - **Local dev:** enable `chrome://flags/#prompt-api-for-gemini-nano` and restart
-  Chrome. Floor: desktop Chrome/Edge, ~22 GB free disk + a GPU with >4 GB VRAM
-  (or a 16 GB-RAM CPU-only path).
+  Chrome. Floor: desktop Chrome on Windows, macOS 13+, Linux or ChromeOS Plus;
+  22 GB free disk; a GPU with more than 4 GB VRAM, or 16 GB RAM and 4 CPU cores.
+- **Microsoft Edge:** open `edge://flags`, enable **Prompt API for on-device
+  language model** and restart. The model is Phi-4-mini, not Gemini Nano, and
+  needs Windows 10/11 or macOS 13.3+, 20 GB free disk and 5.5 GB VRAM; it
+  downloads on first use (about 5 minutes on a fast connection). Verified on
+  stable Edge 151 on macOS. Edge Dev 154–155 exposes the API but cannot run the
+  model ([MSEdgeExplainers#1392](https://github.com/MicrosoftEdge/MSEdgeExplainers/issues/1392)).
 
 `BuiltInAi.availability()` reports `unavailableDeviceUnsupported` on any
 browser/version without the Prompt API — always probe before creating a model.

@@ -156,6 +156,7 @@ void main() {
                     SidebarLink(text: 'Agent Skills', href: '/docs/agent'),
                     SidebarLink(text: 'Speech', href: '/docs/speech'),
                     SidebarLink(text: 'Embeddings & RAG', href: '/docs/embeddings-and-rag'),
+                    SidebarLink(text: 'AI Assistant Skills', href: '/docs/ai-assistants'),
                   ],
                 ),
                 SidebarGroup(

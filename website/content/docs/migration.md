@@ -269,7 +269,8 @@ await FlutterGemma.installEmbedder()
     .modelFromNetwork(modelUrl, token: token)
     .tokenizerFromNetwork(tokenizerUrl, token: token)
     .install();
-await FlutterGemma.rag.initialize('rag_store');
+final dir = await getApplicationDocumentsDirectory(); // native; on web pass a bare name
+await FlutterGemma.rag.initialize('${dir.path}/rag_store');
 await FlutterGemma.rag.addDocument(/* ... */);
 final hits = await FlutterGemma.rag.searchSimilar(query: query, topK: 5);
 ```

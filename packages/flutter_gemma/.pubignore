@@ -33,6 +33,10 @@ web/*.js.map
 !web/rag/
 # And keep cache_api.js (hand-written, runtime needs window.cacheHas/Put/Get)
 !web/cache_api.js
+# And opfs_helper.js — defines window.flutterGemmaOPFS, which web streaming
+# storage (WebStorageMode.streaming) binds to. Without this line it never
+# reached pub, so the documented copy-from-the-package step had nothing to copy.
+!web/opfs_helper.js
 
 # Media files (for README, not needed in package)
 docs/
@@ -134,3 +138,14 @@ example/web/test_vectorstore.html
 # (flutter drive -d chrome). ~16 MB, not part of the plugin. Without this
 # it leaks into the pub package and bloats it (8 MB → archive).
 chromedriver/
+
+# Agent skills MUST ship inside the archive — `dart run skills@ get` resolves
+# the package on disk from package_config.json and reads `skills/` from there.
+# Without this exception the blanket `**/*.md` above silently strips every
+# SKILL.md and the skills reach nobody, with no error anywhere.
+#
+# It is LAST on purpose: the last matching rule wins, and rules such as
+# `assets/`, `docs/` and `test/` would otherwise drop a skill subdirectory with
+# those names — `assets/` is part of the Agent Skills layout.
+!skills/
+!skills/**

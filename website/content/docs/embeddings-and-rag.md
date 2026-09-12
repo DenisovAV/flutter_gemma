@@ -86,8 +86,11 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 
 // 1. Install an embedding model (any of Gecko / EmbeddingGemma) — see above.
 
-// 2. Initialize the vector store (one shard per database path)
-await FlutterGemma.rag.initialize('rag_store');
+// 2. Initialize the vector store (one shard per database path). On native pass
+//    an absolute path: a bare name resolves against the process working
+//    directory, which is not writable on Android or iOS. On web a name is enough.
+final dir = await getApplicationDocumentsDirectory(); // package:path_provider
+await FlutterGemma.rag.initialize('${dir.path}/rag_store');
 
 // 3. Add documents — let flutter_gemma compute embeddings for you
 for (final doc in docs) {

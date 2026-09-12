@@ -77,6 +77,12 @@ const _features = [
     desc: 'Core + 11 opt-in packages — agent skills, speech, RAG & more; ship only what you use',
     accent: Brand.green,
   ),
+  _FeatureData(
+    icon: '🧑‍💻',
+    title: 'AI Assistant Skills',
+    desc: 'Claude Code, Codex, Cursor & Copilot learn the flutter_gemma API from skills shipped in the package',
+    accent: Brand.blue,
+  ),
 ];
 
 /// Feature grid.

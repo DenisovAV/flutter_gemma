@@ -380,7 +380,7 @@ translation rather than an error.
 
 Moonshine and Parakeet have no language token in their decoder prompt and
 **reject** the parameter with an `ArgumentError` rather than ignoring it; both
-transcribe the language they hear (Parakeet CTC 0.6B is English-only).
+are English-only.
 
 **Text-to-speech**
 

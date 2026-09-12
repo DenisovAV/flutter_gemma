@@ -538,7 +538,18 @@ void main() {
       addTearDown(store.close);
       await expectLater(
         store.initialize(tmp.path),
-        throwsA(isA<VectorStoreException>()),
+        throwsA(
+          isA<VectorStoreException>().having(
+            (e) => '$e',
+            'message',
+            // The reason must survive the trip out — `_rethrow` used to wrap
+            // this, our own exception, again as an "unexpected error".
+            allOf(
+              contains('not written by this package'),
+              isNot(contains('unexpected error')),
+            ),
+          ),
+        ),
         reason: 'a shard it had just loaded was reported as an empty store',
       );
       await expectLater(store.getStats(), throwsA(isA<VectorStoreException>()));

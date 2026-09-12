@@ -99,10 +99,7 @@ dependency_overrides:
 dev_dependencies:
   # The web store integration test opens the same IndexedDB VFS the store
   # uses, to plant a corpus the store cannot read.
-  # ^3.5.2, not the package's own ^3.3.0 floor: the single workspace lock
-  # otherwise resolves 3.3.3, and the web suite would exercise a flush() that
-  # consumers resolving latest do not get (upstream regression in 3.4.0).
-  sqlite3: ^3.5.2
+  sqlite3: ^3.3.0
   integration_test:
     sdk: flutter
   flutter_test:

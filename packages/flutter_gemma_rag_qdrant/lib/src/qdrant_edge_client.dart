@@ -372,6 +372,10 @@ class QdrantEdgeClient {
   /// reached application code as a type the app could not name in a catch.
   /// 0.8.0-dev.3 exports it, so it can finally be caught here.
   static Never _rethrow(Object e) {
+    // Already ours: thrown on purpose inside a wrapper's `try` (openExisting's
+    // "not written by this package"). Re-wrapping it buried that message
+    // under "unexpected error" and lost QdrantShardLockedException's type.
+    if (e is QdrantException) throw e;
     if (e is qe.ShardLockedEdgeException) {
       throw QdrantShardLockedException(
         'The shard is already open elsewhere (its write-ahead log is held by '

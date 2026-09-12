@@ -145,10 +145,11 @@ class WebSqliteVectorStore implements VectorStoreRepository {
   ) async {
     // A re-initialize overwrites `_idb` below. Drain the previous VFS first:
     // dropping it with pages still queued orphans them, and once the field is
-    // gone nothing else holds a reference that could close it.
+    // gone nothing else holds a reference that could close it. `_persistence`
+    // is left for a branch below to set: clearing it here made a flush() that
+    // landed mid-initialize throw the in-memory error.
     final previous = _idb;
     _idb = null;
-    _persistence = _WebPersistence.inMemory;
     if (previous != null) {
       try {
         await previous.close();
@@ -548,11 +549,13 @@ class WebSqliteVectorStore implements VectorStoreRepository {
     // index. `close()` is the strong drain on web — it queues behind the
     // running batch on every version.
     //
-    // Not gated on `_isInitialized`: a re-initialize that threw leaves this
-    // store uninitialized while the previous run's VFS still holds unwritten
-    // pages, and returning quietly there would report success over them.
+    // Not gated on `_isInitialized` alone: a re-initialize that threw leaves
+    // this store uninitialized while its IndexedDB VFS still holds unwritten
+    // pages, and returning quietly there would report success over them. Not
+    // on `_sqlite3` either — it is set before any VFS is chosen, so a flush
+    // landing mid-initialize read `_persistence` unset and threw.
     // Nothing set up at all is the one case that stays quiet, per the contract.
-    if (_sqlite3 == null && _idb == null) return;
+    if (!_isInitialized && _idb == null) return;
     switch (_persistence) {
       case _WebPersistence.indexedDb:
         try {

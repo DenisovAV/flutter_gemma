@@ -942,6 +942,11 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
   }
 
   @override
+  Future<void> flushVectorStore() async {
+    await ServiceRegistry.instance.vectorStoreRepository.flush();
+  }
+
+  @override
   Future<void> addDocumentWithEmbedding({
     required String id,
     required String content,

@@ -1,3 +1,6 @@
+## 1.3.2
+- Add `flush()`; on web it drains IndexedDB — only partly on sqlite3 >=3.4 (#492).
+
 ## 1.3.1
 - Fix web inserts failing on a numeric metadata value or a missing number field.
 - Fix web filters with a `mustNot` upper bound returning the negative values they exclude.

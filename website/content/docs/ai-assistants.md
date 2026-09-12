@@ -23,7 +23,7 @@ use flutter_gemma.
 
 ## Install
 
-From your app's root, once `flutter_gemma` 1.8.1 or later is a dependency:
+From your app's root, once `flutter_gemma` 1.8.2 or later is a dependency:
 
 ```
 dart run skills@ get --all

@@ -299,6 +299,22 @@ class QdrantEdgeClient {
     }
   }
 
+  /// Write the in-RAM segment out to disk, keeping the shard open.
+  ///
+  /// The crate declares this separately from [close]'s `unload()`, and the
+  /// difference is the whole point: `unload()` also persists, but it ends the
+  /// shard. This is what a caller reaches for after a bulk index when it wants
+  /// to keep using the store — and it is what stands between an index and a
+  /// process the OS kills without warning.
+  Future<void> flush() async {
+    _checkOpen();
+    try {
+      _shard.flush();
+    } catch (e) {
+      _rethrow(e);
+    }
+  }
+
   /// Close the shard. Idempotent — safe to call more than once.
   Future<void> close() async {
     if (_closed) return;
@@ -356,6 +372,10 @@ class QdrantEdgeClient {
   /// reached application code as a type the app could not name in a catch.
   /// 0.8.0-dev.3 exports it, so it can finally be caught here.
   static Never _rethrow(Object e) {
+    // Already ours: thrown on purpose inside a wrapper's `try` (openExisting's
+    // "not written by this package"). Re-wrapping it buried that message
+    // under "unexpected error" and lost QdrantShardLockedException's type.
+    if (e is QdrantException) throw e;
     if (e is qe.ShardLockedEdgeException) {
       throw QdrantShardLockedException(
         'The shard is already open elsewhere (its write-ahead log is held by '
@@ -366,7 +386,15 @@ class QdrantEdgeClient {
     if (e is qe.UniffiInternalError) {
       throw QdrantException('qdrant-edge internal failure: $e');
     }
-    throw e;
+    // Everything else is wrapped too, rather than rethrown raw. This used to
+    // be a bare `throw e`, which meant any failure that is neither an
+    // `EdgeException` nor a `UniffiInternalError` crossed all twelve wrapper
+    // methods untouched — so `on QdrantException`, the catch every caller in
+    // this package writes, missed it, and the store's own translation to
+    // `VectorStoreException` never fired. The type is the contract; an escape
+    // hatch that skips it is the same silent-failure shape as the bug this
+    // package just fixed.
+    throw QdrantException('qdrant-edge failed with an unexpected error: $e');
   }
 
   // ---- Filter bridge: qdrant JSON envelope → typed qe.Filter ----------------

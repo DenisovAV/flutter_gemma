@@ -1,5 +1,8 @@
-## 1.8.1
+## 1.8.2
 - Ship agent skills — `dart run skills@ get` teaches your AI assistant this package.
+
+## 1.8.1
+- Add `VectorStoreRepository.flush()`; custom implementations must declare it (#492).
 
 ## 1.8.0
 - Whisper output language on `getActiveStt` and `transcribe` (#500).

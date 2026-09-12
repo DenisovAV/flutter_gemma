@@ -117,6 +117,9 @@ for (var i = 0; i < docs.length; i++) {
   );
 }
 
+// 3c. Persist what you indexed while the store stays open (see below)
+await FlutterGemma.rag.flush();
+
 // 4. Semantic search, with optional payload-aware Filter
 final results = await FlutterGemma.rag.searchSimilar(
   query: 'quantum entanglement',
@@ -134,6 +137,23 @@ await FlutterGemma.rag.removeDocument(id: 'doc-42');
 final stats = await FlutterGemma.rag.stats();
 await FlutterGemma.rag.clear();
 ```
+
+### Persisting the index: `flush()`
+
+Call `FlutterGemma.rag.flush()` after indexing. What it does depends on the store:
+
+- **qdrant-edge** — required. New documents stay in memory until the store is
+  flushed or closed, so an index built without either is lost when the process
+  ends — an Android app killed in the background is the ordinary case. `close()`
+  persists too, but only logs a failed save; `flush()` throws it.
+- **sqlite-vec, native** — a no-op: every statement is on disk when it returns.
+- **sqlite-vec, web** — drains the IndexedDB storage. On `sqlite3` >= 3.4.0 it
+  does not wait for a write batch already in flight (an upstream regression);
+  `close()` is the stronger drain there.
+
+A store that cannot persist at all (the web in-memory fallback) throws
+`VectorStoreException` rather than returning. Custom `VectorStoreRepository`
+implementations must declare `flush()`.
 
 ## The Filter API
 

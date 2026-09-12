@@ -76,5 +76,8 @@ class SqliteVectorStore implements VectorStoreRepository {
   );
 
   @override
+  Future<void> flush() async {}
+
+  @override
   Future<void> close() async {}
 }

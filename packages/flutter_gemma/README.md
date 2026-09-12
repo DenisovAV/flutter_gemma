@@ -1735,7 +1735,12 @@ final results = await FlutterGemmaPlugin.instance.searchSimilar(
     mustNot: [FieldEquals(key: 'lang', value: 'fr')],
   ),
 );
+
+// 5. Persist the index while the store stays open (see below)
+await FlutterGemmaPlugin.instance.flushVectorStore(); // or FlutterGemma.rag.flush()
 ```
+
+**Call `flush()` after indexing.** `flutter_gemma_rag_qdrant` keeps new documents in memory until the store is flushed or closed, so an index built without either is lost when the process ends — an Android app killed in the background is the ordinary case ([#492](https://github.com/DenisovAV/flutter_gemma/issues/492)). On native `flutter_gemma_rag_sqlite` it is a no-op; on web it drains the IndexedDB storage. A store that cannot persist at all throws `VectorStoreException` instead of returning. Custom `VectorStoreRepository` implementations must declare `flush()`.
 
 A field name is checked by the store, in `configure()`. `SqliteVectorStore` is
 the strict one — `^[A-Za-z][A-Za-z0-9_]*$`, and not a name `vec0` already uses

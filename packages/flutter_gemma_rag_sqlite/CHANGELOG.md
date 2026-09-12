@@ -1,4 +1,4 @@
-## 1.4.0
+## 1.3.2
 - Add `flush()`; on web it drains IndexedDB — only partly on sqlite3 >=3.4 (#492).
 
 ## 1.3.1

@@ -1,4 +1,4 @@
-## 1.9.0
+## 1.8.1
 - `VectorStoreRepository` gains `flush()` for stores that buffer writes in memory.
 - **Breaking for custom `VectorStoreRepository` implementations**: they must declare `flush()`.
 

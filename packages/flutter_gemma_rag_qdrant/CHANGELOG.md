@@ -1,4 +1,4 @@
-## 1.4.0
+## 1.3.1
 - Add `flush()`; without it an index was lost when the process ended (#492).
 
 ## 1.3.0

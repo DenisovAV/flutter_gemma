@@ -803,8 +803,9 @@ is text-only. What a learner should expect there: the app loads, the model
 downloads, text chat works, and both attachment buttons are disabled with a
 line naming the runtime that refused. That is the app working correctly. (Full
 vision on the web today means MediaPipe `.task` models and the
-`flutter_gemma_mediapipe` package — a different engine, and the subject of the
-[Inference Engines codelab](/codelabs/inference-engines-flutter-gemma).)
+`flutter_gemma_mediapipe` package — a different engine, documented in
+[MediaPipe](/docs/mediapipe); the Inference Engines codelab pairs LiteRT-LM with
+built-in AI instead, so it is not the place to look for this one.)
 
 **The iOS Simulator** is the case the two questions do not cover, and the
 reason is not that Dart cannot see it — `device_info_plus` exposes

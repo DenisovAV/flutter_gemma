@@ -56,7 +56,7 @@ point.
 * Chrome has a hardware floor for its copy of Nano that the flag does not lift.
   `flutter_gemma_builtin_ai` states it as **~22 GB of free disk and a GPU with
   more than 4 GB of VRAM**, or a CPU-only path on a machine with 16 GB of RAM.
-  Under it the probe answers `unavailableDeviceUnsupported` with the flag
+  Under it the probe answers `unavailableOther` with the flag
   switched on — which reads like a setup mistake and is not one
 * **Windows and Linux have no built-in arm at all**, and that is not a gap in
   your setup: the app is designed to notice and take the downloaded model
@@ -145,16 +145,22 @@ all.
 ### One platform change
 
 Gemini Nano's Android SDK requires API 26. The package declares that, and the
-manifest merger refuses an app that sets less, so raise the app's floor in
-`android/app/build.gradle.kts`:
+manifest merger refuses an app that sets less. The app you brought from Getting
+Started is already at **30** — LiteRT-LM's own floor, and above this one — so
+there is nothing to change here. Leave it where it is:
 
 ```kotlin
 defaultConfig {
     // …
-    // flutter_gemma_builtin_ai (ML Kit GenAI / AICore) declares minSdk 26;
-    // the manifest merger rejects an app below it.
-    minSdk = 26
+    // flutter_gemma_builtin_ai (ML Kit GenAI / AICore) declares minSdk 26 and
+    // the manifest merger rejects an app below it; libLiteRtLm.so needs API 30+
+    // Bionic (pthread_cond_clockwait, sem_clockwait) on top of that, so 30 is the
+    // floor for an app that registers both engines.
+    minSdk = 30
 ```
+
+If you are adding built-in AI to an app that has *no* LiteRT-LM engine in it,
+26 is enough.
 
 iOS needs nothing beyond what Getting Started already set up — the iOS 15.0
 deployment target and the three memory entitlements. `flutter_gemma_builtin_ai`

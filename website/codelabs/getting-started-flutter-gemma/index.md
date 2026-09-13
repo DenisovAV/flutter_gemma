@@ -116,13 +116,28 @@ each drags in native binaries you would otherwise ship for nothing.
 Less than you would expect on any of the six, and nothing at all on two of them.
 Read the subsection for the platform you are running on and skip the others.
 
-**Android** — one line, because downloading the model is an ordinary HTTPS
-request:
+**Android** — two things. First, the internet permission, because downloading
+the model is an ordinary HTTPS request:
 
 ```xml
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
 ```
+
+Second, the API floor, in `android/app/build.gradle.kts`:
+
+```kotlin
+defaultConfig {
+    // …
+    // libLiteRtLm.so needs API 30+ Bionic (pthread_cond_clockwait,
+    // sem_clockwait). Below 30 the app installs and then fails at the first
+    // model load with a dlopen error.
+    minSdk = 30
+```
+
+This one is easy to miss, because nothing rejects the build: Flutter's template
+floor (24) merges fine, the APK installs, and the failure arrives later as a
+`dlopen` error the first time you load a model. The step apps are already at 30.
 
 You do **not** need to declare the OpenCL libraries the GPU backend uses. The
 plugin's own manifest declares them and the manifest merger folds them into

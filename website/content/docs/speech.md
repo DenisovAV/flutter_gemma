@@ -30,7 +30,7 @@ inference.
 
 ```
 dependencies:
-  flutter_gemma: ^1.8.1
+  flutter_gemma: ^1.8.2
   flutter_gemma_speech: ^0.5.0
 ```
 
@@ -106,9 +106,11 @@ models pass a token to `initialize(huggingFaceToken: ...)` or per source
 ## Audio format
 
 `transcribe()` takes **raw 16 kHz mono 16-bit little-endian PCM** (`Uint8List`)
-— moonshine-tiny consumes samples directly, with no mel frontend. If you start
-from a WAV file, skip the 44-byte header and pass the data chunk; if you capture
-from a recorder, configure it for 16 kHz / mono / 16-bit PCM.
+— moonshine-tiny consumes samples directly, with no mel frontend. Configure your
+recorder for 16 kHz / mono / 16-bit PCM. Starting from a WAV file, locate its
+`data` chunk instead of skipping a fixed 44 bytes: recorders add `LIST`, `fact`
+or padding chunks, and on iOS a multi-kilobyte `FLLR` block, so a fixed skip
+feeds header bytes in as audio.
 
 ## Text-to-speech (Matcha)
 

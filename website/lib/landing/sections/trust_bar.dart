@@ -14,7 +14,7 @@ class TrustBar extends StatelessComponent {
       [
         div(classes: 'trust-inner', [
           span(classes: 'trust-item', [
-            span(classes: 'trust-score', [Component.text('160')]),
+            span(classes: 'trust-score', [Component.text('150')]),
             Component.text('/160 pub.dev points'),
           ]),
           span(classes: 'trust-sep', [Component.text('|')]),

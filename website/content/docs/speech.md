@@ -81,6 +81,17 @@ await recognizer.close();
 Whisper's shipped checkpoints are multilingual, and the output language is one
 token in the decoder's seed prompt. Set a default, or override a single call:
 
+The install above is moonshine, which has no language token — `language:` throws
+`ArgumentError` on it. Install Whisper first:
+
+```dart
+await FlutterGemma.installStt()
+    .modelFromNetwork('https://huggingface.co/litert-community/whisper-tiny/resolve/main/whisper_tiny_30s_f32.tflite')
+    .tokenizerFromNetwork('https://huggingface.co/openai/whisper-tiny/resolve/main/tokenizer.json')
+    .ofType(SttModelType.whisper)
+    .install();
+```
+
 ```dart
 final recognizer = await FlutterGemma.getActiveStt(language: 'de');
 final german = await recognizer.transcribe(germanPcm);
@@ -91,7 +102,8 @@ final french = await recognizer.transcribe(frenchPcm, language: 'fr');
 
 `getActiveStt` returns a process-wide singleton, and calling it again with a new
 `language` retargets that recognizer rather than rebuilding it — so you never
-need to `close()` just to change language.
+need to `close()` just to change language. Calling it with **no** `language`
+clears the default you set earlier, back to the checkpoint's own `'en'`.
 
 The code is Whisper's own, without the delimiters (`'en'`, `'de'`, `'uk'`), and
 it defaults to `'en'`. It changes what the model WRITES, not what it hears:
@@ -111,6 +123,11 @@ recorder for 16 kHz / mono / 16-bit PCM. Starting from a WAV file, locate its
 `data` chunk instead of skipping a fixed 44 bytes: recorders add `LIST`, `fact`
 or padding chunks, and on iOS a multi-kilobyte `FLLR` block, so a fixed skip
 feeds header bytes in as audio.
+
+Each model also has a fixed window — 5 s for moonshine and Parakeet, 30 s for
+Whisper. Shorter audio is zero-padded; **longer audio is silently truncated**, so
+a 40-second clip on Whisper returns the first 30 seconds with no error. Split
+long recordings yourself.
 
 ## Text-to-speech (Matcha)
 
@@ -143,10 +160,13 @@ low-float-bit divergence on x86_64.
 ### Qwen3-TTS (multilingual)
 
 A second TTS family is selectable via `TtsModelType.qwen3` — an autoregressive
-codec-LM (`litert-community/Qwen3-TTS-12Hz-0.6B-Base`, ~1.9 GB) that speaks 11
-languages, chosen at synth time with the new `language:` param. Same
-install/synthesize API as Matcha, but heavier: CPU-only, RTF≈3 (~3 s of compute
-per 1 s of audio), and needs a 6 GB-RAM-class device.
+codec-LM (`litert-community/Qwen3-TTS-12Hz-0.6B-Base`, ~1.9 GB) that speaks 10
+languages plus `'auto'` detection, picked with `getActiveTts(language:)`. Unlike
+STT, the language is fixed when the synthesizer is created — `synthesize()` takes
+no language — and `getActiveTts` returns a singleton, so asking it for a different
+language throws `StateError` until you `close()` the current one. Same
+install/synthesize API as Matcha, but heavier: CPU-only, 24 kHz output, RTF≈3
+(~3 s of compute per 1 s of audio), and needs a 6 GB-RAM-class device.
 
 ```dart
 await FlutterGemma.installTts()
@@ -154,10 +174,11 @@ await FlutterGemma.installTts()
     .ofType(TtsModelType.qwen3)
     .install();
 
-// language is one of qwen3SupportedLanguages (11) or 'auto'; ignored by Matcha.
-final synth = await FlutterGemma.getActiveTts(language: 'english');
+// language is a full lowercase name from qwen3SupportedLanguages ('english',
+// 'german', … 10 of them) or 'auto' — not an ISO code, and ignored by Matcha.
+final synth = await FlutterGemma.getActiveTts(language: 'french');
 final pcm = await synth.synthesize('Bonjour le monde.'); // Uint8List, 16-bit PCM
-await synth.close();
+await synth.close();   // close before asking for another language
 ```
 
 ### Inflect-Nano-v2 (fast)
@@ -185,6 +206,11 @@ generate a chat reply, synthesize it — streamed back as `VoiceEvent`s. Build
 one with `VoiceSession.fromChat`, which wraps an `InferenceChat`. A tools-free
 chat is the plain speech-to-speech loop; pass `onToolCall` to run function calls
 inside a spoken turn (see [Tool calling](#tool-calling-in-the-voice-loop) below).
+
+The loop needs an LLM as well as the two speech models: add
+`flutter_gemma_litertlm`, register `inferenceEngines: [LiteRtLmEngine()]` in
+`initialize`, and install a `.litertlm` model (see [LiteRT-LM](/docs/litertlm)) —
+otherwise `getActiveModel` throws `StateError('No active inference model set')`.
 
 ```dart
 final recognizer = await FlutterGemma.getActiveStt();

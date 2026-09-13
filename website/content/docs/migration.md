@@ -170,12 +170,12 @@ data change, not an API change: your `addDocument` / `searchSimilar` calls are
 unchanged, but the documents already on the device are not.
 </Warning>
 
-An upgraded app finds no documents where its corpus used to be. 2.0 refuses
+An upgraded app finds no documents where its corpus used to be. 1.3.0 refuses
 loudly rather than starting empty — `initialize()` throws a
 `QdrantLegacyStoreException` naming the old store — so this shows up the first
 time the store opens, not as silently unanswered questions later.
 
-Remove the old store's files once, then re-index. 2.0 will not do it for you:
+Remove the old store's files once, then re-index. 1.3.0 will not do it for you:
 it never deletes data it cannot read, and the three entries a 1.x shard owns
 (`edge_config.json`, `wal/`, `segments/`) may sit beside files of your own.
 
@@ -190,7 +190,8 @@ try {
   // file APIs you already use for `path`, then initialize() again.
   rethrow;
 }
-// ...then re-add your documents.
+// ...then re-add your documents, and flush() — on qdrant, points live in the
+// shard's in-RAM segment until then, so a background kill loses the re-index.
 ```
 
 <Warning>
@@ -272,6 +273,7 @@ await FlutterGemma.installEmbedder()
 final dir = await getApplicationDocumentsDirectory(); // native; on web pass a bare name
 await FlutterGemma.rag.initialize('${dir.path}/rag_store');
 await FlutterGemma.rag.addDocument(/* ... */);
+await FlutterGemma.rag.flush();   // qdrant: required, or the index dies with the process
 final hits = await FlutterGemma.rag.searchSimilar(query: query, topK: 5);
 ```
 

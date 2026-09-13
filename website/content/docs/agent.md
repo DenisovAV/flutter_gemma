@@ -34,7 +34,7 @@ dependencies:
   flutter_gemma_litertlm: ^1.6.3   # an inference engine (LiteRtLmEngine)
 ```
 
-The agent is **not supported on Web** yet — see the note below.
+The agent is **unverified on Web** — nothing disables it, but it has never been driven in a browser. See the note below.
 
 ## The four skill mechanisms
 
@@ -52,8 +52,10 @@ execution mechanisms:
 [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)
 (pre-installed on Windows 11). ² Linux has no embeddable webview, so JS skills
 return an `ErrorResult`; text / native-intent / MCP skills work on Linux.
-³ The agent is not supported on Web yet — the browser LLM runtimes don't reliably
-emit tool calls, so the agent loop is disabled there (see the note below).
+³ Unverified on Web rather than disabled: nothing in the package gates on the
+platform, and the web `.litertlm` path does emit well-formed tool calls. What is
+missing is a run of the agent itself (see the note below). Native-intent skills
+are stubbed on web by design.
 
 JS skills run in a headless, sandboxed webview. To grant a secure context (so
 skills using `crypto.subtle` and other secure-context Web APIs work), the package
@@ -204,8 +206,12 @@ Most skills need no platform setup. For the platform-specific bits:
   <key>NSCalendarsUsageDescription</key>
   <string>Create calendar events from the agent.</string>
   ```
-- **Android** — `schedule_notification` requires core-library desugaring in
-  `android/app/build.gradle(.kts)`:
+- **Android** — `flutter_gemma_agent` depends on `flutter_local_notifications`,
+  which requires core-library desugaring in `android/app/build.gradle(.kts)`.
+  This is unconditional: an app that never uses the `schedule_notification`
+  intent still fails to build without it. Kotlin DSL below; in Groovy the lines
+  are `coreLibraryDesugaringEnabled true` and
+  `coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'`.
   ```
   android { compileOptions { isCoreLibraryDesugaringEnabled = true } }
   dependencies { coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4") }

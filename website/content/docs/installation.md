@@ -238,14 +238,15 @@ host fails with `Could not find method kotlin()`. Add KGP to the host's root
 `buildscript`/`plugins {}`. A normal `flutter build` app needs nothing — Flutter's own
 Gradle plugin carries KGP.
 
-**GPU (any engine):** if you want to run on the GPU, add OpenCL support to the
-manifest. Required by both inference engines. CPU-only? Skip this step. Add the
-following above `</application>` in `AndroidManifest.xml`:
+**GPU (any engine): nothing to add.** `flutter_gemma`'s own manifest declares the
+OpenCL namespace entries and the manifest merger folds them into your app. These
+are what your merged manifest must contain if you pin or audit it — note
+`libvndksupport.so`: without it the OpenCL ICD load is denied on Android 12+, the
+engine falls back to WebGPU, and some Mali drivers hard-freeze (#324).
 
 ```
-<uses-native-library
-    android:name="libOpenCL.so"
-    android:required="false"/>
+<uses-native-library android:name="libvndksupport.so" android:required="false"/>
+<uses-native-library android:name="libOpenCL.so" android:required="false"/>
 <uses-native-library android:name="libOpenCL-car.so" android:required="false"/>
 <uses-native-library android:name="libOpenCL-pixel.so" android:required="false"/>
 ```
@@ -451,10 +452,11 @@ void main() async {
 
 ### Which models require authentication?
 
-**Gated (auth required):** Gemma 4, Gemma3n (E2B, E4B), Gemma 3 1B, Gemma 3 270M,
+**Gated (auth required):** Gemma3n (E2B, E4B), Gemma 3 1B, Gemma 3 270M,
 EmbeddingGemma.
 
-**Public (no auth):** DeepSeek, Qwen3, Qwen 2.5, SmolLM, Phi-4, FastVLM.
+**Public (no auth):** Gemma 4 (the litert-community builds), DeepSeek, Qwen3,
+Qwen 2.5, SmolLM, LFM2.5, Phi-4, FastVLM.
 
 To use a gated repo: visit the model page → "Request Access" button.
 

@@ -102,7 +102,7 @@ bytes:
 await FlutterGemma.installModel(
   modelType: ModelType.general,
   fileType: ModelFileType.onnx,
-).fromNetwork('onnx-community/Qwen2.5-0.5B-Instruct').install();
+).fromNetwork('https://huggingface.co/onnx-community/Qwen2.5-0.5B-Instruct').install();
 ```
 
 From here the code is identical to any other engine:

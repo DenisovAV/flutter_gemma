@@ -60,7 +60,7 @@ loading sequence differs per platform (handled in `litert_lm_client.dart`).
 >
 > Desktop accepts only LiteRT-LM `.litertlm` files. MediaPipe `.bin` / `.task`
 > models used on web won't load on desktop. See
-> [AI Edge Model Garden](https://ai.google.dev/edge/litert/models) for compatible models.
+> [litert-community on Hugging Face](https://huggingface.co/litert-community) for compatible models.
 
 ---
 

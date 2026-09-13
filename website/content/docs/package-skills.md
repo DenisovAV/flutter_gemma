@@ -1,5 +1,5 @@
 ---
-title: AI Assistant Skills
+title: Package Skills
 description: flutter_gemma ships agent skills for coding assistants — Claude Code, Codex, Cursor, Copilot and others learn the API from skills bundled in the package, installed with one dart run skills@ get.
 image: https://fluttergemma.dev/images/og-image.png
 ---

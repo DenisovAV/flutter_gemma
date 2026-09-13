@@ -79,7 +79,7 @@ const _features = [
   ),
   _FeatureData(
     icon: '🧑‍💻',
-    title: 'AI Assistant Skills',
+    title: 'Package Skills',
     desc: 'Claude Code, Codex, Cursor & Copilot learn the flutter_gemma API from skills shipped in the package',
     accent: Brand.blue,
   ),

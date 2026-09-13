@@ -644,7 +644,7 @@ Update each `^X.Y.Z` for the core packages (`flutter_gemma`, `flutter_gemma_lite
 
 `packages/flutter_gemma/skills/` holds eight `SKILL.md` files that ship inside
 the core archive and are installed into users' coding agents by
-`dart run skills@ get`. They are not a nice-to-have copy of the docs: an agent
+`dart run skills@ get --all`. They are not a nice-to-have copy of the docs: an agent
 follows them literally when writing code against this package.
 
 That makes stale skills worse than stale docs. A human reading an outdated

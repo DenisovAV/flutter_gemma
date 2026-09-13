@@ -1,9 +1,21 @@
 name: flutter_gemma_builtin_ai
-description: "Built-in OS AI engine for flutter_gemma: Gemini Nano (ML Kit GenAI, Android), Apple Foundation Models (iOS/macOS), and Gemini Nano via the Chrome Prompt API on Web. Opt-in InferenceEngineProvider for system on-device models."
-version: 0.2.1
+description: "Opt-in flutter_gemma engine for the OS built-in model: Gemini Nano (Android), Apple Foundation Models (iOS/macOS), Windows AI Foundry, Chrome's Prompt API on Web."
+version: 0.3.0
 homepage: https://fluttergemma.dev
 repository: https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_gemma_builtin_ai
 topics: [gemma, llm, gemini-nano, on-device, prompt-api]
+
+# No `flutter: plugin:` block: the native layer now lives in flutter_local_ai,
+# so this is a plain Flutter package, not a plugin. The supported set is
+# declared here rather than inferred from the transitive graph — it is
+# flutter_local_ai's plugin platforms (Windows included; Linux has no built-in
+# model).
+platforms:
+  android:
+  ios:
+  macos:
+  windows:
+  web:
 
 resolution: workspace
 
@@ -14,34 +26,15 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_web_plugins:
-    sdk: flutter
-  # ^1.6.4, not ^1.3.0: this package declares an iOS 15.0 floor (#441), and both
-  # dependency managers REJECT an app target below any dependency's floor — so
-  # with core <=1.6.3 (still 16.0) an app could never actually reach 15.0.
-  # This makes core 1.6.4 a publish PREREQUISITE for this version.
+  # ^1.7.0 is enough: every RuntimeConfig field this engine reads
+  # (supportAudio, loraRanks, maxNumImages, maxConcurrentSessions) predates
+  # it — 1.6.1 already compared all ten runtime knobs — and no 1.7.x entry
+  # adds one. `openSession` landed in 0.16.2.
   flutter_gemma: ^1.7.0
-  plugin_platform_interface: ^2.0.2
-  meta: ^1.15.0
+  # Supplies the whole native/web layer this package used to ship itself.
+  flutter_local_ai: ^0.1.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
-  pigeon: ^26.0.0
-
-flutter:
-  plugin:
-    platforms:
-      android:
-        package: dev.flutterberlin.flutter_gemma_builtin_ai
-        pluginClass: FlutterGemmaBuiltInAiPlugin
-      ios:
-        pluginClass: FlutterGemmaBuiltInAiPlugin
-        sharedDarwinSource: true
-      macos:
-        pluginClass: FlutterGemmaBuiltInAiPlugin
-        sharedDarwinSource: true
-      web:
-        pluginClass: FlutterGemmaBuiltInAiWeb
-        fileName: flutter_gemma_builtin_ai_web.dart

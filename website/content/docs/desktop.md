@@ -12,9 +12,12 @@ Engine startup is ~2 s instead of ~10–15 s.
 LiteRT-LM (`.litertlm`) is the **primary, default** desktop engine — but not the
 only one. **`flutter_gemma_onnx`** ([ONNX Runtime](/docs/onnx) — ORT-GenAI
 generation + ORT embeddings) also runs on all three desktop OSes
-(macOS/Windows/Linux), and on **macOS** the OS built-in model is available through
-**`flutter_gemma_builtin_ai`** ([Apple Foundation Models](/docs/builtin-ai),
-macOS only — not Windows/Linux). What holds across all of desktop is the narrower
+(macOS/Windows/Linux), and the OS built-in model is available through
+**`flutter_gemma_builtin_ai`** ([Built-in AI](/docs/builtin-ai)) on **macOS**
+(Apple Foundation Models) and, since 0.3.0, on **Windows** (AI Foundry / Phi
+Silica — opt-in: the host app supplies the Windows App SDK 2.0+ projections and
+runtime bootstrap, and the default build reports the backend as unavailable).
+Linux has no OS built-in model. What holds across all of desktop is the narrower
 statement: **there is no MediaPipe engine on desktop.** See
 [Installation](/docs/installation) and [Packages](/docs/packages).
 

@@ -1,200 +1,58 @@
-import 'dart:async';
+import 'package:flutter_local_ai/flutter_local_ai.dart' show LocalAi;
 
-import 'package:flutter/services.dart';
-
-import '../pigeon.g.dart';
 import 'availability_types.dart';
 
-export 'availability_types.dart';
-
-/// Shared pigeon client for the built-in AI host. Library-level (non-private)
-/// so the availability facade, the engine and the sessions all drive the SAME
-/// channel instance — mirrors the mediapipe `platformService` pattern.
-final builtInAiService = BuiltInAiService();
-
-/// Native → Dart event stream shared by every built-in AI session and the
-/// download-progress reporting in [BuiltInAi.ensureReady]. Data events:
-/// - token: `{partialResult: String, done: bool, sessionId: int}`
-/// - error: `{code: 'ERROR', message: String, sessionId: int}`
-/// - download: `{code: 'DOWNLOAD_PROGRESS', bytesDownloaded: int, bytesTotal: int}`
-const builtInAiEventChannel = EventChannel('flutter_gemma_builtin_ai_stream');
-
-/// Maps the frozen pigeon wire enum onto the public [BuiltInAiAvailability].
-BuiltInAiAvailability mapAvailability(AvailabilityStatus status) =>
-    switch (status) {
-      AvailabilityStatus.available => BuiltInAiAvailability.available,
-      AvailabilityStatus.downloadable => BuiltInAiAvailability.downloadable,
-      AvailabilityStatus.downloading => BuiltInAiAvailability.downloading,
-      AvailabilityStatus.unavailableDeviceUnsupported =>
-        BuiltInAiAvailability.unavailableDeviceUnsupported,
-      AvailabilityStatus.unavailableOsTooOld =>
-        BuiltInAiAvailability.unavailableOsTooOld,
-      AvailabilityStatus.unavailableDisabled =>
-        BuiltInAiAvailability.unavailableDisabled,
-      AvailabilityStatus.unavailableOther =>
-        BuiltInAiAvailability.unavailableOther,
-    };
-
 /// App-facing entry point for probing and preparing the OS built-in model.
+///
+/// A forwarding facade over flutter_local_ai's [LocalAi]. Everything that used
+/// to live here — the bounded availability probe, the feature-download
+/// kick-off, the `DOWNLOAD_PROGRESS` plumbing and the poll loop that decides
+/// when the model is actually ready — now lives in flutter_local_ai and is NOT
+/// reimplemented here. Fix a bug in any of it there, not in this file.
+///
+/// It is a facade rather than a `typedef` of [LocalAi] because every [LocalAi]
+/// method takes an extra `{LocalAiHost? host}` parameter for injecting a fake
+/// host in tests. Forwarding by hand keeps this package's signatures exactly
+/// as they were.
 abstract final class BuiltInAi {
-  /// How long to wait for the native availability probe before treating the
-  /// host as unavailable. On a device where the OS AI stack is not initialized
-  /// (e.g. a freshly-provisioned / CI device where Android AICore has no
-  /// Phenotype metadata yet), the native `checkStatus()` call can block
-  /// indefinitely instead of returning a status. Bounding it keeps
-  /// [availability] — and therefore any caller that gates on it — from hanging.
-  /// Overridable only for tests via [debugProbeTimeout].
-  static Duration debugProbeTimeout = const Duration(seconds: 20);
+  /// How long to wait for the availability probe before treating the host as
+  /// unavailable. On a device where the OS AI stack has never initialized
+  /// (a freshly-provisioned / CI device where Android AICore has no Phenotype
+  /// metadata yet), the native status call can block instead of returning a
+  /// status. Bounding it keeps [availability] — and therefore any caller that
+  /// gates on it — from hanging.
+  ///
+  /// Reads and writes [LocalAi.debugProbeTimeout] itself, so there is one
+  /// value: setting it on either class bounds the same probe. Overridable only
+  /// for tests.
+  static Duration get debugProbeTimeout => LocalAi.debugProbeTimeout;
+
+  static set debugProbeTimeout(Duration value) =>
+      LocalAi.debugProbeTimeout = value;
 
   /// Current availability of the OS built-in model.
   ///
-  /// Never hangs: if the native probe does not return within
-  /// [debugProbeTimeout] (a stuck/uninitialized OS AI stack), this resolves to
+  /// Never throws and never hangs: a probe that does not return within
+  /// [debugProbeTimeout] resolves to
   /// [BuiltInAiAvailability.unavailableOther] so callers can degrade or skip.
-  static Future<BuiltInAiAvailability> availability() async {
-    try {
-      final status = await builtInAiService.checkAvailability().timeout(
-        debugProbeTimeout,
-      );
-      return mapAvailability(status);
-    } on TimeoutException {
-      return BuiltInAiAvailability.unavailableOther;
-    }
-  }
+  static Future<BuiltInAiAvailability> availability() => LocalAi.availability();
 
   /// Ensures the OS model is ready to use, downloading the feature if the OS
   /// exposes it as [BuiltInAiAvailability.downloadable].
   ///
   /// - [BuiltInAiAvailability.available] → resolves immediately.
-  /// - `unavailable*` → throws [BuiltInAiUnavailableException] (no download).
-  /// - [BuiltInAiAvailability.downloadable] → calls `downloadFeature()`, then
-  ///   polls until the model reports available (feeding [onProgress] from the
-  ///   event channel's `DOWNLOAD_PROGRESS` events).
-  /// - [BuiltInAiAvailability.downloading] → waits (no new download kicked off).
+  /// - `unavailable*` → throws [BuiltInAiUnavailableException] (no download;
+  ///   those states cannot be fixed by waiting).
+  /// - [BuiltInAiAvailability.downloadable] → kicks the download off, then
+  ///   polls until the model reports available.
+  /// - [BuiltInAiAvailability.downloading] → joins the download already
+  ///   running, without starting another.
   ///
   /// [onProgress] receives an integer percentage 0..100 as bytes arrive.
-  /// [timeout] bounds the whole wait; a [TimeoutException] is thrown if the
-  /// model is not available in time.
+  /// [timeout] bounds the whole wait; a `TimeoutException` is thrown if the
+  /// model is not ready in time.
   static Future<void> ensureReady({
     void Function(int percent)? onProgress,
     Duration timeout = const Duration(minutes: 10),
-  }) async {
-    final initial = await availability();
-    switch (initial) {
-      case BuiltInAiAvailability.available:
-        return;
-      case BuiltInAiAvailability.unavailableDeviceUnsupported:
-      case BuiltInAiAvailability.unavailableOsTooOld:
-      case BuiltInAiAvailability.unavailableDisabled:
-      case BuiltInAiAvailability.unavailableOther:
-        throw BuiltInAiUnavailableException(
-          initial,
-          'Built-in AI is not available: $initial',
-        );
-      case BuiltInAiAvailability.downloadable:
-      case BuiltInAiAvailability.downloading:
-        await _download(
-          kickOff: initial == BuiltInAiAvailability.downloadable,
-          onProgress: onProgress,
-          timeout: timeout,
-        );
-    }
-  }
-
-  static Future<void> _download({
-    required bool kickOff,
-    required void Function(int percent)? onProgress,
-    required Duration timeout,
-  }) async {
-    final ready = Completer<void>();
-    StreamSubscription<Object?>? sub;
-    // Set in `finally` (after the outer timeout/return) so the fire-and-forget
-    // poll loop below stops instead of spinning forever once we've given up.
-    var done = false;
-
-    // Surface download progress; the terminal signal (availability flipping to
-    // `available`) comes from polling below, not from the event stream, so a
-    // host that never emits progress still resolves.
-    if (onProgress != null) {
-      sub = builtInAiEventChannel.receiveBroadcastStream().listen(
-        (event) {
-          if (event is Map && event['code'] == 'DOWNLOAD_PROGRESS') {
-            final downloaded = (event['bytesDownloaded'] as num?)?.toInt() ?? 0;
-            final total = (event['bytesTotal'] as num?)?.toInt() ?? 0;
-            if (total > 0) {
-              onProgress(((downloaded / total) * 100).clamp(0, 100).round());
-            }
-          }
-        },
-        onError: (Object _) {}, // progress-only; ignore stream errors here
-      );
-    }
-
-    Future<void> poll() async {
-      // Poll availability until the model is ready or a terminal failure lands.
-      // Guarded so an unexpected error (e.g. a native PlatformException from the
-      // probe) completes `ready` instead of escaping as an unhandled async error.
-      try {
-        while (!done && !ready.isCompleted) {
-          final status = await availability();
-          switch (status) {
-            case BuiltInAiAvailability.available:
-              if (!ready.isCompleted) ready.complete();
-              return;
-            case BuiltInAiAvailability.downloadable:
-            case BuiltInAiAvailability.downloading:
-              await Future<void>.delayed(const Duration(milliseconds: 200));
-            case BuiltInAiAvailability.unavailableDeviceUnsupported:
-            case BuiltInAiAvailability.unavailableOsTooOld:
-            case BuiltInAiAvailability.unavailableDisabled:
-            case BuiltInAiAvailability.unavailableOther:
-              if (!ready.isCompleted) {
-                ready.completeError(
-                  BuiltInAiUnavailableException(
-                    status,
-                    'Built-in AI became unavailable during download: $status',
-                  ),
-                );
-              }
-              return;
-          }
-        }
-      } catch (e, st) {
-        if (!ready.isCompleted) ready.completeError(e, st);
-      }
-    }
-
-    try {
-      if (kickOff) {
-        // Fire-and-forget: the OS routes the AICore feature download through a
-        // system-managed queue that can sit silent for minutes-to-hours (or, on
-        // a freshly-provisioned/CI device, never get a scheduler slot at all).
-        // The ML Kit `download()` Flow gives NO terminal-emission guarantee, so
-        // AWAITING it can hang indefinitely. We therefore never block on it —
-        // the sole readiness signal is availability polling below, and the whole
-        // wait is bounded by [timeout]. (A silent failure inside the kick-off is
-        // surfaced by the poll loop / timeout, not lost.)
-        unawaited(
-          builtInAiService.downloadFeature().catchError((Object _) {
-            // Swallow here — poll() observes the real availability outcome and
-            // the timeout bounds the wait; a kick-off error must not escape the
-            // fire-and-forget and crash the isolate.
-          }),
-        );
-      }
-      unawaited(poll());
-      await ready.future.timeout(
-        timeout,
-        onTimeout: () => throw TimeoutException(
-          'Built-in AI feature download did not complete in $timeout',
-          timeout,
-        ),
-      );
-    } finally {
-      // Stop the fire-and-forget poll loop (it exits at its next check) and
-      // release the progress subscription — nothing may outlive this call.
-      done = true;
-      await sub?.cancel();
-    }
-  }
+  }) => LocalAi.ensureReady(onProgress: onProgress, timeout: timeout);
 }

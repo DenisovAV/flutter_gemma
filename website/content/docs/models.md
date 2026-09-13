@@ -34,13 +34,15 @@ Both formats require **manual chat template formatting** in your code.
 ### Type 3: System OS models (no file)
 
 **Gemini Nano** (Android, via AICore / ML Kit GenAI), **Apple Foundation Models**
-(iOS 26+/macOS), and **Gemini Nano via the Chrome Prompt API** (Web — desktop
-Chrome/Edge) are **built into the OS/browser** — there is no model file to bundle
-or download; the platform owns the weights. Add
-[`flutter_gemma_builtin_ai`](/docs/packages), register `BuiltInAiEngine()`, and use
-`ModelFileType.builtIn`. Availability is device-gated — Gemini Nano needs Pixel
-9+/Galaxy S25+, and Apple FM needs Apple Intelligence enabled on iPhone
-15 Pro+/M-series. On Android the package requires **`minSdk 26`**.
+(iOS 26+/macOS), **Windows AI Foundry / Phi Silica** (Windows), and **Gemini Nano
+via the Chrome Prompt API** (Web — desktop Chrome/Edge) are **built into the
+OS/browser** — there is no model file to bundle or download; the platform owns the
+weights. Add [`flutter_gemma_builtin_ai`](/docs/packages), register
+`BuiltInAiEngine()`, and use `ModelFileType.builtIn`. Availability is
+device-gated — Gemini Nano needs Pixel 9+/Galaxy S25+, Apple FM needs Apple
+Intelligence enabled on iPhone 15 Pro+/M-series, and Windows needs Copilot+ class
+hardware plus an app that supplies the Windows App SDK projections. On Android
+the package requires **`minSdk 26`** and Kotlin 2.3.21.
 
 👉 See **[Built-in AI](/docs/builtin-ai)** for the full setup, the availability
 probe (`BuiltInAi.availability()` / `BuiltInAi.ensureReady()`), and fallback
@@ -64,6 +66,7 @@ model to MediaPipe, which cannot read that format), `ModelFileType.task` for
 | `-web.task` | ❌ | ❌ | ✅ | ❌ | Web-specific builds (e.g. Gemma 4, Gemma3n) |
 | `.bin` | ✅ | ✅ | ✅ | ❌ | Manual chat template formatting required |
 | `.tflite` | ✅ | ✅ | ✅ | ✅ | Embeddings only (EmbeddingGemma, Gecko) |
+| `builtIn` (no file) | ✅ | ✅ | ✅ | ⚠️ ³ | OS/browser model — [Built-in AI](/docs/builtin-ai) |
 
 ¹ iOS `.litertlm` runs on the FFI engine — vision and audio supported on physical
 devices. The Simulator stays CPU-only because Metal sim has a 256 MB
@@ -73,6 +76,10 @@ single-allocation cap.
 vision, audio, thinking or LoRA; see the feature matrix in
 [Troubleshooting](/docs/troubleshooting). For full multimodal on web, use a
 MediaPipe `.task` build.
+
+³ On desktop the OS model exists on **macOS** (Apple Foundation Models) and
+**Windows** (AI Foundry, opt-in) — not on Linux. Every platform still gates it at
+runtime: probe with `BuiltInAi.availability()`.
 
 ## Model capabilities
 

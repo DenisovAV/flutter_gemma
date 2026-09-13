@@ -193,3 +193,5 @@ There is **no CDN `<script>` tag** — the Chrome Prompt API is a browser global
 browser/version without the Prompt API — always probe before creating a model.
 
 See the [`flutter_gemma_builtin_ai` package](/docs/packages) for the full API.
+
+**Writing this with a coding assistant?** `dart run skills@ get --all` installs [`flutter-gemma-builtin-ai`](/docs/package-skills), the skill that teaches it availability, the user gesture the web arm needs, and falling back to a downloaded model.

@@ -1,6 +1,6 @@
 ---
 title: Package Skills
-description: flutter_gemma ships agent skills for coding assistants — Claude Code, Codex, Cursor, Copilot and others learn the API from skills bundled in the package, installed with one dart run skills@ get.
+description: flutter_gemma ships agent skills for coding assistants — Claude Code, Codex, Cursor, Copilot and others learn the API from skills bundled in the package, installed with one dart run skills@ get --all.
 image: https://fluttergemma.dev/images/og-image.png
 ---
 
@@ -51,7 +51,7 @@ dart run skills@ get --all --agent claude
 
 Copilot is never auto-detected, because `.github/` serves many other purposes,
 so it always needs `--agent copilot`. `--all` installs everything without
-asking; `--skill <name>` installs a single skill. The CLI records what it
+asking; `--skill <name>` installs only the skills you name, and can be repeated. The CLI records what it
 installed in `.config/dart_skills/skills_config.json`.
 
 Run the same command after upgrading flutter_gemma: it updates the installed
@@ -76,7 +76,7 @@ on its own; there is no command to remember.
 | `flutter-gemma-speech` | Whisper, moonshine and Parakeet STT; Matcha, Qwen3 and Inflect TTS; 16 kHz PCM; `VoiceSession` |
 | `flutter-gemma-mediapipe` | `.task` and `.bin` models on Android, iOS and web |
 | `flutter-gemma-onnx` | ORT-GenAI generation and ONNX embeddings, native and through Transformers.js |
-| `flutter-gemma-builtin-ai` | Gemini Nano and Apple Foundation Models, availability, falling back to a downloaded model |
+| `flutter-gemma-builtin-ai` | Gemini Nano on Android and in desktop Chrome, Phi-4-mini in Edge, Apple Foundation Models on iPhone, iPad and Mac; availability, falling back to a downloaded model |
 
 ## What they prevent
 

@@ -352,3 +352,5 @@ chat.generateChatResponseAsync().listen((response) {
 - [Installation](/docs/installation) — per-platform setup and engine registration.
 - [Models](/docs/models) — supported models, file formats, and capabilities.
 - [Migration (0.x → 1.0)](/docs/migration) — upgrade from the monolith.
+
+**Writing this with a coding assistant?** `dart run skills@ get --all` installs [`flutter-gemma-inference`](/docs/package-skills), the skill that teaches it engines, installing a model, sessions and chats, streaming, and the platform setup for all six targets.

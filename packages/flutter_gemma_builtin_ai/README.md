@@ -10,6 +10,14 @@ Because the platform owns the weights, there's nothing to fetch: installation ju
 built-in model you want to use, and `BuiltInAi.ensureReady()` makes sure the feature itself is
 turned on (and downloaded, the first time it's used).
 
+## Teach your AI assistant this package
+
+```bash
+dart run skills@ get --all
+```
+
+Installs the agent skills `flutter_gemma` bundles — this package depends on it, so they come with it. One of them, `flutter-gemma-builtin-ai`, covers availability, the user gesture the web arm needs, and falling back to a downloaded model.
+
 ## Supported devices & OS floors
 
 | Platform | Model | Minimum devices | Notes |

@@ -23,10 +23,10 @@ selected per-install via `SttModelType` / `TtsModelType`, not the backend.
 ## Teach your AI assistant this package
 
 ```bash
-dart run skills@ get
+dart run skills@ get --all
 ```
 
-Installs a bundled skill covering STT model choice, the 16 kHz mono PCM input contract, and the Whisper output language — which is a property of a *transcription*, not of the loaded model.
+Installs the agent skills `flutter_gemma` bundles — this package depends on it, so they come with it. One of them, `flutter-gemma-speech`, covers STT and TTS model choice, the 16 kHz mono PCM input contract, and the Whisper output language — which is a property of a *transcription*, not of the loaded model.
 
 ## Usage
 

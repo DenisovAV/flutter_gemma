@@ -305,3 +305,5 @@ requires **minSdk 30** — see
 
 Both pipelines are profile-driven (`SttModelProfile` / `TtsModelProfile`), so
 adding a new model family is a new profile rather than a new backend.
+
+**Writing this with a coding assistant?** `dart run skills@ get --all` installs [`flutter-gemma-speech`](/docs/package-skills), the skill that teaches it STT and TTS model choice, the 16 kHz mono PCM input contract, and the per-transcription output language.

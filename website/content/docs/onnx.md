@@ -187,3 +187,5 @@ either module, so the shim must run before the Flutter app boots.
 - [Models](/docs/models) — the full supported-model matrix.
 - [Packages](/docs/packages) — every opt-in engine and backend, including
   `flutter_gemma_onnx`.
+
+**Writing this with a coding assistant?** `dart run skills@ get --all` installs [`flutter-gemma-onnx`](/docs/package-skills), the skill that teaches it ORT-GenAI generation and ONNX embeddings, native and through Transformers.js.

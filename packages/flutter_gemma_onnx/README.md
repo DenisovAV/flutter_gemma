@@ -9,6 +9,14 @@ ever has to cross an isolate boundary. On **Web** there is no FFI: generation
 runs through Transformers.js and embeddings run through onnxruntime-web,
 behind the same public API.
 
+## Teach your AI assistant this package
+
+```bash
+dart run skills@ get --all
+```
+
+Installs the agent skills `flutter_gemma` bundles — this package depends on it, so they come with it. One of them, `flutter-gemma-onnx`, covers ORT-GenAI generation and ONNX embeddings, native and through Transformers.js.
+
 ## Register
 
 ```dart

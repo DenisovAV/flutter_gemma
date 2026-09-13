@@ -272,3 +272,5 @@ for exact results or cross-platform / web reach.
 Benchmarks comparing the two stores across platforms (EmbeddingGemma 300M,
 768-dim) are in the
 [repo benchmarks](https://github.com/DenisovAV/flutter_gemma/blob/main/packages/flutter_gemma/example/integration_test/benchmarks/comparison.md).
+
+**Writing this with a coding assistant?** `dart run skills@ get --all` installs [`flutter-gemma-rag`](/docs/package-skills), the skill that teaches it embedding models, both vector stores, and the metadata filters above — including the `filterSchema` trap that returns unfiltered results.

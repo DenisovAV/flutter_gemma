@@ -20,6 +20,14 @@ model (Gemma 4 E2B/E4B recommended). See <a href="/docs/function-calling">Functi
 Calling</a> for the model support matrix.
 </Info>
 
+<Info>
+Not to be confused with <a href="/docs/package-skills">Package Skills</a> — the
+skills flutter_gemma bundles for <em>your coding assistant</em>, installed with
+<code>dart run skills@ get --all</code>. The skills on this page are run by the
+<em>on-device model</em> at runtime; those are read by the assistant that writes
+your code. There is no bundled skill for <code>flutter_gemma_agent</code> itself.
+</Info>
+
 ## Install
 
 Add the core and the agent package. The agent builds on flutter_gemma's

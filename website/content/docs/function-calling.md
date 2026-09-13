@@ -183,3 +183,5 @@ is not grammar-enforced. See [Troubleshooting](/docs/troubleshooting).
 
 See [Models](/docs/models#modeltype-reference) for the correct `ModelType` per
 model family.
+
+**Writing this with a coding assistant?** `dart run skills@ get --all` installs [`flutter-gemma-function-calling`](/docs/package-skills), the skill that teaches it declaring tools, handling `FunctionCallResponse`, and the built-in tool loop.

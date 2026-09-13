@@ -103,15 +103,17 @@ package (WebGPU + WASM). It is an **early preview** and a subset of the native
 path. MediaPipe `.task` on web is unaffected and remains fully supported.
 
 **Works on web `.litertlm`:** text generation (sync + streaming), multi-turn chat
-with history, system instruction, concurrent sessions (serialized), large models
-via OPFS streaming, GPU only.
+with history, system instruction, **function calling / tool calls** (Gemma 4),
+concurrent sessions (serialized), large models via OPFS streaming, GPU only.
 
 **Not supported on web `.litertlm` yet (mobile/desktop only):**
 
 - ❌ **Vision / image input** — image inputs are dropped with a debug warning.
 - ❌ **Audio input** — no Audio executor config in the JS API.
-- ❌ **Thinking mode** — `extraContext` thinking channel is not wired on web.
-- ❌ **Function calling / tool calls** — not available on the web runtime.
+- ⚠️ **Thinking mode** — Qwen3 and DeepSeek R1 reasoning is still split out of the
+  token stream (that part is pure Dart). Gemma 4 thinking needs the native
+  `extraContext` channel: the web engine passes it to `@litert-lm/core`, but it
+  has never been verified end to end — treat it as unsupported until it is.
 - ❌ **LoRA weights** — `loraPath` throws `UnsupportedError`.
 
 <Info>

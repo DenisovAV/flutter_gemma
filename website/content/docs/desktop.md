@@ -51,7 +51,7 @@ library loading sequence differs per platform.
 <Warning>
 **Model format (LiteRT-LM engine):** the LiteRT-LM engine on desktop accepts only
 `.litertlm` files. MediaPipe `.bin` / `.task` models used on web won't load on
-desktop. See the [AI Edge Model Garden](https://ai.google.dev/edge/litert/models)
+desktop. See [litert-community on Hugging Face](https://huggingface.co/litert-community)
 for compatible models. (The [ONNX engine](/docs/onnx) uses its own `.onnx` model
 directories instead.)
 </Warning>

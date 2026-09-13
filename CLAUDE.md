@@ -150,7 +150,7 @@ Core has NO pigeon (dropped at the 1.0 cut; its value types are hand-written in 
 - **LiteRT-LM**: native libs from `native-v0.16.0` GitHub Release (LiteRT-LM pin `924e79c9`, LiteRT pin `0ff28117`). Android tarball bundles the Qualcomm QNN dispatch stack and Windows tarball bundles Intel NPU dispatch (`LiteRtDispatch.dll` + OpenVino runtime + TBB) for `PreferredBackend.npu` (Qualcomm Snapdragon / Intel LunarLake/PantherLake) — both dispatch libs are **rebuilt from the pin every release**; carrying them forward is what silently broke NPU on both platforms (see the `build-native` skill). v0.16.0: fixes the Android OpenCL per-turn memory leak (LiteRT-LM #2699, #348/#402); v0.15.0 **broke the stream-callback ABI** (4-arg → 2-arg chunk object) with no compat path, handled by a runtime probe in `stream_proxy.c`. Windows discrete GPU works again — the crash was our own dead `litert_link_capi_so` Bazel define, not an upstream regression (#2957 retracted).
 - **sqlite-vec**: `flutter_gemma_rag_sqlite` fetches the per-platform `vec0` loadable from the `native-sqlite-vec-v<X>` GitHub Release (`sqlite-vec-<target>.tar.gz` + `checksums_sqlite_vec.txt`), SHA256-verified by its `hook/build.dart`. `<X>` names the **upstream sqlite-vec release** the bytes were built from; a letter suffix (`0.1.9-a`) is only for RE-releasing changed bytes under an already-published number. The loadables are NOT committed — `native/sqlite_vec/prebuilt/` is a maintainer override produced by `build_local.sh`, gitignored and `.pubignore`d.
 - **large_file_handler**: `^0.5.0` (core dep; 0.5.0 declares all 6 platforms — needed for pana platform support + the dart2wasm-clean web graph)
-- **Current Version**: core `flutter_gemma` `1.8.1`, `flutter_gemma_rag_sqlite` `1.3.2`, `flutter_gemma_rag_qdrant` `1.3.1`; `flutter_gemma_litertlm` `1.6.3`, `flutter_gemma_mediapipe` `1.0.5`, `flutter_gemma_embeddings` `2.1.1`, `flutter_gemma_speech` `0.5.0`; `flutter_gemma_agent` `0.2.5`, `flutter_gemma_builtin_ai` `0.2.1`, `flutter_gemma_onnx` `0.3.3`; `genkit_flutter_gemma` `0.6.1`, `genkit_hybrid` `0.2.1`
+- **Current Version**: core `flutter_gemma` `1.8.2`, `flutter_gemma_rag_sqlite` `1.3.2`, `flutter_gemma_rag_qdrant` `1.3.1`; `flutter_gemma_litertlm` `1.6.3`, `flutter_gemma_mediapipe` `1.0.5`, `flutter_gemma_embeddings` `2.1.1`, `flutter_gemma_speech` `0.5.0`; `flutter_gemma_agent` `0.2.5`, `flutter_gemma_builtin_ai` `0.2.1`, `flutter_gemma_onnx` `0.3.3`; `genkit_flutter_gemma` `0.6.1`, `genkit_hybrid` `0.2.1`
 - **0.15.2**: embedding unified on LiteRT C API via Dart FFI on all native platforms (Android + iOS + Desktop). Drops `localagents-rag` JVM dep on Android and the separate TFLite C 0.12.7 tarball on Desktop; `TensorFlowLiteC` pod no longer needed on iOS. Single source of truth for `TaskType.prefix` in Dart, fixes cross-platform embedding drift (#264).
 
 ## Platform-Specific Setup
@@ -311,7 +311,7 @@ flutter analyze && dart format . && tool/test_all.sh
 | `hook/build.dart` | Native Assets hook — fetches the per-platform `vec0` loadable extension |
 | `web/rag/sqlite3.wasm` | custom `sqlite3.wasm` with `sqlite-vec`/`vec0` statically linked (app copies to its web root) |
 
-**`packages/flutter_gemma_builtin_ai/` (OS built-in AI; Gemini Nano on Android, Apple Foundation Models on iOS/macOS; no web/desktop):**
+**`packages/flutter_gemma_builtin_ai/` (OS built-in AI; Gemini Nano on Android and desktop Chrome via the Prompt API, Apple Foundation Models on iOS/macOS; no Windows/Linux):**
 
 | File | Purpose |
 |------|---------|
@@ -324,7 +324,7 @@ flutter analyze && dart format . && tool/test_all.sh
 | `android/src/.../` | Android ML Kit GenAI (AICore) native layer; declares `minSdk 26` |
 | `darwin/Classes/` (shared iOS+macOS source via `sharedDarwinSource: true`) | Apple Foundation Models native layer |
 
-**`packages/flutter_gemma_onnx/` (ONNX Runtime — ORT-GenAI inference + plain-ORT embeddings; macOS arm64 only in v1, no web):**
+**`packages/flutter_gemma_onnx/` (ONNX Runtime — ORT-GenAI inference + plain-ORT embeddings on macOS arm64 / Linux x64 / Windows x64 / Android arm64 / iOS arm64; web via Transformers.js + onnxruntime-web):**
 
 | File | Purpose |
 |------|---------|

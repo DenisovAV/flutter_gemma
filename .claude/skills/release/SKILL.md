@@ -34,6 +34,25 @@ silently do the other thing.
 3. **Reproduce this Definition-of-Done in your reply and mark every item**
    (done / N/A + reason) before you publish. Do not publish off memory of the
    skill — walk it as a literal checklist against the actual repo state.
+4. **The skills are fixed in the PR that changes the API, not at release time.**
+   `packages/flutter_gemma/skills/**` ships inside core and is read by other
+   people's coding agents, so a stale sentence there becomes confident, broken
+   code in someone else's app. On any PR touching `packages/*/lib/**`, a native
+   build file (`android/`, `ios/`, `darwin/`, `macos/`, `windows/`, `hook/`), a
+   pinned CDN version or a `pubspec.yaml` floor:
+
+   ```bash
+   bash tool/skills_review.sh origin/main   # which skills the diff puts in doubt
+   dart tool/check_skills.dart              # compiles every block; exit 0 required
+   dart run skills_lint@0.5.1               # file-level rules; exit 0 required
+   ```
+
+   The two gates also run in CI (`skills` job), so a rename is caught without
+   you. What CI cannot catch is a symbol that survives while its MEANING moves —
+   `getActiveStt(language:)` went from "the language this recognizer was built
+   with" to "the default for its transcriptions" with no rename anywhere. That
+   is what reading the flagged skills is for. Step 12d is the release backstop,
+   not the first time this happens.
 
 ### Definition of Done (paste it; check 1a–12b before Step 10 publish; 12c is verified after merge)
 
@@ -44,14 +63,20 @@ silently do the other thing.
 [ ] 5b  manifest gate RUN and printed "N platform(s) compared" — N == number of tarballs
 [ ] 1e  core public API changed? → upgrade-genkit (realign + version), else N/A
 [ ] 1f  shared code duplicated across satellites patched everywhere (grep the pattern)
-[ ] 1f-bis  tool/check_macos_podfile_snippet.sh passes (5 copies of the macOS
-        post_install snippet identical) — RUN it, do not eyeball
+[ ] 1f-bis  tool/check_macos_podfile_snippet.sh passes (every copy of the macOS
+        post_install snippet byte-identical — 23 today: three example Podfiles,
+        the codelab step apps, README, desktop.md and the inference skill's
+        references/platform-setup.md) — RUN it, do not eyeball
 [ ] 1g  each changed satellite's flutter_gemma: floor >= the core version it now needs
 [ ] 2   versions bumped: pubspec + podspec (if any) + CLAUDE.md Current-Version line
 [ ] 7   CHANGELOG: one short line per package, every published package
 [ ] 8   dart pub publish --dry-run → 0 warnings, every package
 [ ] 12a website + README version pins bumped to the just-published versions
 [ ] 12b new/changed public API + behavior documented (README + website)  ← SAME PR
+[ ] 12d skills/: `skills_review.sh <last-tag>` run, every flagged skill READ,
+        updated where the prose drifted, `dart tool/check_skills.dart` green and
+        `dart run skills_lint@0.5.1` green — backstop: rule 4 means the PRs in
+        this release already did it
 [ ] 12c after merge: firebase-hosting-merge run == success (not just triggered)
 ```
 
@@ -614,6 +639,91 @@ Update each `^X.Y.Z` for the core packages (`flutter_gemma`, `flutter_gemma_lite
 - **New / changed public API** → the topic doc that covers it (e.g. a new `createSession` param → `getting-started.md`; multimodal → `multimodal.md`; models → `models.md`).
 - **Breaking changes / migrations** → `migration.md`.
 - **A bug class users hit** → `troubleshooting.md` (e.g. the #318 `maxTokens` vs `maxOutputTokens` confusion belongs here).
+
+### 12d. Update the shipped agent skills — they are read by a MACHINE
+
+`packages/flutter_gemma/skills/` holds eight `SKILL.md` files that ship inside
+the core archive and are installed into users' coding agents by
+`dart run skills@ get --all`. They are not a nice-to-have copy of the docs: an agent
+follows them literally when writing code against this package.
+
+That makes stale skills worse than stale docs. A human reading an outdated
+README notices the mismatch; an agent does not — it writes confident, wrong code
+against an API that moved, and the user blames the package.
+
+**If this release changed public API or behaviour, the skills change with it.**
+Map the change to the skill that covers it:
+
+| Area | Skill |
+|------|-------|
+| registry, install, `ModelFileType`, `maxTokens`, sessions, chat, the `.litertlm` engine, backends, platform setup | `flutter-gemma-inference` (+ `references/platform-setup.md`) |
+| function calling | `flutter-gemma-function-calling` |
+| `.task`/`.bin`, MediaPipe web | `flutter-gemma-mediapipe` |
+| ONNX / ORT-GenAI | `flutter-gemma-onnx` |
+| the OS built-in model | `flutter-gemma-builtin-ai` |
+| STT, TTS, `VoiceSession` | `flutter-gemma-speech` |
+| embeddings, vector stores | `flutter-gemma-rag` |
+
+**Do not go looking by hand.** Ask the diff which skills it puts in doubt:
+
+```bash
+bash tool/skills_review.sh <last-tag>      # e.g. v1.8.0
+```
+
+For each skill it prints the symbols that skill NAMES and this release TOUCHED.
+Run against the STT release it names `flutter-gemma-speech` with
+`getActiveStt`, `language`, `SttModelType.whisper`; against the
+`createChat`-tools fix it names the function-calling skill and leaves speech
+alone.
+That is the routing — a skill with hits gets opened, a skill without one gets
+skipped with a clear conscience.
+
+**Then open every flagged skill and read it against the change.** This is the
+step, not the script. The script cannot tell whether the prose is still true;
+it only says where to look.
+
+Finally the mechanical gate:
+
+```bash
+dart tool/check_skills.dart   # exit 0 required
+```
+
+It COMPILES the skills: every ```dart fence becomes a function body, every
+inline `Type` and `Type.member` in the prose becomes a declaration, and
+`dart analyze` runs over the result inside the example app, which depends on
+every package. A misspelt parameter, a method that moved, a switch that is no
+longer exhaustive — all fail. Read the count it prints, not just the exit code:
+a run that extracted nothing exits 2 rather than reporting a pass.
+
+It replaced a grep-based check that was green on four APIs that did not exist —
+`gemma3` matched a model URL, `limit:` an unrelated argument. A text search
+cannot tell "this name exists" from "this code is right".
+
+And the file-level check, Google's linter for the Agent Skills format:
+
+```bash
+dart run skills_lint@0.5.1     # exit 0 required; config in skills_lint.yaml
+```
+
+It checks what compilation cannot: frontmatter keys the spec allows (these
+skills install into eight different agents, and the reference validator rejects
+anything outside its allowlist), a `name` that matches its directory, the
+1024-character description budget, and every relative link resolving — that last
+one is off upstream by default and an error here, so a renamed
+`references/platform-setup.md` fails instead of handing an agent a dead pointer.
+
+Both run in CI as the `skills` job (`.github/workflows/test.yml`), so a PR that
+breaks either is red before it reaches this checklist.
+
+**Why both.** `check_skills.dart` answers "does this code still compile" —
+renames, deletions, signature changes. It stays green when a symbol survives and its MEANING moves,
+which is the failure that actually happened here: `getActiveStt(language:)` went
+from "the language this recognizer was built with" to "the default for its
+transcriptions" with no rename anywhere. `skills_review.sh` is what puts that
+change in front of your eyes; only reading closes it.
+
+Skills live only in `flutter_gemma`, so a fix to any of them is one publish of
+core. That is why they are all there rather than in the packages they describe.
 
 ### 12c. Deploy — it's automatic on merge to main
 

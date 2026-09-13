@@ -12,6 +12,14 @@ exposes the LiteRt interpreter FFI (`LiteRtBindings`); both are shared by
 [flutter_gemma_embeddings](https://pub.dev/packages/flutter_gemma_embeddings)'s
 runtime-agnostic embedding pipeline.
 
+## Teach your AI assistant this package
+
+```bash
+dart run skills@ get --all
+```
+
+Installs the agent skills `flutter_gemma` bundles — this package depends on it, so they come with it. One of them, `flutter-gemma-inference`, covers the `.litertlm` engine, installing a model from Hugging Face, sessions, streaming, and the platform setup for all six targets.
+
 ## Usage
 
 ```dart

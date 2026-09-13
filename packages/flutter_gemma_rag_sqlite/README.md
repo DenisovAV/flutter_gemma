@@ -14,6 +14,14 @@ Both arms speak the same `vec0` SQL dialect, so KNN and `Filter` behave
 identically across all six platforms. A `vec0` table declares an `id TEXT
 PRIMARY KEY`, so KNN returns the document id directly — no JOIN, no rowid bridge.
 
+## Teach your AI assistant this package
+
+```bash
+dart run skills@ get --all
+```
+
+Installs the agent skills `flutter_gemma` bundles — this package depends on it, so they come with it. One of them, `flutter-gemma-rag`, covers embedding models, both vector stores, and the metadata filters — including the `filterSchema` trap that silently returns unfiltered results.
+
 ## Usage
 
 ```dart

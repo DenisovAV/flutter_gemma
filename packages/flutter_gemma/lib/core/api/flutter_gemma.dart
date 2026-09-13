@@ -1011,7 +1011,11 @@ class FlutterGemma {
   /// throws a clear "add a RAG package" error.
   ///
   /// ```dart
-  /// await FlutterGemma.rag.initialize('rag.db');
+  /// // Native: an absolute path in a writable directory. A bare name resolves
+  /// // against the process working directory, which is not writable on
+  /// // Android or iOS. Web: a bare name is fine.
+  /// final dir = await getApplicationDocumentsDirectory(); // path_provider
+  /// await FlutterGemma.rag.initialize('${dir.path}/rag.db');
   /// await FlutterGemma.rag.addDocument(id: '1', content: 'hello');
   /// final hits = await FlutterGemma.rag.searchSimilar(query: 'hi');
   /// await FlutterGemma.rag.removeDocument(id: '1');

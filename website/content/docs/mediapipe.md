@@ -114,3 +114,5 @@ final model = await FlutterGemma.getActiveModel(
 - [Models](/docs/models) — supported models, formats, and download sources
 - [LiteRT-LM](/docs/litertlm) — the `.litertlm` engine (mobile **and** desktop)
 - [Packages](/docs/packages) — the full opt-in package list and their APIs
+
+**Writing this with a coding assistant?** `dart run skills@ get --all` installs [`flutter-gemma-mediapipe`](/docs/package-skills), the skill that teaches it `.task` and `.bin` models on Android, iOS and web.

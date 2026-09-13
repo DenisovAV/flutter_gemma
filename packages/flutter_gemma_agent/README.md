@@ -70,6 +70,11 @@ WebView), verified on hardware. On web the skill runs in a sandboxed `<iframe>`.
 
 ## Bundled starter skills
 
+These are skills the **on-device model** runs at inference time — not the
+[package skills](https://pub.dev/packages/flutter_gemma) `flutter_gemma` bundles
+for your *coding assistant*. They ship under `assets/skills/`, which the `skills`
+CLI does not scan, so `dart run skills@ get --all` never installs them.
+
 Eight starter skills ship as package assets, spanning the JS, native-intent, and
 text-only mechanisms (write your own `SKILL.md` for MCP):
 

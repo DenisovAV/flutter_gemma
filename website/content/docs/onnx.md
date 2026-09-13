@@ -102,7 +102,7 @@ bytes:
 await FlutterGemma.installModel(
   modelType: ModelType.general,
   fileType: ModelFileType.onnx,
-).fromNetwork('onnx-community/Qwen2.5-0.5B-Instruct').install();
+).fromNetwork('https://huggingface.co/onnx-community/Qwen2.5-0.5B-Instruct').install();
 ```
 
 From here the code is identical to any other engine:
@@ -187,3 +187,5 @@ either module, so the shim must run before the Flutter app boots.
 - [Models](/docs/models) — the full supported-model matrix.
 - [Packages](/docs/packages) — every opt-in engine and backend, including
   `flutter_gemma_onnx`.
+
+**Writing this with a coding assistant?** `dart run skills@ get --all` installs [`flutter-gemma-onnx`](/docs/package-skills), the skill that teaches it ORT-GenAI generation and ONNX embeddings, native and through Transformers.js.

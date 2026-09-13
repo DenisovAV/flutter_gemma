@@ -56,17 +56,33 @@ There is an example of using:
 - **🔐 Typed Download Errors:** Catch the public `DownloadException` sealed type (401/403/404/429/5xx) for gated HuggingFace models instead of substring-matching error strings
 - **💾 Web Persistent Caching:** Models persist across browser restarts — Cache API for models <2GB, OPFS streaming for large ones (>2GB, e.g. Gemma 4 E4B) — no re-download on reload (Web only)
 
-## What's new in 1.6.4
+## Teach your AI assistant this package
 
-- 📱 **iOS deployment floor lowered to 15.0** — core, built-in AI and embeddings build from iOS 15.0 (only `flutter_gemma_mediapipe` still needs 16.0). Every OS-26-only Foundation Models call is `#available`-guarded ([#441](https://github.com/DenisovAV/flutter_gemma/issues/441)).
+`flutter_gemma` ships [agent skills](https://dart.dev/blog/skills-cli-1-0-bundle-and-distribute-ai-agent-skills-for-your-packages) — short instruction files your coding assistant reads so it uses this API correctly the first time:
 
-## What's new in 1.6.3
+```bash
+dart run skills@ get --all
+```
 
-- 📥 **flutter_gemma no longer claims `background_downloader`'s updates stream** — depending on this package used to make `FileDownloader().updates` unusable for your own downloads, because that stream takes a single subscription. Updates are now scoped to flutter_gemma's own task group ([#445](https://github.com/DenisovAV/flutter_gemma/issues/445)). Download priority is also corrected per platform.
+That scans your dependencies and installs every skill they bundle where your agent looks — Claude Code, Codex, Cursor, Antigravity, Cline, Copilot and OpenCode are supported. If it reports that it could not detect your agent, name it with `--agent claude` (or `codex`, `cursor`, …).
 
-## What's new in 1.6.2
+What they cover: registering an engine (core ships none), routing by the declared `ModelFileType` rather than the filename, and the two defaults that fail quietly — `maxTokens` is the context window and not the reply length, and `Message.isUser` defaults to `false`.
 
-- 🌐 **ONNX on Web** — `flutter_gemma_onnx`'s `OnnxEngine` now generates text on Web via Transformers.js, with a fileless `ModelFileType.onnx` install (the model is a Hugging Face repo id, not a directory). `OnnxEmbeddingBackend` gained a web arm too, via onnxruntime-web. See [`flutter_gemma_onnx`](https://pub.dev/packages/flutter_gemma_onnx).
+## What's new in 1.8.2
+
+- 🤖 **Agent skills ship with the package** — `dart run skills@ get --all` installs seven skills that teach your coding assistant this API: inference (with platform setup), function calling, RAG, speech, MediaPipe, ONNX and built-in AI. Every code block in them is compiled against these packages before each release.
+
+## What's new in 1.8.1
+
+- 💾 **`VectorStoreRepository.flush()`** — a RAG index now survives the process; custom `VectorStoreRepository` implementations must declare it ([#492](https://github.com/DenisovAV/flutter_gemma/issues/492)).
+
+## What's new in 1.8.0
+
+- 🗣️ **Whisper output language per transcription** — `getActiveStt(language:)` sets the default and `transcribe(pcm, language:)` overrides it for one call, with no reload. **Breaking for custom `SpeechRecognizer` implementations**: `transcribe` gained `language:` and the type gained a `language` field ([#500](https://github.com/DenisovAV/flutter_gemma/issues/500)).
+
+## What's new in 1.7.0
+
+- 🤗 **One-call Hugging Face installs** — `fromHuggingFace(repo)` reads a repo's deployment manifest, picks the variant for the device and returns its tested runtime defaults; every engine carries its own resolver.
 
 📖 Full docs & guides: **[fluttergemma.dev](https://fluttergemma.dev)**
 
@@ -1682,8 +1698,11 @@ await FlutterGemma.installEmbedder()
     )
     .install();
 
-// 2. Initialize the vector store (one shard per database path)
-await FlutterGemmaPlugin.instance.initializeVectorStore('rag_store');
+// 2. Initialize the vector store (one shard per database path). On native pass
+//    an absolute path: a bare name resolves against the process working
+//    directory, which is not writable on Android or iOS. On web a name is enough.
+final dir = await getApplicationDocumentsDirectory(); // package:path_provider
+await FlutterGemmaPlugin.instance.initializeVectorStore('${dir.path}/rag_store');
 
 // 3. Add documents — let the plugin compute embeddings for you
 for (final doc in docs) {

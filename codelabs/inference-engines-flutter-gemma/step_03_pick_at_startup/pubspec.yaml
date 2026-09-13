@@ -36,10 +36,10 @@ dependencies:
   cupertino_icons: ^1.0.8
 
   # The engine-agnostic core: registry, install/runtime API, chat.
-  flutter_gemma: ^1.7.1
+  flutter_gemma: ^1.8.1
   # The .litertlm inference engine. Engines are opt-in — core
   # registers none, so this package must be added explicitly.
-  flutter_gemma_litertlm: ^1.6.2
+  flutter_gemma_litertlm: ^1.6.3
   # The OS built-in engine: Gemini Nano (Android, Chrome), Apple
   # Foundation Models (iOS, macOS). No file to download — the OS or the
   # browser owns the weights. Windows and Linux have no built-in arm.

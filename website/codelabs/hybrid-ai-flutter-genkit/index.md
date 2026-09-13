@@ -308,6 +308,18 @@ are ordinary HTTPS requests (`android/app/src/main/AndroidManifest.xml`):
     <uses-permission android:name="android.permission.INTERNET" />
 ```
 
+…and the API floor in `android/app/build.gradle.kts`, because the on-device
+half of the app loads `libLiteRtLm.so`:
+
+```kotlin
+defaultConfig {
+    // …
+    // libLiteRtLm.so needs API 30+ Bionic (pthread_cond_clockwait,
+    // sem_clockwait). Below 30 the app installs and then fails at the first
+    // model load with a dlopen error.
+    minSdk = 30
+```
+
 **iOS** — a deployment target of 15.0 or newer, and three memory entitlements in
 `ios/Runner/Runner.entitlements`:
 
@@ -393,10 +405,10 @@ Add `genkit_flutter_gemma` and `flutter_gemma`:
 ```yaml
   # Step 3: On-device AI (LiteRT-LM engine)
   genkit_flutter_gemma: ^0.6.0
-  flutter_gemma: ^1.7.0
+  flutter_gemma: ^1.8.1
   # flutter_gemma 1.x registers no engine by default — opt into LiteRT-LM
   # (.litertlm inference) here.
-  flutter_gemma_litertlm: ^1.6.1
+  flutter_gemma_litertlm: ^1.6.3
 ```
 
 Run `flutter pub get`.

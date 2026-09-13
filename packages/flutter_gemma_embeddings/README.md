@@ -13,6 +13,14 @@ only on `flutter_gemma`. Pair it with an engine package that implements
 API + `dart:ffi`). Most apps only ever interact with `flutter_gemma_litertlm`
 directly — it re-exports the pieces you register.
 
+## Teach your AI assistant this package
+
+```bash
+dart run skills@ get --all
+```
+
+Installs the agent skills `flutter_gemma` bundles — this package depends on it, so they come with it. One of them, `flutter-gemma-rag`, covers embedding models, the vector stores, and metadata filters.
+
 ## Usage
 
 ```dart

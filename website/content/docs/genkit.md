@@ -20,8 +20,9 @@ with the on-device model exactly as it would with any cloud provider.
 
 ```
 dependencies:
+  genkit: ^0.16.0                  # the framework itself — every snippet below uses it
   genkit_flutter_gemma: ^0.6.0
-  flutter_gemma: ^1.8.1
+  flutter_gemma: ^1.8.2
   # Add the inference engine(s) you need:
   flutter_gemma_litertlm: ^1.6.3   # .litertlm models (mobile + desktop) + LiteRtEmbeddingBackend
   flutter_gemma_mediapipe: ^1.0.5  # .task / .bin models (mobile + web)
@@ -51,6 +52,10 @@ await FlutterGemma.initialize(
 await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
     .fromAsset('assets/gemma-3-1b-it-int4.task')
     .install();
+
+// For a .litertlm model declare the type in BOTH places — installModel(
+// fileType: ModelFileType.litertlm) and FlutterGemmaModelConfig(fileType: ...).
+// Both default to ModelFileType.task, which routes the model to MediaPipe.
 
 // 3. Create a Genkit instance with the plugin.
 final ai = Genkit(plugins: [
@@ -102,6 +107,16 @@ final embeddings = await ai.embed(
 );
 ```
 
+<Warning>
+The Genkit embedder always embeds with flutter_gemma's default
+`TaskType.retrievalQuery` prefix — `FlutterGemmaEmbedConfig` has no `taskType`
+option. For RAG **indexing**, where documents must be embedded with
+`TaskType.retrievalDocument`, call
+`FlutterGemma.getActiveEmbedder().generateEmbeddings(..., taskType: ...)`
+directly. Mixing the two prefixes is the cross-prefix drift that #264 fixed at
+the core level. See [Embeddings & RAG](/docs/embeddings-and-rag).
+</Warning>
+
 ### Configuration options
 
 Pass `FlutterGemmaModelOptions` to tune inference:
@@ -124,8 +139,11 @@ final response = await ai.generate(
 );
 ```
 
-`toolChoice` maps to Genkit 0.15's native top-level `toolChoice`: `'auto'`
-lets the model decide, `'required'` forces a tool call, `'none'` forbids one.
+Prefer Genkit's standard top-level parameter — `ai.generate(toolChoice: 'none')`
+— which takes **precedence** over the `toolChoice` config field above (kept as a
+legacy fallback). Either way: `'auto'` lets the model decide, `'required'` forces
+a tool call, `'none'` forbids one. An unrecognized value throws
+`INVALID_ARGUMENT` rather than quietly falling back to `'auto'`.
 
 <Info>
 The plugin does **not** manage model installation. Call
@@ -298,12 +316,21 @@ hybridModel(
 );
 ```
 
-### Streaming and fallback
+### Error policy and fallback
 
-Fallback during streaming happens **only before the first token**. If a branch
-fails before emitting any output, the next branch is tried transparently. Once
-the first token has streamed, a later failure propagates as an error — a
-partially delivered response cannot be silently re-routed.
+Fallback is error-driven: the strategy picks an order, and the next branch is
+tried only when the current one **throws**, and only on a transient failure —
+any non-`GenkitException` error (network, timeout, OOM), or a `GenkitException`
+with `UNAVAILABLE`, `DEADLINE_EXCEEDED`, `RESOURCE_EXHAUSTED` or `INTERNAL`.
+Permanent errors — `INVALID_ARGUMENT`, `PERMISSION_DENIED`, `UNAUTHENTICATED`,
+`FAILED_PRECONDITION`, `NOT_FOUND` — propagate immediately, since they would
+fail the same way on every branch. A `GenkitException` thrown without an
+explicit status defaults to `INTERNAL`, so it *is* retried.
+
+During **streaming** the same policy applies plus a hard cut-off: fallback is
+possible only before the first token. Once a branch has emitted a chunk, any
+later failure propagates — a partially delivered response cannot be silently
+re-routed.
 
 ### Escalate on a quality check with `cascadeModel`
 

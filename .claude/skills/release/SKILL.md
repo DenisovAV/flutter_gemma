@@ -34,6 +34,25 @@ silently do the other thing.
 3. **Reproduce this Definition-of-Done in your reply and mark every item**
    (done / N/A + reason) before you publish. Do not publish off memory of the
    skill — walk it as a literal checklist against the actual repo state.
+4. **The skills are fixed in the PR that changes the API, not at release time.**
+   `packages/flutter_gemma/skills/**` ships inside core and is read by other
+   people's coding agents, so a stale sentence there becomes confident, broken
+   code in someone else's app. On any PR touching `packages/*/lib/**`, a native
+   build file (`android/`, `ios/`, `darwin/`, `macos/`, `windows/`, `hook/`), a
+   pinned CDN version or a `pubspec.yaml` floor:
+
+   ```bash
+   bash tool/skills_review.sh origin/main   # which skills the diff puts in doubt
+   dart tool/check_skills.dart              # compiles every block; exit 0 required
+   dart run skills_lint@0.5.1               # file-level rules; exit 0 required
+   ```
+
+   The two gates also run in CI (`skills` job), so a rename is caught without
+   you. What CI cannot catch is a symbol that survives while its MEANING moves —
+   `getActiveStt(language:)` went from "the language this recognizer was built
+   with" to "the default for its transcriptions" with no rename anywhere. That
+   is what reading the flagged skills is for. Step 12d is the release backstop,
+   not the first time this happens.
 
 ### Definition of Done (paste it; check 1a–12b before Step 10 publish; 12c is verified after merge)
 
@@ -44,8 +63,10 @@ silently do the other thing.
 [ ] 5b  manifest gate RUN and printed "N platform(s) compared" — N == number of tarballs
 [ ] 1e  core public API changed? → upgrade-genkit (realign + version), else N/A
 [ ] 1f  shared code duplicated across satellites patched everywhere (grep the pattern)
-[ ] 1f-bis  tool/check_macos_podfile_snippet.sh passes (5 copies of the macOS
-        post_install snippet identical) — RUN it, do not eyeball
+[ ] 1f-bis  tool/check_macos_podfile_snippet.sh passes (every copy of the macOS
+        post_install snippet byte-identical — 23 today: three example Podfiles,
+        the codelab step apps, README, desktop.md and the inference skill's
+        references/platform-setup.md) — RUN it, do not eyeball
 [ ] 1g  each changed satellite's flutter_gemma: floor >= the core version it now needs
 [ ] 2   versions bumped: pubspec + podspec (if any) + CLAUDE.md Current-Version line
 [ ] 7   CHANGELOG: one short line per package, every published package
@@ -54,7 +75,8 @@ silently do the other thing.
 [ ] 12b new/changed public API + behavior documented (README + website)  ← SAME PR
 [ ] 12d skills/: `skills_review.sh <last-tag>` run, every flagged skill READ,
         updated where the prose drifted, `dart tool/check_skills.dart` green and
-        `dart run skills_lint@0.5.1` green
+        `dart run skills_lint@0.5.1` green — backstop: rule 4 means the PRs in
+        this release already did it
 [ ] 12c after merge: firebase-hosting-merge run == success (not just triggered)
 ```
 

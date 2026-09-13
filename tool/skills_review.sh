@@ -36,6 +36,19 @@ if [ ! -d "$SKILLS_DIR" ]; then
   exit 2
 fi
 
+# A ref this checkout cannot resolve — a typo, or a tag never fetched into a
+# fresh clone or worktree — used to read as "nothing changed": `git diff` wrote
+# to stderr, the diff file stayed empty, and the script printed the all-clear
+# and exited 0. That green-lights skipping every skill, which is the one answer
+# this script must never give by accident.
+for r in "$FROM" "$TO"; do
+  if ! git rev-parse --verify -q "$r^{commit}" >/dev/null; then
+    echo "unknown ref: $r" >&2
+    echo "  fetch it first, or pass one this checkout has (git tag, git branch -a)" >&2
+    exit 2
+  fi
+done
+
 # Added/removed source lines only. A symbol that merely sits near a change is
 # not evidence; a symbol on a +/- line is.
 DIFF=$(mktemp)

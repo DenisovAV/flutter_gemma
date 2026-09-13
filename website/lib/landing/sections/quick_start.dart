@@ -3,15 +3,16 @@ import 'package:jaspr/jaspr.dart';
 
 import '../../theme/brand.dart';
 
-const _code = '''FlutterGemma.initialize(
+const _code = '''await FlutterGemma.initialize(
   inferenceEngines: [LiteRtLmEngine(), MediaPipeEngine()],
   embeddingBackends: [LiteRtEmbeddingBackend()],
   vectorStore: QdrantVectorStore(),
 );
 
-await FlutterGemma.installModel(modelType: ModelType.gemma4)
-    .fromNetwork('https://.../gemma-4-E2B-it.litertlm')
-    .install();
+await FlutterGemma.installModel(
+  modelType: ModelType.gemma4,
+  fileType: ModelFileType.litertlm, // the declared type picks the engine
+).fromNetwork('https://.../gemma-4-E2B-it.litertlm').install();
 
 final model = await FlutterGemma.getActiveModel(maxTokens: 2048);
 final chat = await model.createChat();

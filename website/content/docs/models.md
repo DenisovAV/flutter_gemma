@@ -87,7 +87,7 @@ MediaPipe `.task` build.
 | **SmolVLM2 500M** | Compact vision-language model | ❌ | ❌ | ✅ | Multilingual | 0.36GB |
 | **LLaVA-OneVision 0.5B** | Compact vision-language model | ❌ | ❌ | ✅ | Multilingual | 0.83GB |
 | **Phi-4 Mini** | Advanced reasoning and instruction following | ✅ | ❌ | ❌ | Multilingual | 3.9GB |
-| **Phi-4 Mini Reasoning** | Step-by-step reasoning | ❌ | ✅ | ❌ | Multilingual | 2.8GB |
+| **Phi-4 Mini Reasoning** | Step-by-step reasoning | ❌ | ⚠️ ‡ | ❌ | Multilingual | 2.8GB |
 | **DeepSeek R1** | High-performance reasoning and code generation | ✅ | ✅ | ❌ | Multilingual | 1.7GB |
 | **Qwen3 0.6B** | Compact multilingual chat with function calling | ✅ | ✅ | ❌ | Multilingual | 586MB |
 | **Qwen 2.5** | Strong multilingual chat and instruction following | ✅ | ❌ | ❌ | Multilingual | 0.5-1.6GB |
@@ -96,11 +96,17 @@ MediaPipe `.task` build.
 | **FunctionGemma 270M** | Specialized for function calling on-device | ✅ | ❌ | ❌ | Multilingual | 284MB |
 | **SmolLM 135M** | Ultra-compact, resource-constrained devices | ❌ | ❌ | ❌ | English | 135MB |
 | **LFM2.5 230M** | Smallest entry; no HF token needed | ❌ | ❌ | ❌ | Multilingual | 168MB |
-| **SmolLM3 3B** | Multilingual small LLM with reasoning mode | ❌ | ✅ | ❌ | Multilingual | 2.0GB |
+| **SmolLM3 3B** | Multilingual small LLM with reasoning mode | ❌ | ⚠️ ‡ | ❌ | Multilingual | 2.0GB |
 | **TranslateGemma 4B** † | Single-shot 55-language translation | ❌ | ❌ | ❌ | 55 languages | 2-4GB |
 
-¹ Gemma 4 **Thinking Mode** works on Android, iOS, and Desktop only — **not on
-Web** (the MediaPipe web engine does not support the `extraContext` thinking path).
+¹ Gemma 4 **Thinking Mode** needs the native `extraContext` channel: Android, iOS
+and Desktop only. Qwen3 and DeepSeek R1 reasoning is split out of the text by
+flutter_gemma itself, so it works on every platform including Web.
+
+‡ **Reasons, but emits no `ThinkingResponse`.** These models run as
+`ModelType.general`, which has no reasoning parser — their thinking blocks
+arrive inside the answer as ordinary text and are not stripped. See
+[Thinking Mode](/docs/thinking-mode).
 
 <Warning>
 † **TranslateGemma is CPU-only for now.** Google hasn't released a

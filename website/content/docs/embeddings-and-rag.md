@@ -166,9 +166,12 @@ implementations must declare `flush()`.
 Both stores honor `Filter` on **all platforms**, and both need the filterable
 fields declared up front in a `FilterSchema` (see below). qdrant-edge promotes
 exactly the declared fields to payload keys at write time; sqlite-vec creates
-them as columns at table-creation time. On either store a filter on an
-undeclared field is a no-op — it matches nothing and never throws, so a missing
-declaration looks like "no results" rather than an error.
+them as columns at table-creation time. On either store a condition on an
+undeclared field is **dropped**, as if it had never been written: the search
+returns the same hits as `filter: null`, and a filter mixing declared and
+undeclared fields narrows only by the declared ones. A missing declaration
+therefore looks like "my filter had no effect" — too many results, never an
+error and never zero.
 
 ### Declaring filter fields
 
@@ -217,12 +220,11 @@ A `Filter` over the declared fields is then applied inside the store; a filter
 referencing an **undeclared** field is silently ignored (no-op, never throws).
 
 <Warning>
-Declare a `FilterSchema` on **both** stores. qdrant-edge promotes only the fields
-named in the schema to payload keys — an undeclared field is absent from the
-payload, so a `Filter` on it matches nothing and the search returns zero hits
-rather than an error. The difference between the two stores is not "schema
-optional": it is that sqlite-vec needs the schema at table-creation time, while
-qdrant promotes at write time.
+Declare a `FilterSchema` on **both** stores. Neither store filters on a field it
+was not told about: the condition is dropped and the search comes back
+unfiltered, with no error and no log in a release build. The difference between
+the two is not "schema optional": sqlite-vec needs the schema at table-creation
+time, while qdrant promotes at write time.
 </Warning>
 
 ## Platform support

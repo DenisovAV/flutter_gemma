@@ -144,19 +144,25 @@ final chat = await model.createChat(
 - **`.litertlm` on every platform, native and web**: passed as a real system turn.
 - **MediaPipe `.task` on web**: prepended to the first user message as a fallback.
 
-### Runtime parameters are fixed at first load
+### Changing a runtime parameter reloads the model
 
-`getActiveModel` returns a **cached singleton**. A second call for the same
-active model hands back the same object and **discards** the new arguments — so
-this does not produce two differently-sized models:
+`getActiveModel` caches one model per active spec, but it compares every runtime
+parameter — `maxTokens`, `preferredBackend`, `supportImage`,
+`maxConcurrentSessions` and the rest. A call that differs in any of them
+**closes the cached model and builds a new one**, logging which parameter forced
+the rebuild:
 
 ```dart
 final quick = await FlutterGemma.getActiveModel(maxTokens: 512);
 final deep  = await FlutterGemma.getActiveModel(maxTokens: 4096);
-// deep is quick. Its context window is whatever the FIRST call set.
+// deep is a NEW model, and `quick` has been closed — using it now throws
+// StateError('Session is closed'). Drop the old handle.
 ```
 
-To change `maxTokens` or the backend, close the model and load it again:
+So don't hold a handle across a parameter change, and don't vary the arguments
+on a hot path: each change costs a full weight reload. To serve several
+conversations from one loaded model, keep the arguments identical and open
+several sessions instead (below). Closing it yourself first is equivalent:
 
 ```dart
 await quick.close();

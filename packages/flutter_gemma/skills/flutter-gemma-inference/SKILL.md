@@ -15,6 +15,7 @@ description: Use when adding on-device LLM inference to a Flutter app with flutt
 6. Close a session or chat when its conversation ends. Keep the model while the feature is in use, and close it when the app no longer needs it.
 7. Keep Hugging Face tokens out of source: read them with `String.fromEnvironment`. That keeps a token out of git, not out of the app — it is compiled into the binary, and on web into `main.dart.js`. A shipped app should download from a repo that needs no token.
 8. On Android, set `minSdk 30` for anything built on `.litertlm` — inference, embeddings, speech.
+9. Read [references/platform-setup.md](references/platform-setup.md) before the first build on a platform: without those entries the model fails to load or the app is killed for memory.
 
 ## Setup — the recommended engine (.litertlm)
 
@@ -251,4 +252,4 @@ Read `activeBackend` rather than assuming the requested one loaded; the web `.li
 
 ## Platform setup
 
-Android needs `minSdk 30` and the internet permission in release builds, and ships `arm64-v8a` only. iOS needs Podfile or Xcode settings and memory entitlements; macOS needs entitlements and a Podfile build phase; web needs script tags in `web/index.html`. Read `references/platform-setup.md` before building for any of them — without those entries the model fails to load or the app runs out of memory.
+Android needs `minSdk 30` and the internet permission in release builds, and ships `arm64-v8a` only. iOS needs Podfile or Xcode settings and memory entitlements; macOS needs entitlements and a Podfile build phase; web needs script tags in `web/index.html`. Read [references/platform-setup.md](references/platform-setup.md) before building for any of them — without those entries the model fails to load or the app runs out of memory.

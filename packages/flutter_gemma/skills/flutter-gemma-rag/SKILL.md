@@ -13,7 +13,7 @@ description: Use when adding RAG, semantic search or text embeddings to a flutte
 4. Activate an embedding model with `getActiveEmbedder()` before `addDocument`.
 5. `LiteRtEmbeddingBackend` comes from `flutter_gemma_litertlm`, not `flutter_gemma_embeddings`.
 6. On web use `WebSqliteVectorStore`; `SqliteVectorStore` throws `UnimplementedError` there. `flutter_gemma_rag_qdrant` is native-only.
-7. Android needs `minSdk 30`.
+7. Android needs `minSdk 30` — the LiteRT embedding runtime, not the vector store. The rest of the build setup is the flutter-gemma-inference skill's [platform setup](../flutter-gemma-inference/references/platform-setup.md).
 
 ## Setup
 

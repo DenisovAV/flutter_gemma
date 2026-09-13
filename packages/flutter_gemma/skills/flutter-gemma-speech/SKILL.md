@@ -32,7 +32,7 @@ await FlutterGemma.initialize(
 );
 ```
 
-Speech runs on the same native libraries as the `.litertlm` engine. Its build setup — Android `minSdk 30`, the Apple entries — is in `references/platform-setup.md` of the flutter-gemma-inference skill.
+Speech runs on the same native libraries as the `.litertlm` engine. Its build setup — Android `minSdk 30`, the Apple entries — is in the flutter-gemma-inference skill's [platform setup](../flutter-gemma-inference/references/platform-setup.md), installed alongside this one.
 
 ## Speech-to-text
 

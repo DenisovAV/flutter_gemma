@@ -53,7 +53,8 @@ silently do the other thing.
 [ ] 12a website + README version pins bumped to the just-published versions
 [ ] 12b new/changed public API + behavior documented (README + website)  ← SAME PR
 [ ] 12d skills/: `skills_review.sh <last-tag>` run, every flagged skill READ,
-        updated where the prose drifted, and `dart tool/check_skills.dart` green
+        updated where the prose drifted, `dart tool/check_skills.dart` green and
+        `dart run skills_lint@0.5.1` green
 [ ] 12c after merge: firebase-hosting-merge run == success (not just triggered)
 ```
 
@@ -675,6 +676,22 @@ a run that extracted nothing exits 2 rather than reporting a pass.
 It replaced a grep-based check that was green on four APIs that did not exist —
 `gemma3` matched a model URL, `limit:` an unrelated argument. A text search
 cannot tell "this name exists" from "this code is right".
+
+And the file-level check, Google's linter for the Agent Skills format:
+
+```bash
+dart run skills_lint@0.5.1     # exit 0 required; config in skills_lint.yaml
+```
+
+It checks what compilation cannot: frontmatter keys the spec allows (these
+skills install into eight different agents, and the reference validator rejects
+anything outside its allowlist), a `name` that matches its directory, the
+1024-character description budget, and every relative link resolving — that last
+one is off upstream by default and an error here, so a renamed
+`references/platform-setup.md` fails instead of handing an agent a dead pointer.
+
+Both run in CI as the `skills` job (`.github/workflows/test.yml`), so a PR that
+breaks either is red before it reaches this checklist.
 
 **Why both.** `check_skills.dart` answers "does this code still compile" —
 renames, deletions, signature changes. It stays green when a symbol survives and its MEANING moves,

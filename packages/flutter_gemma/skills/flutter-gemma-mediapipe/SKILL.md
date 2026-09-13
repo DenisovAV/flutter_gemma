@@ -12,7 +12,7 @@ description: Use when running .task or .bin models (MediaPipe GenAI, ModelFileTy
 3. An app that includes this package needs iOS 16.0.
 4. There is no desktop support.
 5. `maxTokens` is the real context limit — small values are not raised as they are on `.litertlm`. `maxOutputTokens` is ignored; stop generation with `session.stopGeneration()`.
-6. On Android and iOS, `createChat` does not inherit image support from the model — pass `supportImage: true` to the chat as well.
+6. On Android and iOS, `createChat` inherits the model's audio support but **not** its image support — pass `supportImage: true` to the chat as well, or the image is dropped.
 
 ## Setup
 
@@ -34,7 +34,7 @@ await FlutterGemma.installModel(
 final InferenceModel model = await FlutterGemma.getActiveModel(maxTokens: 1024);
 ```
 
-Sessions, chats, streaming and the common traps work as in the flutter-gemma-inference skill.
+Sessions, chats, streaming and the common traps work as in the flutter-gemma-inference skill — except that `openSession` / `openChat` (its concurrent-conversation pattern) work on Android and iOS only; on web they throw `UnsupportedError`.
 
 ## iOS
 

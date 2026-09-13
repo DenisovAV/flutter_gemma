@@ -8,11 +8,11 @@ description: Use when adding RAG, semantic search or text embeddings to a flutte
 ## Rules
 
 1. Use the `FlutterGemma.rag` facade: `initialize`, `addDocument`, `searchSimilar`. It embeds documents and queries with the correct task types.
-2. Declare every field used in a filter in `filterSchema:` at `initialize`. A filter on an undeclared field — or any filter with no schema — is silently ignored and returns unfiltered results.
+2. Declare every field used in a filter in `filterSchema:` at `initialize`. A condition on an undeclared field is dropped, never rejected: with no schema at all the search comes back completely unfiltered, and a filter that mixes declared and undeclared fields narrows only by the declared ones.
 3. On native, give `rag.initialize` an absolute path in a writable directory. A bare name resolves against the process working directory, which is not writable on Android or iOS.
 4. Activate an embedding model with `getActiveEmbedder()` before `addDocument`.
 5. `LiteRtEmbeddingBackend` comes from `flutter_gemma_litertlm`, not `flutter_gemma_embeddings`.
-6. On web use `WebSqliteVectorStore`; `SqliteVectorStore` throws `UnimplementedError` there. `flutter_gemma_rag_qdrant` is native-only.
+6. On web use `WebSqliteVectorStore`. `SqliteVectorStore` constructs there without complaint and throws `UnimplementedError` from the first call — `configure()` is a silent no-op, so the mistake shows up as a failed search, not a failed setup. `flutter_gemma_rag_qdrant` is native-only.
 7. Android needs `minSdk 30` — the LiteRT embedding runtime, not the vector store. The rest of the build setup is the flutter-gemma-inference skill's [platform setup](../flutter-gemma-inference/references/platform-setup.md).
 
 ## Setup
@@ -89,7 +89,7 @@ for (final hit in hits) {
 
 **Filter has no effect**
 - Symptom: results ignore the filter; no error.
-- Fix: declare the field in `filterSchema`. With `flutter_gemma_rag_sqlite`, names must match `^[A-Za-z][A-Za-z0-9_]*$` and cannot be `id`, `embedding`, `content`, `metadata`, `distance` or `k`; at most 16 fields.
+- Fix: declare the field in `filterSchema`. With `flutter_gemma_rag_sqlite`, names must match `^[A-Za-z][A-Za-z0-9_]*$` and cannot be `id`, `embedding`, `content`, `metadata`, `distance` or `k`. Its `vec0` table also caps declared metadata columns at 16; nothing checks that at `initialize`, so a 17th field surfaces when the table is created, on the first `addDocument`.
 
 **Poor retrieval after embedding by hand**
 - Query and document embeddings are trained asymmetrically. `generateEmbedding` defaults to `TaskType.retrievalQuery`, so text embedded for indexing without a task type gets the query prefix.
@@ -117,12 +117,14 @@ await FlutterGemma.rag.addDocumentWithEmbedding(
 
 ## Backend
 
-Leave the embedder on the default CPU backend. The GPU delegate does not produce valid vectors for EmbeddingGemma.
+LiteRT embeddings always run on CPU. `LiteRtEmbeddingBackend` hardcodes it and ignores `getActiveEmbedder(preferredBackend:)` entirely — passing `PreferredBackend.gpu` there changes nothing. That is deliberate: the GPU delegate compiles and then returns all-zero vectors for EmbeddingGemma.
 
 ## Web
 
 - Copy `web/rag/sqlite3.wasm` from the `flutter_gemma_rag_sqlite` package into the app as `web/rag/sqlite3.wasm`.
-- Web embeddings need `litert_embeddings.js` and `sentencepiece.js` from the `web/` directory of `flutter_gemma_embeddings` — a dependency of `flutter_gemma_litertlm`, so it is already resolved — copied into the app's `web/`, plus `<script type="module" src="litert_embeddings.js"></script>` in `web/index.html`.
+- Web embeddings need four module files side by side in the app's `web/`: `litert_embeddings.js` and `sentencepiece.js` from `flutter_gemma_embeddings/web/`, plus `litert.js` and `tensorflow.js` from `flutter_gemma_litertlm/web/` — the first one imports the other three by relative path, so three files alone give a 404 and an embedder that never initialises.
+- They also need the LiteRT WASM runtime at `web/wasm/`, which no package ships: build it once from the core package (`cd <flutter_gemma>/web/rag && npm install && npm run build`) and copy `dist/wasm` into the app's `web/`. The Dart side loads it from `/wasm/` and nowhere else.
+- In `web/index.html`, before Flutter boots: `<script src="cache_api.js"></script>` first — it is not a module, and the embedding runtime calls its cache helpers during init — then `<script type="module" src="litert_embeddings.js"></script>`.
 
 Find a package's directory with `grep -A1 '"name": "flutter_gemma_rag_sqlite"' .dart_tool/package_config.json`.
 

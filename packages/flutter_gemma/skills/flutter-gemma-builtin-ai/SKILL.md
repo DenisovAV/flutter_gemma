@@ -8,10 +8,11 @@ description: Use when running the device's own model with flutter_gemma_builtin_
 ## Rules
 
 1. The OS owns the weights, but the model is still installed — as an identity: `fileType: ModelFileType.builtIn` with `.fromBundled(...)`. The app downloads nothing.
-2. Call `BuiltInAi.ensureReady()` before `getActiveModel()`, from a user action: the first call downloads the model and can take minutes, and on web the browser will not start that download without a user gesture ("NotAllowedError: Requires a user gesture"). Call it straight from the tap handler, with no other `await` before it. It throws `TimeoutException` after `timeout` — 10 minutes by default.
-3. Catch `BuiltInAiUnavailableException` and fall back to a downloadable model.
-4. Android apps need `minSdk 26`, or the manifest merge fails.
-5. There is no Windows or Linux support.
+2. Call `BuiltInAi.ensureReady()` before `getActiveModel()`, from a user action: the first call downloads the model and can take minutes, and on web the browser refuses to start that download without a user gesture. Call it straight from the tap handler, with no slow `await` in front of it. It throws `TimeoutException` after `timeout` — 10 minutes by default.
+3. On web a missing gesture is **not** distinguishable by type: `ensureReady` rewraps it as `BuiltInAiUnavailableException` with `unavailableOther`, and only `.message` carries the browser's "NotAllowedError: Requires a user gesture". Read the message before concluding the device cannot do it — otherwise the fallback below downloads gigabytes for nothing.
+4. Catch `BuiltInAiUnavailableException` and fall back to a downloadable model.
+5. Android apps need `minSdk 26`, or the manifest merge fails.
+6. There is no Windows or Linux support — and `BuiltInAi.availability()` does not report that, it throws a Flutter PlatformException (from package:flutter/services.dart) there. Guard by platform before calling it, as the setup below does.
 
 ## Setup with a fallback
 
@@ -58,6 +59,8 @@ if (spec == null) {
       modelType: ModelType.general,
       fileType: ModelFileType.builtIn,
     ).fromBundled(spec.name).install();
+    // onProgress reports real percentages on web only: ML Kit gives no byte
+    // total on Android, and Apple downloads nothing — ensureReady just waits.
     await BuiltInAi.ensureReady(onProgress: (int percent) => print('$percent%'));
     model = await FlutterGemma.getActiveModel(maxTokens: 4096);
   } on BuiltInAiUnavailableException {
@@ -83,21 +86,21 @@ final usable = availability == BuiltInAiAvailability.available ||
 
 | State | Meaning |
 | --- | --- |
-| `unavailableDeviceUnsupported` | the hardware cannot run it |
-| `unavailableOsTooOld` | an OS update would enable it |
-| `unavailableDisabled` | the user can turn it on in system settings (Apple Intelligence on Apple devices) |
-| `unavailableOther` | anything else, including a probe that timed out after 20 seconds — worth asking again later |
+| `BuiltInAiAvailability.unavailableDeviceUnsupported` | the hardware cannot run it — and on web, that the browser exposes no Prompt API at all, including desktop Chrome with the flag off |
+| `BuiltInAiAvailability.unavailableOsTooOld` | an OS update would enable it; on Apple the floor is OS 26 |
+| `BuiltInAiAvailability.unavailableDisabled` | the user can turn it on in system settings (Apple Intelligence on Apple devices) |
+| `BuiltInAiAvailability.unavailableOther` | anything else: a probe that timed out after 20 seconds, or Chrome's reasonless "unavailable", which in practice is its disk and VRAM floor — worth asking again later |
 
 ## Platforms
 
 | Platform | Model | Needs |
 | --- | --- | --- |
 | Android | Gemini Nano (AICore) | Pixel 9+, Galaxy S25+; `minSdk 26` |
-| iOS, macOS | Apple Foundation Models | iPhone 15 Pro+ or an Apple Silicon Mac, Apple Intelligence turned on |
+| iOS, macOS | Apple Foundation Models | iOS 26+ / macOS 26+ on an iPhone 15 Pro or newer, or an Apple Silicon Mac, with Apple Intelligence on. The package itself builds from iOS 15 / macOS 10.15, so no deployment-target bump |
 | Web | Gemini Nano (Chrome Prompt API) | desktop Chrome — not mobile browsers, Firefox or Safari |
 | Web | Phi-4-mini (Edge Prompt API) | Microsoft Edge with the Prompt API flag on; Edge Dev 154–155 exposes the API but cannot run the model |
 
-Images work on Android. On Apple platforms they need OS 27 — on OS 26 an image throws. The web model is text-only.
+Images work on Android only, one per message, and only when asked for: `getActiveModel(maxTokens: 4096, supportImage: true)` **and** `createChat(supportImage: true)`. With the default `supportImage: false` the image is dropped with no warning. On Apple every image fails on every OS version — a Flutter PlatformException with code "IMAGE_UNSUPPORTED_OS" — the package builds against the OS 26 SDK, which has no attachment API — so do not build an image path there. The web model is text-only.
 
 ## Web
 

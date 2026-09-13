@@ -1,6 +1,6 @@
 ---
 name: flutter-gemma-function-calling
-description: Use when adding function calling (tool calling) to a flutter_gemma chat — letting an on-device model call the app's own functions, declaring Tool objects, handling FunctionCallResponse, returning results with Message.toolResponse, or running the built-in tool loop. Also use when the model describes an action in prose instead of calling the tool, or a switch over ModelResponse fails to compile. For plain chat, use flutter-gemma-inference.
+description: Use when adding function calling (tool calling) to a flutter_gemma chat — letting an on-device model call the app's own Dart functions, declaring Tool objects, handling FunctionCallResponse or ParallelFunctionCallResponse, returning results with Message.toolResponse, or running the built-in tool loop generateChatResponseWithTools. Also use when the model describes an action in prose instead of calling the tool, raw tool-call markers appear in the reply text, or a switch over ModelResponse fails to compile. For plain chat, use flutter-gemma-inference. Not for flutter_gemma_agent, which gives the on-device model SKILL.md skills of its own.
 ---
 
 # Function calling with flutter_gemma
@@ -9,12 +9,12 @@ Packages, engine and model install are in the flutter-gemma-inference skill. Thi
 
 ## Rules
 
-1. `createChat` needs `tools` and `supportsFunctionCalls: true`. Without the flag the tools are dropped with a debug-only warning and no call is parsed.
-2. Pass `modelType` on web and on ONNX. Native `.litertlm`, MediaPipe on Android and iOS, and built-in AI use the installed model's type when it is left out; the web engines and ONNX fall back to `gemmaIt`, and another model's calls then arrive as raw text.
+1. `createChat` needs `tools` and `supportsFunctionCalls: true`. Without the flag no call is parsed and only a debug warning is logged — and on Gemma 4 with `.litertlm` the declarations still reach the SDK, so the model answers with raw tool-call JSON inside the text stream.
+2. Pass `modelType` on web and on ONNX. `createChat` on native `.litertlm`, on MediaPipe Android and iOS, and on built-in AI uses the installed model's type when it is left out; the web engines and ONNX fall back to `ModelType.gemmaIt`, and another model's calls then arrive as raw text. `openChat` always falls back — pass it there on every platform.
 3. Switch over all four `ModelResponse` subtypes. It is sealed — a switch that leaves out `ThinkingResponse` does not compile.
 4. Return tool results as data, errors included. Never throw from a tool.
 5. Prefer `generateChatResponseWithTools` to a hand-written loop.
-6. Use a tool-capable model: Gemma 4, Gemma 3 1B, FunctionGemma, Phi-4 Mini, Qwen 2.5, Qwen3, DeepSeek R1. Gemma 3 270M and SmolLM cannot call tools.
+6. Use a tool-capable model: Gemma 4, Gemma 3n, Gemma 3 1B, FunctionGemma, Phi-4 Mini, Qwen 2.5, Qwen3, DeepSeek R1. Gemma 3 270M and SmolLM cannot call tools.
 
 ## Declare a tool
 

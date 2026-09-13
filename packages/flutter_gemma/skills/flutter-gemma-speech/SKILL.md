@@ -56,13 +56,13 @@ try {
 
 | `SttModelType` | Languages | Window |
 | --- | --- | --- |
-| `moonshine` | English | 5 s |
-| `whisper` | 99, selectable, default `'en'` | 30 s |
-| `parakeet` | English | 5 s, desktop only (2.35 GB) |
+| `SttModelType.moonshine` | English | 5 s |
+| `SttModelType.whisper` | 99, selectable, default `'en'` | 30 s |
+| `SttModelType.parakeet` | English | 5 s; 2.35 GB, so desktop in practice — nothing refuses it on a phone |
 
-Audio longer than the window has to be split by the caller.
+**Audio longer than the window is silently truncated**, not rejected: it is zero-padded when shorter and cut when longer, so a 40-second clip on Whisper returns the first 30 seconds with no error. Split long recordings yourself.
 
-Whisper tiny is weak outside English. Whisper base is more accurate; install it the same way from `https://huggingface.co/litert-community/whisper-base/resolve/main/whisper_base_30s_i8.tflite` with the tokenizer `https://huggingface.co/openai/whisper-base/resolve/main/tokenizer.json`.
+Whisper tiny is weak outside English. Whisper base int8 is the next size up in the catalog; install it the same way from `https://huggingface.co/litert-community/whisper-base/resolve/main/whisper_base_30s_i8.tflite` with the tokenizer `https://huggingface.co/openai/whisper-base/resolve/main/tokenizer.json`.
 
 ## Getting 16 kHz mono PCM
 
@@ -133,13 +133,13 @@ try {
 
 | `TtsModelType` | Languages |
 | --- | --- |
-| `matcha` | fixed by the installed bundle |
-| `qwen3` | `chinese`, `english`, `german`, `italian`, `portuguese`, `spanish`, `japanese`, `korean`, `french`, `russian`, or `auto` |
-| `inflect` | English |
+| `TtsModelType.matcha` | English, fixed by the installed bundle — it ignores `language:` |
+| `TtsModelType.qwen3` | `chinese`, `english`, `german`, `italian`, `portuguese`, `spanish`, `japanese`, `korean`, `french`, `russian`, or `auto` |
+| `TtsModelType.inflect` | English |
 
-`supertonic` and `kokoro` are in the enum but throw `UnimplementedError` — do not use them.
+`TtsModelType.supertonic` and `TtsModelType.kokoro` are in the enum but throw `UnimplementedError` — do not use them.
 
-Switching the Qwen3 language — full lowercase names, not ISO codes:
+Switching the Qwen3 language — full lowercase names, not ISO codes, and only with the Qwen3 bundle installed (Matcha still throws the same `StateError` but the language changes nothing):
 
 ```dart
 final english = await FlutterGemma.getActiveTts(language: 'english');
@@ -152,6 +152,8 @@ Without the `close()`, the second call throws `StateError: Active TTS synthesize
 ## Voice assistant
 
 `VoiceSession` runs one push-to-talk turn: transcribe, generate, speak, with barge-in. It uses the recognizer's current language.
+
+Wrap the loop in `try`/`catch`: a failed stage — transcribe, generate or synthesize — arrives as a **stream error**, not as an event. `VoiceErrorEvent` is reserved in this release and never emitted; the `case` is only there because the switch must be exhaustive. To barge in, call `await voice.interrupt()` — cancelling the subscription is not a portable stop.
 
 ```dart
 final reply = StringBuffer();

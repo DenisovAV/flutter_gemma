@@ -1,6 +1,6 @@
 ---
 name: flutter-gemma-inference
-description: Use when adding on-device LLM inference to a Flutter app with flutter_gemma — offline chat, running Gemma, Qwen or Phi locally, downloading and installing a model from Hugging Face (gated repos included), streaming replies, a system prompt, image or audio prompts — or setting up the recommended .litertlm engine (ModelFileType.litertlm) on Android, iOS, macOS, Windows, Linux or web. Also use when a reply comes back empty, maxTokens does not shorten replies, FlutterGemma is an undefined name, getActiveModel throws "No inference engine can handle this model", a session throws "Session is closed", or .litertlm fails to load on Android. For .task or .bin models (ModelFileType.task), use flutter-gemma-mediapipe.
+description: Use when adding on-device LLM inference to a Flutter app with flutter_gemma — offline chat, running Gemma, Qwen or Phi locally, installing a model from Hugging Face (gated repos included), streaming replies, a system prompt, thinking or reasoning output, image or audio prompts, picking a CPU, GPU or NPU backend, stopping generation — or setting up the recommended .litertlm engine (ModelFileType.litertlm) on Android, iOS, macOS, Windows, Linux or web, including the Android minSdk and internet permission, the Apple entitlements and Podfile, and the web index.html script tags. Also use when a reply comes back empty, the model answers identically every time, maxTokens does not shorten replies, FlutterGemma is an undefined name, getActiveModel throws "No inference engine can handle this model", a session throws "Session is closed", or .litertlm fails to load on Android. For .task or .bin models (ModelFileType.task or ModelFileType.binary), use flutter-gemma-mediapipe.
 ---
 
 # Running a model with flutter_gemma
@@ -72,7 +72,7 @@ final model = await FlutterGemma.getActiveModel(defaults: install.runtime);
 
 Other sources on the same builder: `.fromAsset(path)` for a model bundled in the app, `.fromFile(path)` for one already on disk, `.fromBundled(name)` for a platform-bundled resource.
 
-`modelType` tells flutter_gemma how the model writes tool calls and reasoning, and on some engines it also picks the prompt format. Gemma 3 and Gemma 3n are `ModelType.gemmaIt` — there is no `gemma3`. The full set: `general`, `gemmaIt`, `gemma4`, `deepSeek`, `qwen`, `qwen3`, `llama`, `hammer`, `functionGemma`, `phi`. A wrong type still generates text; tool calls and reasoning then arrive as raw text.
+`modelType` tells flutter_gemma how the model writes tool calls and reasoning, and on some engines it also picks the prompt format. Gemma 3 and Gemma 3n are `ModelType.gemmaIt` — there is no `gemma3`. The full set: `ModelType.general`, `ModelType.gemmaIt`, `ModelType.gemma4`, `ModelType.deepSeek`, `ModelType.qwen`, `ModelType.qwen3`, `ModelType.llama`, `ModelType.hammer`, `ModelType.functionGemma`, `ModelType.phi`. A wrong type still generates text; tool calls and reasoning then arrive as raw text.
 
 ## Traps
 
@@ -112,7 +112,7 @@ Use 4096 or more with images or audio — one image costs hundreds of tokens.
 **`Session is closed`**
 - Symptom: `StateError: Session is closed` from a session or chat that is still in use.
 - Cause: `createSession` and `createChat` fill one slot per model; creating another closes the one before.
-- Fix: one conversation at a time, or `openSession` / `openChat` for several (below). On web the `.litertlm` engine holds a single session — close the current chat before creating the next.
+- Fix: one conversation at a time, or `openSession` / `openChat` for several (below). On the web `.litertlm` engine a second `createSession` hands back the session that is already open, history and all, rather than a fresh one — close the current chat before creating the next.
 
 ## Generate
 
@@ -173,9 +173,11 @@ The chat keeps the history: add the next user message and generate again. `gener
 
 `createSession` and `createChat` fill a single slot on the model, so a second one closes the first. For concurrent conversations use `openSession` / `openChat`, and close each one.
 
+They live only on the base class, so — unlike `createChat` — they inherit nothing from the installed model: pass `modelType:` (and `supportImage:` if the chat sends images) explicitly, or the chat runs as `ModelType.gemmaIt` with images off. They work on `.litertlm` (native and web) and on MediaPipe Android and iOS; everywhere else they throw `UnsupportedError`.
+
 ```dart
-final summariser = await model.openChat();
-final assistant = await model.openChat();
+final summariser = await model.openChat(modelType: ModelType.gemma4);
+final assistant = await model.openChat(modelType: ModelType.gemma4);
 try {
   await summariser.addQueryChunk(Message(text: chunk, isUser: true));
   await assistant.addQueryChunk(Message(text: question, isUser: true));
@@ -248,7 +250,7 @@ print(model.activeBackend); // what actually loaded
 | `npu` | NPU, GPU, CPU |
 | `cpu` | CPU only |
 
-Read `activeBackend` rather than assuming the requested one loaded; the web `.litertlm` engine reports `null`. NPU needs a Snapdragon (Android) or Intel Lunar/Panther Lake (Windows) and a model compiled for that NPU. The iOS Simulator is CPU-only. On web, MediaPipe is GPU-only.
+Read `activeBackend` rather than assuming the requested one loaded; the web `.litertlm` engine reports `null`. `PreferredBackend.npu` needs a Snapdragon (Android) or Intel Lunar/Panther Lake (Windows) and a model compiled for that NPU; `PreferredBackend.cpu` never falls back. The iOS Simulator is CPU-only. On web, MediaPipe is GPU-only.
 
 ## Platform setup
 

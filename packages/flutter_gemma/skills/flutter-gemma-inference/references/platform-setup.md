@@ -78,15 +78,33 @@ Add to both `macos/Runner/DebugProfile.entitlements` and
 <true/>
 <key>com.apple.security.network.client</key>
 <true/>
+<key>com.apple.developer.kernel.extended-virtual-addressing</key>
+<true/>
+<key>com.apple.developer.kernel.increased-memory-limit</key>
+<true/>
 ```
 
 `disable-library-validation` lets the app load the bundled native frameworks;
-`network.client` lets it download the model. Add them to both files — the debug
+`network.client` lets it download the model; the two kernel keys keep a large
+model from being killed for memory, exactly as on iOS. Add them to both files — the debug
 and release builds read different ones.
 
 `.litertlm` on macOS also needs a build phase that copies the LiteRT-LM
-companion libraries into the app. Paste this into `macos/Podfile`, replacing any
-existing `post_install` block, then run `pod install`:
+companion libraries into the app: the package deliberately keeps them out of
+Native Assets, so nothing else puts them in the bundle.
+
+With CocoaPods, paste this into `macos/Podfile`, replacing any existing
+`post_install` block, then run `pod install`.
+
+**A Swift Package Manager app has no `macos/Podfile` to paste into.** SPM is the
+default since Flutter 3.44, and an app whose plugins all ship a `Package.swift` —
+core does, and `flutter_gemma_litertlm` is not a plugin at all — never gets one
+generated. Either turn SPM off for the project
+(`flutter config --no-enable-swift-package-manager`, then
+`flutter build macos --config-only`, which writes the Podfile), or add the same
+step by hand in Xcode: a Run Script phase on the Runner target named
+`[flutter_gemma] Setup LiteRT-LM macOS`, carrying the `shell_script`, input path
+and output path from the block below.
 
 ```ruby
 post_install do |installer|
@@ -94,10 +112,26 @@ post_install do |installer|
     flutter_additional_macos_build_settings(target)
   end
 
+  # flutter_gemma: stage the upstream Apple companion dylibs into the built
+  # .app. `hook/build.dart` deliberately skips them from Native Assets on macOS
+  # (#247 — Google ships them without `-Wl,-headerpad_max_install_names`, so the
+  # JIT bundling path cannot rewrite their install_name), which leaves this
+  # build phase to stage them.
+  #
+  # The phase only LOCATES and RUNS a script; the staging logic itself lives in
+  # flutter_gemma_litertlm and is delivered next to the dylibs it stages. That
+  # is deliberate: this block is frozen into your Xcode project, and a copy of
+  # the logic frozen there cannot be fixed by upgrading the package.
   installer.aggregate_targets.each do |aggregate_target|
     aggregate_target.user_targets.each do |user_target|
       phase_name = '[flutter_gemma] Setup LiteRT-LM macOS'
 
+      # Only the app target embeds the Frameworks/ this phase patches.
+      # RunnerTests inherits Runner's framework search paths and has no
+      # Contents/Frameworks of its own — having the phase there creates a
+      # cross-target dependency on Runner's framework output that Xcode reports
+      # as "Cycle inside Flutter Assemble" (#300). Remove any stale copy from
+      # non-app targets and skip them.
       unless user_target.name == 'Runner'
         user_target.build_phases
           .select { |p| p.respond_to?(:name) && p.name == phase_name }
@@ -107,9 +141,17 @@ post_install do |installer|
 
       existing = user_target.shell_script_build_phases.find { |p| p.name == phase_name }
       phase = existing || user_target.new_shell_script_build_phase(phase_name)
+      # The embedded LiteRtLm binary is an INPUT so the phase re-runs whenever
+      # Flutter's always-out-of-date `embed` phase re-copies the raw, unpatched
+      # binary over the patched one. Without it Xcode caches the phase after the
+      # first build and the second incremental build ships an unpatched
+      # LiteRtLm that fails dlopen at runtime (#368).
       phase.input_paths = [
         '$(BUILT_PRODUCTS_DIR)/$(PRODUCT_NAME).app/Contents/Frameworks/LiteRtLm.framework/Versions/A/LiteRtLm',
       ]
+      # A declared output lets Xcode order the phase in its dependency graph
+      # instead of treating it as "runs every build with no outputs" — the other
+      # half of the cycle warning (#300). The script touches this file.
       phase.output_paths = ['$(DERIVED_FILE_DIR)/flutter_gemma_litertlm_macos.stamp']
       phase.shell_script = <<~SHELL
         set -e

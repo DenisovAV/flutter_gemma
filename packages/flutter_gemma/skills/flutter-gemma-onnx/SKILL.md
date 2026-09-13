@@ -10,8 +10,8 @@ description: Use when running ONNX models with flutter_gemma_onnx (ModelFileType
 1. Depend on `flutter_gemma` and `flutter_gemma_onnx`, and import both. The engine package does not re-export core.
 2. Declare `fileType: ModelFileType.onnx`. Without it the install defaults to `task` and never reaches `OnnxEngine`.
 3. An ORT-GenAI model is a directory — `genai_config.json`, the `.onnx` graph, its weights and a tokenizer. Install it with `fromHuggingFace(repo)`, which downloads the whole folder, or point `fromFile` at a local `genai_config.json`. A single-file download or a Flutter asset cannot produce it.
-4. Native generation runs on macOS arm64, Linux x64, Windows x64, Android arm64 and iOS arm64. Anywhere else no engine accepts the model and `getActiveModel` throws `No inference engine can handle this model`.
-5. Android needs `minSdk 24`. Phi-3.5-mini peaks near 3.7 GB of RAM — target 8 GB devices.
+4. Native generation runs on macOS arm64, Linux x64, Windows x64, Android arm64 and iOS arm64. On any other native host no engine accepts the model and `getActiveModel` throws `No inference engine can handle this model`. Web is a separate arm with its own rules (below).
+5. Android needs `minSdk 24` — the build hook fails the build below it. Phi-3.5-mini peaks near 3.7 GB of RAM, so target 8 GB devices.
 6. Text only: no images, no audio, no LoRA.
 
 ## Setup
@@ -48,7 +48,7 @@ await FlutterGemma.installModel(
 ).fromFile('$path/genai_config.json').install();
 ```
 
-Sessions, chats and streaming work as in the flutter-gemma-inference skill. Pass `modelType` to `createChat` for function calling — ONNX falls back to `gemmaIt`.
+Sessions, chats and streaming work as in the flutter-gemma-inference skill, except `openSession` / `openChat`, which throw `UnsupportedError` here — one conversation at a time. Pass `modelType` to `createChat` for function calling; ONNX falls back to `ModelType.gemmaIt`.
 
 ## Web
 
@@ -61,7 +61,7 @@ await FlutterGemma.installModel(
 ).fromNetwork('https://huggingface.co/onnx-community/Qwen2.5-0.5B-Instruct').install();
 ```
 
-The repo must be in Transformers.js layout, as the `onnx-community` ones are. ORT-GenAI repos such as `microsoft/Phi-3.5-mini-instruct-onnx` do not run in the browser. `fromFile` and `fromAsset` throw `UnsupportedError` on web; `fromBundled('<id>')` serves a model from the app's own origin. `PreferredBackend.cpu` forces WASM; anything else tries WebGPU first.
+The repo must be in Transformers.js layout, as the `onnx-community` ones are. ORT-GenAI repos such as `microsoft/Phi-3.5-mini-instruct-onnx` do not run in the browser. `fromFile` and `fromAsset` install on web without complaint and then throw `UnsupportedError` from the first `createSession` — on web the model identity has to be a repo, not a file. `fromBundled('<id>')` serves one from the app's own origin. `PreferredBackend.cpu` forces WASM; anything else tries WebGPU first.
 
 Add to `web/index.html` `<head>`, before Flutter boots — the first script for generation, the second for embeddings:
 
@@ -85,4 +85,4 @@ window.ortReady = (async () => {
 
 ## Embeddings
 
-`OnnxEmbeddingBackend` handles single-file `.onnx` embedding models, installed with `FlutterGemma.installEmbedder()` like any other — see the flutter-gemma-rag skill for the indexing flow.
+`OnnxEmbeddingBackend` handles single-file `.onnx` or `.ort` embedding models, installed with `FlutterGemma.installEmbedder()` like any other — see the flutter-gemma-rag skill for the indexing flow.

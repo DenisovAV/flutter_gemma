@@ -58,19 +58,19 @@ String get _stagedPath {
 }
 
 Future<String?> _probe(PreferredBackend backend) async {
+  InferenceModel? model;
+  InferenceModelSession? session;
   try {
-    final model = await FlutterGemma.getActiveModel(
+    model = await FlutterGemma.getActiveModel(
       maxTokens: 1024,
       preferredBackend: backend,
     );
-    final session = await model.createSession();
+    session = await model.createSession();
     await session.addQueryChunk(
       const Message(text: _prompt, isUser: true),
     );
     final reply = await session.getResponse();
-    await session.close();
     final active = model.activeBackend;
-    await model.close();
     final pads = RegExp('<pad>').allMatches(reply).length;
     final visible = reply.replaceAll('<pad>', '').trim();
     print(
@@ -81,6 +81,16 @@ Future<String?> _probe(PreferredBackend backend) async {
   } catch (e) {
     print('  [$backend] FAILED: $e');
     return '$e';
+  } finally {
+    // The GPU arm is the one expected to misbehave, and a 2-4 GB model left
+    // open here is what makes the CPU arm that follows fail for the wrong
+    // reason — or get killed for memory before it reports anything.
+    try {
+      await session?.close();
+    } catch (_) {}
+    try {
+      await model?.close();
+    } catch (_) {}
   }
 }
 

@@ -150,7 +150,7 @@ The example app offers a curated list of models, each suited for different tasks
 | **SmolLM3 3B** | Multilingual small LLM with reasoning mode | ❌ | ✅ | ❌ | Multilingual | 2.0GB |
 | **TranslateGemma 4B** † | Single-shot 55-language translation | ❌ | ❌ | ❌ | 55 languages | 2-4GB |
 
-† **TranslateGemma is CPU-only for now.** Google hasn't released a mobile/desktop `.litertlm` bundle (HF discussion [#5](https://huggingface.co/google/translategemma-4b-it/discussions/5) — "no concrete plans"). The example app uses the community-converted bundle from [`barakplasma/translategemma-4b-it-android-task-quantized`](https://huggingface.co/barakplasma/translategemma-4b-it-android-task-quantized), which keeps `EMBEDDING_LOOKUP` weights in float32 for MediaPipe `.task` compatibility. That layout crashes the LiteRT GPU partitioner on Metal/WebGPU across all platforms — tracked upstream at [LiteRT-LM#1748](https://github.com/google-ai-edge/LiteRT-LM/issues/1748). Until Google ships the `litert-lm` quantization CLI, translation runs on CPU only (≈90 s prefill on a 4 B int4 bundle on M-series Macs).
+† **TranslateGemma is CPU-only for now.** Google hasn't released a mobile/desktop `.litertlm` bundle (HF discussion [#5](https://huggingface.co/google/translategemma-4b-it/discussions/5) — "no concrete plans"). The example app uses a community-converted bundle from [`barakplasma/translategemma-4b-it-android-task-quantized`](https://huggingface.co/barakplasma/translategemma-4b-it-android-task-quantized), which publishes `.litertlm` artifacts. Both of them run correctly on `PreferredBackend.cpu` and return **only padding** on `PreferredBackend.gpu`: measured on an M4 Pro (Metal), `int4-generic` and `dynamic_int8-generic` each answered `Guten Morgen` on CPU and emitted 997 `<pad>` tokens and nothing else on GPU, from the same prompt and the same code. Nothing throws — the Metal engine is created, `activeBackend` reports `gpu`, and generation runs to the context limit. A `gemma-4-E2B-it.litertlm` bundle on the same machine, the same code path and the same backend answers correctly with no padding, so this is not the Metal path in general. Tracked upstream at [LiteRT-LM#1748](https://github.com/google-ai-edge/LiteRT-LM/issues/1748). Use CPU for this model (≈90 s prefill on a 4 B int4 bundle on M-series Macs).
 
 ## ModelType Reference
 
@@ -1653,7 +1653,7 @@ chat.generateChatResponseAsync().listen((response) {
 | [DeepSeek R1](https://huggingface.co/litert-community/DeepSeek-R1-Distill-Qwen-1.5B) | 1.7GB | ❌ | ✅ | ❌ |
 | [TranslateGemma 4B](https://huggingface.co/google/translategemma-4b-it) † | 2-4GB | ❌ | ✅ | ❌ |
 
-† **TranslateGemma is CPU-only** and ships only as a community MediaPipe `.task` bundle ([`barakplasma/translategemma-4b-it-android-task-quantized`](https://huggingface.co/barakplasma/translategemma-4b-it-android-task-quantized)) — there's no desktop `.litertlm` build, and its float32 `EMBEDDING_LOOKUP` layout crashes the LiteRT GPU partitioner on Metal/WebGPU, so it does not run on Desktop or Web. See the [Model Capabilities](#model-capabilities) note for details.
+† **TranslateGemma is CPU-only.** Google ships no bundle of its own; the community repo ([`barakplasma/translategemma-4b-it-android-task-quantized`](https://huggingface.co/barakplasma/translategemma-4b-it-android-task-quantized)) publishes `.litertlm` artifacts that load and translate on desktop CPU, but return only padding on the GPU. See the [Model Capabilities](#model-capabilities) note for the measurements.
 
 ### 📊 Text Embedding Models
 

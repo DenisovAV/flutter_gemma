@@ -15,11 +15,18 @@ import 'base_model.dart';
 /// only ships a `-web.task` for browsers; mobile/desktop bundles are not
 /// officially available yet (see HF discussion #5 on the source repo).
 ///
-/// CPU-only by design: the community conversion keeps `EMBEDDING_LOOKUP`
-/// weights in float32 for MediaPipe `.task` compatibility. The upstream
-/// LiteRT GPU partitioner can't cluster that layout, so Metal/WebGPU
-/// `engine_create` aborts (LiteRT-LM#1748). Google's stock Gemma 3
-/// `.litertlm` bundles use a quantized embedding and do work on GPU.
+/// CPU-only, but not because anything aborts. Measured on an M4 Pro (Metal)
+/// against both artifacts below: `engine_create` succeeds, `activeBackend`
+/// reports `gpu`, generation runs — and emits nothing but `<pad>` until it hits
+/// the context limit, while the same bundle, prompt and code answer correctly
+/// on `PreferredBackend.cpu`. A stock `gemma-4-E2B-it.litertlm` on the same
+/// machine and code path is correct on GPU, so it is not the Metal path in
+/// general, and the two artifacts use different quantization recipes, which
+/// rules out the bit width. Reported upstream at LiteRT-LM#1748.
+///
+/// An earlier version of this note said the float32 `EMBEDDING_LOOKUP` layout
+/// makes the GPU partitioner abort. Nothing aborts in those runs, so that
+/// description does not match these bundles.
 enum TranslateModel implements TranslateModelInterface {
   /// INT4 quantization, ~2 GB. Recommended default — loads faster and fits
   /// in 6 GB free RAM on modern phones.

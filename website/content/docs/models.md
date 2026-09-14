@@ -21,9 +21,8 @@ based on how chat templates are handled.
   (early preview). Never handled by MediaPipe — the two formats go to different
   engines.
 
-Chat templates are applied by the runtime rather than by your code — with one
-exception: on **iOS**, `.litertlm` falls back to the per-`ModelType` template
-that flutter_gemma applies itself, the same path as Type 2.
+Chat templates are applied by the runtime rather than by your code — MediaPipe
+for `.task`, LiteRT-LM for `.litertlm` — on every platform, iOS included.
 
 ### Type 2: Manual template formatting
 

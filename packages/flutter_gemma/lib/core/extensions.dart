@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/core/message.dart';
 import 'package:flutter_gemma/core/model.dart';
 import 'package:flutter_gemma/core/model_response.dart';
@@ -41,10 +40,11 @@ const hammerAssistant = "Assistant:";
 /// separate concern that moves into the engine packages later. Private to
 /// extensions.dart — not a public contract.
 enum _ChatFormatMode {
-  /// MediaPipe / LiteRT-LM SDK handles turn markers — return raw content.
+  /// The runtime applies the chat template (MediaPipe for .task, LiteRT-LM for
+  /// .litertlm) — return raw content.
   raw,
 
-  /// Manual per-[ModelType] template formatting (.bin/.tflite, .litertlm on iOS).
+  /// Manual per-[ModelType] template formatting (.bin/.tflite).
   manual,
 
   /// System messages are not sent to the model.
@@ -68,12 +68,14 @@ _ChatFormatMode _chatFormatModeFor(
     return _ChatFormatMode.raw;
   }
 
-  // .litertlm files - platform-dependent behavior
-  // iOS: MediaPipe doesn't handle turn markers for .litertlm → format manually (like binary)
-  // Android/Desktop/Web: LiteRT-LM SDK handles templates → return raw text (like task)
+  // .litertlm files - the LiteRT-LM Conversation API applies the model's own
+  // chat template on every platform, iOS included, so the message goes in raw.
+  // Until 0.14.0 iOS ran .litertlm through MediaPipe, which did not, and this
+  // branch formatted it by hand there. Since 0.14.0 iOS shares LiteRtLmFfiClient
+  // with Android and desktop, and formatting by hand wrapped the prompt twice:
+  // the markers reached the model as message text.
   if (fileType == ModelFileType.litertlm) {
-    final iosManual = !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
-    return iosManual ? _ChatFormatMode.manual : _ChatFormatMode.raw;
+    return _ChatFormatMode.raw;
   }
 
   // Built-in OS models (Gemini Nano / Apple FM) — native SDK owns templates.
@@ -83,9 +85,7 @@ _ChatFormatMode _chatFormatModeFor(
 
   // ORT-GenAI model directories — the SDK owns tokenizer + chat template
   // (OgaTokenizerApplyChatTemplate, applied worker-side in
-  // flutter_gemma_onnx's GenAiFfiClient), same posture as .litertlm on
-  // non-iOS. No platform split here: unlike .litertlm, iOS uses the same
-  // GenAI runtime as every other native platform.
+  // flutter_gemma_onnx's GenAiFfiClient) — the same posture as .litertlm.
   if (fileType == ModelFileType.onnx) {
     return _ChatFormatMode.raw;
   }
@@ -114,7 +114,7 @@ extension MessageExtension on Message {
         );
         return result;
       case _ChatFormatMode.manual:
-        // .bin/.tflite files (and .litertlm on iOS) - manual formatting by model type.
+        // .bin/.tflite files - manual formatting by model type.
         final result = switch (type) {
           ModelType.general => _transformGeneral(),
           ModelType.gemmaIt => _transformGemmaIt(),
@@ -539,18 +539,13 @@ class ModelThinkingFilter {
       return cleaned.trim();
     }
 
-    // For .litertlm files - platform-dependent cleaning
+    // .litertlm - LiteRT-LM ends the turn natively on every platform, iOS
+    // included, so there are no turn markers to strip. Trim only.
     if (fileType == ModelFileType.litertlm) {
-      // iOS: MediaPipe doesn't strip turn markers → clean like binary
-      // Android/Desktop/Web: LiteRT-LM SDK handles cleanup → just trim
-      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
-        // Fall through to model-specific cleaning below
-      } else {
-        return cleaned.trim();
-      }
+      return cleaned.trim();
     }
 
-    // For .bin/.tflite files (and .litertlm on iOS), apply model-specific cleaning
+    // For .bin/.tflite files, apply model-specific cleaning
     switch (modelType) {
       case ModelType.general:
         // General models - no special cleaning needed

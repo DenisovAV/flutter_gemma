@@ -92,11 +92,11 @@ See [CHANGELOG.md](CHANGELOG.md) for the full release history.
 
 Flutter Gemma supports different model file formats, which are grouped into **two types** based on how chat templates are handled:
 
-### Type 1: MediaPipe-Managed Templates
+### Type 1: SDK-managed templates
 - **`.task` files:** MediaPipe-optimized format for mobile (Android/iOS)
 - **`.litertlm` files:** LiteRT-LM format for Android, iOS, and Desktop platforms
 
-Both formats have **identical behavior** — MediaPipe handles chat templates internally.
+The runtime applies the chat template — MediaPipe for `.task`, LiteRT-LM for `.litertlm` — so your code sends plain text on every platform, iOS included.
 
 ### Type 2: Manual Template Formatting
 - **`.bin` files:** Standard binary format

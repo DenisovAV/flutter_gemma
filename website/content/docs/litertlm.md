@@ -125,9 +125,12 @@ with no error and nothing in the log:
 Both are tracked upstream in
 [LiteRT-LM#3508](https://github.com/google-ai-edge/LiteRT-LM/issues/3508).
 Because the safe context is a property of the compiled bundle, `maxTokens` is
-**not** clamped on `PreferredBackend.npu` (it is on CPU and GPU — see below): on
-NPU your number reaches the engine unchanged, so pass the `cache_length` the
-bundle was compiled for.
+**not** clamped up to 1024 on the NPU attempt (it is on CPU and GPU — see below),
+so pass the `cache_length` the bundle was compiled for. Note that requesting
+`PreferredBackend.npu` does not guarantee the NPU runs: if it fails to
+initialize, the engine falls back to GPU and then CPU, and the floor applies
+again to those attempts — so a value chosen for an NPU bundle is raised to 1024
+on the fallback rather than crashing it.
 </Warning>
 
 ## `maxTokens` is the CONTEXT window, not the reply length
@@ -136,7 +139,9 @@ bundle was compiled for.
 window** — system prompt + history + message **plus** the generated output (the
 KV-cache budget), not the response length. `.litertlm` models bake a fixed
 `kv_cache_max_len` of 1024, so this engine **clamps `maxTokens` up to 1024** (with
-a log warning) to avoid a native KV-cache crash.
+a log warning) to avoid a native KV-cache crash — on every backend attempt except
+the NPU one, where the bundle's own compiled `cache_length` governs instead (see
+the NPU warning above).
 
 To cap **generation length**, use `maxOutputTokens` on the session:
 

@@ -146,9 +146,11 @@ of size, through a different defect. Run a **Gemma 4** bundle on the NPU, or mov
 that model to `PreferredBackend.cpu` / `.gpu`. Upstream:
 [LiteRT-LM#3508](https://github.com/google-ai-edge/LiteRT-LM/issues/3508).
 
-Note that `maxTokens` is **not** clamped up to 1024 on `PreferredBackend.npu`
-the way it is on CPU and GPU — the safe context is baked into the compiled
-bundle, so pass the `cache_length` it was built for.
+Note that `maxTokens` is **not** clamped up to 1024 on the NPU attempt the way
+it is on CPU and GPU — the safe context is baked into the compiled bundle, so
+pass the `cache_length` it was built for. If the NPU fails to initialize the
+engine falls back to GPU and then CPU, and the floor applies to those attempts,
+so the fallback is clamped rather than crashed.
 
 **`PreferredBackend.npu` is unavailable on a recent Snapdragon.** SoC coverage is
 the runtime's, not ours: Snapdragon 8 Gen 5 (**SM8845** — OnePlus 15R, iQOO 15R

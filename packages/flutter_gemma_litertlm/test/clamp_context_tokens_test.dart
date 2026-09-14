@@ -9,6 +9,7 @@ library;
 
 import 'package:flutter_gemma/core/domain/platform_types.dart'
     show PreferredBackend;
+import 'package:flutter_gemma_litertlm/src/ffi/backend_preference.dart';
 import 'package:flutter_gemma_litertlm/src/litert_lm_engine.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -80,6 +81,29 @@ void main() {
           tokens,
         );
       }
+    });
+
+    // The trap this pins: `PreferredBackend.npu` does not mean the NPU runs.
+    // `ffiBackendFallbackOrder` retries npu -> gpu -> cpu, so an NPU-sized
+    // context below the floor must NOT survive into the attempts that follow —
+    // those are the CPU/GPU engines the #318 floor exists for. Resolving the
+    // clamp once from the REQUESTED backend (rather than per attempt) is
+    // exactly the regression, and it is invisible on a device that has an NPU.
+    test('a fallback from NPU re-applies the floor to the backends after it', () {
+      const requested = 896; // the measured Gemma 3 Qualcomm cache_length
+      final perAttempt = {
+        for (final backend in ffiBackendFallbackOrder(PreferredBackend.npu))
+          backend: clampLitertlmContextTokens(
+            requested,
+            preferredBackend: backend,
+          ),
+      };
+
+      expect(perAttempt, {
+        PreferredBackend.npu: 896,
+        PreferredBackend.gpu: 1024,
+        PreferredBackend.cpu: 1024,
+      });
     });
 
     test('values at or above the floor are unchanged on NPU too', () {

@@ -49,6 +49,10 @@ const int kMinLitertlmContextTokens = 1024;
 /// (LiteRT-LM#3508). A 16-head model has no working value at prefill 128 at
 /// all. So on NPU the caller's number is passed through untouched: the safe
 /// context is a property of the bundle, and only the caller knows it.
+///
+/// Pass the backend of the ATTEMPT, not the one the caller asked for. A
+/// requested NPU falls back npu -> gpu -> cpu, and the floor still has to apply
+/// to the two that follow.
 @visibleForTesting
 int clampLitertlmContextTokens(
   int maxTokens, {
@@ -122,16 +126,21 @@ class LiteRtLmEngine
     RuntimeConfig config,
   ) async {
     final cacheDir = (await getApplicationSupportDirectory()).path;
-    final maxTokens = clampLitertlmContextTokens(
-      config.maxTokens,
-      preferredBackend: config.preferredBackend,
-    );
     final ffiRuntime = await initializeFfiRuntime<LiteRtLmFfiClient>(
       preferredBackend: config.preferredBackend,
       logTag: '[LiteRtLmEngine]',
       createClient: LiteRtLmFfiClient.new,
       initializeClient: (client, backend) async {
         final args = encoderInitArgs(config, backend);
+        // Per ATTEMPT, not per request: a requested NPU falls back npu -> gpu
+        // -> cpu (`ffiBackendFallbackOrder`), and the floor this skips exists
+        // for the two it falls back to. Computing it once from the REQUESTED
+        // backend would hand an unclamped NPU-sized context to the CPU engine
+        // that follows, which is the #318 crash.
+        final maxTokens = clampLitertlmContextTokens(
+          config.maxTokens,
+          preferredBackend: backend,
+        );
         await client.initialize(
           modelPath: config.modelPath,
           backend: args.backend,
@@ -150,7 +159,13 @@ class LiteRtLmEngine
 
     return FfiInferenceModel(
       ffiClient: ffiRuntime.client,
-      maxTokens: maxTokens,
+      // The value the engine was actually built with: the same rule, resolved
+      // against the backend whose attempt succeeded rather than the requested
+      // one, so a fallback to CPU reports the clamped context it really has.
+      maxTokens: clampLitertlmContextTokens(
+        config.maxTokens,
+        preferredBackend: ffiRuntime.activeBackend,
+      ),
       modelType: spec.modelType,
       activeBackend: ffiRuntime.activeBackend,
       fileType: spec.fileType,

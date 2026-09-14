@@ -94,9 +94,41 @@ Pick the accelerator with `preferredBackend:` on `getActiveModel`:
 | `gpu` | Metal (Apple), DirectX 12 / WebGPU (Windows), Vulkan / WebGPU (Linux); required on web |
 | `npu` | Android (Qualcomm Snapdragon, `.litertlm`) and Windows (Intel LunarLake / PantherLake) |
 
+GPU is the right default, but it is not uniformly faster: on Android the win is
+in **prefill**, and decode can be slower than CPU. One measured pair — Galaxy S26,
+the official int8 Qwen2.5-1.5B bundle — has GPU prefill at 2.8× CPU while GPU
+decode runs *below* it, 21.8 against 27.8 tok/s
+([LiteRT-LM#1748](https://github.com/google-ai-edge/LiteRT-LM/issues/1748#issuecomment-5549035313)).
+That is one device and one bundle, not a rule — but if your app is dominated by
+long replies rather than long prompts, measure both before assuming.
+
 Windows NPU ships the Intel dispatch stack — `LiteRtDispatch.dll` + the OpenVino
 runtime + TBB — inside the Windows native archive. Android bundles the Qualcomm
 QNN dispatch stack. No extra downloads for either NPU path.
+
+<Warning>
+**NPU is a Gemma 4 story today.** Our NPU verification runs Gemma 4 bundles, and
+those work on both vendors. The **Gemma 3** family does not, and it fails
+silently — the model answers from the first prefill chunk alone, fluently,
+with no error and nothing in the log:
+
+- **Qualcomm.** A compiled bundle carries a prefill mask of
+  `2 B × num_attention_heads × prefill × (cache_length + prefill)`. Above ~1 MiB
+  every chunk after the first is dropped. For the 4-head Gemma 3 bundles that
+  makes **896** the largest working `cache_length` at prefill 128 — and *every*
+  published `qualcomm.*` Gemma 3 bundle is built above the line (270M at cache
+  4096 is 4.125 MiB, 1B ekv1280 is 1.375 MiB). A 16-head model such as Qwen3-0.6B
+  has no working value at prefill 128 at all.
+- **Intel.** The second chunk is lost regardless of mask size — a different
+  defect on the OpenVINO path, which Gemma 4 bundles do not hit.
+
+Both are tracked upstream in
+[LiteRT-LM#3508](https://github.com/google-ai-edge/LiteRT-LM/issues/3508).
+Because the safe context is a property of the compiled bundle, `maxTokens` is
+**not** clamped on `PreferredBackend.npu` (it is on CPU and GPU — see below): on
+NPU your number reaches the engine unchanged, so pass the `cache_length` the
+bundle was compiled for.
+</Warning>
 
 ## `maxTokens` is the CONTEXT window, not the reply length
 

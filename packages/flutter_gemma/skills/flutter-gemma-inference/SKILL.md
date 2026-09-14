@@ -252,6 +252,8 @@ print(model.activeBackend); // what actually loaded
 
 Read `activeBackend` rather than assuming the requested one loaded; the web `.litertlm` engine reports `null`. `PreferredBackend.npu` needs a Snapdragon (Android) or Intel Lunar/Panther Lake (Windows) and a model compiled for that NPU; `PreferredBackend.cpu` never falls back. The iOS Simulator is CPU-only. On web, MediaPipe is GPU-only.
 
+On NPU, run a **Gemma 4** bundle. A Gemma 3 bundle on either vendor's NPU drops every prefill chunk after the first — no error, no log line, and a fluent reply that answers from the opening of the prompt and ignores the rest (LiteRT-LM#3508). `maxTokens` is also not clamped up to 1024 on `PreferredBackend.npu` the way it is on CPU and GPU, because the safe context is baked into the compiled bundle: pass the `cache_length` it was built for.
+
 ## Platform setup
 
 Android needs `minSdk 30` and the internet permission in release builds, and ships `arm64-v8a` only. iOS needs Podfile or Xcode settings and memory entitlements; macOS needs entitlements and a Podfile build phase; web needs script tags in `web/index.html`. Read [references/platform-setup.md](references/platform-setup.md) before building for any of them — without those entries the model fails to load or the app runs out of memory.

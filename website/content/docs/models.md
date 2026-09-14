@@ -117,7 +117,14 @@ The community-converted bundle from
 keeps `EMBEDDING_LOOKUP` weights in float32 for MediaPipe `.task` compatibility,
 which crashes the LiteRT GPU partitioner on Metal/WebGPU across all platforms
 (tracked at [LiteRT-LM#1748](https://github.com/google-ai-edge/LiteRT-LM/issues/1748)).
-Until Google ships the `litert-lm` quantization CLI, translation runs on CPU only
+The `litert-lm` quantization CLI announced in that thread never shipped, but it
+is no longer the only route: **AI Edge Quantizer** quantizes a float `.litertlm`
+into a quantized one today, with published recipes (generic int8, and
+mixed-precision blockwise for Gemma 4) and Model Explorer for deriving the
+layer regexes — see the
+[maintainer's pointers](https://github.com/google-ai-edge/LiteRT-LM/issues/1748#issuecomment-4475268373).
+Re-quantizing that `EMBEDDING_LOOKUP` layer is what would let this model onto the
+GPU; we have not done it, so the bundle linked above still runs on CPU only
 (≈90 s prefill on a 4 B int4 bundle on M-series Macs).
 </Warning>
 

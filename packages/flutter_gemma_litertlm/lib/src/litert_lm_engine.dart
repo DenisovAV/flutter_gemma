@@ -36,8 +36,25 @@ const int kMinLitertlmContextTokens = 1024;
 /// length — `maxTokens` is the whole CONTEXT WINDOW (input + output, the
 /// KV-cache), not the generation length. To limit generation, pass
 /// `maxOutputTokens` to `createSession`.
+///
+/// **Not applied on [PreferredBackend.npu].** The floor above is a CPU/GPU
+/// fact: those bundles bake `kv_cache_max_len` 1024 and underflow below it.
+/// NPU bundles are compiled for one `cache_length`, and on Qualcomm the
+/// prefill mask the compiled graph carries
+/// (`2 B x num_attention_heads x prefill x (cache_length + prefill)`) must stay
+/// at or under ~1 MiB or every prefill chunk after the first is dropped — the
+/// model answers from chunk 0 alone, with no error. For the 4-head Gemma 3
+/// bundles that puts the largest working value at **896**, i.e. BELOW this
+/// floor; clamping up to 1024 is exactly the setting that breaks them
+/// (LiteRT-LM#3508). A 16-head model has no working value at prefill 128 at
+/// all. So on NPU the caller's number is passed through untouched: the safe
+/// context is a property of the bundle, and only the caller knows it.
 @visibleForTesting
-int clampLitertlmContextTokens(int maxTokens) {
+int clampLitertlmContextTokens(
+  int maxTokens, {
+  PreferredBackend? preferredBackend,
+}) {
+  if (preferredBackend == PreferredBackend.npu) return maxTokens;
   if (maxTokens >= kMinLitertlmContextTokens) return maxTokens;
   gemmaLog(
     '[LiteRtLmEngine] maxTokens ($maxTokens) is below the minimum context '
@@ -105,7 +122,10 @@ class LiteRtLmEngine
     RuntimeConfig config,
   ) async {
     final cacheDir = (await getApplicationSupportDirectory()).path;
-    final maxTokens = clampLitertlmContextTokens(config.maxTokens);
+    final maxTokens = clampLitertlmContextTokens(
+      config.maxTokens,
+      preferredBackend: config.preferredBackend,
+    );
     final ffiRuntime = await initializeFfiRuntime<LiteRtLmFfiClient>(
       preferredBackend: config.preferredBackend,
       logTag: '[LiteRtLmEngine]',

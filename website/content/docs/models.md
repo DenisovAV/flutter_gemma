@@ -114,18 +114,32 @@ mobile/desktop `.litertlm` bundle
 ([HF discussion #5](https://huggingface.co/google/translategemma-4b-it/discussions/5)).
 The community-converted bundle from
 [`barakplasma/translategemma-4b-it-android-task-quantized`](https://huggingface.co/barakplasma/translategemma-4b-it-android-task-quantized)
-keeps `EMBEDDING_LOOKUP` weights in float32 for MediaPipe `.task` compatibility,
-which crashes the LiteRT GPU partitioner on Metal/WebGPU across all platforms
-(tracked at [LiteRT-LM#1748](https://github.com/google-ai-edge/LiteRT-LM/issues/1748)).
-The `litert-lm` quantization CLI announced in that thread never shipped, but it
-is no longer the only route: **AI Edge Quantizer** quantizes a float `.litertlm`
-into a quantized one today, with published recipes (generic int8, and
-mixed-precision blockwise for Gemma 4) and Model Explorer for deriving the
-layer regexes — see the
-[maintainer's pointers](https://github.com/google-ai-edge/LiteRT-LM/issues/1748#issuecomment-4475268373).
-Re-quantizing that `EMBEDDING_LOOKUP` layer is what would let this model onto the
-GPU; we have not done it, so the bundle linked above still runs on CPU only
-(≈90 s prefill on a 4 B int4 bundle on M-series Macs).
+runs correctly on the **CPU** and returns only padding on the **GPU**.
+
+Measured here on an M4 Pro (macOS, Metal), both published artifacts, same
+prompt and the same session code, backend the only variable:
+
+| artifact | `PreferredBackend.cpu` | `PreferredBackend.gpu` |
+|---|---|---|
+| `int4-generic` (2.0 GB, INT4 blockwise) | `Guten Morgen` | 997 `<pad>` tokens, nothing else |
+| `dynamic_int8-generic` (3.9 GB, INT8 channelwise) | `Guten Morgen` | 997 `<pad>` tokens, nothing else |
+
+Nothing fails: the Metal engine is created, `activeBackend` reports `gpu` (so it
+is not a silent fallback), generation runs and emits padding until it reaches the
+context limit. A `gemma-4-E2B-it.litertlm` bundle on the same machine, the same code path and the same backend answers correctly with no padding, so this is not the Metal path in general. Earlier revisions of this page said the bundle crashed the LiteRT
+GPU partitioner because its `EMBEDDING_LOOKUP` weights stay float32. Nothing in
+the runs above crashes, so that description does not hold; the repository has
+published these `.litertlm` artifacts since 2026-03-31, so it did not describe a
+later change either. Reproducing across two different quantization recipes also
+rules the bit width out.
+
+Tracked at
+[LiteRT-LM#1748](https://github.com/google-ai-edge/LiteRT-LM/issues/1748).
+Use `PreferredBackend.cpu` for this model (≈90 s prefill on a 4 B int4 bundle on
+M-series Macs). If you are converting it yourself, **AI Edge Quantizer** is the
+supported route today — the `litert-lm` quantization CLI announced in that thread
+never shipped — with published recipes and Model Explorer for the layer regexes
+([maintainer's pointers](https://github.com/google-ai-edge/LiteRT-LM/issues/1748#issuecomment-4475268373)).
 </Warning>
 
 ## ModelType reference

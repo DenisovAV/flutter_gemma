@@ -80,6 +80,11 @@ LunarLake/PantherLake** silicon — the Windows native archive ships
 `LiteRtDispatch.dll` + the OpenVino runtime + TBB to drive it. On any other
 Windows hardware the NPU backend is unavailable; use `PreferredBackend.gpu` or
 `.cpu`.
+
+Run **Gemma 4** there. On the Intel NPU a Gemma 3 bundle loses every prefill
+chunk after the first — the reply is fluent, answers from the opening of your
+prompt and never mentions the rest, with no error raised
+([LiteRT-LM#3508](https://github.com/google-ai-edge/LiteRT-LM/issues/3508)).
 </Info>
 
 ## Requirements

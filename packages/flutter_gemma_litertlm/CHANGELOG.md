@@ -1,3 +1,6 @@
+## 1.6.4
+- `maxTokens` is no longer clamped up to 1024 on `PreferredBackend.npu`.
+
 ## 1.6.3
 - Web: move `@litert-lm/core` 0.14.0 -> 0.17.0.
 - Web: `maxOutputTokens` now caps generation instead of being ignored.

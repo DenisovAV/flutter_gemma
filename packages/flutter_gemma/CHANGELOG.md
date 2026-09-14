@@ -1,3 +1,6 @@
+## 1.8.3
+- Inference skill: NPU needs a Gemma 4 bundle; Gemma 3 drops prefill chunks silently.
+
 ## 1.8.2
 - Ship agent skills — `dart run skills@ get --all` teaches your AI assistant this package.
 

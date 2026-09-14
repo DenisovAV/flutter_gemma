@@ -133,6 +133,32 @@ Windows CPU/NPU were never affected. See [Desktop → Known
 limitations](/docs/desktop#known-limitations).
 </Warning>
 
+## NPU
+
+**The model answers, fluently, about the beginning of a long prompt and ignores
+the rest.** That is the Gemma 3 family on an NPU. Nothing raises, nothing is
+logged: every prefill chunk after the first is dropped, so the model genuinely
+never saw the end of your prompt. On Qualcomm it is a size threshold in the
+compiled bundle's prefill mask (~1 MiB; at prefill 128 the largest working
+`cache_length` for the 4-head Gemma 3 bundles is 896, and every published
+`qualcomm.*` Gemma 3 bundle is built above it); on Intel it happens regardless
+of size, through a different defect. Run a **Gemma 4** bundle on the NPU, or move
+that model to `PreferredBackend.cpu` / `.gpu`. Upstream:
+[LiteRT-LM#3508](https://github.com/google-ai-edge/LiteRT-LM/issues/3508).
+
+Note that `maxTokens` is **not** clamped up to 1024 on the NPU attempt the way
+it is on CPU and GPU — the safe context is baked into the compiled bundle, so
+pass the `cache_length` it was built for. If the NPU fails to initialize the
+engine falls back to GPU and then CPU, and the floor applies to those attempts,
+so the fallback is clamped rather than crashed.
+
+**`PreferredBackend.npu` is unavailable on a recent Snapdragon.** SoC coverage is
+the runtime's, not ours: Snapdragon 8 Gen 5 (**SM8845** — OnePlus 15R, iQOO 15R
+and the like) is not covered upstream, and a context compiled for SM8850 is
+rejected by an SM8845 device even though both are Hexagon v81. Tracked at
+[LiteRT#7516](https://github.com/google-ai-edge/LiteRT/issues/7516); note the
+easily-confused naming — 8s Gen 4 is SM8735, not SM8845.
+
 ## Desktop storage locations
 
 Desktop builds store downloaded models **outside** the user's `Documents/` folder

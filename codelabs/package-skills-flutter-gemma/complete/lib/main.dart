@@ -1,0 +1,102 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
+
+import 'chat_page.dart';
+import 'download_page.dart';
+import 'model.dart';
+
+const _model = Models.gemma4;
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Engines are opt-in: the core registers none, and without LiteRtLmEngine
+  // the first getActiveModel() throws a StateError telling you to add one.
+  await FlutterGemma.initialize(inferenceEngines: [LiteRtLmEngine()]);
+
+  runApp(const SkillsApp());
+}
+
+/// Holds the theme colour, because the model changes it.
+class SkillsApp extends StatefulWidget {
+  const SkillsApp({super.key});
+
+  @override
+  State<SkillsApp> createState() => _SkillsAppState();
+}
+
+class _SkillsAppState extends State<SkillsApp> {
+  Color _seed = Colors.indigo;
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Gemma Skills',
+      theme: ThemeData(colorSchemeSeed: _seed),
+      home: ModelGate(
+        model: _model,
+        onColor: (color) => setState(() => _seed = color),
+      ),
+    );
+  }
+}
+
+/// Opens on the chat when the model is already on the device, and on the
+/// download screen when it is not.
+class ModelGate extends StatefulWidget {
+  const ModelGate({super.key, required this.model, required this.onColor});
+
+  final ModelChoice model;
+  final ValueChanged<Color> onColor;
+
+  @override
+  State<ModelGate> createState() => _ModelGateState();
+}
+
+class _ModelGateState extends State<ModelGate> {
+  late Future<bool> _installed = _check();
+
+  Future<bool> _check() => FlutterGemma.isModelInstalled(widget.model.fileName);
+
+  void _recheck() => setState(() => _installed = _check());
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<bool>(
+      future: _installed,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (snapshot.hasError) {
+          return Scaffold(
+            body: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('${snapshot.error}', textAlign: TextAlign.center),
+                  const SizedBox(height: 12),
+                  FilledButton(
+                    onPressed: _recheck,
+                    child: const Text('Try again'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+        if (snapshot.data ?? false) {
+          return ChatPage(
+            model: widget.model,
+            onModelRemoved: _recheck,
+            onColor: widget.onColor,
+          );
+        }
+        return DownloadPage(model: widget.model, onInstalled: _recheck);
+      },
+    );
+  }
+}

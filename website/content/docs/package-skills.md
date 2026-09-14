@@ -57,6 +57,10 @@ installed in `.config/dart_skills/skills_config.json`.
 Run the same command after upgrading flutter_gemma: it updates the installed
 skills to the ones the new version ships.
 
+To try it end to end — install the skills, have your assistant build a chat
+and a tool call, and check its code against the rules — follow the
+[Package Skills codelab](/codelabs/package-skills-flutter-gemma).
+
 ## How your assistant uses them
 
 Each skill is a folder with a `SKILL.md`: a description of when it applies, then

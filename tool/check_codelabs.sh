@@ -91,6 +91,12 @@ fi
 # One source can feed several starters — Getting Started's finished app is where
 # both of the codelabs that continue it begin — so this is a list of pairs, not
 # a map, and a new row is all a new continuation needs.
+#
+# It is a list of the codelabs that DO continue another, not of all of them. A
+# starter is free to be its own app: function-calling's is Step 2 without the
+# tools, on the 284 MB model that codelab is actually about, because inheriting
+# Getting Started's finished app meant downloading a licence-gated half-gigabyte
+# model that the next step then replaced and never opened again.
 MIRRORS=(
   "codelabs/getting-started-flutter-gemma/complete|codelabs/inference-engines-flutter-gemma/step_01_starter"
   "codelabs/getting-started-flutter-gemma/complete|codelabs/multimodal-flutter-gemma/step_01_starter"

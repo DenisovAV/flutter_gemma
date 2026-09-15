@@ -224,6 +224,14 @@ Most skills need no platform setup. For the platform-specific bits:
   android { compileOptions { isCoreLibraryDesugaringEnabled = true } }
   dependencies { coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4") }
   ```
+- **Android, AGP 9** — `flutter_inappwebview_android` 1.1.3, the latest stable
+  release, still calls `getDefaultProguardFile('proguard-android.txt')`, which AGP 9
+  rejects while configuring the project, so the app fails to build. Until a stable
+  release fixes it, add to `android/gradle.properties`:
+  ```
+  android.r8.proguardAndroidTxt.disallowed=false
+  ```
+  AGP deprecates this opt-out and plans to remove it in AGP 10.
 
 <Warning>
 Adding a skill grants the model the ability to run that skill's code or open OS

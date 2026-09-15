@@ -368,14 +368,23 @@ and some Mali GPUs hard-freeze (#324). `libcdsprpc.so` is for the Qualcomm NPU.
 ```
 
 * **ProGuard/R8 (only if you use `flutter_gemma_mediapipe`):** the package ships
-  its own consumer ProGuard rules, so release builds work out of the box. If you
-  still hit `UnsatisfiedLinkError` / missing MediaPipe classes, add to your
+  its own consumer ProGuard rules; from 1.0.6 a release build needs no rules in
+  your app (built on AGP 9.1). On 1.0.5 and earlier R8 fails the release build
+  with `Missing class` (seen on AGP 9) — upgrade to 1.0.6, or add to your
   `proguard-rules.pro`:
+
+```proguard
+-dontwarn com.google.auto.value.**
+-dontwarn com.google.mediapipe.proto.CalculatorProfileProto$CalculatorProfile
+-dontwarn com.google.mediapipe.proto.GraphTemplateProto$CalculatorGraphTemplate
+```
+
+  If a release build then fails at run time with `UnsatisfiedLinkError` or a
+  missing MediaPipe class, also add:
 
 ```proguard
 # MediaPipe
 -keep class com.google.mediapipe.** { *; }
--dontwarn com.google.mediapipe.**
 
 # Protocol Buffers
 -keep class com.google.protobuf.** { *; }

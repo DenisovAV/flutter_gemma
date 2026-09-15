@@ -1,5 +1,5 @@
 ## 1.0.6
-- Fix Android release builds failing in R8 on classes MediaPipe references but does not ship.
+- Fix Android release builds failing in R8 on classes MediaPipe references but does not ship (#514).
 
 ## 1.0.5
 - Android plugin no longer applies KGP — Flutter's Gradle plugin does (#440).

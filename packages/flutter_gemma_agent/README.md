@@ -237,6 +237,7 @@ Most skills need no platform setup. For the platform-specific bits:
   ```properties
   android.r8.proguardAndroidTxt.disallowed=false
   ```
+  AGP deprecates this opt-out and plans to remove it in AGP 10.
 
 ## Third-party attribution
 

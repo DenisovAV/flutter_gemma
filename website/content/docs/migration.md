@@ -31,7 +31,7 @@ dependencies:
 dependencies:
   flutter_gemma: ^1.8.3                 # core — always required
   flutter_gemma_litertlm: ^1.6.4        # add if you run .litertlm models (also provides LiteRtEmbeddingBackend)
-  flutter_gemma_mediapipe: ^1.0.5       # add if you run .task / .bin models
+  flutter_gemma_mediapipe: ^1.0.6       # add if you run .task / .bin models
   flutter_gemma_embeddings: ^2.1.1      # add if you compute embeddings (needs a backend, see above)
   flutter_gemma_rag_qdrant: ^1.3.1      # add for native on-device RAG (qdrant)
   flutter_gemma_rag_sqlite: ^1.3.2      # add for on-device RAG (sqlite-vec; all platforms incl. web)

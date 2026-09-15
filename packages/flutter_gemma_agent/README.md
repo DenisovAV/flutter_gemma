@@ -230,6 +230,13 @@ Most skills need no platform setup. For the platform-specific bits:
   android { compileOptions { isCoreLibraryDesugaringEnabled = true } }
   dependencies { coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4") }
   ```
+- **Android, AGP 9** — `flutter_inappwebview_android` 1.1.3, the latest stable
+  release, still calls `getDefaultProguardFile('proguard-android.txt')`, which AGP 9
+  rejects while configuring the project. Until a stable release fixes it, add to
+  `android/gradle.properties`:
+  ```properties
+  android.r8.proguardAndroidTxt.disallowed=false
+  ```
 
 ## Third-party attribution
 

@@ -1,0 +1,86 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
+
+import 'chat_page.dart';
+import 'download_page.dart';
+import 'model.dart';
+
+const _model = Models.gemma4;
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Engines are opt-in: the core registers none, and without LiteRtLmEngine
+  // the first getActiveModel() throws a StateError telling you to add one.
+  await FlutterGemma.initialize(inferenceEngines: [LiteRtLmEngine()]);
+
+  runApp(const SkillsApp());
+}
+
+class SkillsApp extends StatelessWidget {
+  const SkillsApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Gemma Skills',
+      theme: ThemeData(colorSchemeSeed: Colors.indigo),
+      home: const ModelGate(model: _model),
+    );
+  }
+}
+
+/// Opens on the chat when the model is already on the device, and on the
+/// download screen when it is not.
+class ModelGate extends StatefulWidget {
+  const ModelGate({super.key, required this.model});
+
+  final ModelChoice model;
+
+  @override
+  State<ModelGate> createState() => _ModelGateState();
+}
+
+class _ModelGateState extends State<ModelGate> {
+  late Future<bool> _installed = _check();
+
+  Future<bool> _check() => FlutterGemma.isModelInstalled(widget.model.fileName);
+
+  void _recheck() => setState(() => _installed = _check());
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<bool>(
+      future: _installed,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (snapshot.hasError) {
+          return Scaffold(
+            body: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('${snapshot.error}', textAlign: TextAlign.center),
+                  const SizedBox(height: 12),
+                  FilledButton(
+                    onPressed: _recheck,
+                    child: const Text('Try again'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+        if (snapshot.data ?? false) {
+          return ChatPage(model: widget.model, onModelRemoved: _recheck);
+        }
+        return DownloadPage(model: widget.model, onInstalled: _recheck);
+      },
+    );
+  }
+}

@@ -691,6 +691,10 @@ Duration: 2
 You have an app that runs a language model with the network off. The same
 core API is the entry point to everything else the plugin does:
 
+* **let your coding assistant write the next feature** — `flutter_gemma` ships
+  skills your assistant reads; the
+  [Package Skills codelab](/codelabs/package-skills-flutter-gemma) installs
+  them and shows how to check what it writes
 * **swap the model** — change one constant; `.litertlm` files from
   [litert-community](https://huggingface.co/litert-community) all work the same way
 * **run a different engine** — the OS built-in model (Gemini Nano, Apple

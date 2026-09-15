@@ -19,3 +19,10 @@ pubspec.lock
 # one did reach a commit here — and these apps must resolve to today's pods for
 # the same reason they resolve to today's packages.
 Podfile.lock
+
+# Package skills a learner installs with `dart run skills@ get`. They belong to
+# flutter_gemma's release, not to these apps: a committed copy would drift from
+# the package the next time it ships, and the codelab teaches installing them.
+.agents/
+.claude/
+.config/dart_skills/

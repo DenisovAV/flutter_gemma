@@ -92,4 +92,7 @@ flutter test integration_test/multimodal_test.dart -d <device-id>
 cd codelabs/hybrid-ai-flutter-genkit/complete
 flutter test integration_test/smoke_test.dart -d <device-id> \
   --dart-define=HF_TOKEN=hf_xxx --dart-define=GEMINI_API_KEY=AIza...
+
+cd codelabs/package-skills-flutter-gemma/complete
+flutter test integration_test/skills_test.dart -d <device-id>
 ```

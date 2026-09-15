@@ -1,5 +1,7 @@
 ## 1.8.3
 - Inference skill: NPU needs a Gemma 4 bundle; Gemma 3 drops prefill chunks silently.
+- Inference skill: macOS setup no longer adds iOS-only entitlements that break unsigned builds.
+- Speech skill: recording needs microphone permission on iOS, macOS and Android.
 - Fix `.litertlm` on iOS wrapping every prompt in turn markers twice; deprecate `StopTokenFilter`.
 
 ## 1.8.2

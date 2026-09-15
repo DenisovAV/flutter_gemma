@@ -163,6 +163,7 @@ use_frameworks! :linkage => :static
 Entitlements needed: `extended-virtual-addressing`, `increased-memory-limit`
 
 ### Android
+The core plugin manifest (`packages/flutter_gemma/android/src/main/AndroidManifest.xml`) declares these, plus `libcdsprpc.so` for the Qualcomm NPU, and the manifest merger folds them into every consumer app — apps add nothing (verified in the example's merged manifest):
 ```xml
 <!-- libvndksupport.so is required for the GPU backend on Android 12+: the
      v0.13.x OpenCL loader uses its android_load_sphal_library() to dlopen the
@@ -201,7 +202,7 @@ window.LlmInference = LlmInference;
 - Windows GPU requires `dxil.dll` + `dxcompiler.dll` (DirectXShaderCompiler runtime) — bundled in the Windows native archive
 - Windows NPU (`PreferredBackend.npu`) requires Intel LunarLake/PantherLake silicon — `LiteRtDispatch.dll` + OpenVino runtime + TBB bundled in the Windows native archive (0.15.1+)
 
-Entitlements needed: `network.client`, `extended-virtual-addressing`, `increased-memory-limit`
+macOS entitlements: `network.client` (model download) and `cs.disable-library-validation` (takes effect under Hardened Runtime, which notarization requires — the stager signs LiteRT-LM ad hoc). The iOS `kernel.*` memory entitlements do NOT exist on macOS: without a signing team they fail the build, with a team Xcode drops them.
 
 ## Code Quality
 

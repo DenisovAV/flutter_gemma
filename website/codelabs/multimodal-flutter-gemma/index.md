@@ -429,16 +429,11 @@ flutter pub add record
 
 `record` is for capture, not for the model — the microphone, not the weights.
 
-### Three platform changes
+### Two platform changes
 
-Android, in `android/app/src/main/AndroidManifest.xml`:
-
-```xml
-    <!-- Recording the clip the model listens to. `record` asks the user for
-         it at run time; without the declaration here that request is denied
-         before the dialog can appear. -->
-    <uses-permission android:name="android.permission.RECORD_AUDIO" />
-```
+Android needs nothing declared: `record` ships `RECORD_AUDIO` in its own
+manifest, the manifest merger adds it to yours, and `record` asks the user for
+it at run time.
 
 iOS, in `ios/Runner/Info.plist` — the string is shown to the user, so write it
 as if a reviewer will read it, because one will:
@@ -455,7 +450,7 @@ macOS, in **both** entitlements files again:
 	<true/>
 ```
 
-Windows and Linux need nothing declared.
+Windows and Linux need nothing declared either.
 
 ### One more flag, in both places
 

@@ -1,10 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Downloading the model file is a plain HTTPS GET. -->
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- Recording the clip the model listens to. `record` asks the user for
-         it at run time; without the declaration here that request is denied
-         before the dialog can appear. -->
-    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <application
         android:label="Gemma Multimodal"
         android:name="${applicationName}"

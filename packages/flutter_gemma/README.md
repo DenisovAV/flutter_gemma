@@ -347,29 +347,24 @@ use_frameworks! :linkage => :static
 
 **Android**
 
-* **GPU (any engine):** if you want to run on the GPU, add OpenCL support to the
-  manifest. Required by both inference engines (`flutter_gemma_litertlm` and
-  `flutter_gemma_mediapipe`). CPU-only? Skip this step.
-
 * **Add-to-app hosts must declare the Kotlin Gradle Plugin themselves.** Flutter
   auto-applies KGP to plugin modules only when the host provides it, so a Java-only
   native host fails with `Could not find method kotlin()`. Add KGP to the host's root
   `buildscript`/`plugins {}`. A normal `flutter build` app needs nothing — Flutter's
   own Gradle plugin carries KGP.
 
-Add to 'AndroidManifest.xml' above tag `</application>`
+**GPU: nothing to add.** Since 1.2.0 `flutter_gemma`'s own manifest declares the
+OpenCL entries, and the manifest merger folds them into your app. If you pin or audit
+the merged manifest, it must contain these — `libvndksupport.so` above all: without
+it the OpenCL driver load is denied on Android 12+, the engine falls back to WebGPU,
+and some Mali GPUs hard-freeze (#324). `libcdsprpc.so` is for the Qualcomm NPU.
 
-```AndroidManifest.xml
- <!-- Required for the GPU backend on Android 12+: the OpenCL loader uses
-      libvndksupport.so (android_load_sphal_library) to dlopen the vendor
-      OpenCL driver. Without it OpenCL can't load and the engine falls back to
-      WebGPU, which hard-freezes some Mali GPUs on the vision encoder (#324). -->
- <uses-native-library android:name="libvndksupport.so" android:required="false"/>
- <uses-native-library
-     android:name="libOpenCL.so"
-     android:required="false"/>
- <uses-native-library android:name="libOpenCL-car.so" android:required="false"/>
- <uses-native-library android:name="libOpenCL-pixel.so" android:required="false"/>
+```xml
+<uses-native-library android:name="libvndksupport.so" android:required="false"/>
+<uses-native-library android:name="libOpenCL.so" android:required="false"/>
+<uses-native-library android:name="libOpenCL-car.so" android:required="false"/>
+<uses-native-library android:name="libOpenCL-pixel.so" android:required="false"/>
+<uses-native-library android:name="libcdsprpc.so" android:required="false"/>
 ```
 
 * **ProGuard/R8 (only if you use `flutter_gemma_mediapipe`):** the package ships

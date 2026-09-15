@@ -78,6 +78,25 @@ const config = RecordConfig(
 );
 ```
 
+Recording needs microphone access. On Android `record` declares `android.permission.RECORD_AUDIO` in its own manifest and the manifest merger adds it to the app; iOS and macOS need entries of your own:
+
+```xml
+<!-- ios/Runner/Info.plist and macos/Runner/Info.plist -->
+<key>NSMicrophoneUsageDescription</key>
+<string>Speech is transcribed on this device.</string>
+
+<!-- macos/Runner/DebugProfile.entitlements and macos/Runner/Release.entitlements -->
+<key>com.apple.security.device.audio-input</key>
+<true/>
+```
+
+The macOS sandbox withholds the microphone without the entitlement, and it has to be in both entitlements files. On Android, iOS and macOS the user must also allow it at run time; `hasPermission()` asks, so call it before recording:
+
+```dart
+final recorder = AudioRecorder();
+if (!await recorder.hasPermission()) return;
+```
+
 That produces a WAV file. Its header is not always 44 bytes — take the samples from the `data` chunk:
 
 ```dart

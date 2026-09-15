@@ -163,6 +163,7 @@ use_frameworks! :linkage => :static
 Entitlements needed: `extended-virtual-addressing`, `increased-memory-limit`
 
 ### Android
+The core plugin manifest (`packages/flutter_gemma/android/src/main/AndroidManifest.xml`) declares these, plus `libcdsprpc.so` for the Qualcomm NPU, and the manifest merger folds them into every consumer app — apps add nothing (verified in the example's merged manifest):
 ```xml
 <!-- libvndksupport.so is required for the GPU backend on Android 12+: the
      v0.13.x OpenCL loader uses its android_load_sphal_library() to dlopen the

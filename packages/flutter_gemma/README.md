@@ -565,7 +565,16 @@ Add to `macos/Runner/DebugProfile.entitlements` and `Release.entitlements`:
 ```xml
 <key>com.apple.security.cs.disable-library-validation</key>
 <true/>
+<key>com.apple.security.network.client</key>
+<true/>
 ```
+
+`network.client` lets the sandboxed app download a model — without it the request
+fails with `Operation not permitted`. `disable-library-validation` takes effect
+once Hardened Runtime is on, which notarization requires: the build phase above
+signs LiteRT-LM and its companion libraries ad hoc. Do not add the iOS
+`com.apple.developer.kernel.*` memory entitlements here — they are iOS-only, and
+without a signing team they fail the build.
 
 **Windows Setup:**
 

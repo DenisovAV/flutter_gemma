@@ -195,12 +195,15 @@ wrote there:
 	<true/>
 ```
 
-`network.client` is what lets a sandboxed macOS app reach Hugging Face at all;
-`disable-library-validation` is what lets it load the runtime's companion
-dylibs, which upstream ships unsigned. The iOS keys above are deliberately
-**not** here: on macOS the `kernel.*` ones are restricted entitlements that need
-a signing team, so adding them to an unsigned build breaks it — and a model this
-size does not need them. macOS support is Apple Silicon only.
+`network.client` is what lets a sandboxed macOS app reach Hugging Face at all.
+`disable-library-validation` does nothing yet: it matters once Hardened Runtime
+is on, which notarizing the app for distribution requires. The build phase below
+signs LiteRT-LM and its companion libraries ad hoc, and library validation
+refuses code not signed by Apple or by your own team. The iOS keys above are
+deliberately **not** here: they are iOS entitlements. On macOS a build with no
+signing team fails outright with `"Runner" has entitlements that require signing
+with a development certificate`, and a team-signed build silently drops them — a
+model this size does not need them. macOS support is Apple Silicon only.
 
 The build phase is the part unique to macOS. Every step app from this one on
 ships a `macos/Podfile`, and its `post_install` block stages the runtime's

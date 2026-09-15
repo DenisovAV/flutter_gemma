@@ -78,16 +78,20 @@ Add to both `macos/Runner/DebugProfile.entitlements` and
 <true/>
 <key>com.apple.security.network.client</key>
 <true/>
-<key>com.apple.developer.kernel.extended-virtual-addressing</key>
-<true/>
-<key>com.apple.developer.kernel.increased-memory-limit</key>
-<true/>
 ```
 
-`disable-library-validation` lets the app load the bundled native frameworks;
-`network.client` lets it download the model; the two kernel keys keep a large
-model from being killed for memory, exactly as on iOS. Add them to both files — the debug
-and release builds read different ones.
+`network.client` lets the sandboxed app download the model.
+`disable-library-validation` matters once Hardened Runtime is on, which
+notarization requires: the build phase below signs LiteRT-LM and its companion
+libraries ad hoc, and library validation refuses code that is not signed by
+Apple or by the app's own team. Add both keys to both files — the debug and
+release builds read different ones.
+
+Do not copy the iOS `com.apple.developer.kernel.*` keys into these files; they
+are iOS entitlements. Without a signing team the build fails with `"Runner" has
+entitlements that require signing with a development certificate`, and a
+team-signed build silently drops them. A `.litertlm` model loads on macOS
+without them.
 
 `.litertlm` on macOS also needs a build phase that copies the LiteRT-LM
 companion libraries into the app: the package deliberately keeps them out of

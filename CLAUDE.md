@@ -201,7 +201,7 @@ window.LlmInference = LlmInference;
 - Windows GPU requires `dxil.dll` + `dxcompiler.dll` (DirectXShaderCompiler runtime) — bundled in the Windows native archive
 - Windows NPU (`PreferredBackend.npu`) requires Intel LunarLake/PantherLake silicon — `LiteRtDispatch.dll` + OpenVino runtime + TBB bundled in the Windows native archive (0.15.1+)
 
-Entitlements needed: `network.client`, `extended-virtual-addressing`, `increased-memory-limit`
+macOS entitlements: `network.client` (model download) and `cs.disable-library-validation` (takes effect under Hardened Runtime, which notarization requires — the stager signs LiteRT-LM ad hoc). The iOS `kernel.*` memory entitlements do NOT exist on macOS: without a signing team they fail the build, with a team Xcode drops them.
 
 ## Code Quality
 

@@ -1,3 +1,26 @@
+## 1.8.3
+- Inference skill: NPU needs a Gemma 4 bundle; Gemma 3 drops prefill chunks silently.
+- Inference skill: macOS setup no longer adds iOS-only entitlements that break unsigned builds.
+- Speech skill: recording needs microphone permission on iOS, macOS and Android.
+- Fix `.litertlm` on iOS wrapping every prompt in turn markers twice; deprecate `StopTokenFilter`.
+
+## 1.8.2
+- Ship agent skills — `dart run skills@ get --all` teaches your AI assistant this package.
+
+## 1.8.1
+- Add `VectorStoreRepository.flush()`; custom implementations must declare it (#492).
+
+## 1.8.0
+- Whisper output language on `getActiveStt` and `transcribe` (#500).
+- **Breaking for custom `SpeechRecognizer` implementations**: `transcribe` gained `language:` and the type gained a `language` field.
+
+## 1.7.4
+- Example: LFM2.5-230M and the `fromHuggingFace` install path.
+
+## 1.7.3
+- Fix `createChat` dropping `tools` — function calling on every non-FFI engine.
+- Docs: bump web `@litert-lm/core` setup snippet to 0.17.0.
+
 ## 1.7.2
 - Fix web sessions failing right after install because the active model was only half-saved.
 

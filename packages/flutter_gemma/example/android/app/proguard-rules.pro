@@ -10,17 +10,9 @@
 -keep class com.google.android.play.core.** { *; }
 -dontwarn com.google.android.play.core.**
 
-# MediaPipe - keep everything
--keep class com.google.mediapipe.** { *; }
--dontwarn com.google.mediapipe.**
-
-# MediaPipe specific proto classes that might be missing in tasks-genai
--dontwarn com.google.mediapipe.proto.CalculatorProfileProto*
--dontwarn com.google.mediapipe.proto.GraphTemplateProto*
-
-# Protocol Buffers - keep everything
--keep class com.google.protobuf.** { *; }
--dontwarn com.google.protobuf.**
+# MediaPipe and protobuf: nothing here, on purpose. flutter_gemma_mediapipe's
+# consumer rules cover them, and this app's release build is what proves those
+# rules are enough — an app-side copy would hide a gap in them (#514).
 
 # Kotlinx coroutines — no wholesale keep, on purpose. The artifact ships its own
 # R8 rules (META-INF/com.android.tools/r8/coroutines.pro) and they are complete.

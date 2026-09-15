@@ -454,6 +454,14 @@ class SqliteVectorStore implements VectorStoreRepository {
   }
 
   @override
+  Future<void> flush() async {
+    // Nothing to do, and that is a property of sqlite3 rather than an omission
+    // here: the connection runs in autocommit, so every statement addDocument
+    // issues is its own transaction and is durable by the time it returns.
+    // There is no in-memory segment for this store to settle up.
+  }
+
+  @override
   Future<void> close() async {
     // Deliberately NOT gated on `_isInitialized` alone. A store whose
     // initialize() failed is the one holding a handle nobody else will close,

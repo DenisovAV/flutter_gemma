@@ -23,7 +23,10 @@ android {
         applicationId = "dev.flutterberlin.workshop_flutter_gemma_hybrid_ai"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        // libLiteRtLm.so needs API 30+ Bionic (pthread_cond_clockwait,
+        // sem_clockwait). Below 30 the app installs and then fails at the first
+        // model load with a dlopen error.
+        minSdk = 30
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName

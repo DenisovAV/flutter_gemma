@@ -93,7 +93,8 @@ class SttModelProfile {
   /// given as fixed ids (not names) — moonshine needs no tokenizer.json
   /// resolution, matching the original verified recipe exactly.
   const SttModelProfile.moonshine()
-    : inputType = SttInputType.rawPcm,
+    : languagePromptIndex = null,
+      inputType = SttInputType.rawPcm,
       sampleRate = 16000,
       windowSamples = 80000,
       nMels = null,
@@ -116,14 +117,21 @@ class SttModelProfile {
       blankId = null;
 
   /// whisper-tiny: log-mel in (30 s window), seq2seq decode capped at 128
-  /// tokens, GPT-2 byte-level BPE vocab. Forced English-only prompt +
-  /// suppression per docs/superpowers/specs/2026-07-31-whisper-stt-design.md.
+  /// tokens, GPT-2 byte-level BPE vocab. Language-seeded prompt + suppression
+  /// per docs/superpowers/specs/2026-07-31-whisper-stt-design.md (the prompt
+  /// was English-only until the language became a parameter, #500).
   /// `decoderMaskConvention` is set from the Phase 0 spike finding
   /// (docs/superpowers/notes/whisper-stt-spike-findings.md) — `causal` is
   /// the verified winner (whisper's decoder is genuinely causal, unlike
   /// moonshine's export).
+  ///
+  /// The prompt's `<|en|>` is the DEFAULT output language, not a fixed one:
+  /// `SttCore._promptFor` swaps that one id per transcription, driven by
+  /// `SpeechRecognizer.language` / `transcribe(language:)`. `'en'` is kept as
+  /// the default because it is what this profile shipped with before #500.
   const SttModelProfile.whisper()
-    : inputType = SttInputType.logMel,
+    : languagePromptIndex = 1,
+      inputType = SttInputType.logMel,
       sampleRate = 16000,
       windowSamples = 480000,
       nMels = 80,
@@ -140,6 +148,9 @@ class SttModelProfile {
       modes = const {SttMode.batch},
       decoderPromptTokens = const [
         SttTokenRef.name('<|startoftranscript|>'),
+        // Slot [languagePromptIndex]. This is the DEFAULT only — the id here is
+        // replaced per transcription by `SttCore._promptFor`, which is why the
+        // language never has to be baked in and this constructor stays `const`.
         SttTokenRef.name('<|en|>'),
         SttTokenRef.name('<|transcribe|>'),
         SttTokenRef.name('<|notimestamps|>'),
@@ -163,7 +174,8 @@ class SttModelProfile {
   /// example catalog gates it accordingly (a documentation note, not a
   /// runtime check -- see stt_model.dart).
   const SttModelProfile.parakeet()
-    : inputType = SttInputType.logMel,
+    : languagePromptIndex = null,
+      inputType = SttInputType.logMel,
       sampleRate = 16000,
       windowSamples = 80000, // 5 s @ 16 kHz
       nMels = 80,
@@ -242,7 +254,8 @@ class SttModelProfile {
   final Set<SttMode> modes;
 
   /// Ordered decoder seed tokens (moonshine: single BOS id; whisper: the
-  /// 4 forced-English-transcription tokens, resolved by name at load time).
+  /// 4 transcription tokens, resolved by name at load time; the language slot
+  /// carries the DEFAULT and is retargeted per call — see [languagePromptIndex]).
   final List<SttTokenRef> decoderPromptTokens;
 
   /// Stop-decoding token (moonshine: fixed EOS id 2; whisper: resolved
@@ -265,13 +278,59 @@ class SttModelProfile {
   /// no blank concept.
   final int? blankId;
 
+  /// Index in [decoderPromptTokens] holding the language token, or `null` for a
+  /// prompt with no language slot (moonshine, parakeet).
+  ///
+  /// This is what makes the language a per-CALL knob instead of a per-LOAD one.
+  /// The seed prompt is copied fresh on every transcription anyway
+  /// (`SttCore._decodeLoop`), so swapping one id in that copy costs a map
+  /// lookup — no isolate respawn, no model reload, and no way for a cached
+  /// recognizer to be stuck in the language it was built with.
+  final int? languagePromptIndex;
+
   /// True if this model can drive a streaming (incremental) transcription.
   bool get supportsStreaming => modes.contains(SttMode.streaming);
 
   /// Resolve the runtime profile for [t].
+  ///
+  /// No `language` parameter, deliberately: the output language is a property
+  /// of a TRANSCRIPTION, not of a loaded model (`SpeechRecognizer.language`
+  /// and `transcribe(language:)`). Baking it in here is what made
+  /// `getActiveStt(language:)` work only on the first call in a process.
   factory SttModelProfile.forType(SttModelType t) => switch (t) {
     SttModelType.moonshine => const SttModelProfile.moonshine(),
     SttModelType.whisper => const SttModelProfile.whisper(),
     SttModelType.parakeet => const SttModelProfile.parakeet(),
   };
+}
+
+/// Reject a Whisper language code whose SHAPE cannot be a language token,
+/// before anything is loaded, and return it unchanged.
+///
+/// Whisper's codes are bare lowercase ISO-639-1/3 (`'en'`, `'de'`, `'yue'`) —
+/// never `'de-DE'`, `'DE'`, `'german'` or `''`. Without this the string is
+/// interpolated straight into `<|$language|>` and the only failure surface is
+/// `SttSpecialTokenResolver`, which reports `token "<|de-DE|>" not found in
+/// tokenizer.json` from inside the worker isolate — a message that reads like a
+/// corrupt tokenizer bundle rather than a bad argument, after a full isolate
+/// spawn and tokenizer parse.
+///
+/// Deliberately a SHAPE check, not an allow-list: hardcoding 99 codes is a
+/// second copy of a list that lives in the shipped `tokenizer.json`, and
+/// `qwen3_languages.dart`'s header records what those copies cost when they
+/// drift. The exact per-checkpoint set is enforced at resolution time from the
+/// tokenizer's own index, where it can never go stale.
+///
+/// It does NOT catch a well-formed code the checkpoint lacks (`'xx'`) — that is
+/// the resolver's job, and it names the parameter when it fires.
+String assertWhisperLanguage(String language) {
+  if (!RegExp(r'^[a-z]{2,3}$').hasMatch(language)) {
+    throw ArgumentError.value(
+      language,
+      'language',
+      "must be a bare lowercase Whisper language code like 'en' or 'de' "
+          "(not a locale such as 'de-DE', not a name such as 'german')",
+    );
+  }
+  return language;
 }

@@ -1,3 +1,6 @@
+## 0.5.0
+- Whisper: output language is a parameter, no longer hardcoded English (#500).
+
 ## 0.4.3
 - Add VoiceSession(streamAudio:) — clause-by-clause TTS overlapped with the LLM stream for lower time-to-first-audio.
 

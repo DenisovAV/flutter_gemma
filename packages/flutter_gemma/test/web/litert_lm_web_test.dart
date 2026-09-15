@@ -1,9 +1,9 @@
 /// Web smoke tests for the LiteRT-LM `.litertlm` web inference path
-/// (added in 0.16.2 via `@litert-lm/core`).
+/// (added in flutter_gemma 0.16.2, via `@litert-lm/core`).
 ///
 /// Run with: `flutter test test/web/litert_lm_web_test.dart --platform chrome`
 ///
-/// After the 0.16.2 part-of refactor, `LiteRtLmWebInferenceModel` lives inside
+/// After the flutter_gemma 0.16.2 part-of refactor, `LiteRtLmWebInferenceModel` lives inside
 /// the `flutter_gemma_web.dart` library (alongside `WebInferenceModel` and
 /// `WebModelSourceResolver`). End-to-end behaviour (Engine.create, streaming,
 /// OPFS) is exercised manually by `example/integration_test/litertlm_web_test.dart`

@@ -51,7 +51,7 @@ library loading sequence differs per platform.
 <Warning>
 **Model format (LiteRT-LM engine):** the LiteRT-LM engine on desktop accepts only
 `.litertlm` files. MediaPipe `.bin` / `.task` models used on web won't load on
-desktop. See the [AI Edge Model Garden](https://ai.google.dev/edge/litert/models)
+desktop. See [litert-community on Hugging Face](https://huggingface.co/litert-community)
 for compatible models. (The [ONNX engine](/docs/onnx) uses its own `.onnx` model
 directories instead.)
 </Warning>
@@ -80,6 +80,11 @@ LunarLake/PantherLake** silicon — the Windows native archive ships
 `LiteRtDispatch.dll` + the OpenVino runtime + TBB to drive it. On any other
 Windows hardware the NPU backend is unavailable; use `PreferredBackend.gpu` or
 `.cpu`.
+
+Run **Gemma 4** there. On the Intel NPU a Gemma 3 bundle loses every prefill
+chunk after the first — the reply is fluent, answers from the opening of your
+prompt and never mentions the rest, with no error raised
+([LiteRT-LM#3508](https://github.com/google-ai-edge/LiteRT-LM/issues/3508)).
 </Info>
 
 ## Requirements
@@ -210,8 +215,8 @@ post_install do |installer|
 end
 ```
 
-**Entitlements** required for the LLM to load weights and run inference. Add to
-`macos/Runner/DebugProfile.entitlements` and `Release.entitlements`:
+**Entitlements** — add to both `macos/Runner/DebugProfile.entitlements` and
+`Release.entitlements`:
 
 ```
 <key>com.apple.security.cs.disable-library-validation</key>
@@ -222,9 +227,16 @@ end
 <true/>
 ```
 
-For large models (≥1 GB) you may also want
-`com.apple.developer.kernel.extended-virtual-addressing` and
-`com.apple.developer.kernel.increased-memory-limit`.
+`network.client` lets the sandboxed app download a model.
+`disable-library-validation` takes effect once Hardened Runtime is on, which
+notarization requires: the build phase above signs LiteRT-LM and its companion
+libraries ad hoc, and library validation refuses code not signed by Apple or by
+the app's own team.
+
+Do not add the iOS `com.apple.developer.kernel.*` memory entitlements — they are
+iOS-only. Without a signing team the build fails with `"Runner" has entitlements
+that require signing with a development certificate`, and a team-signed build
+drops them. A `.litertlm` model loads on macOS without them.
 
 ### Windows
 

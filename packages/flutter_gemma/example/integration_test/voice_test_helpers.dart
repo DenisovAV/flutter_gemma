@@ -32,7 +32,11 @@ class FixedTranscriptRecognizer implements SpeechRecognizer {
   final String transcript;
 
   @override
-  Future<String> transcribe(Uint8List pcm16kMono) async => transcript;
+  String? language;
+
+  @override
+  Future<String> transcribe(Uint8List pcm16kMono, {String? language}) async =>
+      transcript;
 
   @override
   void addCloseListener(void Function() listener) {}

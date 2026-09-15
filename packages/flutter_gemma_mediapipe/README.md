@@ -2,6 +2,14 @@
 
 MediaPipe (`.task`) on-device inference engine for [`flutter_gemma`](https://pub.dev/packages/flutter_gemma). Opt-in package — add it only if you run MediaPipe `.task` models. Android, iOS, and Web.
 
+## Teach your AI assistant this package
+
+```bash
+dart run skills@ get --all
+```
+
+Installs the agent skills `flutter_gemma` bundles — this package depends on it, so they come with it. One of them, `flutter-gemma-mediapipe`, covers `.task` and `.bin` models on Android, iOS and web.
+
 ## Usage
 
 ```dart

@@ -234,10 +234,13 @@ CHECKLIST
    flutter_gemma_mediapipe declares 16.0. A litertlm-only app is NOT held to 16 —
    that was the bug. Both the podspec and the Package.swift must carry the same
    number for a package that has both (mediapipe has no Package.swift).
-4. Entitlements: extended-virtual-addressing and increased-memory-limit for large
-   models; on macOS `cs.disable-library-validation` is required for dlopen of the
-   ad-hoc-signed companion frameworks — and it must be in BOTH DebugProfile and
-   Release entitlements.
+4. Entitlements: iOS needs extended-virtual-addressing and increased-memory-limit
+   for large models. macOS must carry NO `com.apple.developer.kernel.*` key — they
+   are iOS-only: without a signing team the build fails ("has entitlements that
+   require signing with a development certificate"), with a team Xcode drops
+   them. macOS needs `network.client` and `cs.disable-library-validation` in BOTH
+   DebugProfile and Release entitlements; the latter takes effect under Hardened
+   Runtime, because the stager signs LiteRT-LM and its companions ad hoc.
 5. No `Podfile post_install` symlink step should be reintroduced: those lib*.dylib
    symlinks caused App Store rejection ITMS-90432 (#245). Any bundled dylib needs
    `vtool` minos 13.0 or the upload is rejected (ITMS-90208).

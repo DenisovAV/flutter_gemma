@@ -156,14 +156,6 @@ class SiteFooter extends StatelessComponent {
               ul(classes: 'footer-links', [
                 li([
                   a(
-                    href: 'https://sashadenisov.dev',
-                    classes: 'footer-link',
-                    attributes: {'target': '_blank', 'rel': 'noopener'},
-                    [Component.text('Author')],
-                  ),
-                ]),
-                li([
-                  a(
                     href: 'https://github.com/DenisovAV/flutter_gemma',
                     classes: 'footer-link',
                     attributes: {'target': '_blank', 'rel': 'noopener'},
@@ -207,7 +199,15 @@ class SiteFooter extends StatelessComponent {
           ]),
           // Bottom bar
           div(classes: 'footer-bottom', [
-            span(classes: 'footer-copy', [Component.text('MIT © Sasha Denisov')]),
+            span(classes: 'footer-copy', [
+              a(
+                href: 'https://sashadenisov.dev',
+                classes: 'footer-author',
+                attributes: {'target': '_blank', 'rel': 'noopener'},
+                [Component.text('Sasha Denisov')],
+              ),
+              Component.text(' · MIT'),
+            ]),
             span(classes: 'footer-copy', [
               Component.text('Made with '),
               a(
@@ -296,5 +296,19 @@ class SiteFooter extends StatelessComponent {
       fontSize: 0.825.rem,
       color: Brand.white50,
     ),
+    // The name is the only link down here that is not a project resource, so it
+    // is underlined rather than left to read as plain text.
+    //
+    // Font and colour are INHERITED from `.footer-copy` on purpose: the name
+    // and the licence beside it are one sentence, and setting a family or size
+    // here renders half of it in a different typeface at a different size.
+    css('.footer-author').styles(
+      raw: const {
+        'color': 'inherit',
+        'text-decoration': 'underline',
+        'text-underline-offset': '2px',
+      },
+    ),
+    css('.footer-author:hover').styles(color: Brand.white),
   ];
 }

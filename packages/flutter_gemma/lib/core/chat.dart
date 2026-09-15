@@ -376,14 +376,7 @@ class InferenceChat {
         ? filteredStream
         : filteredStream.where((r) => r is! ThinkingResponse);
 
-    // Apply stop token filter for .litertlm on iOS (MediaPipe doesn't handle stop tokens)
-    final Stream<ModelResponse> stopFilteredStream =
-        StopTokenFilter.filterStopTokens(
-          thinkingHandledStream,
-          fileType: fileType,
-        );
-
-    await for (final response in stopFilteredStream) {
+    await for (final response in thinkingHandledStream) {
       if (response is TextResponse) {
         final token = response.token;
         if (kDebugMode) {
@@ -1277,10 +1270,19 @@ class InferenceChat {
   }
 }
 
-/// Filters stop tokens from model response stream.
-/// For .litertlm on iOS, MediaPipe doesn't handle `<end_of_turn>` —
-/// this filter detects and terminates the stream at the stop token,
-/// with buffering for partial tag matches.
+/// Filters stop tokens from a model response stream: detects `<end_of_turn>`
+/// and terminates the stream there, buffering partial tag matches.
+///
+/// It existed for .litertlm on iOS, which until 0.14.0 ran through MediaPipe
+/// and did not stop at the token. Since 0.14.0 every platform, iOS included,
+/// runs .litertlm through LiteRT-LM, which ends the turn natively, so
+/// [InferenceChat] no longer applies it. Kept, with its behaviour unchanged,
+/// because it is exported.
+@Deprecated(
+  'No engine needs this since 0.14.0: LiteRT-LM ends the turn natively on '
+  'every platform, and InferenceChat no longer applies it. Scheduled for '
+  'removal in 2.0.',
+)
 class StopTokenFilter {
   static const String _stopToken = '<end_of_turn>';
 

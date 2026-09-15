@@ -86,8 +86,11 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 
 // 1. Install an embedding model (any of Gecko / EmbeddingGemma) — see above.
 
-// 2. Initialize the vector store (one shard per database path)
-await FlutterGemma.rag.initialize('rag_store');
+// 2. Initialize the vector store (one shard per database path). On native pass
+//    an absolute path: a bare name resolves against the process working
+//    directory, which is not writable on Android or iOS. On web a name is enough.
+final dir = await getApplicationDocumentsDirectory(); // package:path_provider
+await FlutterGemma.rag.initialize('${dir.path}/rag_store');
 
 // 3. Add documents — let flutter_gemma compute embeddings for you
 for (final doc in docs) {
@@ -114,6 +117,9 @@ for (var i = 0; i < docs.length; i++) {
   );
 }
 
+// 3c. Persist what you indexed while the store stays open (see below)
+await FlutterGemma.rag.flush();
+
 // 4. Semantic search, with optional payload-aware Filter
 final results = await FlutterGemma.rag.searchSimilar(
   query: 'quantum entanglement',
@@ -132,6 +138,23 @@ final stats = await FlutterGemma.rag.stats();
 await FlutterGemma.rag.clear();
 ```
 
+### Persisting the index: `flush()`
+
+Call `FlutterGemma.rag.flush()` after indexing. What it does depends on the store:
+
+- **qdrant-edge** — required. New documents stay in memory until the store is
+  flushed or closed, so an index built without either is lost when the process
+  ends — an Android app killed in the background is the ordinary case. `close()`
+  persists too, but only logs a failed save; `flush()` throws it.
+- **sqlite-vec, native** — a no-op: every statement is on disk when it returns.
+- **sqlite-vec, web** — drains the IndexedDB storage. On `sqlite3` >= 3.4.0 it
+  does not wait for a write batch already in flight (an upstream regression);
+  `close()` is the stronger drain there.
+
+A store that cannot persist at all (the web in-memory fallback) throws
+`VectorStoreException` rather than returning. Custom `VectorStoreRepository`
+implementations must declare `flush()`.
+
 ## The Filter API
 
 `Filter` supports `must` / `should` / `mustNot` lists of conditions:
@@ -143,9 +166,12 @@ await FlutterGemma.rag.clear();
 Both stores honor `Filter` on **all platforms**, and both need the filterable
 fields declared up front in a `FilterSchema` (see below). qdrant-edge promotes
 exactly the declared fields to payload keys at write time; sqlite-vec creates
-them as columns at table-creation time. On either store a filter on an
-undeclared field is a no-op — it matches nothing and never throws, so a missing
-declaration looks like "no results" rather than an error.
+them as columns at table-creation time. On either store a condition on an
+undeclared field is **dropped**, as if it had never been written: the search
+returns the same hits as `filter: null`, and a filter mixing declared and
+undeclared fields narrows only by the declared ones. A missing declaration
+therefore looks like "my filter had no effect" — too many results, never an
+error and never zero.
 
 ### Declaring filter fields
 
@@ -194,12 +220,11 @@ A `Filter` over the declared fields is then applied inside the store; a filter
 referencing an **undeclared** field is silently ignored (no-op, never throws).
 
 <Warning>
-Declare a `FilterSchema` on **both** stores. qdrant-edge promotes only the fields
-named in the schema to payload keys — an undeclared field is absent from the
-payload, so a `Filter` on it matches nothing and the search returns zero hits
-rather than an error. The difference between the two stores is not "schema
-optional": it is that sqlite-vec needs the schema at table-creation time, while
-qdrant promotes at write time.
+Declare a `FilterSchema` on **both** stores. Neither store filters on a field it
+was not told about: the condition is dropped and the search comes back
+unfiltered, with no error and no log in a release build. The difference between
+the two is not "schema optional": sqlite-vec needs the schema at table-creation
+time, while qdrant promotes at write time.
 </Warning>
 
 ## Platform support
@@ -247,3 +272,5 @@ for exact results or cross-platform / web reach.
 Benchmarks comparing the two stores across platforms (EmbeddingGemma 300M,
 768-dim) are in the
 [repo benchmarks](https://github.com/DenisovAV/flutter_gemma/blob/main/packages/flutter_gemma/example/integration_test/benchmarks/comparison.md).
+
+**Writing this with a coding assistant?** `dart run skills@ get --all` installs [`flutter-gemma-rag`](/docs/package-skills), the skill that teaches it embedding models, both vector stores, and the metadata filters above — including the `filterSchema` trap that returns unfiltered results.

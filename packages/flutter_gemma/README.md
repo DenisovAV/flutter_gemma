@@ -7,7 +7,7 @@
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/flutter_gemma)
 
-**The plugin supports not only Gemma, but also other models. Here's the full list of supported models:** [Gemma 4 E2B/E4B](https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm), [Gemma3n E2B/E4B](https://huggingface.co/google/gemma-3n-E2B-it-litert-preview), [FastVLM 0.5B](https://huggingface.co/litert-community/FastVLM-0.5B), [Gemma-3 1B](https://huggingface.co/litert-community/Gemma3-1B-IT), [Gemma 3 270M](https://huggingface.co/litert-community/gemma-3-270m-it), [FunctionGemma 270M](https://huggingface.co/sasha-denisov/function-gemma-270M-it), [Qwen3 0.6B](https://huggingface.co/litert-community/Qwen3-0.6B), [Qwen 2.5](https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct), [Phi-4 Mini](https://huggingface.co/litert-community/Phi-4-mini-instruct), [DeepSeek R1](https://huggingface.co/litert-community/DeepSeek-R1-Distill-Qwen-1.5B), [SmolLM 135M](https://huggingface.co/litert-community/SmolLM-135M-Instruct), [SmolLM3 3B](https://huggingface.co/litert-community/SmolLM3-3B), [Phi-4 Mini Reasoning](https://huggingface.co/litert-community/Phi-4-mini-reasoning), [Qwen2-VL 2B](https://huggingface.co/litert-community/Qwen2-VL-2B), [SmolVLM2 500M](https://huggingface.co/litert-community/SmolVLM2-500M), [LLaVA-OneVision 0.5B](https://huggingface.co/litert-community/LLaVA-OneVision-0.5B), [TranslateGemma 4B](https://huggingface.co/google/translategemma-4b-it) (CPU-only).
+**The plugin supports not only Gemma, but also other models. Here's the full list of supported models:** [Gemma 4 E2B/E4B](https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm), [Gemma3n E2B/E4B](https://huggingface.co/google/gemma-3n-E2B-it-litert-preview), [FastVLM 0.5B](https://huggingface.co/litert-community/FastVLM-0.5B), [Gemma-3 1B](https://huggingface.co/litert-community/Gemma3-1B-IT), [Gemma 3 270M](https://huggingface.co/litert-community/gemma-3-270m-it), [FunctionGemma 270M](https://huggingface.co/sasha-denisov/function-gemma-270M-it), [Qwen3 0.6B](https://huggingface.co/litert-community/Qwen3-0.6B), [Qwen 2.5](https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct), [Phi-4 Mini](https://huggingface.co/litert-community/Phi-4-mini-instruct), [DeepSeek R1](https://huggingface.co/litert-community/DeepSeek-R1-Distill-Qwen-1.5B), [SmolLM 135M](https://huggingface.co/litert-community/SmolLM-135M-Instruct), [LFM2.5 230M](https://huggingface.co/litert-community/LFM2.5-230M), [SmolLM3 3B](https://huggingface.co/litert-community/SmolLM3-3B), [Phi-4 Mini Reasoning](https://huggingface.co/litert-community/Phi-4-mini-reasoning), [Qwen2-VL 2B](https://huggingface.co/litert-community/Qwen2-VL-2B), [SmolVLM2 500M](https://huggingface.co/litert-community/SmolVLM2-500M), [LLaVA-OneVision 0.5B](https://huggingface.co/litert-community/LLaVA-OneVision-0.5B), [TranslateGemma 4B](https://huggingface.co/google/translategemma-4b-it) (CPU-only).
 
 *Note: The flutter_gemma plugin supports Gemma 4 and Gemma3n (with **multimodal vision and audio support**), FastVLM, Qwen2-VL, SmolVLM2 and LLaVA-OneVision (vision), Gemma-3, FunctionGemma, Qwen3, Qwen 2.5, Phi-4 (incl. Phi-4 Mini Reasoning), DeepSeek R1, SmolLM and SmolLM3. Desktop platforms (macOS, Windows, Linux) require `.litertlm` model format.
 
@@ -33,7 +33,7 @@ There is an example of using:
 - **🖥️ Desktop Support:** Native desktop apps (macOS, Windows, Linux) with GPU acceleration via LiteRT-LM, called directly from Dart through `dart:ffi` — no JVM/JRE bundling. See [DESKTOP_SUPPORT.md](DESKTOP_SUPPORT.md) for details.
 - **🖼️ Multimodal Support:** Text + Image input with Gemma 4, Gemma3n, FastVLM, Qwen2-VL, SmolVLM2, and LLaVA-OneVision vision models (Gemma 4 / Gemma3n on all platforms incl. Web; Qwen2-VL / SmolVLM2 / LLaVA-OneVision on Android, iOS, and Desktop; FastVLM on Desktop)
 - **🎙️ Audio Input:** Record and send audio messages with Gemma 4 and Gemma3n E2B/E4B models (Android, iOS device, macOS/Windows/Linux via LiteRT-LM — not on Web)
-- **🎤 On-device Speech-to-Text:** Opt-in [`flutter_gemma_speech`](https://pub.dev/packages/flutter_gemma_speech) — transcribe audio fully offline with a selectable ASR model (moonshine, Whisper, Parakeet) via the LiteRT C API (Android, iOS, macOS, Windows, Linux; Web is a follow-on)
+- **🎤 On-device Speech-to-Text:** Opt-in [`flutter_gemma_speech`](https://pub.dev/packages/flutter_gemma_speech) — transcribe audio fully offline with a selectable ASR model (moonshine, Whisper, Parakeet) via the LiteRT C API (Android, iOS, macOS, Windows, Linux; Web is a follow-on). Whisper is multilingual: `getActiveStt(language: 'de')` sets the output language and `transcribe(pcm, language: 'fr')` overrides it for one call — neither reloads the model
 - **🔊 On-device Text-to-Speech:** Opt-in [`flutter_gemma_speech`](https://pub.dev/packages/flutter_gemma_speech) — synthesize speech fully offline with a selectable model (Matcha, Qwen3-TTS, Inflect-Nano-v2; kokoro / supertonic are follow-ons) via the LiteRT C API (Android, iOS, macOS, Windows, Linux; Web is a follow-on)
 - **🗣️ On-device Voice Loop:** `VoiceSession` in [`flutter_gemma_speech`](https://pub.dev/packages/flutter_gemma_speech) chains STT → LLM → TTS into one push-to-talk turn with barge-in — the full on-device speech-to-speech pipeline. `VoiceSession.fromChat(recognizer:, chat:, synthesizer:)` streams `VoiceEvent`s from recorded PCM (native only).
 - **🛠️ Function Calling:** Enable your models to call external functions and integrate with other services (supported by select models)
@@ -56,17 +56,33 @@ There is an example of using:
 - **🔐 Typed Download Errors:** Catch the public `DownloadException` sealed type (401/403/404/429/5xx) for gated HuggingFace models instead of substring-matching error strings
 - **💾 Web Persistent Caching:** Models persist across browser restarts — Cache API for models <2GB, OPFS streaming for large ones (>2GB, e.g. Gemma 4 E4B) — no re-download on reload (Web only)
 
-## What's new in 1.6.4
+## Teach your AI assistant this package
 
-- 📱 **iOS deployment floor lowered to 15.0** — core, built-in AI and embeddings build from iOS 15.0 (only `flutter_gemma_mediapipe` still needs 16.0). Every OS-26-only Foundation Models call is `#available`-guarded ([#441](https://github.com/DenisovAV/flutter_gemma/issues/441)).
+`flutter_gemma` ships [agent skills](https://dart.dev/blog/skills-cli-1-0-bundle-and-distribute-ai-agent-skills-for-your-packages) — short instruction files your coding assistant reads so it uses this API correctly the first time:
 
-## What's new in 1.6.3
+```bash
+dart run skills@ get --all
+```
 
-- 📥 **flutter_gemma no longer claims `background_downloader`'s updates stream** — depending on this package used to make `FileDownloader().updates` unusable for your own downloads, because that stream takes a single subscription. Updates are now scoped to flutter_gemma's own task group ([#445](https://github.com/DenisovAV/flutter_gemma/issues/445)). Download priority is also corrected per platform.
+That scans your dependencies and installs every skill they bundle where your agent looks — Claude Code, Codex, Cursor, Antigravity, Cline, Copilot and OpenCode are supported. If it reports that it could not detect your agent, name it with `--agent claude` (or `codex`, `cursor`, …).
 
-## What's new in 1.6.2
+What they cover: registering an engine (core ships none), routing by the declared `ModelFileType` rather than the filename, and the two defaults that fail quietly — `maxTokens` is the context window and not the reply length, and `Message.isUser` defaults to `false`.
 
-- 🌐 **ONNX on Web** — `flutter_gemma_onnx`'s `OnnxEngine` now generates text on Web via Transformers.js, with a fileless `ModelFileType.onnx` install (the model is a Hugging Face repo id, not a directory). `OnnxEmbeddingBackend` gained a web arm too, via onnxruntime-web. See [`flutter_gemma_onnx`](https://pub.dev/packages/flutter_gemma_onnx).
+## What's new in 1.8.2
+
+- 🤖 **Agent skills ship with the package** — `dart run skills@ get --all` installs seven skills that teach your coding assistant this API: inference (with platform setup), function calling, RAG, speech, MediaPipe, ONNX and built-in AI. Every code block in them is compiled against these packages before each release.
+
+## What's new in 1.8.1
+
+- 💾 **`VectorStoreRepository.flush()`** — a RAG index now survives the process; custom `VectorStoreRepository` implementations must declare it ([#492](https://github.com/DenisovAV/flutter_gemma/issues/492)).
+
+## What's new in 1.8.0
+
+- 🗣️ **Whisper output language per transcription** — `getActiveStt(language:)` sets the default and `transcribe(pcm, language:)` overrides it for one call, with no reload. **Breaking for custom `SpeechRecognizer` implementations**: `transcribe` gained `language:` and the type gained a `language` field ([#500](https://github.com/DenisovAV/flutter_gemma/issues/500)).
+
+## What's new in 1.7.0
+
+- 🤗 **One-call Hugging Face installs** — `fromHuggingFace(repo)` reads a repo's deployment manifest, picks the variant for the device and returns its tested runtime defaults; every engine carries its own resolver.
 
 📖 Full docs & guides: **[fluttergemma.dev](https://fluttergemma.dev)**
 
@@ -76,11 +92,11 @@ See [CHANGELOG.md](CHANGELOG.md) for the full release history.
 
 Flutter Gemma supports different model file formats, which are grouped into **two types** based on how chat templates are handled:
 
-### Type 1: MediaPipe-Managed Templates
+### Type 1: SDK-managed templates
 - **`.task` files:** MediaPipe-optimized format for mobile (Android/iOS)
 - **`.litertlm` files:** LiteRT-LM format for Android, iOS, and Desktop platforms
 
-Both formats have **identical behavior** — MediaPipe handles chat templates internally.
+The runtime applies the chat template — MediaPipe for `.task`, LiteRT-LM for `.litertlm` — so your code sends plain text on every platform, iOS included.
 
 ### Type 2: Manual Template Formatting
 - **`.bin` files:** Standard binary format
@@ -106,7 +122,7 @@ Both formats require **manual chat template formatting** in your code.
 
 > ¹ iOS `.litertlm` runs on the FFI engine — vision and audio supported on physical devices. The Simulator stays CPU-only because Metal sim has a 256 MB single-allocation cap.
 >
-> ² Web `.litertlm` is an **early preview** via `@litert-lm/core` — text only. No vision, audio, thinking, function calling or LoRA. For full multimodal on web use a MediaPipe `.task` build. See [Web `.litertlm` feature matrix](#web-litertlm-early-preview-feature-matrix).
+> ² Web `.litertlm` is an **early preview** via `@litert-lm/core` — text plus function calling. No vision, audio, thinking or LoRA. For full multimodal on web use a MediaPipe `.task` build. See [Web `.litertlm` feature matrix](#web-litertlm-early-preview-feature-matrix).
 
 ## Model Capabilities
 
@@ -130,10 +146,11 @@ The example app offers a curated list of models, each suited for different tasks
 | **Gemma 3 270M** | Ideal for fine-tuning (LoRA) for specific tasks | ❌ | ❌ | ❌ | Multilingual | 0.3GB |
 | **FunctionGemma 270M** | Specialized for function calling on-device | ✅ | ❌ | ❌ | Multilingual | 284MB |
 | **SmolLM 135M** | Ultra-compact, resource-constrained devices | ❌ | ❌ | ❌ | English | 135MB |
+| **LFM2.5 230M** | Smallest entry; no HF token needed | ❌ | ❌ | ❌ | Multilingual | 168MB |
 | **SmolLM3 3B** | Multilingual small LLM with reasoning mode | ❌ | ✅ | ❌ | Multilingual | 2.0GB |
 | **TranslateGemma 4B** † | Single-shot 55-language translation | ❌ | ❌ | ❌ | 55 languages | 2-4GB |
 
-† **TranslateGemma is CPU-only for now.** Google hasn't released a mobile/desktop `.litertlm` bundle (HF discussion [#5](https://huggingface.co/google/translategemma-4b-it/discussions/5) — "no concrete plans"). The example app uses the community-converted bundle from [`barakplasma/translategemma-4b-it-android-task-quantized`](https://huggingface.co/barakplasma/translategemma-4b-it-android-task-quantized), which keeps `EMBEDDING_LOOKUP` weights in float32 for MediaPipe `.task` compatibility. That layout crashes the LiteRT GPU partitioner on Metal/WebGPU across all platforms — tracked upstream at [LiteRT-LM#1748](https://github.com/google-ai-edge/LiteRT-LM/issues/1748). Until Google ships the `litert-lm` quantization CLI, translation runs on CPU only (≈90 s prefill on a 4 B int4 bundle on M-series Macs).
+† **TranslateGemma is CPU-only for now.** Google hasn't released a mobile/desktop `.litertlm` bundle (HF discussion [#5](https://huggingface.co/google/translategemma-4b-it/discussions/5) — "no concrete plans"). The example app uses a community-converted bundle from [`barakplasma/translategemma-4b-it-android-task-quantized`](https://huggingface.co/barakplasma/translategemma-4b-it-android-task-quantized), which publishes `.litertlm` artifacts. Both of them run correctly on `PreferredBackend.cpu` and return **only padding** on `PreferredBackend.gpu`: measured on an M4 Pro (Metal), `int4-generic` and `dynamic_int8-generic` each answered `Guten Morgen` on CPU and emitted 997 `<pad>` tokens and nothing else on GPU, from the same prompt and the same code. Nothing throws — the Metal engine is created, `activeBackend` reports `gpu`, and generation runs to the context limit. A `gemma-4-E2B-it.litertlm` bundle on the same machine, the same code path and the same backend answers correctly with no padding, so this is not the Metal path in general. Tracked upstream at [LiteRT-LM#1748](https://github.com/google-ai-edge/LiteRT-LM/issues/1748). Use CPU for this model (≈90 s prefill on a 4 B int4 bundle on M-series Macs).
 
 ## ModelType Reference
 
@@ -148,7 +165,7 @@ When installing models, you need to specify the correct `ModelType`. Use this ta
 | **Qwen 3** | `ModelType.qwen3` | Qwen3 0.6B |
 | **FunctionGemma** | `ModelType.functionGemma` | FunctionGemma 270M IT |
 | **Phi** | `ModelType.phi` | Phi-4 Mini |
-| **General** | `ModelType.general` | FastVLM 0.5B, SmolLM 135M, SmolLM3 3B, Phi-4 Mini Reasoning, Qwen2-VL 2B, SmolVLM2 500M, LLaVA-OneVision 0.5B |
+| **General** | `ModelType.general` | FastVLM 0.5B, SmolLM 135M, LFM2.5 230M, SmolLM3 3B, Phi-4 Mini Reasoning, Qwen2-VL 2B, SmolVLM2 500M, LLaVA-OneVision 0.5B |
 
 > **Note**: Gemma 4 uses `ModelType.gemma4` so its native `<\|tool_call>...<tool_call\|>` tokens are routed through the LiteRT-LM SDK's chat-template path. For Gemma 3 and earlier, keep `ModelType.gemmaIt`.
 
@@ -330,40 +347,44 @@ use_frameworks! :linkage => :static
 
 **Android**
 
-* **GPU (any engine):** if you want to run on the GPU, add OpenCL support to the
-  manifest. Required by both inference engines (`flutter_gemma_litertlm` and
-  `flutter_gemma_mediapipe`). CPU-only? Skip this step.
-
 * **Add-to-app hosts must declare the Kotlin Gradle Plugin themselves.** Flutter
   auto-applies KGP to plugin modules only when the host provides it, so a Java-only
   native host fails with `Could not find method kotlin()`. Add KGP to the host's root
   `buildscript`/`plugins {}`. A normal `flutter build` app needs nothing — Flutter's
   own Gradle plugin carries KGP.
 
-Add to 'AndroidManifest.xml' above tag `</application>`
+**GPU: nothing to add.** Since 1.2.0 `flutter_gemma`'s own manifest declares the
+OpenCL entries, and the manifest merger folds them into your app. If you pin or audit
+the merged manifest, it must contain these — `libvndksupport.so` above all: without
+it the OpenCL driver load is denied on Android 12+, the engine falls back to WebGPU,
+and some Mali GPUs hard-freeze (#324). `libcdsprpc.so` is for the Qualcomm NPU.
 
-```AndroidManifest.xml
- <!-- Required for the GPU backend on Android 12+: the OpenCL loader uses
-      libvndksupport.so (android_load_sphal_library) to dlopen the vendor
-      OpenCL driver. Without it OpenCL can't load and the engine falls back to
-      WebGPU, which hard-freezes some Mali GPUs on the vision encoder (#324). -->
- <uses-native-library android:name="libvndksupport.so" android:required="false"/>
- <uses-native-library
-     android:name="libOpenCL.so"
-     android:required="false"/>
- <uses-native-library android:name="libOpenCL-car.so" android:required="false"/>
- <uses-native-library android:name="libOpenCL-pixel.so" android:required="false"/>
+```xml
+<uses-native-library android:name="libvndksupport.so" android:required="false"/>
+<uses-native-library android:name="libOpenCL.so" android:required="false"/>
+<uses-native-library android:name="libOpenCL-car.so" android:required="false"/>
+<uses-native-library android:name="libOpenCL-pixel.so" android:required="false"/>
+<uses-native-library android:name="libcdsprpc.so" android:required="false"/>
 ```
 
 * **ProGuard/R8 (only if you use `flutter_gemma_mediapipe`):** the package ships
-  its own consumer ProGuard rules, so release builds work out of the box. If you
-  still hit `UnsatisfiedLinkError` / missing MediaPipe classes, add to your
+  its own consumer ProGuard rules; from 1.0.6 a release build needs no rules in
+  your app (built on AGP 9.1). On 1.0.5 and earlier R8 fails the release build
+  with `Missing class` (seen on AGP 9) — upgrade to 1.0.6, or add to your
   `proguard-rules.pro`:
+
+```proguard
+-dontwarn com.google.auto.value.**
+-dontwarn com.google.mediapipe.proto.CalculatorProfileProto$CalculatorProfile
+-dontwarn com.google.mediapipe.proto.GraphTemplateProto$CalculatorGraphTemplate
+```
+
+  If a release build then fails at run time with `UnsatisfiedLinkError` or a
+  missing MediaPipe class, also add:
 
 ```proguard
 # MediaPipe
 -keep class com.google.mediapipe.** { *; }
--dontwarn com.google.mediapipe.**
 
 # Protocol Buffers
 -keep class com.google.protobuf.** { *; }
@@ -394,7 +415,7 @@ script(s) for the **engine package(s) you use** to your `web/index.html`.
 ```html
   <script type="module">
   window.litertLmReady = (async () => {
-    const m = await import('https://cdn.jsdelivr.net/npm/@litert-lm/core@0.14.0/+esm');
+    const m = await import('https://cdn.jsdelivr.net/npm/@litert-lm/core@0.17.0/+esm');
     window.Engine = m.Engine;
     return m.Engine;
   })();
@@ -548,7 +569,16 @@ Add to `macos/Runner/DebugProfile.entitlements` and `Release.entitlements`:
 ```xml
 <key>com.apple.security.cs.disable-library-validation</key>
 <true/>
+<key>com.apple.security.network.client</key>
+<true/>
 ```
+
+`network.client` lets the sandboxed app download a model — without it the request
+fails with `Operation not permitted`. `disable-library-validation` takes effect
+once Hardened Runtime is on, which notarization requires: the build phase above
+signs LiteRT-LM and its companion libraries ad hoc. Do not add the iOS
+`com.apple.developer.kernel.*` memory entitlements here — they are iOS-only, and
+without a signing team they fail the build.
 
 **Windows Setup:**
 
@@ -1636,7 +1666,7 @@ chat.generateChatResponseAsync().listen((response) {
 | [DeepSeek R1](https://huggingface.co/litert-community/DeepSeek-R1-Distill-Qwen-1.5B) | 1.7GB | ❌ | ✅ | ❌ |
 | [TranslateGemma 4B](https://huggingface.co/google/translategemma-4b-it) † | 2-4GB | ❌ | ✅ | ❌ |
 
-† **TranslateGemma is CPU-only** and ships only as a community MediaPipe `.task` bundle ([`barakplasma/translategemma-4b-it-android-task-quantized`](https://huggingface.co/barakplasma/translategemma-4b-it-android-task-quantized)) — there's no desktop `.litertlm` build, and its float32 `EMBEDDING_LOOKUP` layout crashes the LiteRT GPU partitioner on Metal/WebGPU, so it does not run on Desktop or Web. See the [Model Capabilities](#model-capabilities) note for details.
+† **TranslateGemma is CPU-only.** Google ships no bundle of its own; the community repo ([`barakplasma/translategemma-4b-it-android-task-quantized`](https://huggingface.co/barakplasma/translategemma-4b-it-android-task-quantized)) publishes `.litertlm` artifacts that load and translate on desktop CPU, but return only padding on the GPU. See the [Model Capabilities](#model-capabilities) note for the measurements.
 
 ### 📊 Text Embedding Models
 
@@ -1681,8 +1711,11 @@ await FlutterGemma.installEmbedder()
     )
     .install();
 
-// 2. Initialize the vector store (one shard per database path)
-await FlutterGemmaPlugin.instance.initializeVectorStore('rag_store');
+// 2. Initialize the vector store (one shard per database path). On native pass
+//    an absolute path: a bare name resolves against the process working
+//    directory, which is not writable on Android or iOS. On web a name is enough.
+final dir = await getApplicationDocumentsDirectory(); // package:path_provider
+await FlutterGemmaPlugin.instance.initializeVectorStore('${dir.path}/rag_store');
 
 // 3. Add documents — let the plugin compute embeddings for you
 for (final doc in docs) {
@@ -1719,7 +1752,12 @@ final results = await FlutterGemmaPlugin.instance.searchSimilar(
     mustNot: [FieldEquals(key: 'lang', value: 'fr')],
   ),
 );
+
+// 5. Persist the index while the store stays open (see below)
+await FlutterGemmaPlugin.instance.flushVectorStore(); // or FlutterGemma.rag.flush()
 ```
+
+**Call `flush()` after indexing.** `flutter_gemma_rag_qdrant` keeps new documents in memory until the store is flushed or closed, so an index built without either is lost when the process ends — an Android app killed in the background is the ordinary case ([#492](https://github.com/DenisovAV/flutter_gemma/issues/492)). On native `flutter_gemma_rag_sqlite` it is a no-op; on web it drains the IndexedDB storage. A store that cannot persist at all throws `VectorStoreException` instead of returning. Custom `VectorStoreRepository` implementations must declare `flush()`.
 
 A field name is checked by the store, in `configure()`. `SqliteVectorStore` is
 the strict one — `^[A-Za-z][A-Za-z0-9_]*$`, and not a name `vec0` already uses
@@ -1770,7 +1808,7 @@ Function calling is currently supported by the following models:
 | **Text Generation** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | All models supported |
 | **Image Input (Multimodal)** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Verified on macOS Metal and Linux Vulkan (Gemma 4 + Gemma 3n) |
 | **Audio Input** | ✅ Full | ✅ Full ¹ | ❌ Not supported | ✅ `.litertlm` only | Gemma3n E2B/E4B + Gemma 4; iOS device-only; Desktop via FFI |
-| **Speech-to-Text** | ✅ Full | ✅ Full | ❌ Not supported | ✅ Full | `flutter_gemma_speech` (moonshine ASR); native only, arm64 on Android |
+| **Speech-to-Text** | ✅ Full | ✅ Full | ❌ Not supported | ✅ Full | `flutter_gemma_speech` (moonshine / Whisper / Parakeet); native only, arm64 on Android |
 | **Text-to-Speech** | ✅ Full | ✅ Full | ❌ Not supported | ✅ Full | `flutter_gemma_speech` (Matcha); native only, arm64 on Android |
 | **Function Calling** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Gemma 4 native (SDK chat template) |
 | **Thinking Mode** | ✅ Full | ✅ Full | ❌ Not supported | ✅ Full | Gemma 4 / DeepSeek / Qwen3 / SmolLM3 / Phi-4 Mini Reasoning; not available on Web yet (MediaPipe `.task` web has no `extraContext`; `.litertlm` web is not verified) |
@@ -1788,7 +1826,7 @@ Function calling is currently supported by the following models:
 | **External Files (FileSource)** | ✅ Full | ✅ Full | ❌ Not supported | ✅ Full | No local FS on web |
 
 > **Web column note:** the **Web** ✅ marks above describe the MediaPipe `.task`
-> web path (image input, function calling, etc.). **Thinking Mode is not
+> web path (image input, etc.). **Thinking Mode is not
 > supported on Web yet** — MediaPipe `.task` web has no `extraContext` hook, and
 > the newer **web `.litertlm`** path (`@litert-lm/core`) is an early-preview
 > subset (text-only; vision/audio/thinking not verified). See
@@ -1887,15 +1925,13 @@ fully supported.
 - ❌ **Vision / image input** — `@litert-lm/core` does not expose the Vision executor config; image inputs are dropped with a debug warning
 - ❌ **Audio input** — same reason (no Audio executor config in the JS API)
 - ❌ **Thinking mode** — `extraContext` thinking channel is not wired on web
-- ❌ **Function calling / tool calls** — prefill+decode tool models aren't available on the web runtime
 - ❌ **LoRA weights** — `loraPath` throws `UnsupportedError`
 - ⚠️ **`stopGeneration()`** — closes the local Dart stream **and** calls the upstream `conversation.cancel()` to abort generation; the cancel is best-effort (the early-preview JS API may throw if nothing is in flight, which is swallowed)
 - ⚠️ **`WebStorageMode.none` + model > 2 GB** — the engine `fetch()`es the in-memory blob and trips Chrome's `ERR_BLOB_OUT_OF_MEMORY`; use `WebStorageMode.streaming` for large models
 
 > These limits track the upstream `@litert-lm/core` early-preview API and
-> will lift as Google extends the JS executor surface. For full vision /
-> audio / thinking / function calling on web today, use MediaPipe `.task`
-> web models instead.
+> will lift as Google extends the JS executor surface. For vision / audio /
+> thinking on web today, use MediaPipe `.task` web models instead.
 
 ### Mobile Platform Specifics
 

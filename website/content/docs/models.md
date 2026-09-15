@@ -21,9 +21,8 @@ based on how chat templates are handled.
   (early preview). Never handled by MediaPipe — the two formats go to different
   engines.
 
-Chat templates are applied by the runtime rather than by your code — with one
-exception: on **iOS**, `.litertlm` falls back to the per-`ModelType` template
-that flutter_gemma applies itself, the same path as Type 2.
+Chat templates are applied by the runtime rather than by your code — MediaPipe
+for `.task`, LiteRT-LM for `.litertlm` — on every platform, iOS included.
 
 ### Type 2: Manual template formatting
 
@@ -70,8 +69,8 @@ model to MediaPipe, which cannot read that format), `ModelFileType.task` for
 devices. The Simulator stays CPU-only because Metal sim has a 256 MB
 single-allocation cap.
 
-² Web `.litertlm` is an **early preview** via `@litert-lm/core` — text only. No
-vision, audio, thinking, function calling or LoRA; see the feature matrix in
+² Web `.litertlm` is an **early preview** via `@litert-lm/core` — text plus function calling. No
+vision, audio, thinking or LoRA; see the feature matrix in
 [Troubleshooting](/docs/troubleshooting). For full multimodal on web, use a
 MediaPipe `.task` build.
 
@@ -87,7 +86,7 @@ MediaPipe `.task` build.
 | **SmolVLM2 500M** | Compact vision-language model | ❌ | ❌ | ✅ | Multilingual | 0.36GB |
 | **LLaVA-OneVision 0.5B** | Compact vision-language model | ❌ | ❌ | ✅ | Multilingual | 0.83GB |
 | **Phi-4 Mini** | Advanced reasoning and instruction following | ✅ | ❌ | ❌ | Multilingual | 3.9GB |
-| **Phi-4 Mini Reasoning** | Step-by-step reasoning | ❌ | ✅ | ❌ | Multilingual | 2.8GB |
+| **Phi-4 Mini Reasoning** | Step-by-step reasoning | ❌ | ⚠️ ‡ | ❌ | Multilingual | 2.8GB |
 | **DeepSeek R1** | High-performance reasoning and code generation | ✅ | ✅ | ❌ | Multilingual | 1.7GB |
 | **Qwen3 0.6B** | Compact multilingual chat with function calling | ✅ | ✅ | ❌ | Multilingual | 586MB |
 | **Qwen 2.5** | Strong multilingual chat and instruction following | ✅ | ❌ | ❌ | Multilingual | 0.5-1.6GB |
@@ -95,11 +94,18 @@ MediaPipe `.task` build.
 | **Gemma 3 270M** | Ideal for fine-tuning (LoRA) for specific tasks | ❌ | ❌ | ❌ | Multilingual | 0.3GB |
 | **FunctionGemma 270M** | Specialized for function calling on-device | ✅ | ❌ | ❌ | Multilingual | 284MB |
 | **SmolLM 135M** | Ultra-compact, resource-constrained devices | ❌ | ❌ | ❌ | English | 135MB |
-| **SmolLM3 3B** | Multilingual small LLM with reasoning mode | ❌ | ✅ | ❌ | Multilingual | 2.0GB |
+| **LFM2.5 230M** | Smallest entry; no HF token needed | ❌ | ❌ | ❌ | Multilingual | 168MB |
+| **SmolLM3 3B** | Multilingual small LLM with reasoning mode | ❌ | ⚠️ ‡ | ❌ | Multilingual | 2.0GB |
 | **TranslateGemma 4B** † | Single-shot 55-language translation | ❌ | ❌ | ❌ | 55 languages | 2-4GB |
 
-¹ Gemma 4 **Thinking Mode** works on Android, iOS, and Desktop only — **not on
-Web** (the MediaPipe web engine does not support the `extraContext` thinking path).
+¹ Gemma 4 **Thinking Mode** needs the native `extraContext` channel: Android, iOS
+and Desktop only. Qwen3 and DeepSeek R1 reasoning is split out of the text by
+flutter_gemma itself, so it works on every platform including Web.
+
+‡ **Reasons, but emits no `ThinkingResponse`.** These models run as
+`ModelType.general`, which has no reasoning parser — their thinking blocks
+arrive inside the answer as ordinary text and are not stripped. See
+[Thinking Mode](/docs/thinking-mode).
 
 <Warning>
 † **TranslateGemma is CPU-only for now.** Google hasn't released a
@@ -107,11 +113,32 @@ mobile/desktop `.litertlm` bundle
 ([HF discussion #5](https://huggingface.co/google/translategemma-4b-it/discussions/5)).
 The community-converted bundle from
 [`barakplasma/translategemma-4b-it-android-task-quantized`](https://huggingface.co/barakplasma/translategemma-4b-it-android-task-quantized)
-keeps `EMBEDDING_LOOKUP` weights in float32 for MediaPipe `.task` compatibility,
-which crashes the LiteRT GPU partitioner on Metal/WebGPU across all platforms
-(tracked at [LiteRT-LM#1748](https://github.com/google-ai-edge/LiteRT-LM/issues/1748)).
-Until Google ships the `litert-lm` quantization CLI, translation runs on CPU only
-(≈90 s prefill on a 4 B int4 bundle on M-series Macs).
+runs correctly on the **CPU** and returns only padding on the **GPU**.
+
+Measured here on an M4 Pro (macOS, Metal), both published artifacts, same
+prompt and the same session code, backend the only variable:
+
+| artifact | `PreferredBackend.cpu` | `PreferredBackend.gpu` |
+|---|---|---|
+| `int4-generic` (2.0 GB, INT4 blockwise) | `Guten Morgen` | 997 `<pad>` tokens, nothing else |
+| `dynamic_int8-generic` (3.9 GB, INT8 channelwise) | `Guten Morgen` | 997 `<pad>` tokens, nothing else |
+
+Nothing fails: the Metal engine is created, `activeBackend` reports `gpu` (so it
+is not a silent fallback), generation runs and emits padding until it reaches the
+context limit. A `gemma-4-E2B-it.litertlm` bundle on the same machine, the same code path and the same backend answers correctly with no padding, so this is not the Metal path in general. Earlier revisions of this page said the bundle crashed the LiteRT
+GPU partitioner because its `EMBEDDING_LOOKUP` weights stay float32. Nothing in
+the runs above crashes, so that description does not hold; the repository has
+published these `.litertlm` artifacts since 2026-03-31, so it did not describe a
+later change either. Reproducing across two different quantization recipes also
+rules the bit width out.
+
+Tracked at
+[LiteRT-LM#1748](https://github.com/google-ai-edge/LiteRT-LM/issues/1748).
+Use `PreferredBackend.cpu` for this model (≈90 s prefill on a 4 B int4 bundle on
+M-series Macs). If you are converting it yourself, **AI Edge Quantizer** is the
+supported route today — the `litert-lm` quantization CLI announced in that thread
+never shipped — with published recipes and Model Explorer for the layer regexes
+([maintainer's pointers](https://github.com/google-ai-edge/LiteRT-LM/issues/1748#issuecomment-4475268373)).
 </Warning>
 
 ## ModelType reference
@@ -125,9 +152,9 @@ When installing models, specify the correct `ModelType`:
 | **DeepSeek** | `ModelType.deepSeek` | DeepSeek R1 |
 | **Qwen 2.5** | `ModelType.qwen` | Qwen 2.5 1.5B, Qwen 2.5 0.5B |
 | **Qwen 3** | `ModelType.qwen3` | Qwen3 0.6B |
+| **Phi-4** | `ModelType.phi` | Phi-4 Mini (parses Phi's own tool-call markers) |
 | **FunctionGemma** | `ModelType.functionGemma` | FunctionGemma 270M IT |
-| **Phi** | `ModelType.general` | Phi-4 Mini |
-| **General** | `ModelType.general` | FastVLM 0.5B, SmolLM 135M, SmolLM3 3B, Phi-4 Mini Reasoning, Qwen2-VL 2B, SmolVLM2 500M, LLaVA-OneVision 0.5B |
+| **General** | `ModelType.general` | FastVLM 0.5B, SmolLM 135M, LFM2.5 230M, SmolLM3 3B, Phi-4 Mini Reasoning, Qwen2-VL 2B, SmolVLM2 500M, LLaVA-OneVision 0.5B |
 
 <Info>
 Gemma 4 uses `ModelType.gemma4` so its native tool-call tokens are routed through
@@ -170,6 +197,7 @@ await FlutterGemma.installModel(modelType: ModelType.general)
 | [Qwen 2.5 1.5B](https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct) | 1.6GB | ✅ | ✅ | ❌ |
 | [Qwen 2.5 0.5B](https://huggingface.co/litert-community/Qwen2.5-0.5B-Instruct) | 0.5GB | ❌ | ✅ | ❌ |
 | [SmolLM 135M](https://huggingface.co/litert-community/SmolLM-135M-Instruct) | 135MB | ❌ | ✅ | ❌ |
+| [LFM2.5 230M](https://huggingface.co/litert-community/LFM2.5-230M) | 168MB | ✅ | ✅ | ❌ |
 | [SmolLM3 3B](https://huggingface.co/litert-community/SmolLM3-3B) | 2.0GB | ✅ | ✅ | ❌ |
 | [Phi-4 Mini](https://huggingface.co/litert-community/Phi-4-mini-instruct) | 3.9GB | ✅ | ✅ | ✅ |
 | [Phi-4 Mini Reasoning](https://huggingface.co/litert-community/Phi-4-mini-reasoning) | 2.8GB | ✅ | ✅ | ❌ |
@@ -351,8 +379,34 @@ see [Speech](/docs/speech).
 | Model | Input | Size | Status | Auth |
 |---|---|---|---|---|
 | **[moonshine-tiny](https://huggingface.co/litert-community/moonshine-tiny)** | raw 16 kHz PCM | ~104 MB | ✅ end-to-end | ❌ |
-| **Whisper** (tiny, English) | log-mel | — | ✅ end-to-end | ❌ |
-| **Parakeet** (CTC) | log-mel | — | ✅ end-to-end | ❌ |
+| **[Whisper](https://huggingface.co/litert-community/whisper-tiny)** (tiny / base) | log-mel | — | ✅ end-to-end | ❌ |
+| **[Parakeet](https://huggingface.co/litert-community/parakeet-ctc-0.6b)** (CTC 0.6B) | log-mel | — | ✅ end-to-end | ❌ |
+
+Whisper is **multilingual** — the shipped checkpoints are the multilingual ones
+(no `.en` suffix), so all 99 of Whisper's languages are available. Set a default
+for the recognizer, override it per transcription, or both:
+
+```dart
+// Default for every transcription on this recognizer.
+final stt = await FlutterGemma.getActiveStt(language: 'de');
+final german = await stt.transcribe(germanPcm);
+
+// One call in another language — same recognizer, nothing reloaded.
+final french = await stt.transcribe(frenchPcm, language: 'fr');
+```
+
+Both are free: the language is one token in the decoder's seed prompt, and that
+prompt is rebuilt on every transcription. Switching languages never reloads the
+model or invalidates the recognizer you are holding.
+
+The value is Whisper's own language code without the delimiters, and it defaults
+to `'en'`. It decides the OUTPUT language only — the weights understand the
+audio either way, so asking for `'en'` on German speech returns an English
+translation rather than an error.
+
+Moonshine and Parakeet have no language token in their decoder prompt and
+**reject** the parameter with an `ArgumentError` rather than ignoring it; both
+are English-only.
 
 **Text-to-speech**
 

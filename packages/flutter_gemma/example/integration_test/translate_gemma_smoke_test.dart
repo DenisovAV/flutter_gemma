@@ -58,8 +58,8 @@ void main() {
 
       final model = await FlutterGemma.getActiveModel(
         maxTokens: 4096,
-        // GPU partitioner crashes on this bundle's EMBEDDING_LOOKUP —
-        // see translate_model.dart + LiteRT-LM#1748.
+        // On GPU this bundle loads and then answers with nothing but
+        // <pad> — see translate_model.dart + LiteRT-LM#1748.
         preferredBackend: PreferredBackend.cpu,
       );
 
@@ -121,8 +121,8 @@ void main() {
 
       final model = await FlutterGemma.getActiveModel(
         maxTokens: 4096,
-        // GPU partitioner crashes on this bundle's EMBEDDING_LOOKUP —
-        // see translate_model.dart + LiteRT-LM#1748.
+        // On GPU this bundle loads and then answers with nothing but
+        // <pad> — see translate_model.dart + LiteRT-LM#1748.
         preferredBackend: PreferredBackend.cpu,
       );
 

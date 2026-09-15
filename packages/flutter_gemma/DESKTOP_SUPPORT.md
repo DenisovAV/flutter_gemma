@@ -60,7 +60,7 @@ loading sequence differs per platform (handled in `litert_lm_client.dart`).
 >
 > Desktop accepts only LiteRT-LM `.litertlm` files. MediaPipe `.bin` / `.task`
 > models used on web won't load on desktop. See
-> [AI Edge Model Garden](https://ai.google.dev/edge/litert/models) for compatible models.
+> [litert-community on Hugging Face](https://huggingface.co/litert-community) for compatible models.
 
 ---
 
@@ -99,8 +99,8 @@ No Java/JVM/JRE required.
 ```yaml
 # pubspec.yaml
 dependencies:
-  flutter_gemma: ^1.6.3            # core
-  flutter_gemma_litertlm: ^1.4.2   # .litertlm engine — required on desktop
+  flutter_gemma: ^1.8.3            # core
+  flutter_gemma_litertlm: ^1.6.4   # .litertlm engine — required on desktop
 ```
 
 ```dart
@@ -160,23 +160,27 @@ through that framework). See the
 block. Without it `engine_create` returns null on `PreferredBackend.gpu`
 and the model silently falls back to CPU.
 
-**Entitlements** required for the LLM to load weights and run inference:
-
-`example/macos/Runner/DebugProfile.entitlements` and `Release.entitlements`:
+**Entitlements** in both `macos/Runner/DebugProfile.entitlements` and
+`Release.entitlements`, beside the `com.apple.security.app-sandbox` key that
+`flutter create` already writes:
 
 ```xml
-<key>com.apple.security.network.client</key>
+<key>com.apple.security.cs.disable-library-validation</key>
 <true/>
-<key>com.apple.security.app-sandbox</key>
+<key>com.apple.security.network.client</key>
 <true/>
 ```
 
-If your app needs to download models from network at runtime, add
-`com.apple.security.network.client`. Otherwise app-sandbox alone is enough.
+`network.client` lets the sandboxed app download a model.
+`disable-library-validation` takes effect once Hardened Runtime is on, which
+notarization requires: the build phase signs LiteRT-LM and its companion
+libraries ad hoc, and library validation refuses code not signed by Apple or by
+the app's own team.
 
-For large models (≥1 GB) you may want
-[`com.apple.developer.kernel.extended-virtual-addressing`](https://developer.apple.com/documentation/bundleresources/entitlements/com_apple_developer_kernel_extended-virtual-addressing)
-and `com.apple.developer.kernel.increased-memory-limit`.
+Do not add the iOS `com.apple.developer.kernel.*` memory entitlements — they are
+iOS-only. Without a signing team the build fails with `"Runner" has entitlements
+that require signing with a development certificate`, and a team-signed build
+drops them. A `.litertlm` model loads on macOS without them.
 
 ### Windows
 

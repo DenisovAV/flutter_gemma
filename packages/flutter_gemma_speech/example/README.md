@@ -37,9 +37,11 @@ Enter a HuggingFace token on the setup screen (or stage
   staging in `macos/Podfile`, signed with a development team). The voice-loop
   logic itself (both modes) is covered by the on-device integration tests in the
   [`flutter_gemma` example](https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_gemma/example/integration_test).
-- **iOS / Android** are scaffolded but need the same litertlm native setup as the
-  main example (entitlements, iOS `Podfile` `post_install` dylib symlinks, and
-  `minSdk 26` for the agent's JS-skill webview). Follow the
+- **Android** builds a release APK on AGP 9: `minSdk 30` for `.litertlm`, core
+  library desugaring for the agent's notifications, and the AGP 9 opt-out in
+  `android/gradle.properties`. It has not been run on a device yet.
+- **iOS** is scaffolded but needs the same litertlm native setup as the main
+  example (memory entitlements, iOS 15 deployment target). Follow the
   [`flutter_gemma` example](https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_gemma/example)
   for the per-platform native configuration.
 

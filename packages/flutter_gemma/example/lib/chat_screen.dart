@@ -123,7 +123,25 @@ class ChatScreenState extends State<ChatScreen> {
       // so the built-in engine resolves, then make sure the OS model is ready
       // (the download screen normally does this first, but ChatScreen is also
       // reachable directly, so guard here too).
-      if (widget.model.isBuiltIn) {
+      // The one-call Hugging Face path: no URL, no filename, no backend from
+      // this catalogue — `fromHuggingFace(repo)` fetches the repo's manifest,
+      // installs the revision-pinned variant and hands back the runtime
+      // defaults, which Step 2 then applies verbatim via `defaults:`.
+      //
+      // Only entries whose repo actually ships a litertlm_manifest.json carry
+      // `hfRepo`; everything else keeps the fromNetwork branch below.
+      ModelRuntimeDefaults? hfDefaults;
+
+      if (widget.model.hfRepo != null) {
+        final installation = await installer
+            .fromHuggingFace(widget.model.hfRepo!)
+            .withProgress((percent) {
+              if (!mounted) return;
+              setState(() => _downloadPercent = percent);
+            })
+            .install();
+        hfDefaults = installation.runtime;
+      } else if (widget.model.isBuiltIn) {
         await installer.fromBundled(widget.model.filename).withProgress((
           percent,
         ) {
@@ -159,10 +177,15 @@ class ChatScreenState extends State<ChatScreen> {
 
       // Step 2: Create model with runtime config
       debugPrint('[ChatScreen] Step 2: Creating InferenceModel...');
+      // `defaults:` carries the manifest's own maxTokens/backend for an
+      // hfRepo model. An explicit user pick in the backend selector still wins
+      // — that is the whole point of the defaults being overridable.
       final model = await FlutterGemma.getActiveModel(
-        maxTokens: widget.model.maxTokens,
+        defaults: hfDefaults,
+        maxTokens: hfDefaults == null ? widget.model.maxTokens : null,
         preferredBackend:
-            widget.selectedBackend ?? widget.model.preferredBackend,
+            widget.selectedBackend ??
+            (hfDefaults == null ? widget.model.preferredBackend : null),
         supportImage: widget.model.supportImage,
         maxNumImages: widget.model.maxNumImages,
         supportAudio: widget.model.supportAudio,

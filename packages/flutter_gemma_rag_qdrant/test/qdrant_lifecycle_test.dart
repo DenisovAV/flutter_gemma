@@ -498,27 +498,23 @@ void main() {
       },
     );
 
-    test(
-      'a marker we cannot READ counts as present, not as absent',
-      () async {
-        // The blanket `catch (_)` put "unreadable" in the same bucket as "not
-        // ours", so a genuine 1.x store whose marker could not be read came up
-        // as an empty index with no error — back in the silent bucket.
-        writeLegacyStore(tmp.path);
-        final marker = File('${tmp.path}/edge_config.json');
-        Process.runSync('chmod', ['000', marker.path]);
-        addTearDown(() => Process.runSync('chmod', ['600', marker.path]));
+    test('a marker we cannot READ counts as present, not as absent', () async {
+      // The blanket `catch (_)` put "unreadable" in the same bucket as "not
+      // ours", so a genuine 1.x store whose marker could not be read came up
+      // as an empty index with no error — back in the silent bucket.
+      writeLegacyStore(tmp.path);
+      final marker = File('${tmp.path}/edge_config.json');
+      Process.runSync('chmod', ['000', marker.path]);
+      addTearDown(() => Process.runSync('chmod', ['600', marker.path]));
 
-        final store = QdrantVectorStore();
-        addTearDown(store.close);
-        await expectLater(
-          store.initialize(tmp.path),
-          throwsA(isA<VectorStoreException>()),
-          reason: 'an unreadable 1.x marker was read as "no legacy store"',
-        );
-      },
-      skip: Platform.isWindows ? 'chmod semantics differ' : false,
-    );
+      final store = QdrantVectorStore();
+      addTearDown(store.close);
+      await expectLater(
+        store.initialize(tmp.path),
+        throwsA(isA<VectorStoreException>()),
+        reason: 'an unreadable 1.x marker was read as "no legacy store"',
+      );
+    }, skip: Platform.isWindows ? 'chmod semantics differ' : false);
   });
 
   group('a shard we did not write', () {
@@ -542,7 +538,18 @@ void main() {
       addTearDown(store.close);
       await expectLater(
         store.initialize(tmp.path),
-        throwsA(isA<VectorStoreException>()),
+        throwsA(
+          isA<VectorStoreException>().having(
+            (e) => '$e',
+            'message',
+            // The reason must survive the trip out — `_rethrow` used to wrap
+            // this, our own exception, again as an "unexpected error".
+            allOf(
+              contains('not written by this package'),
+              isNot(contains('unexpected error')),
+            ),
+          ),
+        ),
         reason: 'a shard it had just loaded was reported as an empty store',
       );
       await expectLater(store.getStats(), throwsA(isA<VectorStoreException>()));
@@ -910,5 +917,189 @@ void main() {
         await client.close();
       },
     );
+  });
+
+  group('flush', () {
+    // #492: the package never called EdgeShard.flush(), so points added through
+    // addDocument stayed in the shard's in-RAM segment. A corpus indexed in one
+    // session was gone in the next and had to be embedded again — and the
+    // reporter's Android trace named the missing piece exactly:
+    // "Failed to load ID tracker mappings".
+    //
+    // Two of these pin the fix, from opposite ends. `close()` persists too, so
+    // a written-then-closed store cannot tell a working flush from a missing
+    // one — which rules out the obvious test. Instead:
+    //   * the id-tracker files, named by the reporter's own trace, are checked
+    //     directly (white-box, tied to this engine's on-disk layout);
+    //   * a copy of the shard taken mid-session is reopened (black-box, tied
+    //     only to the contract — it reproduces #492 inside one process).
+    // The second is the one that survives an engine that renames its files.
+    Future<void> write(QdrantVectorStore store, int n) async {
+      for (var i = 0; i < n; i++) {
+        await store.addDocument(
+          id: 'doc$i',
+          content: 'content $i',
+          embedding: vec(4, i + 1.0),
+        );
+      }
+    }
+
+    List<String> idTrackerFiles(Directory root) {
+      final segments = Directory('${root.path}/$storeDirName/segments');
+      if (!segments.existsSync()) return const [];
+      return segments
+          .listSync(recursive: true)
+          .whereType<File>()
+          .map((f) => f.uri.pathSegments.last)
+          .where((name) => name.startsWith('mutable_id_tracker.'))
+          .toList()
+        ..sort();
+    }
+
+    test('writes the id tracker the next open needs', () async {
+      final store = QdrantVectorStore();
+      await store.initialize(tmp.path);
+      await write(store, 20);
+
+      // `idTrackerFiles` answers `const []` for a missing directory, so assert
+      // the directory is THERE first — otherwise the isEmpty below would pass
+      // on a store that never wrote anything at all, which is the opposite of
+      // what this test is for.
+      expect(
+        Directory('${tmp.path}/$storeDirName/segments').existsSync(),
+        isTrue,
+        reason: 'the segment directory should exist before the flush',
+      );
+
+      // Not a weaker "the directory grew": the segment directory is populated
+      // well before this — vector storage, payload storage and segment.json are
+      // all already on disk. These two files are the ones that are not.
+      expect(
+        idTrackerFiles(tmp),
+        isEmpty,
+        reason: 'unflushed points should not have reached the id tracker yet',
+      );
+
+      await store.flush();
+
+      expect(idTrackerFiles(tmp), [
+        'mutable_id_tracker.mappings',
+        'mutable_id_tracker.versions',
+      ]);
+      await store.close();
+    });
+
+    test('a shard copied mid-session is readable only after a flush', () async {
+      // The black-box half, and the one that reproduces #492 inside a single
+      // process. A copy of the directory taken BEFORE the flush is what a
+      // process killed mid-session leaves on disk — and it reopens EMPTY, with
+      // no error, which is exactly what the reporter saw. Taken after, the same
+      // copy carries every document.
+      //
+      // This asserts the contract's outcome rather than this engine's file
+      // names, so it survives a qdrant release that reorganises its segments.
+      final store = QdrantVectorStore();
+      await store.initialize(tmp.path);
+      await write(store, 20);
+
+      Future<Directory> snapshot(String suffix) async {
+        final dir = Directory('${tmp.path}_$suffix')..createSync();
+        addTearDown(() {
+          try {
+            dir.deleteSync(recursive: true);
+          } catch (_) {}
+        });
+        final result = await Process.run('cp', [
+          '-R',
+          '${tmp.path}/$storeDirName',
+          '${dir.path}/$storeDirName',
+        ]);
+        expect(result.exitCode, 0, reason: 'cp failed: ${result.stderr}');
+        return dir;
+      }
+
+      final beforeFlush = await snapshot('before');
+      await store.flush();
+      final afterFlush = await snapshot('after');
+      await store.close();
+
+      final unflushed = QdrantVectorStore();
+      await unflushed.initialize(beforeFlush.path);
+      expect(
+        (await unflushed.getStats()).documentCount,
+        0,
+        reason: 'this is #492: an unflushed shard reopens empty, and quietly',
+      );
+      await unflushed.close();
+
+      final flushed = QdrantVectorStore();
+      await flushed.initialize(afterFlush.path);
+      expect((await flushed.getStats()).documentCount, 20);
+      await flushed.close();
+    }, skip: Platform.isWindows ? 'shells out to cp' : null);
+
+    test('leaves the store usable — it is not a close', () async {
+      // Scope, stated because it is easy to over-read: this pins that the
+      // SAME instance keeps serving after a flush, and nothing more. The
+      // reopen at the end is a sanity check, NOT evidence that flush
+      // persisted anything — `close()` persists too, so this test still
+      // passes with the flush call deleted. The id-tracker test above is the
+      // one that pins persistence, and it is the one mutation-checked.
+      final store = QdrantVectorStore();
+      await store.initialize(tmp.path);
+      await write(store, 5);
+      await store.flush();
+
+      expect((await store.getStats()).documentCount, 5);
+      await store.addDocument(id: 'after', content: 'a', embedding: vec(4, 9));
+      expect((await store.getStats()).documentCount, 6);
+      await store.close();
+
+      final reopened = QdrantVectorStore();
+      await reopened.initialize(tmp.path);
+      expect((await reopened.getStats()).documentCount, 6);
+      await reopened.close();
+    });
+
+    test('is quiet on a store that was never initialized', () async {
+      // Callers flush from lifecycle callbacks they cannot make conditional, so
+      // "nothing to persist" must not be an exception they have to catch.
+      await expectLater(QdrantVectorStore().flush(), completes);
+    });
+
+    test(
+      'a failure surfaces as VectorStoreException, not QdrantException',
+      () async {
+        // The type matters as much as the throw. `QdrantException` is not a
+        // `VectorStoreException` and is not exported from this package's barrel,
+        // so a caller writing the catch the contract asks for — `on
+        // VectorStoreException` — would miss every flush failure if the raw type
+        // leaked. Every other method here translates; this one has to as well.
+        final store = QdrantVectorStore();
+        await store.initialize(tmp.path);
+        await write(store, 5);
+
+        // Pull the shard directory out from under the open store. The engine
+        // then fails writing `mutable_id_tracker.mappings` — the same file the
+        // #492 report could not read on its device.
+        Directory('${tmp.path}/$storeDirName').deleteSync(recursive: true);
+
+        await expectLater(store.flush(), throwsA(isA<VectorStoreException>()));
+        try {
+          await store.close();
+        } catch (_) {}
+      },
+      skip: Platform.isWindows ? 'deleteSync fails on the mmapped shard' : null,
+    );
+
+    test('is quiet after close, and when called twice', () async {
+      final store = QdrantVectorStore();
+      await store.initialize(tmp.path);
+      await write(store, 3);
+      await expectLater(store.flush(), completes);
+      await expectLater(store.flush(), completes);
+      await store.close();
+      await expectLater(store.flush(), completes);
+    });
   });
 }

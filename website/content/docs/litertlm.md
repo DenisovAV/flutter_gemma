@@ -27,8 +27,7 @@ embedding backend — see [Embeddings & RAG](/docs/embeddings-and-rag).
 | Web | ⚠️ early preview via `@litert-lm/core` (text-only) |
 
 > **Web is a text-only preview.** It runs through `@litert-lm/core` (WebGPU/WASM)
-> and does **not** support vision, audio, thinking mode, function calling, or
-> LoRA. Native platforms have the full feature set. On web you also need the JS
+> supports function calling, but **not** vision, audio, thinking mode or LoRA. Native platforms have the full feature set. On web you also need the JS
 > handshake in `web/index.html` (see [Web setup](#web-setup)).
 
 ## Setup
@@ -95,9 +94,44 @@ Pick the accelerator with `preferredBackend:` on `getActiveModel`:
 | `gpu` | Metal (Apple), DirectX 12 / WebGPU (Windows), Vulkan / WebGPU (Linux); required on web |
 | `npu` | Android (Qualcomm Snapdragon, `.litertlm`) and Windows (Intel LunarLake / PantherLake) |
 
+GPU is the right default, but it is not uniformly faster: on Android the win is
+in **prefill**, and decode can be slower than CPU. One measured pair — Galaxy S26,
+the official int8 Qwen2.5-1.5B bundle — has GPU prefill at 2.8× CPU while GPU
+decode runs *below* it, 21.8 against 27.8 tok/s
+([LiteRT-LM#1748](https://github.com/google-ai-edge/LiteRT-LM/issues/1748#issuecomment-5549035313)).
+That is one device and one bundle, not a rule — but if your app is dominated by
+long replies rather than long prompts, measure both before assuming.
+
 Windows NPU ships the Intel dispatch stack — `LiteRtDispatch.dll` + the OpenVino
 runtime + TBB — inside the Windows native archive. Android bundles the Qualcomm
 QNN dispatch stack. No extra downloads for either NPU path.
+
+<Warning>
+**NPU is a Gemma 4 story today.** Our NPU verification runs Gemma 4 bundles, and
+those work on both vendors. The **Gemma 3** family does not, and it fails
+silently — the model answers from the first prefill chunk alone, fluently,
+with no error and nothing in the log:
+
+- **Qualcomm.** A compiled bundle carries a prefill mask of
+  `2 B × num_attention_heads × prefill × (cache_length + prefill)`. Above ~1 MiB
+  every chunk after the first is dropped. For the 4-head Gemma 3 bundles that
+  makes **896** the largest working `cache_length` at prefill 128 — and *every*
+  published `qualcomm.*` Gemma 3 bundle is built above the line (270M at cache
+  4096 is 4.125 MiB, 1B ekv1280 is 1.375 MiB). A 16-head model such as Qwen3-0.6B
+  has no working value at prefill 128 at all.
+- **Intel.** The second chunk is lost regardless of mask size — a different
+  defect on the OpenVINO path, which Gemma 4 bundles do not hit.
+
+Both are tracked upstream in
+[LiteRT-LM#3508](https://github.com/google-ai-edge/LiteRT-LM/issues/3508).
+Because the safe context is a property of the compiled bundle, `maxTokens` is
+**not** clamped up to 1024 on the NPU attempt (it is on CPU and GPU — see below),
+so pass the `cache_length` the bundle was compiled for. Note that requesting
+`PreferredBackend.npu` does not guarantee the NPU runs: if it fails to
+initialize, the engine falls back to GPU and then CPU, and the floor applies
+again to those attempts — so a value chosen for an NPU bundle is raised to 1024
+on the fallback rather than crashing it.
+</Warning>
 
 ## `maxTokens` is the CONTEXT window, not the reply length
 
@@ -105,7 +139,9 @@ QNN dispatch stack. No extra downloads for either NPU path.
 window** — system prompt + history + message **plus** the generated output (the
 KV-cache budget), not the response length. `.litertlm` models bake a fixed
 `kv_cache_max_len` of 1024, so this engine **clamps `maxTokens` up to 1024** (with
-a log warning) to avoid a native KV-cache crash.
+a log warning) to avoid a native KV-cache crash — on every backend attempt except
+the NPU one, where the bundle's own compiled `cache_length` governs instead (see
+the NPU warning above).
 
 To cap **generation length**, use `maxOutputTokens` on the session:
 
@@ -123,7 +159,7 @@ awaits `window.litertLmReady` (which resolves to the `Engine` constructor):
 ```
 <script type="module">
 window.litertLmReady = (async () => {
-  const m = await import('https://cdn.jsdelivr.net/npm/@litert-lm/core@0.14.0/+esm');
+  const m = await import('https://cdn.jsdelivr.net/npm/@litert-lm/core@0.17.0/+esm');
   window.Engine = m.Engine;
   return m.Engine;
 })();

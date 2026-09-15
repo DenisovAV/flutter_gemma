@@ -39,7 +39,7 @@ void main() {
 
   group('SttModelProfile.whisper', () {
     test('carries the verified I/O contract values', () {
-      const p = SttModelProfile.whisper();
+      final p = SttModelProfile.whisper();
       expect(p.inputType, SttInputType.logMel);
       expect(p.sampleRate, 16000);
       expect(p.windowSamples, 480000);
@@ -65,8 +65,8 @@ void main() {
       expect(p.decoderMaskConvention, SttDecoderMaskConvention.causal);
     });
 
-    test('forced English prompt, resolved by name (not hardcoded id)', () {
-      const p = SttModelProfile.whisper();
+    test('default English prompt, resolved by name (not hardcoded id)', () {
+      final p = SttModelProfile.whisper();
       expect(p.decoderPromptTokens, [
         const SttTokenRef.name('<|startoftranscript|>'),
         const SttTokenRef.name('<|en|>'),
@@ -77,7 +77,7 @@ void main() {
     });
 
     test('suppression: everything above EOS, plus blank+EOS at step 0', () {
-      const p = SttModelProfile.whisper();
+      final p = SttModelProfile.whisper();
       final resolver = SttSpecialTokenResolver({
         'model': {
           'vocab': {'Ġ': 5},

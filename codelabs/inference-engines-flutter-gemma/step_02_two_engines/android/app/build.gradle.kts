@@ -19,9 +19,11 @@ android {
         applicationId = "dev.fluttergemma.engines"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        // flutter_gemma_builtin_ai (ML Kit GenAI / AICore) declares minSdk 26;
-        // the manifest merger rejects an app below it.
-        minSdk = 26
+        // flutter_gemma_builtin_ai (ML Kit GenAI / AICore) declares minSdk 26 and
+        // the manifest merger rejects an app below it; libLiteRtLm.so needs API 30+
+        // Bionic (pthread_cond_clockwait, sem_clockwait) on top of that, so 30 is the
+        // floor for an app that registers both engines.
+        minSdk = 30
         targetSdk = flutter.targetSdkVersion
         // Uses the version code from pubspec.yaml. When using split APKs, 1000 * ABI_VERSION
         // is added automatically by Flutter. (https://developer.android.com/studio/build/configure-apk-splits#configure-APK-versions)

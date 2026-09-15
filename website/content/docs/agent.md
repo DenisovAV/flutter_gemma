@@ -20,6 +20,14 @@ model (Gemma 4 E2B/E4B recommended). See <a href="/docs/function-calling">Functi
 Calling</a> for the model support matrix.
 </Info>
 
+<Info>
+Not to be confused with <a href="/docs/package-skills">Package Skills</a> — the
+skills flutter_gemma bundles for <em>your coding assistant</em>, installed with
+<code>dart run skills@ get --all</code>. The skills on this page are run by the
+<em>on-device model</em> at runtime; those are read by the assistant that writes
+your code. There is no bundled skill for <code>flutter_gemma_agent</code> itself.
+</Info>
+
 ## Install
 
 Add the core and the agent package. The agent builds on flutter_gemma's
@@ -29,12 +37,12 @@ used below).
 
 ```
 dependencies:
-  flutter_gemma: ^1.7.1
+  flutter_gemma: ^1.8.3
   flutter_gemma_agent: ^0.2.5
-  flutter_gemma_litertlm: ^1.6.2   # an inference engine (LiteRtLmEngine)
+  flutter_gemma_litertlm: ^1.6.4   # an inference engine (LiteRtLmEngine)
 ```
 
-The agent is **not supported on Web** yet — see the note below.
+The agent is **unverified on Web** — nothing disables it, but it has never been driven in a browser. See the note below.
 
 ## The four skill mechanisms
 
@@ -52,8 +60,10 @@ execution mechanisms:
 [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)
 (pre-installed on Windows 11). ² Linux has no embeddable webview, so JS skills
 return an `ErrorResult`; text / native-intent / MCP skills work on Linux.
-³ The agent is not supported on Web yet — the browser LLM runtimes don't reliably
-emit tool calls, so the agent loop is disabled there (see the note below).
+³ Unverified on Web rather than disabled: nothing in the package gates on the
+platform, and the web `.litertlm` path does emit well-formed tool calls. What is
+missing is a run of the agent itself (see the note below). Native-intent skills
+are stubbed on web by design.
 
 JS skills run in a headless, sandboxed webview. To grant a secure context (so
 skills using `crypto.subtle` and other secure-context Web APIs work), the package
@@ -62,14 +72,15 @@ serves each skill's assets over a loopback HTTP server (`http://127.0.0.1`, a W3
 WebView2 / WKWebView / Android WebView, verified on hardware. On the web the skill
 runs in a sandboxed `<iframe>`.
 
-> **Web is not supported yet.** The columns above describe where each skill
-> *type* can execute once invoked, but the agent loop depends on the model
-> reliably emitting well-formed tool calls, and today's browser LLM runtimes
-> don't: the LiteRT-LM web runtime (`@litert-lm/core`) doesn't consistently emit
-> the tool-call tokens, and even when it does the small models miss required
-> arguments or produce malformed JSON, so skills don't run end-to-end. The
-> agent is verified on **Android, iOS, macOS, and Windows** — use those. The
-> example app disables the agent on web accordingly.
+> **Web is unverified.** The columns above describe where each skill *type* can
+> execute once invoked, and the pieces the loop needs are in place: the web
+> `.litertlm` path emits well-formed tool calls and survives the
+> call → result → continue round-trip. What is missing is a run of the agent
+> itself in a browser — that has never been done, and the loop's context
+> balancing leans on `sizeInTokens`, which is approximate on web. Native-intent
+> skills are stubbed on web by design. The agent is verified on **Android, iOS,
+> macOS, and Windows** — use those until a web run exists. The example app
+> disables the agent on web accordingly.
 
 ## Quick start
 
@@ -203,12 +214,24 @@ Most skills need no platform setup. For the platform-specific bits:
   <key>NSCalendarsUsageDescription</key>
   <string>Create calendar events from the agent.</string>
   ```
-- **Android** — `schedule_notification` requires core-library desugaring in
-  `android/app/build.gradle(.kts)`:
+- **Android** — `flutter_gemma_agent` depends on `flutter_local_notifications`,
+  which requires core-library desugaring in `android/app/build.gradle(.kts)`.
+  This is unconditional: an app that never uses the `schedule_notification`
+  intent still fails to build without it. Kotlin DSL below; in Groovy the lines
+  are `coreLibraryDesugaringEnabled true` and
+  `coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'`.
   ```
   android { compileOptions { isCoreLibraryDesugaringEnabled = true } }
   dependencies { coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4") }
   ```
+- **Android, AGP 9** — `flutter_inappwebview_android` 1.1.3, the latest stable
+  release, still calls `getDefaultProguardFile('proguard-android.txt')`, which AGP 9
+  rejects while configuring the project, so the app fails to build. Until a stable
+  release fixes it, add to `android/gradle.properties`:
+  ```
+  android.r8.proguardAndroidTxt.disallowed=false
+  ```
+  AGP deprecates this opt-out and plans to remove it in AGP 10.
 
 <Warning>
 Adding a skill grants the model the ability to run that skill's code or open OS

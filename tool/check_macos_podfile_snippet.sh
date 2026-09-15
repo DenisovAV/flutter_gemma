@@ -72,7 +72,10 @@ extract_fenced() {
     { fence = 0 }
   ' "$1"
 }
-for f in packages/flutter_gemma/README.md website/content/docs/desktop.md; do
+# The skill's copy is the one a coding agent pastes into someone's project, so
+# it is held to the same byte-identity as the rest.
+for f in packages/flutter_gemma/README.md website/content/docs/desktop.md \
+         packages/flutter_gemma/skills/flutter-gemma-inference/references/platform-setup.md; do
   if [ ! -f "$f" ]; then
     echo "MISSING: $f" >&2
     exit 1

@@ -78,7 +78,7 @@ final chat = await model.createChat(maxOutputTokens: 100);        // reply cap
 
 - **`.litertlm` models require minSdk 30.** `libLiteRtLm.so` depends on API 30+ Bionic syscalls (`pthread_cond_clockwait`, `sem_clockwait`) that can't be shimmed on older devices. MediaPipe `.task` models work on lower API levels.
 - **`.litertlm` / embeddings / vision are `arm64-v8a` only.** MediaPipe text inference (`.task` / `.bin`) also runs on `x86_64` and `armeabi-v7a`. If you only use arm64-only features, add `ndk { abiFilters 'arm64-v8a' }` so the Play Store doesn't offer broken APKs. See [Installation → Android architecture](/docs/installation#android-architecture-support).
-- **GPU:** add the `libOpenCL.so` `<uses-native-library>` tags to `AndroidManifest.xml`. See [Installation → Android](/docs/installation#android).
+- **GPU:** nothing to add — the OpenCL `<uses-native-library>` entries come from `flutter_gemma`'s own manifest (1.2.0+) through the manifest merger. If the GPU backend still falls back, check that the merged manifest contains `libvndksupport.so` and `libOpenCL.so`. See [Installation → Android](/docs/installation#android).
 - **Zero chunks and `Stream error: <U+FFFD>`, then `SIGABRT`.** Fixed in `flutter_gemma_litertlm` 1.5.2. On Android the first `dlopen` of `libLiteRtLm` decides for the whole process whether its symbols are reachable from the default search scope, and bionic never promotes it afterwards — so an app that embedded or transcribed anything before its first generation left the stream-callback ABI probe blind and the wrong callback shape was registered. Upgrade to 1.5.2. If your own or third-party code loads `libLiteRtLm` first, load it with `RTLD_GLOBAL` — 1.5.2 cannot repair that case, but it raises a `StateError` naming it rather than generating corrupt text. See [#447](https://github.com/DenisovAV/flutter_gemma/issues/447).
 
 ## Web
@@ -103,19 +103,21 @@ package (WebGPU + WASM). It is an **early preview** and a subset of the native
 path. MediaPipe `.task` on web is unaffected and remains fully supported.
 
 **Works on web `.litertlm`:** text generation (sync + streaming), multi-turn chat
-with history, system instruction, concurrent sessions (serialized), large models
-via OPFS streaming, GPU only.
+with history, system instruction, **function calling / tool calls** (Gemma 4),
+concurrent sessions (serialized), large models via OPFS streaming, GPU only.
 
 **Not supported on web `.litertlm` yet (mobile/desktop only):**
 
 - ❌ **Vision / image input** — image inputs are dropped with a debug warning.
 - ❌ **Audio input** — no Audio executor config in the JS API.
-- ❌ **Thinking mode** — `extraContext` thinking channel is not wired on web.
-- ❌ **Function calling / tool calls** — not available on the web runtime.
+- ⚠️ **Thinking mode** — Qwen3 and DeepSeek R1 reasoning is still split out of the
+  token stream (that part is pure Dart). Gemma 4 thinking needs the native
+  `extraContext` channel: the web engine passes it to `@litert-lm/core`, but it
+  has never been verified end to end — treat it as unsupported until it is.
 - ❌ **LoRA weights** — `loraPath` throws `UnsupportedError`.
 
 <Info>
-For full vision / audio / thinking / function calling on web today, use MediaPipe
+For vision / audio / thinking on web today, use MediaPipe
 `.task` web models instead. These web `.litertlm` limits track the upstream
 `@litert-lm/core` early-preview API and will lift as Google extends the JS
 executor surface.
@@ -130,6 +132,32 @@ affected versions use `PreferredBackend.cpu` or `.npu`. macOS/Linux GPU and
 Windows CPU/NPU were never affected. See [Desktop → Known
 limitations](/docs/desktop#known-limitations).
 </Warning>
+
+## NPU
+
+**The model answers, fluently, about the beginning of a long prompt and ignores
+the rest.** That is the Gemma 3 family on an NPU. Nothing raises, nothing is
+logged: every prefill chunk after the first is dropped, so the model genuinely
+never saw the end of your prompt. On Qualcomm it is a size threshold in the
+compiled bundle's prefill mask (~1 MiB; at prefill 128 the largest working
+`cache_length` for the 4-head Gemma 3 bundles is 896, and every published
+`qualcomm.*` Gemma 3 bundle is built above it); on Intel it happens regardless
+of size, through a different defect. Run a **Gemma 4** bundle on the NPU, or move
+that model to `PreferredBackend.cpu` / `.gpu`. Upstream:
+[LiteRT-LM#3508](https://github.com/google-ai-edge/LiteRT-LM/issues/3508).
+
+Note that `maxTokens` is **not** clamped up to 1024 on the NPU attempt the way
+it is on CPU and GPU — the safe context is baked into the compiled bundle, so
+pass the `cache_length` it was built for. If the NPU fails to initialize the
+engine falls back to GPU and then CPU, and the floor applies to those attempts,
+so the fallback is clamped rather than crashed.
+
+**`PreferredBackend.npu` is unavailable on a recent Snapdragon.** SoC coverage is
+the runtime's, not ours: Snapdragon 8 Gen 5 (**SM8845** — OnePlus 15R, iQOO 15R
+and the like) is not covered upstream, and a context compiled for SM8850 is
+rejected by an SM8845 device even though both are Hexagon v81. Tracked at
+[LiteRT#7516](https://github.com/google-ai-edge/LiteRT/issues/7516); note the
+easily-confused naming — 8s Gen 4 is SM8735, not SM8845.
 
 ## Desktop storage locations
 

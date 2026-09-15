@@ -36,19 +36,49 @@ class _Ready {
 
 /// Request: transcribe [samples] (already `[-1,1]`-normalized float32,
 /// window-sized by the caller or by `SttCore.transcribe`'s pad/trim). [id]
-/// correlates the reply.
+/// correlates the reply. [language] overrides the loaded profile's default
+/// decoder-prompt language for this one request (`null` = use the default);
+/// a plain `String?` is sendable, so it crosses the port like [id] does.
 class _TranscribeRequest {
-  _TranscribeRequest(this.id, this.samples);
+  _TranscribeRequest(this.id, this.samples, this.language);
   final int id;
   final Float32List samples;
+  final String? language;
 }
 
 /// Reply carrying the transcript (or an error message).
 class _TranscribeReply {
-  _TranscribeReply(this.id, this.text, this.error);
+  _TranscribeReply(
+    this.id,
+    this.text,
+    this.error, {
+    this.badArgument = false,
+    this.argName,
+    this.argValue,
+  });
   final int id;
   final String? text;
   final String? error;
+
+  /// [ArgumentError.name] and [ArgumentError.invalidValue], carried separately
+  /// so the rebuilt error keeps them. Rebuilding from `toString()` alone gives
+  /// `name == null`, `invalidValue == null` and a doubled `Invalid argument(s):`
+  /// prefix, so no caller downstream of the port could assert on the field that
+  /// says WHICH argument was wrong.
+  final String? argName;
+  final String? argValue;
+
+  /// The worker rejected the CALLER's input (an [ArgumentError]) rather than
+  /// failing at runtime. Carried as a flag because an exception object is not
+  /// sendable across a port — without it every error arrives as a `StateError`,
+  /// so `transcribe(language: 'zz')` could not be caught as the argument error
+  /// it is. Only the type is reconstructed; the worker-side stack is already
+  /// lost here (pre-existing).
+  /// Deliberately NOT set for a [RangeError]: `RangeError` and `IndexError`
+  /// both EXTEND `ArgumentError` in dart:core, so a plain `e is ArgumentError`
+  /// reports every out-of-range index in the decode path — a mismatched mel
+  /// filterbank, a short logits row — to the app as a bad `language` argument.
+  final bool badArgument;
 }
 
 /// Sentinel asking the worker to tear down the native model and exit.
@@ -167,7 +197,11 @@ class SttWorker {
       final completer = _pending.remove(msg.id);
       if (completer == null) return;
       if (msg.error != null) {
-        completer.completeError(StateError(msg.error!));
+        completer.completeError(
+          msg.badArgument
+              ? ArgumentError.value(msg.argValue, msg.argName, msg.error)
+              : StateError(msg.error!),
+        );
       } else {
         completer.complete(msg.text!);
       }
@@ -192,14 +226,18 @@ class SttWorker {
 
   /// Transcribe one window of already-normalized `[-1,1]` float32 [samples].
   /// The forward passes run in the worker; the UI isolate stays free.
-  Future<String> transcribe(Float32List samples) {
+  ///
+  /// [language] retargets the decoder prompt for this request only. It does
+  /// NOT reload anything — the worker keeps its language→id map from load, so
+  /// consecutive requests may each use a different language.
+  Future<String> transcribe(Float32List samples, {String? language}) {
     if (_closed) {
       return Future.error(StateError('SttWorker is closed'));
     }
     final id = _nextId++;
     final completer = Completer<String>();
     _pending[id] = completer;
-    _commandPort.send(_TranscribeRequest(id, samples));
+    _commandPort.send(_TranscribeRequest(id, samples, language));
     return completer.future;
   }
 
@@ -249,10 +287,25 @@ Future<void> _workerEntry(_WorkerInit init) async {
     await for (final msg in commandPort) {
       if (msg is _TranscribeRequest) {
         try {
-          final text = core.transcribe(msg.samples);
+          final text = core.transcribe(msg.samples, language: msg.language);
           init.replyTo.send(_TranscribeReply(msg.id, text, null));
         } catch (e) {
-          init.replyTo.send(_TranscribeReply(msg.id, null, e.toString()));
+          // Bound once, as a typed local, rather than re-tested per field: a
+          // `bool` flag leaves `e` an Object, so every read needs a cast — and
+          // whether the analyzer calls that cast redundant differs by SDK.
+          //
+          // `e is! RangeError` is load-bearing — see _TranscribeReply.badArgument.
+          final argError = e is ArgumentError && e is! RangeError ? e : null;
+          init.replyTo.send(
+            _TranscribeReply(
+              msg.id,
+              null,
+              argError?.message?.toString() ?? '$e',
+              badArgument: argError != null,
+              argName: argError?.name,
+              argValue: argError?.invalidValue?.toString(),
+            ),
+          );
         }
       } else if (msg is _Close) {
         commandPort.close();

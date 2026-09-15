@@ -36,13 +36,15 @@ package serves each skill's assets over a loopback HTTP server
 works identically across all native engines (WebView2 / WKWebView / Android
 WebView), verified on hardware. On web the skill runs in a sandboxed `<iframe>`.
 
-> **Web is not supported yet.** The table shows where each skill *type* runs
-> once invoked, but the agent loop needs the model to reliably emit well-formed
-> tool calls, and today's browser LLM runtimes don't — the LiteRT-LM web runtime
-> (`@litert-lm/core`) doesn't consistently emit the tool-call tokens, and the
-> small models miss required arguments or produce malformed JSON, so skills
-> don't run end-to-end. The agent is verified on **Android, iOS, macOS, and
-> Windows** — use those.
+> **Web is unverified.** The table shows where each skill *type* runs once
+> invoked, and the pieces the loop needs are in place: the web `.litertlm` path
+> does emit well-formed tool calls and does survive the call -> result -> continue
+> round-trip (`example/integration_test/web_function_calling_test.dart`). What is
+> missing is a run of the agent itself on web — nothing here has been driven
+> end-to-end in a browser, and `sizeInTokens` is approximate there, which the
+> loop's context balancing depends on. Native-intent skills are stubbed on web by
+> design. The agent is verified on **Android, iOS, macOS, and Windows** — use
+> those until a web run exists.
 
 ## What's in the box
 
@@ -67,6 +69,11 @@ WebView), verified on hardware. On web the skill runs in a sandboxed `<iframe>`.
   below.
 
 ## Bundled starter skills
+
+These are skills the **on-device model** runs at inference time — not the
+[package skills](https://pub.dev/packages/flutter_gemma) `flutter_gemma` bundles
+for your *coding assistant*. They ship under `assets/skills/`, which the `skills`
+CLI does not scan, so `dart run skills@ get --all` never installs them.
 
 Eight starter skills ship as package assets, spanning the JS, native-intent, and
 text-only mechanisms (write your own `SKILL.md` for MCP):
@@ -223,6 +230,14 @@ Most skills need no platform setup. For the platform-specific bits:
   android { compileOptions { isCoreLibraryDesugaringEnabled = true } }
   dependencies { coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4") }
   ```
+- **Android, AGP 9** — `flutter_inappwebview_android` 1.1.3, the latest stable
+  release, still calls `getDefaultProguardFile('proguard-android.txt')`, which AGP 9
+  rejects while configuring the project. Until a stable release fixes it, add to
+  `android/gradle.properties`:
+  ```properties
+  android.r8.proguardAndroidTxt.disallowed=false
+  ```
+  AGP deprecates this opt-out and plans to remove it in AGP 10.
 
 ## Third-party attribution
 

@@ -81,12 +81,27 @@ class RuntimeConfig {
   /// map. Null for single-file models (inference/embedding/STT).
   final Map<String, String>? artifactPaths;
 
-  /// TTS-only (Qwen3): the language to condition generation on — one of
-  /// `flutter_gemma_speech`'s `qwen3SupportedLanguages`, or `'auto'`. Null
-  /// for non-TTS models, and for TTS models with no language parameter
-  /// (e.g. Matcha, whose locale comes from its `TtsModelProfile.locale`
-  /// instead) — the TTS backend defaults a null value to `'english'`. Not
-  /// validated here; the TTS backend rejects an unsupported value with
+  /// The output language, for the two model kinds that have one. Null
+  /// everywhere else, and null means "the backend's own default".
+  ///
+  /// ⚠️ The two consumers use INCOMPATIBLE vocabularies, and nothing here can
+  /// tell them apart — the active model decides which one applies:
+  ///
+  /// - **TTS (Qwen3)**: a full lowercase language NAME — one of
+  ///   `flutter_gemma_speech`'s `qwen3SupportedLanguages`, or `'auto'`
+  ///   (`'english'`, `'german'`). Null defaults to `'english'`. Matcha ignores
+  ///   it; its locale comes from `TtsModelProfile.locale`.
+  /// - **STT (Whisper)**: a bare lowercase ISO CODE (`'en'`, `'de'`) — the
+  ///   decoder-prompt language token. Null leaves the profile's `'en'`.
+  ///   moonshine and parakeet have no language token and REJECT a non-null
+  ///   value rather than ignoring it.
+  ///
+  /// So `'english'` is right for one and an error for the other. Splitting this
+  /// into `ttsLanguage`/`sttLanguage` would say that in the type; it is left as
+  /// one field for now because a single `RuntimeConfig` is only ever built for
+  /// one model kind.
+  ///
+  /// Not validated here — each backend rejects an unsupported value with
   /// `ArgumentError` before loading the model.
   final String? language;
 }

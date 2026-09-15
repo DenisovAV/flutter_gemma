@@ -14,6 +14,14 @@ Both arms speak the same `vec0` SQL dialect, so KNN and `Filter` behave
 identically across all six platforms. A `vec0` table declares an `id TEXT
 PRIMARY KEY`, so KNN returns the document id directly — no JOIN, no rowid bridge.
 
+## Teach your AI assistant this package
+
+```bash
+dart run skills@ get --all
+```
+
+Installs the agent skills `flutter_gemma` bundles — this package depends on it, so they come with it. One of them, `flutter-gemma-rag`, covers embedding models, both vector stores, and the metadata filters — including the `filterSchema` trap that silently returns unfiltered results.
+
 ## Usage
 
 ```dart
@@ -29,6 +37,14 @@ await FlutterGemma.initialize(
 `searchSimilar` returns **cosine similarity** (1 = identical, higher = better),
 sorted descending, filtered by `threshold` — the same contract as the qdrant
 store (vec0 returns distance; the store converts `1 - distance` at the boundary).
+
+`flush()` (`FlutterGemma.rag.flush()`) is a no-op on native: the connection
+autocommits, so a statement that returned is on disk. On web it drains the
+IndexedDB storage; on `sqlite3` >= 3.4.0 that drain does not wait for a write
+batch already in flight (upstream
+[sqlite3.dart#408](https://github.com/simolus3/sqlite3.dart/issues/408)), and
+`close()` is the stronger drain. When neither OPFS nor IndexedDB is available
+the store runs in memory, and `flush()` throws `VectorStoreException`.
 
 ## Declared-column filters
 

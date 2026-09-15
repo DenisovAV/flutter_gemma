@@ -56,6 +56,41 @@ jobs:
           fail_ci_if_error: false
         continue-on-error: true
 
+  # The skills shipped inside flutter_gemma are read by other people's coding
+  # agents, so a wrong name there becomes confident, broken code in someone
+  # else's app. Two gates, both fail-closed, and neither ran in CI before:
+  #   check_skills.dart compiles every ```dart fence and every inline type in
+  #   the prose against the real packages — it analyses inside the example app
+  #   because that is the package depending on all of them;
+  #   skills_lint checks the files themselves (frontmatter, name, description
+  #   budget, relative links), with the rules set in skills_lint.yaml.
+  skills:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Resolve the example app
+        run: flutter pub get
+        working-directory: packages/flutter_gemma/example
+
+      - name: Compile every code block in the skills
+        run: dart tool/check_skills.dart
+
+      - name: Lint the skill files
+        run: dart run skills_lint@0.5.1
+
   build-example-android:
     runs-on: ubuntu-latest
     needs: analyze-and-test

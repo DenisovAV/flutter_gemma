@@ -54,6 +54,9 @@ class UnconfiguredVectorStore implements VectorStoreRepository {
   Future<void> clear() async => _fail();
 
   @override
+  Future<void> flush() async {}
+
+  @override
   Future<void> close() async {}
 
   // configure() and filterSchema are safe no-ops on the sentinel: the registry

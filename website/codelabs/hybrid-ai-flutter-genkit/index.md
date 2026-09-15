@@ -308,6 +308,18 @@ are ordinary HTTPS requests (`android/app/src/main/AndroidManifest.xml`):
     <uses-permission android:name="android.permission.INTERNET" />
 ```
 
+…and the API floor in `android/app/build.gradle.kts`, because the on-device
+half of the app loads `libLiteRtLm.so`:
+
+```kotlin
+defaultConfig {
+    // …
+    // libLiteRtLm.so needs API 30+ Bionic (pthread_cond_clockwait,
+    // sem_clockwait). Below 30 the app installs and then fails at the first
+    // model load with a dlopen error.
+    minSdk = 30
+```
+
 **iOS** — a deployment target of 15.0 or newer, and three memory entitlements in
 `ios/Runner/Runner.entitlements`:
 
@@ -339,11 +351,14 @@ carries them:
 ```
 
 `network.client` is what lets a sandboxed macOS app reach Gemini and Hugging
-Face at all; `disable-library-validation` is what lets it load the runtime's
-companion dylibs, which upstream ships unsigned. The iOS keys above are
-deliberately **not** here: on macOS the `kernel.*` ones are restricted
-entitlements that need a signing team, so adding them to an unsigned build
-breaks it. macOS support is Apple Silicon only.
+Face at all. `disable-library-validation` does nothing yet: it matters once
+Hardened Runtime is on, which notarizing the app for distribution requires. The
+build phase below signs LiteRT-LM and its companion libraries ad hoc, and library
+validation refuses code not signed by Apple or by your own team. The iOS keys
+above are deliberately **not** here: they are iOS entitlements. On macOS a build
+with no signing team fails outright with `"Runner" has entitlements that require
+signing with a development certificate`, and a team-signed build silently drops
+them. macOS support is Apple Silicon only.
 
 The build phase is the part unique to macOS. Every step app from this one on
 ships a `macos/Podfile` whose `post_install` block stages the runtime's
@@ -375,7 +390,7 @@ on carries it in `<head>`:
 ```html
 <script type="module">
 window.litertLmReady = (async () => {
-  const m = await import('https://cdn.jsdelivr.net/npm/@litert-lm/core@0.14.0/+esm');
+  const m = await import('https://cdn.jsdelivr.net/npm/@litert-lm/core@0.17.0/+esm');
   window.Engine = m.Engine;
   return m.Engine;
 })();
@@ -393,10 +408,10 @@ Add `genkit_flutter_gemma` and `flutter_gemma`:
 ```yaml
   # Step 3: On-device AI (LiteRT-LM engine)
   genkit_flutter_gemma: ^0.6.0
-  flutter_gemma: ^1.7.0
+  flutter_gemma: ^1.8.1
   # flutter_gemma 1.x registers no engine by default — opt into LiteRT-LM
   # (.litertlm inference) here.
-  flutter_gemma_litertlm: ^1.6.1
+  flutter_gemma_litertlm: ^1.6.3
 ```
 
 Run `flutter pub get`.

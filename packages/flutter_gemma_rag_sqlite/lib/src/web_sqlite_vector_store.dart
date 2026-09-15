@@ -42,6 +42,20 @@ class WebSqliteVectorStore implements VectorStoreRepository {
   int? _detectedDimension;
   bool _isInitialized = false;
 
+  /// Which VFS [_registerPersistentVfs] actually settled on.
+  ///
+  /// Not cosmetic: it is the difference between a store that survives a reload
+  /// and one that does not, and [flush] cannot answer honestly without it.
+  _WebPersistence _persistence = _WebPersistence.inMemory;
+
+  /// The IndexedDB VFS, kept so [flush] and [close] can drain it.
+  ///
+  /// Held deliberately. `sqlite3`'s IndexedDB VFS writes asynchronously and its
+  /// `xSync` is a documented no-op ("We can't wait for a sync either way"), so
+  /// a commit does NOT mean the bytes reached IndexedDB. `flush()` on the VFS
+  /// is the drain, and without a reference there is nothing to call it on.
+  IndexedDbFileSystem? _idb;
+
   /// Declared filterable-metadata schema (via [configure]). Empty by default,
   /// so callers that never declare a schema keep the historical behaviour
   /// (filters are an ignored no-op).
@@ -129,11 +143,28 @@ class WebSqliteVectorStore implements VectorStoreRepository {
     WasmSqlite3 sqlite3,
     String databasePath,
   ) async {
+    // A re-initialize overwrites `_idb` below. Drain the previous VFS first:
+    // dropping it with pages still queued orphans them, and once the field is
+    // gone nothing else holds a reference that could close it. `_persistence`
+    // is left for a branch below to set: clearing it here made a flush() that
+    // landed mid-initialize throw the in-memory error.
+    final previous = _idb;
+    _idb = null;
+    if (previous != null) {
+      try {
+        await previous.close();
+      } catch (e) {
+        gemmaLog('[WebVectorStore] could not drain the previous VFS: $e');
+      }
+    }
+
     // OPFS first — only available in a dedicated web worker; on the main
     // isolate (the usual Flutter web context) it throws, so we fall through.
     try {
       final opfs = await SimpleOpfsFileSystem.loadFromStorage(databasePath);
       sqlite3.registerVirtualFileSystem(opfs, makeDefault: true);
+      _persistence = _WebPersistence.opfs;
+      _idb = null;
       gemmaLog('[WebVectorStore] Using OPFS VFS for persistence');
       return;
     } catch (e) {
@@ -147,6 +178,8 @@ class WebSqliteVectorStore implements VectorStoreRepository {
         dbName: 'flutter_gemma_rag_$databasePath',
       );
       sqlite3.registerVirtualFileSystem(idb, makeDefault: true);
+      _persistence = _WebPersistence.indexedDb;
+      _idb = idb;
       gemmaLog('[WebVectorStore] Using IndexedDB VFS for persistence');
       return;
     } catch (e) {
@@ -168,6 +201,8 @@ class WebSqliteVectorStore implements VectorStoreRepository {
       'storage. Documents will NOT persist across page reloads.',
     );
     sqlite3.registerVirtualFileSystem(InMemoryFileSystem(), makeDefault: true);
+    _persistence = _WebPersistence.inMemory;
+    _idb = null;
   }
 
   /// Reads the embedding dimension back from an existing vec0 table, if any.
@@ -486,6 +521,72 @@ class WebSqliteVectorStore implements VectorStoreRepository {
   }
 
   @override
+  Future<void> flush() async {
+    // NOT a no-op here, unlike the native arm, and the difference is the whole
+    // reason this method exists on web.
+    //
+    // sqlite3 autocommits, so the bytes have reached the VFS. Whether the VFS
+    // has written them anywhere durable is a separate question, and for the
+    // one Flutter web actually gets — IndexedDB, since OPFS needs a dedicated
+    // worker — the answer is no: its `xSync` is a documented no-op ("We can't
+    // wait for a sync either way"), and `open()` describes its writes as
+    // asynchronous "without any durability guarantees. You can invoke flush".
+    // That `flush` is this call.
+    //
+    // HOW COMPLETE the drain is depends on the sqlite3 version, and this
+    // package allows both sides of a regression:
+    //   * < 3.4.0 — `flush()` queues a marker behind the running batch and
+    //     awaits it. A true fence.
+    //   * >= 3.4.0 — `flush()` returns immediately whenever a write batch is
+    //     already in flight, which is the ordinary state right after indexing.
+    //     Upstream commit 11be8acb ("Optimize indexeddb flush on idle") took
+    //     the marker out; its own doc still promises to await. Measured: zero
+    //     event-loop turns on 3.5.2 against seven on 3.3.3.
+    //
+    // The exposure is bounded, which is why this is documented rather than
+    // worked around here: the VFS streams every write into IndexedDB as it
+    // happens, so what an early return misses is the batch in flight, not the
+    // index. `close()` is the strong drain on web — it queues behind the
+    // running batch on every version.
+    //
+    // Not gated on `_isInitialized` alone: a re-initialize that threw leaves
+    // this store uninitialized while its IndexedDB VFS still holds unwritten
+    // pages, and returning quietly there would report success over them. Not
+    // on `_sqlite3` either — it is set before any VFS is chosen, so a flush
+    // landing mid-initialize read `_persistence` unset and threw.
+    // Nothing set up at all is the one case that stays quiet, per the contract.
+    if (!_isInitialized && _idb == null) return;
+    switch (_persistence) {
+      case _WebPersistence.indexedDb:
+        try {
+          await _idb?.flush();
+        } catch (e) {
+          throw VectorStoreException('Failed to flush the IndexedDB store', e);
+        }
+      case _WebPersistence.opfs:
+        // Nothing to drain, but not for the reason it looks like: an OPFS
+        // write is NOT durable merely because `writeDart` returned. What makes
+        // it durable is that SQLite calls `xSync` on commit and this VFS's
+        // `xSync` is `syncHandle.flush()`. That holds while nothing sets
+        // `PRAGMA synchronous=OFF` — this store sets no pragma, so the default
+        // (FULL) applies and every autocommit statement syncs.
+        break;
+      case _WebPersistence.inMemory:
+        // Neither OPFS nor IndexedDB was available, so this store cannot
+        // persist at all. Returning normally would be the #492 defect wearing
+        // a different hat: the caller asks "make this durable", gets a
+        // success, and loses the index on reload. The only warning otherwise
+        // is a gemmaLog that release builds strip.
+        throw const VectorStoreException(
+          'This store is running on an in-memory VFS (neither OPFS nor '
+          'IndexedDB was available, e.g. private browsing or partitioned '
+          'storage), so its documents cannot be persisted. Re-index after '
+          'each reload, or run in a context that allows storage.',
+        );
+    }
+  }
+
+  @override
   Future<void> close() async {
     // Deliberately NOT gated on `_isInitialized` alone — same rule as the
     // native arm. A store whose initialize() failed is exactly the one still
@@ -493,13 +594,29 @@ class WebSqliteVectorStore implements VectorStoreRepository {
     // `_sqlite3` is named here because the failed-initialize path clears `_db`
     // but not the WASM instance or the VFS it registered.
     if (_db == null && _sqlite3 == null && !_isInitialized) return;
+    // Settle every field BEFORE the await, not in a `finally` after it. While
+    // that await ran, `isInitialized` still reported true over an
+    // already-closed database, and a `flush()` landing in that window reached
+    // a VFS that was closing underneath it.
+    final db = _db;
+    final idb = _idb;
+    _db = null;
+    _sqlite3 = null;
+    _idb = null;
+    _persistence = _WebPersistence.inMemory;
+    _isInitialized = false;
+    _detectedDimension = null;
     try {
-      _db?.close();
-    } finally {
-      _db = null;
-      _sqlite3 = null;
-      _isInitialized = false;
-      _detectedDimension = null;
+      db?.close();
+      // The strong drain on web. `IndexedDbFileSystem.close()` queues a close
+      // item BEHIND the running batch and awaits its completer, so unlike
+      // `flush()` it is a true fence on every sqlite3 version. Without it a
+      // caller that only ever calls close() loses the tail of its index.
+      // Best-effort by design: close() is a cleanup path callers usually
+      // cannot act on, and `flush()` is the call that reports failure.
+      await idb?.close();
+    } catch (e) {
+      gemmaLog('[WebVectorStore] close() could not drain the VFS: $e');
     }
   }
 
@@ -513,3 +630,10 @@ class WebSqliteVectorStore implements VectorStoreRepository {
     return buffer.buffer.asUint8List();
   }
 }
+
+/// Which virtual filesystem the web store ended up on.
+///
+/// The three differ in durability, not in speed, so [WebSqliteVectorStore.flush]
+/// has to know which one it is talking to: one needs draining, one is already
+/// on disk, and one cannot persist at all and must say so.
+enum _WebPersistence { opfs, indexedDb, inMemory }

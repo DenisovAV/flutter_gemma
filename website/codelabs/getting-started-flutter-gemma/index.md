@@ -116,13 +116,28 @@ each drags in native binaries you would otherwise ship for nothing.
 Less than you would expect on any of the six, and nothing at all on two of them.
 Read the subsection for the platform you are running on and skip the others.
 
-**Android** — one line, because downloading the model is an ordinary HTTPS
-request:
+**Android** — two things. First, the internet permission, because downloading
+the model is an ordinary HTTPS request:
 
 ```xml
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
 ```
+
+Second, the API floor, in `android/app/build.gradle.kts`:
+
+```kotlin
+defaultConfig {
+    // …
+    // libLiteRtLm.so needs API 30+ Bionic (pthread_cond_clockwait,
+    // sem_clockwait). Below 30 the app installs and then fails at the first
+    // model load with a dlopen error.
+    minSdk = 30
+```
+
+This one is easy to miss, because nothing rejects the build: Flutter's template
+floor (24) merges fine, the APK installs, and the failure arrives later as a
+`dlopen` error the first time you load a model. The step apps are already at 30.
 
 You do **not** need to declare the OpenCL libraries the GPU backend uses. The
 plugin's own manifest declares them and the manifest merger folds them into
@@ -180,12 +195,15 @@ wrote there:
 	<true/>
 ```
 
-`network.client` is what lets a sandboxed macOS app reach Hugging Face at all;
-`disable-library-validation` is what lets it load the runtime's companion
-dylibs, which upstream ships unsigned. The iOS keys above are deliberately
-**not** here: on macOS the `kernel.*` ones are restricted entitlements that need
-a signing team, so adding them to an unsigned build breaks it — and a model this
-size does not need them. macOS support is Apple Silicon only.
+`network.client` is what lets a sandboxed macOS app reach Hugging Face at all.
+`disable-library-validation` does nothing yet: it matters once Hardened Runtime
+is on, which notarizing the app for distribution requires. The build phase below
+signs LiteRT-LM and its companion libraries ad hoc, and library validation
+refuses code not signed by Apple or by your own team. The iOS keys above are
+deliberately **not** here: they are iOS entitlements. On macOS a build with no
+signing team fails outright with `"Runner" has entitlements that require signing
+with a development certificate`, and a team-signed build silently drops them — a
+model this size does not need them. macOS support is Apple Silicon only.
 
 The build phase is the part unique to macOS. Every step app from this one on
 ships a `macos/Podfile`, and its `post_install` block stages the runtime's
@@ -237,7 +255,7 @@ in `<head>`:
 ```html
 <script type="module">
 window.litertLmReady = (async () => {
-  const m = await import('https://cdn.jsdelivr.net/npm/@litert-lm/core@0.14.0/+esm');
+  const m = await import('https://cdn.jsdelivr.net/npm/@litert-lm/core@0.17.0/+esm');
   window.Engine = m.Engine;
   return m.Engine;
 })();
@@ -673,6 +691,10 @@ Duration: 2
 You have an app that runs a language model with the network off. The same
 core API is the entry point to everything else the plugin does:
 
+* **let your coding assistant write the next feature** — `flutter_gemma` ships
+  skills your assistant reads; the
+  [Package Skills codelab](/codelabs/package-skills-flutter-gemma) installs
+  them and shows how to check what it writes
 * **swap the model** — change one constant; `.litertlm` files from
   [litert-community](https://huggingface.co/litert-community) all work the same way
 * **run a different engine** — the OS built-in model (Gemini Nano, Apple

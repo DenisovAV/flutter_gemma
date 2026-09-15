@@ -709,9 +709,17 @@ class FlutterGemma {
   ///
   /// Runtime parameters:
   /// - [preferredBackend]: CPU or GPU preference (optional)
+  /// - [language]: the OUTPUT language for transcripts (Whisper only) — a bare
+  ///   lowercase code such as `'en'` or `'de'`. Sets
+  ///   [SpeechRecognizer.language], and retargets the recognizer if one already
+  ///   exists, so it takes effect on every call and not just the first.
+  ///   Override a single transcription with
+  ///   [SpeechRecognizer.transcribe]'s own `language` instead.
   ///
   /// Throws:
   /// - [StateError] if no active STT model is set
+  /// - [ArgumentError] for a malformed [language], or for any [language] on a
+  ///   model whose decoder prompt has no language token (moonshine, parakeet)
   ///
   /// Example:
   /// ```dart
@@ -724,9 +732,16 @@ class FlutterGemma {
   ///
   /// // Create with default backend
   /// final recognizer = await FlutterGemma.getActiveStt();
+  ///
+  /// // Whisper: transcribe German, then French, on the SAME recognizer —
+  /// // nothing is reloaded between the two.
+  /// final de = await FlutterGemma.getActiveStt(language: 'de');
+  /// final german = await de.transcribe(germanPcm);
+  /// final french = await de.transcribe(frenchPcm, language: 'fr');
   /// ```
   static Future<SpeechRecognizer> getActiveStt({
     PreferredBackend? preferredBackend,
+    String? language,
   }) async {
     final manager = FlutterGemmaPlugin.instance.modelManager;
     final activeSpec = manager.activeSttModel;
@@ -747,6 +762,7 @@ class FlutterGemma {
     // Create SpeechRecognizer using active spec (paths resolved automatically)
     return await FlutterGemmaPlugin.instance.createSttModel(
       preferredBackend: preferredBackend,
+      language: language,
     );
   }
 
@@ -995,7 +1011,11 @@ class FlutterGemma {
   /// throws a clear "add a RAG package" error.
   ///
   /// ```dart
-  /// await FlutterGemma.rag.initialize('rag.db');
+  /// // Native: an absolute path in a writable directory. A bare name resolves
+  /// // against the process working directory, which is not writable on
+  /// // Android or iOS. Web: a bare name is fine.
+  /// final dir = await getApplicationDocumentsDirectory(); // path_provider
+  /// await FlutterGemma.rag.initialize('${dir.path}/rag.db');
   /// await FlutterGemma.rag.addDocument(id: '1', content: 'hello');
   /// final hits = await FlutterGemma.rag.searchSimilar(query: 'hi');
   /// await FlutterGemma.rag.removeDocument(id: '1');
@@ -1095,6 +1115,14 @@ class GemmaRag {
   /// Initialize the vector store database.
   Future<void> initialize(String databasePath) =>
       FlutterGemmaPlugin.instance.initializeVectorStore(databasePath);
+
+  /// Persist what has been indexed so far, keeping the store open.
+  ///
+  /// Call it after a bulk index, and from wherever the app learns it is going
+  /// away. On qdrant this is what makes an index survive the process at all —
+  /// without it the points sit in the shard's in-RAM segment and a background
+  /// kill takes them. See [VectorStoreRepository.flush] for the other backends.
+  Future<void> flush() => FlutterGemmaPlugin.instance.flushVectorStore();
 
   /// Add a document; its embedding is computed automatically (needs an active
   /// embedding model).

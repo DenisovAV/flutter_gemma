@@ -61,6 +61,11 @@ class WebSqliteVectorStore implements VectorStoreRepository {
   }
 
   @override
+  Future<void> flush() async {
+    // No-op for stub
+  }
+
+  @override
   Future<void> close() async {
     // No-op for stub
   }

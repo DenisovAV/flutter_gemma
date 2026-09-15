@@ -47,7 +47,8 @@ class _Codelab {
 class CodelabsPage extends StatelessComponent {
   const CodelabsPage({super.key});
 
-  /// Ordered as a learning path, not a feature list: first run, then the
+  /// Ordered as a learning path, not a feature list: first run, then teaching
+  /// your coding assistant the API so it writes the rest with you, then the
   /// engines that run a model, then the model capabilities built on top
   /// (multimodal, function calling), then the pipelines that combine several
   /// of them (RAG, voice, hybrid routing).
@@ -63,6 +64,19 @@ class CodelabsPage extends StatelessComponent {
       tags: ['flutter_gemma', 'Gemma 3', 'streaming'],
       accent: Brand.blue,
       href: '/codelabs/getting-started-flutter-gemma',
+    ),
+    _Codelab(
+      title: 'Package Skills in Flutter: Teach Your Coding Assistant flutter_gemma',
+      blurb:
+          'flutter_gemma ships agent skills inside the package. Install them '
+          'for your assistant with one command, ask it for an offline chat '
+          'and a tool call, and check its code against the traps the skills '
+          'exist to prevent.',
+      duration: '45 min',
+      level: 'Beginner',
+      tags: ['agent skills', 'Antigravity', 'Claude Code'],
+      accent: Brand.orange,
+      href: '/codelabs/package-skills-flutter-gemma',
     ),
     _Codelab(
       title: 'Inference Engines in Flutter: From a Downloaded Model to Built-in AI',

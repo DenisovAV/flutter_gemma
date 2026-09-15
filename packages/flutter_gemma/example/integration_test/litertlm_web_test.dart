@@ -1,5 +1,5 @@
 /// Web integration test for the LiteRT-LM `.litertlm` inference path
-/// (added in 0.16.2 via `@litert-lm/core`).
+/// (added in flutter_gemma 0.16.2, via `@litert-lm/core`).
 ///
 /// Run with:
 ///   chromedriver --port=4444 &
@@ -7,9 +7,18 @@
 ///   flutter drive \
 ///     --driver=test_driver/integration_test.dart \
 ///     --target=integration_test/litertlm_web_test.dart \
-///     -d chrome
+///     -d web-server
 ///
-/// For headless CI: use `-d web-server` instead of `-d chrome`.
+/// `-d web-server`, not `-d chrome`: on Flutter 3.47.2 + Chrome 152 the chrome
+/// device hangs on "Waiting for connection from debug service on Chrome" and
+/// never reaches a test body. web-server is not a lesser mode here — the tests
+/// run identically; only the debug attach differs. Verified by mutation: an
+/// `expect(1, 2)` planted in the first test does turn the run red, so a green
+/// result under web-server is a real one.
+///
+/// Nothing in CI runs this file (`.github/workflows/` has no web drive step),
+/// so it can rot silently — re-run it by hand whenever the `@litert-lm/core`
+/// pin in `example/web/index.html` moves.
 ///
 /// Prerequisites:
 ///   * Chrome with WebGPU enabled (`chrome://flags/#enable-unsafe-webgpu`)
@@ -103,6 +112,47 @@ void main() {
       } finally {
         await session.close();
       }
+    });
+
+    testWidgets('maxOutputTokens caps the generated response', (tester) async {
+      // The web path accepted `maxOutputTokens` and logged that it ignored it
+      // until this was wired; `SessionConfig` has carried the field since 0.14.0.
+      //
+      // Asserted as a comparison, not an absolute token count: the cap is in
+      // TOKENS and `getResponse` returns TEXT, so any fixed character bound
+      // would be a guess about this model's tokenizer. Two prompts identical
+      // except for the cap make the difference attributable to the cap alone.
+      final model = await _ensureModel();
+      const prompt =
+          'List every planet in the solar system with a sentence '
+          'about each.';
+
+      final capped = await model.createSession(maxOutputTokens: 16);
+      final String cappedText;
+      try {
+        await capped.addQueryChunk(const Message(text: prompt, isUser: true));
+        cappedText = await capped.getResponse();
+      } finally {
+        await capped.close();
+      }
+
+      final uncapped = await model.createSession();
+      final String uncappedText;
+      try {
+        await uncapped.addQueryChunk(const Message(text: prompt, isUser: true));
+        uncappedText = await uncapped.getResponse();
+      } finally {
+        await uncapped.close();
+      }
+
+      expect(cappedText, isNotEmpty, reason: 'the cap must not silence output');
+      expect(
+        cappedText.length,
+        lessThan(uncappedText.length),
+        reason:
+            'a 16-token cap on the same prompt must produce less text than no '
+            'cap; equal lengths mean the field never reached the engine',
+      );
     });
 
     testWidgets('streaming yields at least one chunk', (tester) async {

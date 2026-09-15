@@ -429,16 +429,11 @@ flutter pub add record
 
 `record` is for capture, not for the model — the microphone, not the weights.
 
-### Three platform changes
+### Two platform changes
 
-Android, in `android/app/src/main/AndroidManifest.xml`:
-
-```xml
-    <!-- Recording the clip the model listens to. `record` asks the user for
-         it at run time; without the declaration here that request is denied
-         before the dialog can appear. -->
-    <uses-permission android:name="android.permission.RECORD_AUDIO" />
-```
+Android needs nothing declared: `record` ships `RECORD_AUDIO` in its own
+manifest, the manifest merger adds it to yours, and `record` asks the user for
+it at run time.
 
 iOS, in `ios/Runner/Info.plist` — the string is shown to the user, so write it
 as if a reviewer will read it, because one will:
@@ -455,7 +450,7 @@ macOS, in **both** entitlements files again:
 	<true/>
 ```
 
-Windows and Linux need nothing declared.
+Windows and Linux need nothing declared either.
 
 ### One more flag, in both places
 
@@ -803,8 +798,9 @@ is text-only. What a learner should expect there: the app loads, the model
 downloads, text chat works, and both attachment buttons are disabled with a
 line naming the runtime that refused. That is the app working correctly. (Full
 vision on the web today means MediaPipe `.task` models and the
-`flutter_gemma_mediapipe` package — a different engine, and the subject of the
-[Inference Engines codelab](/codelabs/inference-engines-flutter-gemma).)
+`flutter_gemma_mediapipe` package — a different engine, documented in
+[MediaPipe](/docs/mediapipe); the Inference Engines codelab pairs LiteRT-LM with
+built-in AI instead, so it is not the place to look for this one.)
 
 **The iOS Simulator** is the case the two questions do not cover, and the
 reason is not that Dart cannot see it — `device_info_plus` exposes

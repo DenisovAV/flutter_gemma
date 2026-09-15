@@ -20,6 +20,14 @@ native bundle and exposes the LiteRt interpreter FFI (`LiteRtBindings`) used her
 Both backends are pure factories (`canHandle` always `true`) — the *model* is
 selected per-install via `SttModelType` / `TtsModelType`, not the backend.
 
+## Teach your AI assistant this package
+
+```bash
+dart run skills@ get --all
+```
+
+Installs the agent skills `flutter_gemma` bundles — this package depends on it, so they come with it. One of them, `flutter-gemma-speech`, covers STT and TTS model choice, the 16 kHz mono PCM input contract, and the Whisper output language — which is a property of a *transcription*, not of the loaded model.
+
 ## Usage
 
 ```dart
@@ -42,6 +50,26 @@ final pcm = await synth.synthesize('Hello world.'); // Uint8List, 16-bit PCM
 print(synth.sampleRate); // 22050
 await synth.close();
 ```
+
+### Speech-to-text output language (Whisper)
+
+Whisper's shipped checkpoints are multilingual. The output language is one token
+in the decoder's seed prompt, rebuilt per transcription — so it is a per-call
+knob, and switching it never reloads the model:
+
+```dart
+final recognizer = await FlutterGemma.getActiveStt(language: 'de');
+final german = await recognizer.transcribe(germanPcm);
+
+// Same recognizer, one call in French.
+final french = await recognizer.transcribe(frenchPcm, language: 'fr');
+```
+
+Codes are Whisper's own, without the delimiters (`'en'`, `'de'`, `'uk'`);
+default `'en'`. The setting changes what the model WRITES, not what it hears —
+`'en'` on German audio returns an English translation, not an error. moonshine
+and Parakeet have no language token and throw `ArgumentError` rather than
+ignoring the value.
 
 ## Voice loop
 

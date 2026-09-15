@@ -43,6 +43,12 @@ allow it — pass `preferredVisionBackend: PreferredBackend.gpu` to
 
 ### Sending an image
 
+The flag goes in **two** places: on `getActiveModel` it loads the vision encoder,
+on `createChat` the session declares it will send images. `.litertlm` inherits the
+model's flag, but MediaPipe `.task` does not — a chat created without it **drops
+the image and answers about the text alone**, with no error and no log in a
+release build. Set it in both places either way.
+
 ```dart
 // Text + Image
 final message = Message.withImages(
@@ -54,7 +60,7 @@ final message = Message.withImages(
 // Image only
 final imageMessage = Message.imagesOnly(imageBytes: [imageBytes], isUser: true);
 
-final chat = await model.createChat();
+final chat = await model.createChat(supportImage: true);
 await chat.addQueryChunk(message);
 final response = await chat.generateChatResponse();
 
@@ -93,6 +99,20 @@ final model = await FlutterGemma.getActiveModel(
   supportAudio: true,
   preferredAudioBackend: PreferredBackend.gpu,   // move the audio encoder to GPU
 );
+```
+
+Sending audio is `Message.withAudio` — and `audioBytes` is a whole WAV file,
+16 kHz mono, header included (the opposite of `flutter_gemma_speech`, whose
+`transcribe` takes raw PCM):
+
+```dart
+final chat = await model.createChat(supportAudio: true);
+await chat.addQueryChunk(Message.withAudio(
+  text: 'What is said in this recording?',
+  audioBytes: wavBytes,
+  isUser: true,
+));
+final response = await chat.generateChatResponse();
 ```
 
 <Warning>

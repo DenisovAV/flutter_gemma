@@ -15,7 +15,10 @@ class _FakeRecognizer implements SpeechRecognizer {
   final String text;
   int calls = 0;
   @override
-  Future<String> transcribe(Uint8List pcm) async {
+  String? language;
+
+  @override
+  Future<String> transcribe(Uint8List pcm, {String? language}) async {
     calls++;
     return text;
   }
@@ -829,7 +832,10 @@ void main() {
 
 class _ThrowingRecognizer implements SpeechRecognizer {
   @override
-  Future<String> transcribe(Uint8List pcm) async =>
+  String? language;
+
+  @override
+  Future<String> transcribe(Uint8List pcm, {String? language}) async =>
       throw StateError('stt boom');
   @override
   void addCloseListener(void Function() listener) {}

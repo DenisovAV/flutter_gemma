@@ -5,7 +5,7 @@
 //   consulting the resolver) -- this is what keeps moonshine's decode
 //   unchanged now that `load()` routes every profile through the same
 //   resolution step;
-// - whisper resolves its 4 forced-English-prompt ids + EOS + suppression by
+// - whisper resolves its 4 default-English prompt ids + EOS + suppression by
 //   NAME from a representative tokenizer.json document (added_tokens +
 //   model.vocab), matching `SttSpecialTokenResolver`'s contract;
 // - an unresolvable name fails loud (StateError naming it), never a silent
@@ -33,9 +33,9 @@ void main() {
       },
     );
 
-    test('whisper: resolves the 4 forced-English prompt ids + eos + '
+    test('whisper: resolves the 4 default-English prompt ids + eos + '
         'suppression by name', () {
-      const profile = SttModelProfile.whisper();
+      final profile = SttModelProfile.whisper();
       final tokenizerJson = {
         'model': {
           'vocab': {'Ġ': 5},
@@ -57,7 +57,7 @@ void main() {
     });
 
     test('an unresolvable name throws a StateError naming it', () {
-      const profile = SttModelProfile.whisper();
+      final profile = SttModelProfile.whisper();
       expect(
         () => resolveSttSpecialTokens(profile, {
           'model': {'vocab': <String, dynamic>{}},

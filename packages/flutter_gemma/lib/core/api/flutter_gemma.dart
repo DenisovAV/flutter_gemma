@@ -371,6 +371,10 @@ class FlutterGemma {
   /// - [supportImage]: Enable multimodal image support (default: false)
   /// - [supportAudio]: Enable audio input support for Gemma 3n E4B (default: false)
   /// - [maxNumImages]: Maximum number of images if supportImage is true
+  /// - [activationDataType]: activation type for native `.litertlm` models
+  ///   (Android, iOS, desktop); null honors the model file, else the runtime
+  ///   default (float16 on GPU). Pass [ActivationDataType.float32] if the GPU
+  ///   writes wrong digits (optional)
   /// - [defaults]: overridable runtime defaults from a HF manifest (see
   ///   [resolveHuggingFace] / [ResolvedHfModel.runtime]). Each explicit argument
   ///   above wins over the matching field here, which in turn wins over the SDK
@@ -415,6 +419,7 @@ class FlutterGemma {
     bool? supportAudio,
     int? maxNumImages,
     bool? enableSpeculativeDecoding,
+    ActivationDataType? activationDataType,
     int? maxConcurrentSessions,
   }) async {
     final manager = FlutterGemmaPlugin.instance.modelManager;
@@ -481,6 +486,7 @@ class FlutterGemma {
       supportAudio: effSupportAudio,
       maxNumImages: maxNumImages,
       enableSpeculativeDecoding: enableSpeculativeDecoding,
+      activationDataType: activationDataType,
       maxConcurrentSessions: maxConcurrentSessions,
     );
   }

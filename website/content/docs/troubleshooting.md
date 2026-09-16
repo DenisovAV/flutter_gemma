@@ -133,6 +133,26 @@ Windows CPU/NPU were never affected. See [Desktop → Known
 limitations](/docs/desktop#known-limitations).
 </Warning>
 
+## Wrong numbers on GPU
+
+**Gemma 4 copies digits wrongly out of a long prompt on the GPU**, the same way
+on every run: asked when a delivery arrived (`2026/06/23`), it answers
+`20226/12/17`. It shows from about 2,000 prompt tokens, on Metal and on Adreno.
+The published Gemma 4 `.litertlm` files ask for half-precision activations;
+ask for full precision instead:
+
+```dart
+final model = await FlutterGemma.getActiveModel(
+  preferredBackend: PreferredBackend.gpu,
+  activationDataType: ActivationDataType.float32,
+);
+```
+
+Prefill gets slower (about 3× on a Snapdragon 8 Elite and an iPhone 11, under
+1.5× on an Apple M3 Max); decode speed barely changes. Upstream:
+[LiteRT-LM#3012](https://github.com/google-ai-edge/LiteRT-LM/issues/3012) (Adreno),
+[LiteRT-LM#2814](https://github.com/google-ai-edge/LiteRT-LM/issues/2814) (Metal).
+
 ## NPU
 
 **The model answers, fluently, about the beginning of a long prompt and ignores

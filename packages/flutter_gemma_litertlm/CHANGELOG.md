@@ -1,3 +1,6 @@
+## Unreleased
+- Apply `activationDataType` to the engine; `float32` fixes wrong digits on some GPUs.
+
 ## 1.6.4
 - `maxTokens` is no longer clamped up to 1024 on `PreferredBackend.npu`.
 

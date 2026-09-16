@@ -27,6 +27,25 @@ enum PreferredBackend {
   npu, // Android (Qualcomm/MediaTek/Tensor) + Windows (Intel LunarLake/PantherLake)
 }
 
+/// Numeric type of the model's activations, for native `.litertlm` models
+/// (Android, iOS, desktop).
+///
+/// Mirrors LiteRT-LM's `ActivationDataType` (Kotlin `EngineConfig`). Left
+/// unset, LiteRT-LM takes the model file's `prefer_activation_type`, else
+/// [float16] on GPU and [float32] on CPU.
+///
+/// [float32] is the fix when a GPU copies numbers wrongly from a long prompt —
+/// `2026/06/23` coming back as `20226/12/17`, the same way on every run. Gemma 4
+/// does this on Adreno (LiteRT-LM#3012) and Metal (LiteRT-LM#2814), and its
+/// published `.litertlm` files ask for fp16. [float32] makes prefill slower;
+/// decode speed stays about the same.
+///
+/// The value goes to LiteRT-LM unchecked. On GPU, [int16] and [int8] run at
+/// half precision like [float16], so they do not fix the wrong digits; the CPU
+/// and NPU executors do not read the setting. MediaPipe and the web engines
+/// ignore it.
+enum ActivationDataType { float32, float16, int16, int8 }
+
 /// A single retrieval hit from a vector store query.
 @immutable
 class RetrievalResult {

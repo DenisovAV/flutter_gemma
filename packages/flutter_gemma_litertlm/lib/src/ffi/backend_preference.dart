@@ -39,6 +39,18 @@ String ffiBackendWireName(PreferredBackend backend) => switch (backend) {
 String encoderBackendWireName(PreferredBackend? encoderBackend) =>
     encoderBackend == null ? 'cpu' : ffiBackendWireName(encoderBackend);
 
+/// The C API's number for [type] (`ActivationDataType` in LiteRT-LM's
+/// `executor_settings_base.h`: 0 F32, 1 F16, 2 I16, 3 I8), or null to leave the
+/// engine setting untouched. Spelled out rather than taken from `index`, so
+/// reordering the Dart enum cannot silently change what native receives.
+int? activationDataTypeWireValue(ActivationDataType? type) => switch (type) {
+  null => null,
+  ActivationDataType.float32 => 0,
+  ActivationDataType.float16 => 1,
+  ActivationDataType.int16 => 2,
+  ActivationDataType.int8 => 3,
+};
+
 /// Failure details for a single FFI backend initialization attempt.
 class BackendInitAttemptFailure {
   const BackendInitAttemptFailure({

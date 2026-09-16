@@ -1983,6 +1983,10 @@ The full and complete example you can find in `example` folder
 - Use GPU backend for better performance with multimodal models
 - Consider using CPU backend for text-only models on lower-end devices
 
+**Wrong numbers on GPU (`.litertlm`):**
+- Gemma 4 on some GPUs copies digits wrongly from long prompts — `2026/06/23` becomes `20226/12/17`, the same way on every run (LiteRT-LM [#3012](https://github.com/google-ai-edge/LiteRT-LM/issues/3012) on Adreno, [#2814](https://github.com/google-ai-edge/LiteRT-LM/issues/2814) on Metal)
+- Pass `activationDataType: ActivationDataType.float32` to `getActiveModel`. Prefill is slower (about 3× on a Snapdragon 8 Elite and an iPhone 11, under 1.5× on an Apple M3 Max); decode speed barely changes
+
 **Memory Issues:**
 - **iOS**: Ensure `Runner.entitlements` contains memory entitlements (see iOS setup)
 - Reduce `maxTokens` if experiencing memory issues

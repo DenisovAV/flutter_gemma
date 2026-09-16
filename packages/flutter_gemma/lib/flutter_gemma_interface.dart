@@ -74,6 +74,11 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
   /// E2B/E4B (LiteRT-LM v0.11.0+). `null` honors the model's default;
   /// `true`/`false` forces on/off. Older `.litertlm` files without an MTP
   /// drafter ignore this flag at the SDK level.
+  /// [activationDataType] — activation type for native `.litertlm` models
+  /// (Android, iOS, desktop). `null` honors the model file, else the runtime
+  /// default (float16 on GPU); [ActivationDataType.float32] fixes GPUs that
+  /// write wrong digits (LiteRT-LM#2814, #3012). Ignored by MediaPipe and the
+  /// web engines.
   /// [maxConcurrentSessions] — optional cap on the number of sessions open
   /// at once via [InferenceModel.openSession]. `null` (default) = no cap,
   /// backward-compatible. When set, the (cap+1)-th [InferenceModel.openSession]
@@ -91,6 +96,7 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
     bool supportImage = false, // Add image support flag
     bool supportAudio = false, // Add audio support flag (Gemma 3n E4B)
     bool? enableSpeculativeDecoding,
+    ActivationDataType? activationDataType,
     int? maxConcurrentSessions,
   });
 

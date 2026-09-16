@@ -1,6 +1,6 @@
 ---
 name: flutter-gemma-inference
-description: Use when adding on-device LLM inference to a Flutter app with flutter_gemma — offline chat, running Gemma, Qwen or Phi locally, installing a model from Hugging Face (gated repos included), streaming replies, a system prompt, thinking or reasoning output, image or audio prompts, picking a CPU, GPU or NPU backend, stopping generation — or setting up the recommended .litertlm engine (ModelFileType.litertlm) on Android, iOS, macOS, Windows, Linux or web, including the Android minSdk and internet permission, the Apple entitlements and Podfile, and the web index.html script tags. Also use when a reply comes back empty, the model answers identically every time, maxTokens does not shorten replies, FlutterGemma is an undefined name, getActiveModel throws "No inference engine can handle this model", a session throws "Session is closed", or .litertlm fails to load on Android. For .task or .bin models (ModelFileType.task or ModelFileType.binary), use flutter-gemma-mediapipe.
+description: Use when adding on-device LLM inference to a Flutter app with flutter_gemma — offline chat, running Gemma, Qwen or Phi locally, installing a model from Hugging Face (gated repos included), streaming replies, a system prompt, thinking or reasoning output, image or audio prompts, picking a CPU, GPU or NPU backend, stopping generation — or setting up the recommended .litertlm engine (ModelFileType.litertlm) on Android, iOS, macOS, Windows, Linux or web, including the Android minSdk and internet permission, the Apple entitlements and Podfile, and the web index.html script tags. Also use when a reply comes back empty, the model answers identically every time, maxTokens does not shorten replies, FlutterGemma is an undefined name, getActiveModel throws "No inference engine can handle this model", a session throws "Session is closed", numbers come back wrong on the GPU, or .litertlm fails to load on Android. For .task or .bin models (ModelFileType.task or ModelFileType.binary), use flutter-gemma-mediapipe.
 ---
 
 # Running a model with flutter_gemma
@@ -253,6 +253,17 @@ print(model.activeBackend); // what actually loaded
 Read `activeBackend` rather than assuming the requested one loaded; the web `.litertlm` engine reports `null`. `PreferredBackend.npu` needs a Snapdragon (Android) or Intel Lunar/Panther Lake (Windows) and a model compiled for that NPU; `PreferredBackend.cpu` never falls back. The iOS Simulator is CPU-only. On web, MediaPipe is GPU-only.
 
 On NPU, run a **Gemma 4** bundle. A Gemma 3 bundle on either vendor's NPU drops every prefill chunk after the first — no error, no log line, and a fluent reply that answers from the opening of the prompt and ignores the rest (LiteRT-LM#3508). `maxTokens` is also not clamped up to 1024 on the NPU attempt the way it is on CPU and GPU, because the safe context is baked into the compiled bundle: pass the `cache_length` it was built for. Requesting `PreferredBackend.npu` does not guarantee the NPU runs — the engine falls back to GPU then CPU, and the floor applies to those attempts, so a fallback is clamped rather than crashed.
+
+On GPU, Gemma 4 can copy numbers wrongly from a long prompt: `2026/06/23` comes back as `20226/12/17`, the same way on every run (LiteRT-LM#3012 on Adreno, #2814 on Metal). The published Gemma 4 `.litertlm` files ask for half-precision activations. Ask for full precision when the answers carry figures, dates or amounts:
+
+```dart
+final model = await FlutterGemma.getActiveModel(
+  preferredBackend: PreferredBackend.gpu,
+  activationDataType: ActivationDataType.float32,
+);
+```
+
+Prefill gets slower (about 3× on a Snapdragon 8 Elite and an iPhone 11, under 1.5× on an Apple M3 Max); decode speed barely changes. Left unset, the model file decides. It applies to `.litertlm` models on Android, iOS and desktop; MediaPipe and the web engines ignore it.
 
 ## Platform setup
 

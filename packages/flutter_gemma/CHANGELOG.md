@@ -1,3 +1,6 @@
+## Unreleased
+- Add `activationDataType` to `getActiveModel`; `float32` fixes wrong digits on some GPUs.
+
 ## 1.8.3
 - Inference skill: NPU needs a Gemma 4 bundle; Gemma 3 drops prefill chunks silently.
 - Inference skill: macOS setup no longer adds iOS-only entitlements that break unsigned builds.

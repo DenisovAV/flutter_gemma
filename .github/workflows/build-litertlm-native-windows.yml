@@ -166,8 +166,12 @@ jobs:
           # Assert the match is unique. The bazel-bin layout is unstable across
           # Bazel versions and configurations; -First 1 over a recursive search
           # silently ships whichever the filesystem enumerated first.
+          # Runfiles trees are excluded: they only mirror real outputs, and from
+          # LiteRT-LM v0.17.0 the dispatch target carries one, which put two
+          # mirrors of the same DLL beside the real one and tripped this check.
           $dispatchAll = @(Get-ChildItem -Recurse -Filter 'LiteRtDispatch.dll' `
-            -Path C:\LiteRT-LM\bazel-bin -ErrorAction SilentlyContinue)
+            -Path C:\LiteRT-LM\bazel-bin -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -notmatch '\.runfiles\\' })
           if ($dispatchAll.Count -eq 0) { throw "LiteRtDispatch.dll not produced — NPU would ship broken" }
           if ($dispatchAll.Count -ne 1) {
             throw "expected exactly 1 LiteRtDispatch.dll, found $($dispatchAll.Count): $($dispatchAll.FullName -join ', ')"

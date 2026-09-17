@@ -144,9 +144,13 @@ echo ""
 echo "=== Copying companion libs ==="
 # libLiteRtMetalAccelerator.dylib was added upstream in commit 5e0d86b ("Update
 # dependencies of litert_lm") — must be on a tag/commit that includes it. The
-# v0.10.2 tag predates that commit. libLiteRt.dylib and libLiteRtTopKMetalSampler.dylib
-# in 5e0d86b are mistakenly x86_64 macOS binaries (upstream issue #2072), so we
-# only pick up the Metal accelerator which is actually arm64 iOS / arm64 iOSSim.
+# v0.10.2 tag predates that commit. The other two upstream iOS prebuilts are not
+# copied, for reasons of our own: libLiteRt.dylib is not needed, because
+# libLiteRtLm.dylib carries the LiteRt C API itself (it exports the LiteRt*
+# symbols and loads no libLiteRt.dylib — checked with otool -L at v0.17.0); and
+# libLiteRtTopKMetalSampler.dylib is unreachable while sampler_factory.cc keeps
+# its basename dlopen (patch_c_api.sh, 10a). Upstream #2072 — those two shipped
+# as x86_64 binaries — was closed in May 2026 and is no longer a reason.
 for lib in libGemmaModelConstraintProvider.dylib libLiteRtMetalAccelerator.dylib; do
   [ -f "prebuilt/ios_arm64/$lib" ] && cp "prebuilt/ios_arm64/$lib" "$DEVICE_DIR/$lib" && echo "  $lib → device"
   [ -f "prebuilt/ios_sim_arm64/$lib" ] && cp "prebuilt/ios_sim_arm64/$lib" "$SIM_DIR/$lib" && echo "  $lib → simulator"

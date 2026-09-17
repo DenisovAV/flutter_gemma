@@ -17,62 +17,87 @@
 /// Elite got this 64-line log wrong with E4B, and other prompts wrong from
 /// ~2,100 tokens.
 ///
-/// An answer is SCRAMBLED when it holds a figure that is nowhere in the log:
-/// that is the bug. A real figure from the wrong line is the model misreading
-/// (E2B does it now and then at any precision), so it is printed, not counted.
+/// An answer fails on either count:
+/// - SCRAMBLED — it holds a figure that is nowhere in the log. That is the bug.
+/// - NO FIGURE — it holds none of the figures the question asked for. A
+///   refusal, an "it is not in the log" or a paraphrase copies nothing, and
+///   counting only scrambled figures would pass it as clean.
+///
+/// A real figure from the wrong line is the model misreading (E2B does it now
+/// and then at any precision), so it is printed, not counted.
 ///
 /// On native targets both tests check that the GPU started, since the engine
 /// falls back to CPU quietly and the CPU does not show the bug.
-/// - float32 must scramble nothing: that test asserts.
+/// - float32 must scramble nothing and must answer with figures: that test
+///   asserts both.
 /// - The default's answers are printed, and only checked for being there,
 ///   since a GPU without the bug copies right either way. Its lines start with
 ///   `[default]`.
 ///
+/// Every answer is printed with its time to first token, which is prefill and
+/// therefore the part float32 slows down; the float32 test prints its mean
+/// against the default run's. A ratio near 1.00× means the setting never
+/// reached the engine — the run proves nothing then, however clean it looks.
+/// It is printed rather than asserted because on an M3 Max the difference is
+/// small enough to be flaky; on a device where the bug reproduces, pass
+/// `--dart-define=MIN_PREFILL_RATIO=1.5` to make it an assertion.
+///
 /// On web only the default test runs. The web engine does not read
 /// `activationDataType` (`@litert-lm/core` 0.17 has no such setting), runs the
-/// `-web.litertlm` files on its own GPU executor, and reports no backend.
+/// `-web.litertlm` files on its own GPU executor, and reports neither a backend
+/// nor session metrics, so no time to first token is printed there.
 ///
 /// Gemma 4 E2B by default; pass `--dart-define=GEMMA4=E4B` for E4B (native
-/// only: the E4B web file is over 2 GB).
+/// only: the E4B web file is over 2 GB). **Android wants E4B**: the Snapdragon
+/// 8 Elite run that showed the bug was E4B, and E2B has not been seen to
+/// scramble anything on that phone, so the default E2B run there says little
+/// either way.
 ///
 /// Prerequisites (otherwise the model is downloaded: E2B 2.59 GB, E4B 3.66 GB,
 /// E2B web 2.01 GB):
 ///   macOS:   gemma-4-E2B-it.litertlm in ~/Library/Containers/.../Documents/
-///   Android: adb push gemma-4-E2B-it.litertlm /data/local/tmp/flutter_gemma_test/
+///   Android: adb push gemma-4-E4B-it.litertlm /data/local/tmp/flutter_gemma_test/
 ///   iOS, web: downloaded via FlutterGemma.installModel()
 ///
-/// Run: flutter test integration_test/activation_data_type_test.dart -d <device>
-/// Web: flutter run -d chrome -t integration_test/activation_data_type_test.dart
-///   (or flutter drive -d web-server with chromedriver, like the other web
-///   tests). On Chrome 153 with WebGPU on an M3 Max, nothing was scrambled.
+/// Run, native:
+///   flutter test integration_test/activation_data_type_test.dart -d <device>
+///   Android: add --dart-define=GEMMA4=E4B
+///
+/// Run, web — from `example/`, with `chromedriver --port=4444` up:
+///   flutter drive \
+///     --driver=test_driver/integration_test.dart \
+///     --target=integration_test/activation_data_type_test.dart \
+///     -d web-server
+///   `-d chrome` hangs there on Flutter 3.47.2, and `flutter run` reports no
+///   pass or fail at all. Note that `integrationDriver` gives up after 20
+///   minutes while these tests allow 30, so a first run that downloads the
+///   2 GB web model can hit that limit — run it once to fill the cache, then
+///   again for a result. On Chrome 153 with WebGPU on an M3 Max, nothing was
+///   scrambled.
 library;
-
-import 'dart:io';
 
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'inference_test_helpers.dart' show registerTestEngines;
+// `dart:io` is not imported here: this file is compiled for web too, where it
+// does not exist. The io arm reads the pushed model; the web arm returns null.
+import 'local_model_file_io.dart'
+    if (dart.library.js_interop) 'local_model_file_web.dart';
 
 /// E2B or E4B.
 const _variant = String.fromEnvironment('GEMMA4', defaultValue: 'E2B');
 const _file = 'gemma-4-$_variant-it.litertlm';
 
+/// Floor for the float32/default time-to-first-token ratio, from
+/// `--dart-define=MIN_PREFILL_RATIO=1.5`. Empty (the default) only prints it.
+const _minPrefillRatio = String.fromEnvironment('MIN_PREFILL_RATIO');
+
 /// The web engine takes only the `-web.litertlm` build of each model.
 String get _url =>
     'https://huggingface.co/litert-community/gemma-4-$_variant-it-litert-lm/'
     'resolve/main/${kIsWeb ? 'gemma-4-$_variant-it-web.litertlm' : _file}';
-
-String? get _localPath {
-  if (kIsWeb) return null;
-  if (Platform.isAndroid) return '/data/local/tmp/flutter_gemma_test/$_file';
-  if (Platform.isMacOS) {
-    return '${Platform.environment['HOME']}/Library/Containers/'
-        'dev.flutterberlin.flutterGemmaExample55/Data/Documents/$_file';
-  }
-  return null;
-}
 
 Future<void>? _installed;
 
@@ -80,12 +105,12 @@ Future<void>? _installed;
 /// setUp, so a failure to install fails the test that needed it.
 Future<void> _install() => _installed ??= () async {
   await registerTestEngines();
-  final local = _localPath;
+  final local = localModelFile(_file);
   final builder = FlutterGemma.installModel(
     modelType: ModelType.gemma4,
     fileType: ModelFileType.litertlm,
   );
-  if (local != null && File(local).existsSync()) {
+  if (local != null) {
     await builder.fromFile(local).install();
   } else {
     await builder.fromNetwork(_url).install();
@@ -183,9 +208,14 @@ Iterable<String> _figures(String text) => RegExp(r'\d+(?:/\d+)*')
     .map((m) => m[0]!)
     .where((f) => f.contains('/') || f.length >= 3);
 
-/// Asks every question in a fresh greedy session, and returns one line per
-/// scrambled answer: one holding a figure that is nowhere in the log.
-Future<List<String>> _askAll(ActivationDataType? type) async {
+/// What one run of the three questions produced: a line for each answer that
+/// failed, and the time to first token of every answer that reported one.
+typedef _Run = ({List<String> bad, List<double> ttftMs});
+
+/// Asks every question in a fresh greedy session, and returns the answers that
+/// failed — one holding a figure that is nowhere in the log, or one holding no
+/// figure the question asked for — alongside each answer's prefill time.
+Future<_Run> _askAll(ActivationDataType? type) async {
   final label = type?.name ?? 'default';
   final log = _deliveries(64);
   final text = _logText(log);
@@ -196,6 +226,7 @@ Future<List<String>> _askAll(ActivationDataType? type) async {
     activationDataType: type,
   );
   final wrong = <String>[];
+  final ttftMs = <double>[];
   try {
     // The web engine reports no backend; it runs only on WebGPU.
     if (!kIsWeb) {
@@ -212,8 +243,20 @@ Future<List<String>> _askAll(ActivationDataType? type) async {
         final tokens = await session.sizeInTokens(prompt);
         await session.addQueryChunk(Message(text: prompt, isUser: true));
         final answer = (await session.getResponse()).trim();
+        // Prefill time, and the only thing in the run that shows float32 was
+        // applied at all: fp32 prefill is the slow one. The web engine reports
+        // no metrics, and a native build without benchmarking enabled would
+        // report null here rather than fail.
+        final ttft = kIsWeb
+            ? null
+            : session.getSessionMetrics().timeToFirstTokenMs;
+        if (ttft != null) ttftMs.add(ttft);
         expect(answer, isNotEmpty, reason: 'no answer to: ${q.text}');
         final got = _figures(answer).toSet();
+        final copied = [
+          for (final f in q.figures)
+            if (got.contains(f)) f,
+        ];
         final missing = [
           for (final f in q.figures)
             if (!got.contains(f)) f,
@@ -224,18 +267,24 @@ Future<List<String>> _askAll(ActivationDataType? type) async {
         ];
         final verdict = invented.isNotEmpty
             ? 'SCRAMBLED'
+            : copied.isEmpty
+            ? 'NO FIGURE (nothing from the log was copied back)'
             : missing.isNotEmpty
             ? 'misread (a real figure from another line)'
             : 'right';
         debugPrint(
           // On web sizeInTokens is an estimate from the length.
-          '[$label] ${kIsWeb ? '~' : ''}$tokens tokens: ${q.text}\n'
+          '[$label] ${kIsWeb ? '~' : ''}$tokens tokens'
+          '${ttft == null ? '' : ', ${ttft.round()} ms to first token'}'
+          ': ${q.text}\n'
           '[$label]   $verdict: $answer'
           '${missing.isEmpty ? '' : '\n[$label]   missing: $missing'}'
           '${invented.isEmpty ? '' : '\n[$label]   not in the log: $invented'}',
         );
         if (invented.isNotEmpty) {
           wrong.add('${q.text} -> not in the log $invented');
+        } else if (copied.isEmpty) {
+          wrong.add('${q.text} -> no figure from the log: "$answer"');
         }
       } finally {
         await session.close();
@@ -244,31 +293,61 @@ Future<List<String>> _askAll(ActivationDataType? type) async {
   } finally {
     await model.close();
   }
-  return wrong;
+  return (bad: wrong, ttftMs: ttftMs);
 }
+
+double _mean(List<double> values) =>
+    values.reduce((a, b) => a + b) / values.length;
+
+/// The default run's prefill times, for the float32 test to compare against.
+/// Null when that test was skipped or never reported any.
+List<double>? _defaultTtftMs;
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('default activations on GPU: answers printed, not asserted', (
-    tester,
-  ) async {
-    await _install();
-    final wrong = await _askAll(null);
-    debugPrint(
-      wrong.isEmpty
-          ? '[default] nothing scrambled: this GPU does not show the bug'
-          : '[default] ${wrong.length} of 3 answers scrambled: this GPU shows '
-                'the bug${kIsWeb ? '' : ' that float32 fixes'}',
-    );
-  }, timeout: const Timeout(Duration(minutes: 30)));
-
   testWidgets(
-    'float32 activations scramble no figure from a long prompt',
+    'default activations on GPU: answers printed, not asserted',
     (tester) async {
       await _install();
-      final wrong = await _askAll(ActivationDataType.float32);
-      expect(wrong, isEmpty);
+      final run = await _askAll(null);
+      if (run.ttftMs.isNotEmpty) _defaultTtftMs = run.ttftMs;
+      debugPrint(
+        run.bad.isEmpty
+            ? '[default] every answer copied figures, none of them invented: '
+                  'this GPU does not show the bug'
+            : '[default] ${run.bad.length} of 3 answers bad: this GPU shows '
+                  'the bug${kIsWeb ? '' : ' that float32 fixes'}\n'
+                  '[default]   ${run.bad.join('\n[default]   ')}',
+      );
+    },
+    timeout: const Timeout(Duration(minutes: 30)),
+  );
+
+  testWidgets(
+    'float32 activations copy figures back, and scramble none',
+    (tester) async {
+      await _install();
+      final run = await _askAll(ActivationDataType.float32);
+
+      // Prefill is where float32 costs time, so this is the run's own evidence
+      // that the setting reached the engine. Without it, a GPU that never had
+      // the bug — or a build where the setter call was dropped — passes just as
+      // green as a real fix.
+      final before = _defaultTtftMs;
+      if (before != null && run.ttftMs.isNotEmpty) {
+        final ratio = _mean(run.ttftMs) / _mean(before);
+        debugPrint(
+          '[float32] time to first token ${_mean(run.ttftMs).round()} ms '
+          'against ${_mean(before).round()} ms at the default precision, '
+          '${ratio.toStringAsFixed(2)}x. Near 1.00x means float32 never took '
+          'effect, whatever the answers look like.',
+        );
+        final floor = double.tryParse(_minPrefillRatio);
+        if (floor != null) expect(ratio, greaterThanOrEqualTo(floor));
+      }
+
+      expect(run.bad, isEmpty);
     },
     // The web engine does not read activationDataType, so this would run the
     // default again.

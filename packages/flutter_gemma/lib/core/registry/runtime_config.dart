@@ -71,10 +71,11 @@ class RuntimeConfig {
   final int? maxNumImages;
   final bool? enableSpeculativeDecoding;
 
-  /// Activation type for the native LiteRT-LM engine. Null leaves it to the
-  /// model file, else the runtime default (float16 on GPU). Set
-  /// [ActivationDataType.float32] when a GPU writes wrong digits
-  /// (LiteRT-LM#2814, #3012). Ignored by MediaPipe and the web engines.
+  /// Activation type for the native LiteRT-LM engine's text decoder. Null
+  /// leaves it to the model file, else the runtime default (float16 on GPU).
+  /// Set [ActivationDataType.float32] when a GPU writes wrong digits
+  /// (LiteRT-LM#2814, #3012). The vision and audio encoders keep the model's
+  /// own type; MediaPipe, ONNX, built-in AI and the web engines ignore it.
   final ActivationDataType? activationDataType;
   final int? maxConcurrentSessions;
 

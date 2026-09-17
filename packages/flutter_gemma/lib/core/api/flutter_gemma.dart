@@ -371,10 +371,13 @@ class FlutterGemma {
   /// - [supportImage]: Enable multimodal image support (default: false)
   /// - [supportAudio]: Enable audio input support for Gemma 3n E4B (default: false)
   /// - [maxNumImages]: Maximum number of images if supportImage is true
-  /// - [activationDataType]: activation type for native `.litertlm` models
-  ///   (Android, iOS, desktop); null honors the model file, else the runtime
-  ///   default (float16 on GPU). Pass [ActivationDataType.float32] if the GPU
-  ///   writes wrong digits (optional)
+  /// - [activationDataType]: activation type for the text decoder of native
+  ///   `.litertlm` models (Android, iOS, desktop); null honors the model file,
+  ///   else the runtime default (float16 on GPU). Pass
+  ///   [ActivationDataType.float32] if the GPU writes wrong digits — it needs
+  ///   more GPU memory, and a GPU engine that cannot be created falls back to
+  ///   CPU silently, so check `activeBackend` afterwards. MediaPipe, ONNX,
+  ///   built-in AI and the web engines ignore it (optional)
   /// - [defaults]: overridable runtime defaults from a HF manifest (see
   ///   [resolveHuggingFace] / [ResolvedHfModel.runtime]). Each explicit argument
   ///   above wins over the matching field here, which in turn wins over the SDK

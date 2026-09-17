@@ -263,7 +263,9 @@ final model = await FlutterGemma.getActiveModel(
 );
 ```
 
-Prefill gets slower (about 3× on a Snapdragon 8 Elite and an iPhone 11, under 1.5× on an Apple M3 Max); decode speed barely changes. Left unset, the model file decides. It applies to `.litertlm` models on Android, iOS and desktop; MediaPipe and the web engines ignore it.
+Prefill gets slower (about 3× on a Snapdragon 8 Elite and an iPhone 11, under 1.5× on an Apple M3 Max); decode speed barely changes. Left unset, the model file decides. It applies to the text decoder of `.litertlm` models on Android, iOS and desktop — not to the vision or audio encoders, which keep what the model file asks for; MediaPipe, ONNX, built-in AI and the web engines ignore it entirely.
+
+`float32` needs more GPU memory than the default, and a GPU engine that cannot be created falls back to CPU without an error — right digits, a much slower run. After loading, check `model.activeBackend == PreferredBackend.gpu` before concluding the setting did anything.
 
 ## Platform setup
 

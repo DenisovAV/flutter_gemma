@@ -106,8 +106,12 @@ The GPU runs the model at half precision unless you ask otherwise, and the
 published Gemma 4 files ask for it. From about 2,000 prompt tokens, Gemma 4 then
 copies digits wrongly. `activationDataType: ActivationDataType.float32` on
 `getActiveModel` fixes it at the cost of a slower prefill; left unset, the model
-file decides. It applies to `.litertlm` on Android, iOS and desktop, not on web.
-See [Troubleshooting → Wrong numbers on GPU](/docs/troubleshooting#wrong-numbers-on-gpu).
+file decides. It applies to the text decoder of `.litertlm` models on Android,
+iOS and desktop — not on web, and not to the vision or audio encoders, which
+keep what the model file asks for. `float32` also needs more GPU memory, and a
+GPU engine that cannot be created falls back to CPU silently, so read
+`model.activeBackend` afterwards. See [Troubleshooting → Wrong numbers on
+GPU](/docs/troubleshooting#wrong-numbers-on-gpu).
 
 Windows NPU ships the Intel dispatch stack — `LiteRtDispatch.dll` + the OpenVino
 runtime + TBB — inside the Windows native archive. Android bundles the Qualcomm

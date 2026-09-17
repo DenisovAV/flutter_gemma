@@ -40,11 +40,18 @@ enum PreferredBackend {
 /// published `.litertlm` files ask for fp16. [float32] makes prefill slower;
 /// decode speed stays about the same.
 ///
-/// The value goes to LiteRT-LM unchecked. On GPU, [int16] and [int8] run at
-/// half precision like [float16], so they do not fix the wrong digits; the CPU
-/// and NPU executors do not read the setting. MediaPipe and the web engines
-/// ignore it.
-enum ActivationDataType { float32, float16, int16, int8 }
+/// LiteRT-LM's own enum also has I16 and I8, which this one leaves out. At the
+/// pinned LiteRT-LM they are not a third and fourth precision: the GPU delegate
+/// compiles at fp16 for any of them, but `use_fp16_precision` is set for
+/// FLOAT16 alone, so the attention mask keeps the fp32 fill value and the
+/// logits buffer stays fp32 — and an activation type the engine does not
+/// support fails engine init, which here is a quiet fall back to CPU rather
+/// than an error. They belong here once someone has run them on a device.
+///
+/// The CPU and NPU executors do not read the setting, and it reaches the text
+/// decoder only — the vision and audio encoders keep the model's own. MediaPipe
+/// and the web engines ignore it.
+enum ActivationDataType { float32, float16 }
 
 /// A single retrieval hit from a vector store query.
 @immutable

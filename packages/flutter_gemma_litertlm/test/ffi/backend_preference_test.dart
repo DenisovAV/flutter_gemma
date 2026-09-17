@@ -173,8 +173,17 @@ void main() {
     test('matches the C API numbering', () {
       expect(activationDataTypeWireValue(ActivationDataType.float32), 0);
       expect(activationDataTypeWireValue(ActivationDataType.float16), 1);
-      expect(activationDataTypeWireValue(ActivationDataType.int16), 2);
-      expect(activationDataTypeWireValue(ActivationDataType.int8), 3);
+    });
+
+    test('offers only the two float types', () {
+      // I16 (2) and I8 (3) are in LiteRT-LM's enum and deliberately not in
+      // ours: at the pinned version they are not half precision the way F16 is,
+      // and an unsupported type fails engine init, which reads as a quiet fall
+      // back to CPU. Adding one back means adding a number here too.
+      expect(ActivationDataType.values, [
+        ActivationDataType.float32,
+        ActivationDataType.float16,
+      ]);
     });
   });
 }

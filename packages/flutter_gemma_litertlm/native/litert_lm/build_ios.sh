@@ -8,7 +8,7 @@
 #
 # Usage:
 #   ./build_ios.sh [ref]
-#   ./build_ios.sh 032334d        # default for 0.15.0 (post-6571c42 main HEAD)
+#   ./build_ios.sh e9fd8c53       # v0.17.0 (the default)
 #   ./build_ios.sh v0.11.0        # WARNING: v0.11.0 prebuilt accelerators
 #                                 # are ABI-incompatible with libLiteRtLm
 #                                 # rebuilt from v0.11.0 source — crashes
@@ -43,13 +43,11 @@ else
 fi
 
 # 2. Checkout version
-# 032334d (main HEAD on 2026-05-08) is post-6571c42 "Update dependencies of
-# litert_lm" which rebuilt all prebuilt accelerator dylibs (Metal, WebGPU,
-# Gpu, OpenCL, samplers) AND re-synced WORKSPACE LITERT_REF to 5c5b9ce6.
-# This is the first public LiteRT-LM commit where libLiteRtLm rebuilt from
-# source has matching ABI with the prebuilt accelerators. v0.11.0 itself
-# is broken — see the WARNING above and the upstream issue we filed.
-DEFAULT_REF="924e79c91542761242244e4f1651851f822e4cbb"
+# v0.17.0. Build from a release tag: its source and its prebuilt accelerator
+# dylibs come from one tree, which is the invariant that matters — mixing
+# them is what crashed in libLiteRtMetalAccelerator (see the build-native
+# skill). v0.11.0 itself is broken — see the WARNING above.
+DEFAULT_REF="e9fd8c53ff968071774206163027dd84bedfe925"
 TARGET_REF="${VERSION:-$DEFAULT_REF}"
 echo "Checking out $TARGET_REF..."
 git checkout -f "$TARGET_REF"
@@ -167,11 +165,6 @@ done
 # and wrapper plist; the actual minimum is enforced by whichever dependency
 # manager the app uses — SwiftPM against the Runner target on the default path,
 # CocoaPods against the Podfile platform when the app has one.
-# NOTE: the published native-v0.16.0 `libStreamProxy.dylib` was compiled at
-# ios16.0 (LC_BUILD_VERSION vtool'd to 13.0, so the artifact cannot show it).
-# Its imports are all pre-iOS-13 libc, so it is safe under the 15.0 floor; the
-# targets above take effect at the next native rebuild. Delete this note after
-# the release that follows native-v0.16.0.
 # See #245, #286.
 echo ""
 echo "=== Patch iOS companion dylibs minos → 13.0 ==="
@@ -186,10 +179,8 @@ echo "=== Patch iOS companion dylibs minos → 13.0 ==="
 # `-output` is the SAME path as the input, deliberately. vtool re-signs its
 # output ad-hoc and derives the signature Identifier from the -output BASENAME,
 # so the `-output "$lib.new"` + `mv` shape bakes ".new" into the shipped
-# binary's identifier — which is what every simulator dylib in this repo carried
-# — the identifier every simulator dylib in native-v0.16.0 still carries, since
-# a released tarball cannot be re-uploaded; corrected from the next native
-# release onward. Same path in and out, no temp name, no wrong identifier.
+# binary's identifier — which every simulator dylib up to native-v0.16.0
+# carried. Same path in and out, no temp name, no wrong identifier.
 #
 # Reads BOTH fields back afterwards. vtool accepts a wrong platform silently, so
 # a device slice stamped MACOS still reports minos 13.0 and passes a minos-only

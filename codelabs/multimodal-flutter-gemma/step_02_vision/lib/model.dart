@@ -48,8 +48,13 @@ abstract final class Models {
         'https://huggingface.co/litert-community/SmolVLM2-500M/resolve/main/'
         'SmolVLM2-500M.litertlm',
     fileName: 'SmolVLM2-500M.litertlm',
-    // `general` and not `gemmaIt`: SmolVLM2 is not a Gemma, and the chat
-    // template that ships inside the `.litertlm` is the right one to use.
+    // `general` and not `gemmaIt`, and the reason is not turn markers. For a
+    // `.litertlm` file the runtime owns the chat template on every platform
+    // this codelab targets except iOS (`extensions.dart:74-77` returns
+    // `raw`, which never consults this field). What the field still picks is
+    // what the SDK does to the reply on the way out: `gemmaIt` is on the
+    // thinking-tag-stripping list in `cleanResponse` and `general` is not.
+    // SmolVLM2 is not a Gemma, so it should not be post-processed as one.
     modelType: ModelType.general,
     sizeLabel: '0.36 GB',
   );

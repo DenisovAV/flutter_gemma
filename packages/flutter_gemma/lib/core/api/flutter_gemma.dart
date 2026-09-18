@@ -373,7 +373,8 @@ class FlutterGemma {
   /// - [maxNumImages]: Maximum number of images if supportImage is true
   /// - [activationDataType]: activation type for the text decoder of native
   ///   `.litertlm` models (Android, iOS, desktop); null honors the model file,
-  ///   else the runtime default (float16 on GPU). Pass
+  ///   and a value overrides LiteRT-LM's own choice (float16 on GPU by
+  ///   default). Pass
   ///   [ActivationDataType.float32] if the GPU writes wrong digits — it needs
   ///   more GPU memory, and a GPU engine that cannot be created falls back to
   ///   CPU silently, so check `activeBackend` afterwards. MediaPipe, ONNX,

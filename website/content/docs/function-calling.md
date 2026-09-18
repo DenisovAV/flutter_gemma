@@ -172,7 +172,11 @@ path (use `ModelType.gemma4`).
 With the [Built-in AI](/docs/builtin-ai) engine (`flutter_gemma_builtin_ai`)
 function calling is prompt-based rather than a native tool API — Gemini Nano
 (Android) and Apple Foundation Models (iOS/macOS) handle single-turn tool calls;
-on Web (Chrome Prompt API) multi-turn agent chaining is not supported.
+on Web (Chrome Prompt API) multi-turn agent chaining is not supported. Tool
+declarations are deliberately not handed to the OS runner as well, which would
+run two competing tool loops for one turn. Apple's *native* tool calling stays
+reachable through `flutter_local_ai`'s own `LocalAiSession` API, outside
+flutter_gemma's chat loop.
 
 <Warning>
 Function calling works on the web `.litertlm` path, with one upstream caveat:

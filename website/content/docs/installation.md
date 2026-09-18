@@ -18,7 +18,7 @@ dependencies:
   # Inference engines — add at least one:
   flutter_gemma_litertlm: latest_version     # .litertlm models (FFI; mobile + desktop + web) + LiteRtEmbeddingBackend
   flutter_gemma_mediapipe: latest_version    # .task / .bin models (MediaPipe; mobile + web)
-  flutter_gemma_builtin_ai: latest_version   # OS system models — Gemini Nano (Android) / Apple FM (iOS 26+/macOS) / Chrome Prompt API (Web)
+  flutter_gemma_builtin_ai: latest_version   # OS system models — Gemini Nano (Android) / Apple FM (iOS 26+/macOS) / Windows AI Foundry / Chrome Prompt API (Web)
   flutter_gemma_onnx: latest_version         # ONNX models — ORT-GenAI (FFI, native) / Transformers.js (web) + OnnxEmbeddingBackend
 
   # Optional — text embeddings + on-device RAG:
@@ -39,7 +39,7 @@ dependencies:
 |---|---|
 | Run `.litertlm` models (Gemma 4, Qwen3, FastVLM, + all desktop) | `flutter_gemma_litertlm` |
 | Run `.task` / `.bin` models (Gemma3n, Gemma 3, DeepSeek, Qwen 2.5, Phi-4) | `flutter_gemma_mediapipe` |
-| Run the OS system model with no download (Gemini Nano / Apple Foundation Models) | `flutter_gemma_builtin_ai` |
+| Run the OS system model with no download (Gemini Nano / Apple FM / Windows AI Foundry) | `flutter_gemma_builtin_ai` |
 | Run ONNX models — ORT-GenAI (native) or Transformers.js (Web) | `flutter_gemma_onnx` |
 | Generate text embeddings | `flutter_gemma_embeddings` + `flutter_gemma_litertlm` (`LiteRtEmbeddingBackend`) |
 | Generate text embeddings from ONNX/ORT models | `flutter_gemma_embeddings` + `flutter_gemma_onnx` (`OnnxEmbeddingBackend`) |
@@ -160,9 +160,16 @@ Required by any engine package: `flutter_gemma_litertlm`, `flutter_gemma_mediapi
 and/or `flutter_gemma_builtin_ai`.
 
 **Set the minimum iOS version to 15.0** — or **16.0** if your app depends on
-`flutter_gemma_mediapipe`, which needs MediaPipe GenAI. Core, `flutter_gemma_litertlm`,
-built-in AI and embeddings build from 15.0. (Requires `flutter_gemma` 1.6.4 or newer;
+`flutter_gemma_mediapipe`, which needs MediaPipe GenAI. Core, `flutter_gemma_litertlm`
+and embeddings build from 15.0. (Requires `flutter_gemma` 1.6.4 or newer;
 earlier versions declared 16.0.)
+
+`flutter_gemma_builtin_ai` no longer sets an Apple floor of its own — since 0.3.0
+its native layer is `flutter_local_ai`, which builds from **iOS 13.0 / macOS
+12.0**. On iOS that changes nothing (core's 15.0 still wins); on **macOS it
+raises the floor from 10.15 to 12.0**, and a lower deployment target fails
+resolution with a message naming the `flutter_local_ai` pod rather than the
+package you added.
 
 **Where you set it depends on the dependency manager.** Swift Package Manager is the
 default since Flutter 3.44 (opt-in before that), and an SPM-only app has no `Podfile` at all — set **iOS
@@ -280,6 +287,15 @@ missing MediaPipe class, also add:
 classes), so it needs no ProGuard rules.
 </Info>
 
+<Info>
+**`flutter_gemma_builtin_ai`** brings in `flutter_local_ai`, which declares
+`minSdk 26` (the ML Kit GenAI / AICore floor) — raise your app's `minSdk` to 26
+or the manifest merger fails. The ML Kit Prompt API `beta4` artifact carries
+Kotlin 2.3 metadata, so the app also needs **Kotlin 2.3.21**. Unlike
+flutter_gemma's own plugins it applies KGP itself, so `android.builtInKotlin=true`
+is not usable in an app that depends on it.
+</Info>
+
 #### Android architecture support
 
 MediaPipe text inference (`.task` / `.bin`) works on `arm64-v8a`, `x86_64`, and
@@ -385,11 +401,12 @@ Desktop is served **primarily** by **`flutter_gemma_litertlm`** (`.litertlm`
 files) — the default engine, whose native library is fetched at build time by the
 package's Native-Assets hook (no manual download/bundling). **`flutter_gemma_onnx`**
 ([ONNX Runtime](/docs/onnx)) also runs on all three desktop OSes
-(macOS/Windows/Linux), and on **macOS** the OS built-in model is available via
-**`flutter_gemma_builtin_ai`** ([Apple Foundation Models](/docs/builtin-ai),
-macOS only — not Windows/Linux). What holds across all of desktop: there is no
-MediaPipe engine on desktop — `.task` / `.bin` models are **NOT compatible** with
-desktop.
+(macOS/Windows/Linux), and the OS built-in model is available via
+**`flutter_gemma_builtin_ai`** on **macOS** ([Apple Foundation
+Models](/docs/builtin-ai)) and on **Windows** ([AI Foundry](/docs/builtin-ai) —
+opt-in: the app supplies the Windows App SDK projections); not on Linux. What
+holds across all of desktop: there is no MediaPipe engine on desktop — `.task` /
+`.bin` models are **NOT compatible** with desktop.
 
 See [Desktop Support](/docs/desktop) for the full per-platform reference (macOS
 `Podfile` `post_install`, entitlements, Windows VC++ runtime, Linux Vulkan

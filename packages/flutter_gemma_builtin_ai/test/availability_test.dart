@@ -1,55 +1,88 @@
+// [BuiltInAi] no longer owns a platform channel — it forwards to
+// flutter_local_ai, which owns the pigeon and Prompt API hosts. What is still
+// this package's to guarantee is the SHAPE of the facade apps already import:
+// the seven-value enum they switch on, the exception they catch, and the two
+// bounds that stop `ensureReady`/`availability` from hanging.
+//
+// Both bounds are regressions from a Firebase Test Lab run that stalled for
+// nine minutes in setUpAll; neither is expressible with the published fake
+// alone, so they use the doubles in `adapter_test_support.dart`.
+
 import 'dart:async';
 
-import 'package:flutter/services.dart';
 import 'package:flutter_gemma_builtin_ai/flutter_gemma_builtin_ai.dart';
-import 'package:flutter_gemma_builtin_ai/pigeon.g.dart';
+import 'package:flutter_local_ai/flutter_local_ai.dart'
+    show
+        LocalAi,
+        LocalAiAvailability,
+        LocalAiUnavailableException,
+        debugLocalAiHost;
+import 'package:flutter_local_ai/testing.dart' show FakeLocalAiHost;
 import 'package:flutter_test/flutter_test.dart';
 
-const _prefix = 'dev.flutter.pigeon.flutter_gemma_builtin_ai.BuiltInAiService';
-
-/// Registers a mock handler for a pigeon host method. [reply] returns the value
-/// list to encode (pigeon wraps a plain success as `[value]`, an error as
-/// `[code, message, details]`).
-void _mockHost(String method, List<Object?> Function(Object? args) reply) {
-  TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-      .setMockMessageHandler('$_prefix.$method', (ByteData? message) async {
-        final args = BuiltInAiService.pigeonChannelCodec.decodeMessage(message);
-        return BuiltInAiService.pigeonChannelCodec.encodeMessage(reply(args));
-      });
-}
-
-void _clearHost(String method) {
-  TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-      .setMockMessageHandler('$_prefix.$method', null);
-}
+import 'adapter_test_support.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  tearDown(() {
-    _clearHost('checkAvailability');
-    _clearHost('downloadFeature');
+  late FakeLocalAiHost host;
+
+  /// Swaps in [fake] for the rest of the test, so a suite can start from the
+  /// plain fake and upgrade to a double only where it needs one. Every host
+  /// installed is disposed, including one that was replaced mid-test.
+  void install(FakeLocalAiHost fake) {
+    host = fake;
+    debugLocalAiHost = fake;
+    addTearDown(fake.dispose);
+  }
+
+  setUp(() => install(FakeLocalAiHost()));
+
+  tearDown(() => debugLocalAiHost = null);
+
+  group('source compatibility', () {
+    // An app's exhaustive `switch` over BuiltInAiAvailability must still
+    // compile after the type became an alias of LocalAiAvailability, which
+    // needs the same seven values in the same order.
+    test('BuiltInAiAvailability keeps its seven values in order', () {
+      expect(BuiltInAiAvailability.values.map((v) => v.name).toList(), [
+        'available',
+        'downloadable',
+        'downloading',
+        'unavailableDeviceUnsupported',
+        'unavailableOsTooOld',
+        'unavailableDisabled',
+        'unavailableOther',
+      ]);
+    });
+
+    test('the availability types are the flutter_local_ai ones', () {
+      expect(BuiltInAiAvailability.available, isA<LocalAiAvailability>());
+      expect(
+        BuiltInAiUnavailableException(
+          BuiltInAiAvailability.unavailableOther,
+          'why',
+        ),
+        isA<LocalAiUnavailableException>(),
+      );
+    });
+
+    test('debugProbeTimeout is the flutter_local_ai probe bound', () {
+      final original = BuiltInAi.debugProbeTimeout;
+      addTearDown(() => BuiltInAi.debugProbeTimeout = original);
+
+      BuiltInAi.debugProbeTimeout = const Duration(milliseconds: 5);
+
+      expect(BuiltInAi.debugProbeTimeout, const Duration(milliseconds: 5));
+      expect(LocalAi.debugProbeTimeout, const Duration(milliseconds: 5));
+    });
   });
 
-  group('availability() maps every wire value', () {
-    final cases = <AvailabilityStatus, BuiltInAiAvailability>{
-      AvailabilityStatus.available: BuiltInAiAvailability.available,
-      AvailabilityStatus.downloadable: BuiltInAiAvailability.downloadable,
-      AvailabilityStatus.downloading: BuiltInAiAvailability.downloading,
-      AvailabilityStatus.unavailableDeviceUnsupported:
-          BuiltInAiAvailability.unavailableDeviceUnsupported,
-      AvailabilityStatus.unavailableOsTooOld:
-          BuiltInAiAvailability.unavailableOsTooOld,
-      AvailabilityStatus.unavailableDisabled:
-          BuiltInAiAvailability.unavailableDisabled,
-      AvailabilityStatus.unavailableOther:
-          BuiltInAiAvailability.unavailableOther,
-    };
-
-    for (final entry in cases.entries) {
-      test('${entry.key} -> ${entry.value}', () async {
-        _mockHost('checkAvailability', (_) => [entry.key]);
-        expect(await BuiltInAi.availability(), entry.value);
+  group('availability() reports every host value', () {
+    for (final status in BuiltInAiAvailability.values) {
+      test('$status', () async {
+        host.availability = status;
+        expect(await BuiltInAi.availability(), status);
       });
     }
   });
@@ -57,29 +90,15 @@ void main() {
   test(
     'ensureReady completes immediately when available (no download)',
     () async {
-      var downloadCalled = false;
-      _mockHost('checkAvailability', (_) => [AvailabilityStatus.available]);
-      _mockHost('downloadFeature', (_) {
-        downloadCalled = true;
-        return [null];
-      });
-
       await BuiltInAi.ensureReady();
-      expect(downloadCalled, isFalse);
+
+      expect(host.calls, isNot(contains('downloadFeature')));
     },
   );
 
   test('ensureReady throws BuiltInAiUnavailableException on disabled without '
       'downloading', () async {
-    var downloadCalled = false;
-    _mockHost(
-      'checkAvailability',
-      (_) => [AvailabilityStatus.unavailableDisabled],
-    );
-    _mockHost('downloadFeature', (_) {
-      downloadCalled = true;
-      return [null];
-    });
+    host.availability = BuiltInAiAvailability.unavailableDisabled;
 
     await expectLater(
       BuiltInAi.ensureReady(),
@@ -91,46 +110,40 @@ void main() {
         ),
       ),
     );
-    expect(downloadCalled, isFalse);
+    expect(host.calls, isNot(contains('downloadFeature')));
   });
 
   test('ensureReady downloads then resolves when availability flips to '
       'available', () async {
-    var checkCount = 0;
-    var downloadCalled = false;
-    _mockHost('checkAvailability', (_) {
-      checkCount++;
-      // First probe: downloadable. After download: available.
-      return [
-        checkCount == 1
-            ? AvailabilityStatus.downloadable
-            : AvailabilityStatus.available,
-      ];
-    });
-    _mockHost('downloadFeature', (_) {
-      downloadCalled = true;
-      return [null];
-    });
+    install(
+      ScriptedAvailabilityHost(const [
+        BuiltInAiAvailability.downloadable,
+        BuiltInAiAvailability.available,
+      ]),
+    );
 
     await BuiltInAi.ensureReady();
-    expect(downloadCalled, isTrue);
-    expect(checkCount, greaterThanOrEqualTo(2));
+
+    expect(host.calls, contains('downloadFeature'));
+    expect(
+      host.calls.where((call) => call == 'checkAvailability').length,
+      greaterThanOrEqualTo(2),
+    );
   });
 
   // Regression for the Firebase Test Lab hang: on a fresh device the AICore
-  // download queue may never grant a slot, so the native downloadFeature() Flow
-  // emits nothing and its pigeon reply never arrives, while checkAvailability
-  // stays `downloadable`. ensureReady must be bounded by its own timeout and
-  // throw TimeoutException — NOT block forever on the download call.
+  // download queue may never grant a slot, so the native downloadFeature()
+  // Flow emits nothing and its reply never arrives, while availability stays
+  // `downloadable`. ensureReady must be bounded by its own timeout and throw
+  // TimeoutException — NOT block forever on the download call.
   test('ensureReady times out (does not hang) when download never completes '
       'and availability never flips', () async {
-    // downloadFeature that NEVER replies — simulates the stuck AICore queue.
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMessageHandler(
-          '$_prefix.downloadFeature',
-          (ByteData? message) => Completer<ByteData?>().future, // never completes
-        );
-    _mockHost('checkAvailability', (_) => [AvailabilityStatus.downloadable]);
+    install(
+      HangingHost(
+        hangDownload: true,
+        availability: BuiltInAiAvailability.downloadable,
+      ),
+    );
 
     await expectLater(
       BuiltInAi.ensureReady(timeout: const Duration(milliseconds: 300)),
@@ -138,27 +151,22 @@ void main() {
     );
   });
 
-  // Regression for the Firebase Test Lab hang (root cause): on a device whose OS
-  // AI stack is not initialized (AICore with no Phenotype metadata), the native
-  // checkStatus() call never returns. availability() must be bounded and resolve
-  // to unavailableOther so a caller that gates on it can skip cleanly — observed
-  // as a 9-minute hang in setUpAll before this bound existed.
-  test('availability() resolves to unavailableOther when the native probe '
-      'never returns (does not hang)', () async {
-    final originalTimeout = BuiltInAi.debugProbeTimeout;
+  // Regression for the Firebase Test Lab hang (root cause): on a device whose
+  // OS AI stack is not initialized (AICore with no Phenotype metadata), the
+  // native status call never returns. availability() must be bounded and
+  // resolve to unavailableOther so a caller that gates on it can skip cleanly.
+  test('availability() resolves to unavailableOther when the host probe never '
+      'returns (does not hang)', () async {
+    install(HangingHost(hangProbe: true));
+    final original = BuiltInAi.debugProbeTimeout;
     BuiltInAi.debugProbeTimeout = const Duration(milliseconds: 200);
-    addTearDown(() => BuiltInAi.debugProbeTimeout = originalTimeout);
-
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMessageHandler(
-          '$_prefix.checkAvailability',
-          (ByteData? message) => Completer<ByteData?>().future, // never completes
-        );
+    addTearDown(() => BuiltInAi.debugProbeTimeout = original);
 
     final result = await BuiltInAi.availability().timeout(
       const Duration(seconds: 2),
       onTimeout: () => fail('availability() hung past its probe bound'),
     );
+
     expect(result, BuiltInAiAvailability.unavailableOther);
   });
 }

@@ -1,66 +1,64 @@
-import 'dart:async';
+import 'dart:typed_data' show Uint8List;
 
-import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter_gemma/core/extensions.dart';
-import 'package:flutter_gemma/core/message.dart';
-import 'package:flutter_gemma/core/model.dart';
-import 'package:flutter_gemma/core/utils/gemma_log.dart';
+import 'package:flutter_gemma/core/extensions.dart' show MessageExtension;
+import 'package:flutter_gemma/core/message.dart' show Message;
+import 'package:flutter_gemma/core/model.dart' show ModelFileType, ModelType;
 import 'package:flutter_gemma/flutter_gemma_interface.dart'
     show InferenceModelSession, SessionMetrics;
+import 'package:flutter_local_ai/flutter_local_ai.dart' show LocalAiSession;
 
-import '../pigeon.g.dart';
-import 'availability.dart' show builtInAiEventChannel;
-
-/// One-time guard so the `countTokens` → char-heuristic fallback warns once per
-/// isolate rather than on every call.
-bool _tokenFallbackWarned = false;
-
-@visibleForTesting
-void resetTokenFallbackWarning() => _tokenFallbackWarned = false;
-
-/// A generation session on an OS built-in model (Gemini Nano / Apple FM).
+/// A generation session on an OS built-in model, adapting flutter_local_ai's
+/// [LocalAiSession] to flutter_gemma's [InferenceModelSession].
 ///
-/// Every call is keyed by [sessionId]; generated tokens arrive on the shared
-/// [builtInAiEventChannel] tagged with a `sessionId`, so this session demuxes
-/// the stream by filtering to its own id — the same tagged-demux shape as the
-/// mediapipe multi-session path.
+/// Thin by design: buffering, streaming, cancellation, session demultiplexing
+/// and token counting all live in flutter_local_ai. This class only translates
+/// flutter_gemma's [Message] into the text and images the session takes.
 class BuiltInAiSession extends InferenceModelSession {
   BuiltInAiSession({
-    required this.sessionId,
-    required this.service,
+    required this._session,
     required this.modelType,
-    required this.onClose,
-    this.fileType = ModelFileType.builtIn,
-    this.supportImage = false,
-    this.systemInstruction,
+    required this.fileType,
+    required this.supportImage,
+    required this._onClose,
+    this.maxNumImages,
   });
 
-  final int sessionId;
-  final BuiltInAiService service;
+  final LocalAiSession _session;
   final ModelType modelType;
   final ModelFileType fileType;
   final bool supportImage;
-  final String? systemInstruction;
-  final VoidCallback onClose;
+  final int? maxNumImages;
+  final void Function() _onClose;
 
-  bool _isClosed = false;
-
-  void _assertNotClosed() {
-    if (_isClosed) {
-      throw StateError('Session is closed');
-    }
-  }
+  /// The underlying flutter_local_ai session.
+  ///
+  /// This is the supported escape hatch for the capabilities flutter_gemma's
+  /// [InferenceModelSession] has no slot for — native tool calling and
+  /// schema-constrained output (`getStructuredResponse`). It is the same
+  /// native session this adapter drives, so anything read or generated through
+  /// it shares this session's context.
+  LocalAiSession get localAiSession => _session;
 
   @override
   Future<void> addQueryChunk(Message message) async {
-    _assertNotClosed();
+    if (message.hasAudio) {
+      throw UnsupportedError('Audio is not supported by built-in OS models');
+    }
+    if (message.hasImage && !supportImage) {
+      throw UnsupportedError('Enable vision before adding an image.');
+    }
+    final imageCount = message.images.isNotEmpty
+        ? message.images.length
+        : (message.hasImage ? 1 : 0);
+    if (maxNumImages != null && imageCount > maxNumImages!) {
+      throw ArgumentError('Message exceeds maxNumImages ($maxNumImages).');
+    }
     final prompt = message.transformToChatPrompt(
       type: modelType,
       fileType: fileType,
     );
-    // Images go first so the native side has them buffered before the text
-    // query is added (matches the mediapipe ordering).
+    // Images first, so the host has them buffered before the text that refers
+    // to them — the ordering the native multimodal requests expect.
     if (message.hasImage && supportImage) {
       final images = message.images.isNotEmpty
           ? message.images
@@ -68,124 +66,33 @@ class BuiltInAiSession extends InferenceModelSession {
                 ? <Uint8List>[message.imageBytes!]
                 : const <Uint8List>[]);
       for (final image in images) {
-        await service.addImage(sessionId: sessionId, imageBytes: image);
+        await _session.addImage(image);
       }
     }
-    await service.addQueryChunk(sessionId: sessionId, text: prompt);
+    await _session.addQueryChunk(prompt);
   }
 
   @override
-  Future<String> getResponse() async {
-    _assertNotClosed();
-    return service.generateResponse(sessionId);
-  }
+  Future<String> getResponse() => _session.getResponse();
 
   @override
-  Stream<String> getResponseAsync() {
-    _assertNotClosed();
-
-    // StreamController (not async*) so cleanup runs on done, error, AND
-    // consumer cancel — an abandoned stream must still cancel the native
-    // subscription.
-    final controller = StreamController<String>();
-    StreamSubscription<Object?>? subscription;
-    var finished = false;
-
-    Future<void> cleanup() async {
-      if (finished) return;
-      finished = true;
-      await subscription?.cancel();
-    }
-
-    controller.onListen = () {
-      subscription = builtInAiEventChannel.receiveBroadcastStream().listen(
-        (event) {
-          if (event is! Map) return;
-          // Only consume events tagged for THIS session.
-          if (event['sessionId'] != sessionId) return;
-          if (controller.isClosed) return;
-          // Native emits generation errors as a TAGGED DATA event
-          // {code: ERROR, sessionId, message} (not an EventChannel error,
-          // which would broadcast to every session and lose the id).
-          if (event['code'] == 'ERROR') {
-            controller.addError(
-              Exception(event['message'] ?? 'Unknown async error occurred'),
-            );
-            cleanup();
-            controller.close();
-            return;
-          }
-          final partial = event['partialResult'] as String? ?? '';
-          if (partial.isNotEmpty) controller.add(partial);
-          if (event['done'] == true) {
-            cleanup();
-            controller.close();
-          }
-        },
-        onError: (Object error, StackTrace st) {
-          if (!controller.isClosed) controller.addError(error, st);
-          cleanup();
-          if (!controller.isClosed) controller.close();
-        },
-      );
-
-      // Kick off generation; a synchronous native failure (before any event)
-      // must surface and close the controller rather than hang.
-      service.generateResponseAsync(sessionId).catchError((
-        Object e,
-        StackTrace st,
-      ) {
-        if (!controller.isClosed) controller.addError(e, st);
-        cleanup();
-        if (!controller.isClosed) controller.close();
-      });
-    };
-
-    controller.onCancel = () async {
-      await cleanup();
-    };
-
-    return controller.stream;
-  }
+  Stream<String> getResponseAsync() => _session.getResponseAsync();
 
   @override
-  Future<int> sizeInTokens(String text) async {
-    _assertNotClosed();
-    try {
-      return await service.countTokens(text);
-    } on PlatformException catch (e) {
-      // `channel-error` / `null-error` are pigeon infrastructure failures — the
-      // native plugin isn't registered or the platform has no implementation.
-      // Those are wiring bugs, not a missing tokenizer, so surface them instead
-      // of masking a misconfigured engine as a plausible-looking token count.
-      if (e.code == 'channel-error' || e.code == 'null-error') rethrow;
-      // Otherwise the host reported it can't tokenize (e.g. Apple FM on
-      // iOS 26.0–26.3, or a per-call host failure) — fall back to a rough
-      // char heuristic so token budgeting never hard-fails.
-      if (!_tokenFallbackWarned) {
-        _tokenFallbackWarned = true;
-        gemmaLog(
-          '[BuiltInAI] countTokens is unavailable on this host (${e.code}); '
-          'falling back to a (text.length / 4) estimate. Counts are approximate.',
-        );
-      }
-      return (text.length / 4).ceil();
-    }
-  }
+  Future<int> sizeInTokens(String text) => _session.sizeInTokens(text);
 
   @override
-  Future<void> stopGeneration() async {
-    await service.stopGeneration(sessionId);
-  }
+  Future<void> stopGeneration() => _session.stopGeneration();
 
+  /// Built-in OS models expose no benchmark counters, so there is nothing
+  /// truthful to report here. Empty metrics beat invented ones; use
+  /// [sizeInTokens] for the one number that is real.
   @override
   SessionMetrics getSessionMetrics() => SessionMetrics();
 
   @override
   Future<void> close() async {
-    if (_isClosed) return;
-    _isClosed = true;
-    onClose();
-    await service.closeSession(sessionId);
+    _onClose();
+    await _session.close();
   }
 }

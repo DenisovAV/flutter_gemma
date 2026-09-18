@@ -16,7 +16,7 @@ ships only the native weight it actually uses. All packages live in one monorepo
 | **`flutter_gemma`** | Core — registry, contracts, model management, sessions, chat. No engine on its own. **Always required.** | All |
 | **`flutter_gemma_litertlm`** | `.litertlm` inference via `dart:ffi` (LiteRT-LM C API). Owns the shared native library. | Mobile + Desktop + Web |
 | **`flutter_gemma_mediapipe`** | `.task` / `.bin` inference via MediaPipe. | Mobile + Web |
-| **`flutter_gemma_builtin_ai`** | System OS models — Gemini Nano (Android / AICore), Apple Foundation Models (iOS 26+/macOS), and Gemini Nano via the Chrome Prompt API (Web). No model file to bundle or download. | Android + iOS + macOS + Web |
+| **`flutter_gemma_builtin_ai`** | System OS models — Gemini Nano (Android / AICore), Apple Foundation Models (iOS 26+/macOS), Windows AI Foundry (Phi Silica), and Gemini Nano via the Chrome Prompt API (Web). No model file to bundle or download. A thin adapter over [`flutter_local_ai`](https://pub.dev/packages/flutter_local_ai), which owns the native layer — not a plugin itself. | Android + iOS + macOS + Windows + Web |
 | **`flutter_gemma_onnx`** | Text generation (`OnnxEngine`) + embeddings (`OnnxEmbeddingBackend`) — ORT-GenAI/ORT via `dart:ffi` on native, Transformers.js/onnxruntime-web on Web. | macOS, Linux, Windows, Android, iOS (arm64) + Web |
 | **`flutter_gemma_embeddings`** | Runtime-agnostic text-embedding pipeline (tokenizer, pooling, isolate worker). Needs a backend — `LiteRtEmbeddingBackend` (`flutter_gemma_litertlm`) or `OnnxEmbeddingBackend` (`flutter_gemma_onnx`). | All |
 | **`flutter_gemma_rag_qdrant`** | On-device RAG vector store (qdrant-edge, via the official qdrant_edge UniFFI SDK). Fastest on native. | Native (no Web) |
@@ -48,7 +48,7 @@ ships only the native weight it actually uses. All packages live in one monorepo
 |---|---|
 | Run `.litertlm` models (Gemma 4, Qwen3, FastVLM, + all desktop) | `flutter_gemma_litertlm` |
 | Run `.task` / `.bin` models (Gemma3n, Gemma 3, DeepSeek, Qwen 2.5, Phi-4) | `flutter_gemma_mediapipe` |
-| Run the OS system model with no download (Gemini Nano / Apple Foundation Models) | `flutter_gemma_builtin_ai` |
+| Run the OS system model with no download (Gemini Nano / Apple FM / Windows AI Foundry) | `flutter_gemma_builtin_ai` |
 | Run ONNX models — ORT-GenAI (native) or Transformers.js (Web) | `flutter_gemma_onnx` |
 | Generate text embeddings | `flutter_gemma_embeddings` + `flutter_gemma_litertlm` (`LiteRtEmbeddingBackend`) |
 | Generate text embeddings from ONNX/ORT models | `flutter_gemma_embeddings` + `flutter_gemma_onnx` (`OnnxEmbeddingBackend`) |
@@ -60,10 +60,11 @@ ships only the native weight it actually uses. All packages live in one monorepo
 <Info>
 Desktop is served **primarily** by [`flutter_gemma_litertlm`](/docs/litertlm)
 (`.litertlm`) — the default engine. [`flutter_gemma_onnx`](/docs/onnx) also runs
-on all three desktop OSes (macOS/Windows/Linux), and on **macOS** the OS built-in
-model is available via [`flutter_gemma_builtin_ai`](/docs/builtin-ai) (Apple
-Foundation Models, macOS only). There is no MediaPipe engine on desktop. See
-[Desktop Support](/docs/desktop).
+on all three desktop OSes (macOS/Windows/Linux), and the OS built-in model is
+available via [`flutter_gemma_builtin_ai`](/docs/builtin-ai) on **macOS** (Apple
+Foundation Models) and on **Windows** (AI Foundry — opt-in, the app supplies the
+Windows App SDK projections); not on Linux. There is no MediaPipe engine on
+desktop. See [Desktop Support](/docs/desktop).
 </Info>
 
 Migrating from the 0.16.x monolith is just adding these packages plus one

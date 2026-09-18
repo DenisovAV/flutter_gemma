@@ -210,20 +210,23 @@ grep -rnE "^\s*(apply plugin: .kotlin-android|ext\.kotlin_version|classpath .*ko
   packages/*/android/build.gradle   # post-#440 this must return NOTHING
 ```
 Shared-code hotspots to sweep, per fix type:
-- **Android Gradle** — `packages/*/android/build.gradle`. THREE packages have
-  one: `flutter_gemma`, `flutter_gemma_mediapipe`, `flutter_gemma_builtin_ai`.
+- **Android Gradle** — `packages/*/android/build.gradle`. TWO packages have
+  one: `flutter_gemma` and `flutter_gemma_mediapipe`. (`flutter_gemma_builtin_ai`
+  lost its own at 0.3.0 — it is a pure-Dart adapter over `flutter_local_ai` now,
+  and that plugin's Gradle file is upstream, outside this sweep.)
   Sweep `compileSdk`, `minSdkVersion`, the AGP classpath, and the
   `kotlin { compilerOptions { jvmTarget } }` block — which must stay
-  byte-identical across all three (#360, #440).
+  byte-identical across both (#360, #440).
 - **Native hook** — `packages/flutter_gemma_litertlm/hook/build.dart` (the only
   hook that owns a bundle): the `_litertlmBundle` `version:` and `checksums:`
   fields, `_cacheBaseDir()` cache-busting, `stage()` Apple-only guard.
 - **Apple manifests** — `find packages -name '*.podspec' -not -path '*/example/*'`
-  finds all FOUR (core ios, core macos, mediapipe ios, builtin_ai darwin); the
-  `packages/*/ios/*.podspec` glob silently misses `macos/` and `darwin/`. Sweep
+  finds all THREE (core ios, core macos, mediapipe ios); the
+  `packages/*/ios/*.podspec` glob silently misses `macos/`. Sweep
   `s.version`, min-iOS/osx, dep pins, `vtool` minos on any bundled dylib — and the
-  three `Package.swift` (core ios, core macos, builtin_ai darwin), whose platform
-  floors must match their podspec.
+  two `Package.swift` (core ios, core macos), whose platform floors must match
+  their podspec. (`flutter_gemma_builtin_ai` shipped a fourth of each until
+  0.3.0; it has no Apple sources any more.)
 - **macOS `post_install` snippet** — the SAME block lives in FIVE places: the
   three `packages/*/example/macos/Podfile`, the core `README.md` (the pub.dev
   page users copy from) and `website/content/docs/desktop.md`. Do not diff them
@@ -303,7 +306,7 @@ Always:
 | File | Field | Note |
 |------|-------|------|
 | `pubspec.yaml` | `version:` | the plugin version (e.g. `0.14.1`) |
-| podspecs — **all four**, they drift independently | `s.version` | match the owning package's version. `packages/flutter_gemma/ios/flutter_gemma.podspec`, `packages/flutter_gemma/macos/flutter_gemma.podspec`, `packages/flutter_gemma_mediapipe/ios/flutter_gemma_mediapipe.podspec`, `packages/flutter_gemma_builtin_ai/darwin/flutter_gemma_builtin_ai.podspec`. Verify with the loop below rather than by eye — core's iOS and macOS podspecs were four and five releases behind when this was last checked. |
+| podspecs — **all three**, they drift independently | `s.version` | match the owning package's version. `packages/flutter_gemma/ios/flutter_gemma.podspec`, `packages/flutter_gemma/macos/flutter_gemma.podspec`, `packages/flutter_gemma_mediapipe/ios/flutter_gemma_mediapipe.podspec`. (`flutter_gemma_builtin_ai` had a fourth until 0.3.0 removed its Apple sources.) Verify with the loop below rather than by eye — core's iOS and macOS podspecs were four and five releases behind when this was last checked. |
 
 ```bash
 for ps in packages/*/{ios,macos,darwin}/*.podspec; do

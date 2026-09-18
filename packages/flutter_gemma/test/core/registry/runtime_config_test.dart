@@ -102,6 +102,13 @@ void _activeModelParamsTests() {
             enableSpeculativeDecoding: true,
           ),
         ),
+        'activationDataType': (
+          base,
+          const ActiveModelParams(
+            maxTokens: 1024,
+            activationDataType: ActivationDataType.float32,
+          ),
+        ),
         'maxConcurrentSessions': (
           base,
           const ActiveModelParams(maxTokens: 1024, maxConcurrentSessions: 2),
@@ -141,6 +148,7 @@ void _activeModelParamsTests() {
         supportAudio: true,
         maxNumImages: 7,
         enableSpeculativeDecoding: true,
+        activationDataType: ActivationDataType.float32,
         maxConcurrentSessions: 3,
         loraRanks: [4, 8],
       );
@@ -230,6 +238,7 @@ ActiveModelParams _repair(
     'supportAudio',
     'maxNumImages',
     'enableSpeculativeDecoding',
+    'activationDataType',
     'maxConcurrentSessions',
     'loraRanks',
   };
@@ -263,6 +272,9 @@ ActiveModelParams _repair(
     enableSpeculativeDecoding: is_('enableSpeculativeDecoding')
         ? target.enableSpeculativeDecoding
         : probe.enableSpeculativeDecoding,
+    activationDataType: is_('activationDataType')
+        ? target.activationDataType
+        : probe.activationDataType,
     maxConcurrentSessions: is_('maxConcurrentSessions')
         ? target.maxConcurrentSessions
         : probe.maxConcurrentSessions,

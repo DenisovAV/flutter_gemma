@@ -133,6 +133,46 @@ Windows CPU/NPU were never affected. See [Desktop → Known
 limitations](/docs/desktop#known-limitations).
 </Warning>
 
+## Wrong numbers on GPU
+
+**Gemma 4 copies digits wrongly out of a long prompt on the GPU**, the same way
+on every run: asked when a delivery arrived (`2026/06/23`), it answers
+`20226/12/17`. It shows from about 2,000 prompt tokens, on Metal and on Adreno.
+The published Gemma 4 `.litertlm` files ask for half-precision activations;
+ask for full precision instead:
+
+```dart
+final model = await FlutterGemma.getActiveModel(
+  preferredBackend: PreferredBackend.gpu,
+  activationDataType: ActivationDataType.float32,
+);
+```
+
+Prefill gets slower (about 3× on a Snapdragon 8 Elite and an iPhone 11, under
+1.5× on an Apple M3 Max); decode speed barely changes. Upstream:
+[LiteRT-LM#3012](https://github.com/google-ai-edge/LiteRT-LM/issues/3012) (Adreno),
+[LiteRT-LM#2814](https://github.com/google-ai-edge/LiteRT-LM/issues/2814) (Metal).
+
+**Not on web.** The web engine ignores `activationDataType` — it has no such
+setting — and so do MediaPipe, ONNX and built-in AI. On the engines that read
+it, it reaches the text decoder only: the vision and audio encoders keep the
+type the model file asks for.
+
+`float32` activations also need more GPU memory than `float16`. If the GPU
+engine cannot be created the model falls back to CPU **without an error** — the
+digits are then right and the model is far slower, which is easy to mistake for
+the fix working. Read the backend the model actually got:
+
+```dart
+final model = await FlutterGemma.getActiveModel(
+  preferredBackend: PreferredBackend.gpu,
+  activationDataType: ActivationDataType.float32,
+);
+if (model.activeBackend != PreferredBackend.gpu) {
+  // CPU fallback: right digits, but not the run you asked for.
+}
+```
+
 ## NPU
 
 **The model answers, fluently, about the beginning of a long prompt and ignores

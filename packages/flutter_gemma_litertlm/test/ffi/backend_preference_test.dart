@@ -160,6 +160,32 @@ void main() {
       expect(encoderBackendWireName(PreferredBackend.cpu), 'cpu');
     });
   });
+
+  group('activationDataTypeWireValue', () {
+    // The numbers are LiteRT-LM's ActivationDataType order in
+    // executor_settings_base.h, which the C setter casts the int to. A wrong
+    // number is silent: F16 for F32 builds an engine that still writes the
+    // wrong digits the setting was meant to fix.
+    test('null leaves the engine setting untouched', () {
+      expect(activationDataTypeWireValue(null), isNull);
+    });
+
+    test('matches the C API numbering', () {
+      expect(activationDataTypeWireValue(ActivationDataType.float32), 0);
+      expect(activationDataTypeWireValue(ActivationDataType.float16), 1);
+    });
+
+    test('offers only the two float types', () {
+      // I16 (2) and I8 (3) are in LiteRT-LM's enum and deliberately not in
+      // ours: at the pinned version they are not half precision the way F16 is,
+      // and an unsupported type fails engine init, which reads as a quiet fall
+      // back to CPU. Adding one back means adding a number here too.
+      expect(ActivationDataType.values, [
+        ActivationDataType.float32,
+        ActivationDataType.float16,
+      ]);
+    });
+  });
 }
 
 class _FakeClient {

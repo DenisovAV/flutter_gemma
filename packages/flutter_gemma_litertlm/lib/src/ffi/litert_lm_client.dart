@@ -658,6 +658,9 @@ class LiteRtLmFfiClient {
   }
 
   /// Initialize the engine with model path and settings.
+  ///
+  /// [activationDataType] is the C API's number (see
+  /// `activationDataTypeWireValue`); null leaves the engine's own choice.
   Future<void> initialize({
     required String modelPath,
     String backend = 'gpu',
@@ -669,6 +672,7 @@ class LiteRtLmFfiClient {
     bool enableAudio = false,
     String audioBackend = 'cpu',
     bool? enableSpeculativeDecoding,
+    int? activationDataType,
   }) async {
     final initSw = Stopwatch()..start();
     _ensureBindings();
@@ -743,6 +747,20 @@ class LiteRtLmFfiClient {
           settings,
           enableSpeculativeDecoding,
         );
+      }
+
+      // Activation type (0 F32, 1 F16, 2 I16, 3 I8). Skip when null: the engine
+      // then takes the model file's `prefer_activation_type`, else F16 on GPU.
+      // F16 on some GPUs copies digits wrongly from long prompts (Adreno
+      // LiteRT-LM#3012, Metal #2814), and F32 fixes it at a slower prefill.
+      // The setter is upstream C API, so every platform's libLiteRtLm has it
+      // (and patch_c_api.sh's Windows .def exports it).
+      if (activationDataType != null) {
+        b.litert_lm_engine_settings_set_activation_data_type(
+          settings,
+          activationDataType,
+        );
+        gemmaLog('[LiteRtLmFfi] activation_data_type=$activationDataType');
       }
 
       // Windows NPU: point LiteRT at the directory containing

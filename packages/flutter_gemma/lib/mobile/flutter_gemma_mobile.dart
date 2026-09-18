@@ -120,6 +120,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
     bool supportImage = false,
     bool supportAudio = false, // Enabling audio support (Gemma 3n E4B)
     bool? enableSpeculativeDecoding,
+    ActivationDataType? activationDataType,
     int? maxConcurrentSessions,
   }) async {
     // Check if model is ready through unified system
@@ -148,6 +149,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
       supportAudio: supportAudio,
       maxNumImages: maxNumImages,
       enableSpeculativeDecoding: enableSpeculativeDecoding,
+      activationDataType: activationDataType,
       maxConcurrentSessions: maxConcurrentSessions,
       loraRanks: loraRanks,
     );
@@ -289,6 +291,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
         supportImage: supportImage,
         supportAudio: supportAudio,
         enableSpeculativeDecoding: enableSpeculativeDecoding,
+        activationDataType: activationDataType,
         maxConcurrentSessions: maxConcurrentSessions,
       );
     }
@@ -364,6 +367,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
         supportAudio: supportAudio,
         maxNumImages: maxNumImages,
         enableSpeculativeDecoding: enableSpeculativeDecoding,
+        activationDataType: activationDataType,
         maxConcurrentSessions: maxConcurrentSessions,
         loraRanks: loraRanks,
       );

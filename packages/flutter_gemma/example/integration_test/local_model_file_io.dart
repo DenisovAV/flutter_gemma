@@ -16,10 +16,13 @@ String? localModelFile(String fileName) {
   if (io.Platform.isMacOS) {
     final home = io.Platform.environment['HOME'];
     if (home == null) return null;
-    return _existing(
-      '$home/Library/Containers/dev.flutterberlin.flutterGemmaExample55/'
-      'Data/Documents/$fileName',
-    );
+    // The example app is sandboxed, so its HOME is already the container's
+    // Data folder; an unsandboxed build still sees the real home.
+    return _existing('$home/Documents/$fileName') ??
+        _existing(
+          '$home/Library/Containers/dev.flutterberlin.flutterGemmaExample55/'
+          'Data/Documents/$fileName',
+        );
   }
   // iOS and the desktops other than macOS have no agreed push location; those
   // runs download the model.

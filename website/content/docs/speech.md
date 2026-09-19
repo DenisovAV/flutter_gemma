@@ -10,9 +10,9 @@ speech** — speech-to-text and text-to-speech — to flutter_gemma. It runs
 no streaming a mic to a server.
 You choose the model with `SttModelType` / `TtsModelType` and a profile-driven,
 model-agnostic pipeline resolves the matching runtime, so it isn't tied to one
-model. **moonshine**, **Whisper**, and **Parakeet** STT and **Matcha** +
-**Qwen3-TTS** (multilingual) TTS work end-to-end today; kokoro / supertonic TTS
-voices are follow-ons.
+model. **moonshine**, **Whisper**, and **Parakeet** STT and **Matcha**,
+**Qwen3-TTS** (multilingual) and **Inflect-Nano-v2** (fast) TTS work end-to-end
+today; kokoro / supertonic TTS voices are follow-ons.
 
 <Info>
 Speech is a separate package so apps that don't need it don't ship the model or
@@ -293,6 +293,10 @@ On Android, STT (like everything backed by `libLiteRtLm`) is **arm64-only** and
 requires **minSdk 30** — see
 [Installation → Android architecture](/docs/installation#android-architecture-support).
 
+On Windows, speech needs `flutter_gemma_litertlm` 1.7.0 or newer (0.5.1 requires
+it) — earlier versions fail with `CreateTensorBufferFromHostMemory` status 3. See
+[Troubleshooting](/docs/troubleshooting#windows-embeddings-and-speech-fail-with-status-3).
+
 ## Model support
 
 | Model | Task | Input | Status |
@@ -300,7 +304,8 @@ requires **minSdk 30** — see
 | **moonshine-tiny** | STT | raw PCM (seq2seq) | ✅ end-to-end |
 | **Whisper / Parakeet** | STT | log-mel | ✅ end-to-end |
 | **Matcha** | TTS | text (Glow-TTS + CFM) | ✅ end-to-end |
-| **Qwen3-TTS** | TTS | text (AR codec-LM, 11 langs) | ✅ end-to-end |
+| **Qwen3-TTS** | TTS | text (AR codec-LM, 10 langs + `auto`) | ✅ end-to-end |
+| **Inflect-Nano-v2** | TTS | text (VITS, English) | ✅ end-to-end |
 | kokoro / supertonic | TTS | text | 🚧 voice follow-on |
 
 Both pipelines are profile-driven (`SttModelProfile` / `TtsModelProfile`), so

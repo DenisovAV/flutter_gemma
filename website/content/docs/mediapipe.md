@@ -1,6 +1,6 @@
 ---
 title: MediaPipe
-description: Run .task / .bin models on Android, iOS and Web through Google's MediaPipe (tasks-genai) engine — chat templates handled internally, GPU-only on Web.
+description: Run .task / .bin models on Android, iOS and Web through Google's MediaPipe (tasks-genai) engine — chat templates handled internally for .task, GPU-only on Web.
 image: https://fluttergemma.dev/images/og-image.png
 ---
 
@@ -10,13 +10,16 @@ declared `ModelFileType`. `flutter_gemma_mediapipe` is the engine for Google's
 **MediaPipe** runtime (`tasks-genai`) — it runs `.task` bundles (and `.bin`).
 A `.task` archive packages the model's `.tflite` weights, tokenizer, and
 metadata together, and **MediaPipe applies each model's chat template
-internally**, so you feed plain messages and it handles the formatting.
+internally**, so you feed plain messages and it handles the formatting. A `.bin`
+model carries no template: flutter_gemma adds the turn markers itself from the
+`ModelType` you install it with — as it does for FunctionGemma `.task`, whose
+bundle has none either.
 
 ## Platforms
 
 | Platform | Support | Runtime |
 |----------|---------|---------|
-| Android | ✅ | `MediaPipeTasksGenAI` (Gradle) |
+| Android | ✅ | `com.google.mediapipe:tasks-genai` (Gradle) |
 | iOS | ✅ | `MediaPipeTasksGenAI` (CocoaPods) — **requires iOS 16.0+** |
 | Web | ✅ | `@mediapipe/tasks-genai` (CDN) |
 | Desktop (macOS/Windows/Linux) | ❌ | no MediaPipe engine — use [LiteRT-LM](/docs/litertlm) or ONNX |
@@ -88,8 +91,10 @@ window.LlmInference = LlmInference;
 </script>
 ```
 
-The pinned version is **`@mediapipe/tasks-genai@0.10.27`**. Web runs **GPU-only**
-— there is no CPU backend in the browser, so `PreferredBackend.gpu` is required.
+The pinned version is **`@mediapipe/tasks-genai@0.10.27`**. Web runs **GPU-only**:
+the web engine ignores `preferredBackend` and always runs on the browser's GPU
+(WebGPU). The model storage helpers (`cache_api.js`, `opfs_helper.js`) are
+needed as well — see [Installation → Web](/docs/installation#web).
 **Vision** works on Web with Gemma 4's `.task` web build; thinking mode
 (`extraContext`) is not available through MediaPipe on Web.
 
@@ -97,8 +102,8 @@ The pinned version is **`@mediapipe/tasks-genai@0.10.27`**. Web runs **GPU-only*
 
 | `PreferredBackend` | Android | iOS | Web |
 |--------------------|---------|-----|-----|
-| `cpu` | ✅ | ✅ | ❌ |
-| `gpu` | ✅ | ✅ | ✅ (required) |
+| `cpu` | ✅ | ✅ | ignored — runs on GPU |
+| `gpu` | ✅ | ✅ | ✅ (always) |
 
 Pass the backend when you open the model:
 

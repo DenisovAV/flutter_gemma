@@ -217,10 +217,10 @@ const _litertlmBundle = _NativeBundle(
     'webgpu_dawn', // Linux/Windows Dawn WebGPU (split to a shared lib in v0.14.0)
   ],
   // On macOS, skip the upstream Apple companion dylibs from Native Assets
-  // bundling (#247). The three dylibs Google ships in
+  // bundling (#247). The companion dylibs Google ships in
   // `prebuilt/macos_arm64/` (`libGemmaModelConstraintProvider.dylib`,
-  // `libLiteRtMetalAccelerator.dylib`, `libLiteRtTopKMetalSampler.dylib`)
-  // were linked without `-Wl,-headerpad_max_install_names`, leaving only
+  // `libLiteRtMetalAccelerator.dylib`; the Metal sampler is not shipped at
+  // all) were linked without `-Wl,-headerpad_max_install_names`, leaving only
   // 32 bytes of slack in the load-commands area. Dart Native Assets'
   // JIT path (`dart run`, `dart build_runner`, `flutter test` on a pure
   // Dart library) calls `install_name_tool -id <absolute_path>` with paths

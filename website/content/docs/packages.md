@@ -31,11 +31,11 @@ ships only the native weight it actually uses. All packages live in one monorepo
   See [Installation](/docs/installation).
 - **Probe-chain registry.** Engines and backends are pure factories that declare
   `canHandle(spec)` + a priority. The registry selects a provider per model by
-  file type — `.task` / `.bin` / `.tflite` → MediaPipe, `.litertlm` → LiteRT-LM,
-  `.onnx` → Onnx, `builtIn` → BuiltInAi.
+  declared `ModelFileType` — `task` / `binary` → MediaPipe, `litertlm` → LiteRT-LM,
+  `onnx` → Onnx, `builtIn` → BuiltInAi.
 - **One app can run both formats.** Register both `LiteRtLmEngine()` and
   `MediaPipeEngine()`, and the registry routes each model to the engine that
-  handles its extension.
+  handles its declared `ModelFileType` — not its file extension.
 - **Shared native library.** `flutter_gemma_litertlm` owns the native LiteRT
   library (fetched at build time via its Native-Assets hook); `flutter_gemma_embeddings`
   and `flutter_gemma_speech` have no hook of their own and consume that bundle

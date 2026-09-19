@@ -147,7 +147,7 @@ final response = await session.getResponse();
 |---------|------------------------|-------------------------|--------------------------|
 | Streaming | ✅ | ✅ | ✅ |
 | Function calling | ✅ prompt-based | ✅ prompt-based | ✅ prompt-based |
-| Vision (image input) | ✅ | ✅ on OS 27+ (text-only on OS 26) | ❌ (v1, tracked) |
+| Vision (image input) | ✅ | ❌ — image input needs the OS 27 SDK; this build targets OS 26 | ❌ (v1, tracked) |
 | Audio · Thinking · LoRA | ❌ | ❌ | ❌ |
 | `sizeInTokens` | ✅ native count | ✅ on OS 26.4+, built with Xcode 26.4+ (estimate otherwise) | ✅ `measureContextUsage` |
 

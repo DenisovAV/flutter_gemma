@@ -118,7 +118,8 @@ final hits = await FlutterGemmaPlugin.instance.searchSimilar(query: query, topK:
 ## What you'll see if you forget step 2
 
 - Calling `getActiveModel()` with no matching `inferenceEngines` registered throws
-  a `StateError` telling you which package to add.
+  a `StateError` naming the model's `ModelFileType` and the engines that are
+  registered — add the engine package for that file type.
 - `createEmbeddingModel()` / auto-embedding RAG with no `embeddingBackends` throws
   a clear "add an embedding backend package" error (e.g. `flutter_gemma_litertlm`'s
   `LiteRtEmbeddingBackend`).

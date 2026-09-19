@@ -35,10 +35,20 @@ SmolLM and more — see [Models](/docs/models) for the full list.
 - **Text Embeddings & RAG:** Generate vector embeddings (EmbeddingGemma, Gecko) and run on-device RAG. See [Embeddings & RAG](/docs/embeddings-and-rag).
 - **Web Persistent Caching:** Models persist across browser restarts using the Cache API (Web only).
 
+## What's new in 1.8
+
+- **Package Skills** — flutter_gemma ships agent skills for coding assistants; `dart run skills@ get --all` installs them. See [Package Skills](/docs/package-skills).
+- **Whisper output language** — `getActiveStt(language:)` sets a default, `transcribe(…, language:)` overrides one call. Breaking for custom `SpeechRecognizer` implementations. See [Speech](/docs/speech#output-language-whisper).
+- **`FlutterGemma.rag.flush()`** — persists what you indexed; required on qdrant-edge. Custom `VectorStoreRepository` implementations must declare it. See [Embeddings & RAG](/docs/embeddings-and-rag).
+
+## What's new in 1.7
+
+- **Install from Hugging Face** — `installModel(…).fromHuggingFace(repo)` reads the repo's manifest and installs the right variant for the device; `resolveHuggingFace` inspects it first. See [Models → Hugging Face](/docs/models#hugging-face).
+
 ## What's new in 1.6
 
 - **`flutter_gemma_onnx`** — new opt-in ONNX Runtime engine: text generation via ORT-GenAI (`OnnxEngine`) + embeddings via plain ONNX Runtime (`OnnxEmbeddingBackend`), both `dart:ffi`. Device-verified on macOS, Linux, Windows, Android, and iOS (arm64) — plus **Web**, via Transformers.js (generation) and onnxruntime-web (embeddings). See [Packages](/docs/packages#onnx-runtime-engine).
-- **`flutter_gemma_builtin_ai`** — new opt-in OS built-in AI engine: Gemini Nano (Android; Web via Chrome Prompt API) + Apple Foundation Models (iOS/macOS), via `ModelFileType.builtIn` — no download. See [Built-in AI](/docs/builtin-ai).
+- **`flutter_gemma_builtin_ai` on Web** — Gemini Nano through Chrome's Prompt API, next to Gemini Nano on Android and Apple Foundation Models on iOS/macOS. See [Built-in AI](/docs/builtin-ai).
 - **BREAKING (`flutter_gemma_embeddings` 2.0.0):** the embedder is now runtime-agnostic — `LiteRtEmbeddingBackend` moved to `flutter_gemma_litertlm` (1.5.0). See [Migration](/docs/migration).
 
 ## What's new in 1.5
@@ -67,9 +77,9 @@ SmolLM and more — see [Models](/docs/models) for the full list.
 - **Modular package split** — the monolith is now a small **core** (`flutter_gemma`) plus **opt-in** packages, so your app ships only the native weight it uses: `flutter_gemma_litertlm` (.litertlm), `flutter_gemma_mediapipe` (.task/.bin), `flutter_gemma_embeddings`, `flutter_gemma_rag_qdrant`, `flutter_gemma_rag_sqlite`. See [Packages](/docs/packages).
 - **New `FlutterGemma.initialize(...)` registration** — pass `inferenceEngines`, `embeddingBackends`, `vectorStore` for the packages you added. See [Installation](/docs/installation).
 - **Every model / session / chat / embedding / RAG API is unchanged** — migrating is just adding packages + the initialize call. See [Migration](/docs/migration).
-- **Two on-device vector stores** — `flutter_gemma_rag_qdrant` (qdrant-edge, fastest on native) and `flutter_gemma_rag_sqlite` (in-SQLite KNN via the `sqlite-vec`/`vec0` extension, exact + portable across all six platforms, including Web). The legacy Dart brute-force + local_hnsw path was removed.
+- **Two on-device vector stores** — `flutter_gemma_rag_qdrant` (qdrant-edge, fastest on native) and `flutter_gemma_rag_sqlite` (portable across all six platforms, including Web). Since rag_sqlite 1.1.0 the SQLite store runs exact in-SQLite KNN via the `sqlite-vec`/`vec0` extension, replacing its Dart brute-force + HNSW search.
 
-See the [CHANGELOG](https://github.com/DenisovAV/flutter_gemma/blob/main/CHANGELOG.md) for the full release history.
+See the [CHANGELOG](https://github.com/DenisovAV/flutter_gemma/blob/main/packages/flutter_gemma/CHANGELOG.md) for the full release history.
 
 ## Quick Start
 
@@ -142,7 +152,7 @@ final chat = await model.createChat(
 **Platform support:**
 
 - **`.litertlm` on every platform, native and web**: passed as a real system turn.
-- **MediaPipe `.task` on web**: prepended to the first user message as a fallback.
+- **MediaPipe `.task` (Android, iOS, web)**: prepended to the first user message as a fallback.
 
 ### Changing a runtime parameter reloads the model
 
@@ -155,8 +165,8 @@ the rebuild:
 ```dart
 final quick = await FlutterGemma.getActiveModel(maxTokens: 512);
 final deep  = await FlutterGemma.getActiveModel(maxTokens: 4096);
-// deep is a NEW model, and `quick` has been closed — using it now throws
-// StateError('Session is closed'). Drop the old handle.
+// deep is a NEW model, and `quick` has been closed — using it now throws a
+// StateError ('Model is closed…'). Drop the old handle.
 ```
 
 So don't hold a handle across a parameter change, and don't vary the arguments
@@ -172,9 +182,13 @@ final deep = await FlutterGemma.getActiveModel(maxTokens: 4096);
 To serve several dialogues from one loaded model, do not reload it — open
 several sessions instead (next section).
 
+On **web** there is no reuse at all: every `getActiveModel` call closes the
+cached model and builds a new one, identical arguments or not. Get the model
+once and keep the handle.
+
 <Info>
-On `.litertlm` a `maxTokens` below 1024 is clamped up to 1024, so the 512 above
-would not have been honored in any case. See
+On native `.litertlm` (except the NPU) a `maxTokens` below 1024 is clamped up to
+1024, so the 512 above would not have been honored in any case. See
 [Troubleshooting](/docs/troubleshooting).
 </Info>
 

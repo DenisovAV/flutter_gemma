@@ -49,7 +49,7 @@ class BuiltInAiEngine
     // The OS model must be ready before we ask the host to create it. A
     // non-`available` status is a hard failure here (call
     // [BuiltInAi.ensureReady] first to download/prepare it).
-    final status = mapAvailability(await builtInAiService.checkAvailability());
+    final status = await BuiltInAi.availability();
     if (status != BuiltInAiAvailability.available) {
       throw BuiltInAiUnavailableException(
         status,

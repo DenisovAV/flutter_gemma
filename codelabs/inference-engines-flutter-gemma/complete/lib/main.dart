@@ -60,7 +60,7 @@ class _EnginesAppState extends State<EnginesApp> {
     // throws where it does not, so asking it is the cheap way to find out —
     // and where it throws there is nothing to probe either. The package
     // registers no plugin on Windows or Linux, so `availability()` there has
-    // no host to answer it and can only fail. Skip it, and say so.
+    // no OS model to ask and only reports unavailable. Skip it, and say so.
     final ModelChoice builtIn;
     try {
       builtIn = Models.builtIn;

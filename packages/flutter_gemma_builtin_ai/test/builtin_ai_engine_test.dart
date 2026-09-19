@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/core/domain/model_source.dart';
+import 'package:flutter_gemma/core/registry/runtime_config.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_builtin_ai/flutter_gemma_builtin_ai.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -42,6 +44,28 @@ void main() {
     expect(
       BuiltInAiModels.appleFoundationModels.fileType,
       ModelFileType.builtIn,
+    );
+  });
+
+  // Windows/Linux have no native arm; createModel must fail with the package's
+  // own exception, not the pigeon channel-error a host-less call would throw.
+  test('createModel on Windows throws BuiltInAiUnavailableException', () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+
+    await expectLater(
+      const BuiltInAiEngine().createModel(
+        BuiltInAiModels.geminiNano,
+        const RuntimeConfig(maxTokens: 1024, modelPath: ''),
+      ),
+      throwsA(
+        isA<BuiltInAiUnavailableException>().having(
+          (e) => e.status,
+          'status',
+          BuiltInAiAvailability.unavailableDeviceUnsupported,
+        ),
+      ),
     );
   });
 }

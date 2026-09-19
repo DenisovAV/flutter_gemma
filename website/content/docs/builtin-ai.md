@@ -24,7 +24,8 @@ want, and the platform owns the weights.
 > Microsoft's own model, Phi-4-mini: the same calls, a different model. **Windows and Linux have no OS
 > built-in model** (no ML Kit, no Apple Foundation Models, no browser Prompt API
 > in a Flutter desktop app) — there `availability()` reports
-> `unavailableDeviceUnsupported`, and you fall back to a downloaded model
+> `unavailableDeviceUnsupported` (0.2.2+; earlier versions throw a
+> `PlatformException`), and you fall back to a downloaded model
 > (see [the fallback pattern](#the-fallback-pattern)).
 
 Availability is a runtime property of the device/OS/browser — never assume it at

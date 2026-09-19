@@ -52,7 +52,10 @@ agent chaining is **not** supported on Web.
 
 Describe each function as a `Tool` — a `name`, a `description`, and a
 JSON-Schema `parameters` map — then pass the list to `createChat` (or
-`createSession`) together with `supportsFunctionCalls: true`:
+`openChat`) together with `supportsFunctionCalls: true`. `createSession` also
+takes `tools:`, but only Gemma 4 on `.litertlm` reads them there (through the
+SDK's native tool path); for every other model it is the chat that puts the
+tools into the prompt and parses the calls back out, so use the chat API:
 
 ```dart
 final tools = [

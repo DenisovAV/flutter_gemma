@@ -173,7 +173,8 @@ version bump can leave the library unbundled, surfacing as an opaque `dlopen`
 
 ```bash
 flutter clean
-rm -rf ~/Library/Caches/flutter_gemma/native        # macOS / Linux
+rm -rf ~/Library/Caches/flutter_gemma/native        # macOS
+rm -rf ~/.cache/flutter_gemma/native                # Linux
 # Windows: rmdir /s "%LOCALAPPDATA%\flutter_gemma\native"  (path may vary)
 flutter pub get
 ```

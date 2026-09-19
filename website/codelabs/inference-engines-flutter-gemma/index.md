@@ -463,7 +463,7 @@ Future<void> _pickAtStartup() async {
   // throws where it does not, so asking it is the cheap way to find out —
   // and where it throws there is nothing to probe either. The package
   // registers no plugin on Windows or Linux, so `availability()` there has
-  // no host to answer it and can only fail. Skip it.
+  // no OS model to ask and only reports unavailable. Skip it.
   final ModelChoice builtIn;
   try {
     builtIn = Models.builtIn;
@@ -503,9 +503,10 @@ The **first is about the platform**, and it is asked first because it is free:
 `Models.builtIn` throws where this app has no built-in arm, so evaluating it
 *is* the test. Where it throws there is also nothing to ask the OS —
 `flutter_gemma_builtin_ai` registers no plugin on Windows or Linux, so
-`availability()` there has no host on the other end of its channel. It would not
-answer "unavailable"; it would throw a `PlatformException` at nobody. There is
-no information in that, so the app does not ask for it, returns straight away,
+`availability()` there has no OS model to ask: it answers
+`unavailableDeviceUnsupported` without looking (before 0.2.2 it threw a
+`PlatformException` instead). There is no information in that, so the app does
+not ask for it, returns straight away,
 and takes the downloaded model. This is the same `on UnsupportedError` the menu
 uses in Step 2, moved to the front.
 

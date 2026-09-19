@@ -42,8 +42,9 @@ WebView), verified on hardware. On web the skill runs in a sandboxed `<iframe>`.
 > round-trip (`example/integration_test/web_function_calling_test.dart`). What is
 > missing is a run of the agent itself on web — nothing here has been driven
 > end-to-end in a browser, and `sizeInTokens` is approximate there, which the
-> loop's context balancing depends on. Native-intent skills are stubbed on web by
-> design. The agent is verified on **Android, iOS, macOS, and Windows** — use
+> loop's context balancing depends on. On web, native-intent skills open
+> `mailto:` / `sms:` links and a Google Calendar event page rather than OS
+> surfaces. The agent is verified on **Android, iOS, macOS, and Windows** — use
 > those until a web run exists.
 
 ## What's in the box

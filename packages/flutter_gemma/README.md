@@ -179,8 +179,8 @@ await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
 await FlutterGemma.installModel(modelType: ModelType.deepSeek)
   .fromNetwork(url).install();
 
-// Phi-4 (uses general type)
-await FlutterGemma.installModel(modelType: ModelType.general)
+// Phi-4 (its own type — parses Phi's tool-call markers)
+await FlutterGemma.installModel(modelType: ModelType.phi)
   .fromNetwork(url).install();
 ```
 
@@ -251,14 +251,14 @@ The plugin ships native prebuilts only for the architectures below. Other ABIs f
 | Linux           | `x86_64`, `arm64`                 | —                        |
 | Windows         | `x86_64`                          | `arm64`                  |
 
-¹ MediaPipe text inference (`.task` / `.bin`) on Android also works on `x86_64` and `armeabi-v7a` because Google ships those ABIs in `tasks-genai`. Everything else (`.litertlm` FFI, embedding via LiteRT FFI, image generation) is `arm64-v8a` only:
+¹ MediaPipe text inference (`.task` / `.bin`) on Android also works on `x86_64` and `armeabi-v7a` because Google ships those ABIs in `tasks-genai`. Everything backed by `libLiteRtLm` (`.litertlm` inference including its vision and audio input, embedding via LiteRT FFI, speech) is `arm64-v8a` only:
 
 | Android feature                      | arm64-v8a | x86_64 | armeabi-v7a |
 |--------------------------------------|:---------:|:------:|:-----------:|
 | Text inference (`.task` / `.bin`)    |     ✅    |   ✅   |      ✅      |
 | `.litertlm` (FFI)                    |     ✅    |   ❌   |      ❌      |
 | Embedding (LiteRT FFI)               |     ✅    |   ❌   |      ❌      |
-| Image generation (vision)            |     ✅    |   ❌   |      ❌      |
+| Speech STT + TTS (LiteRT FFI)        |     ✅    |   ❌   |      ❌      |
 
 If your Android app uses only the arm64-only features, restrict the build to arm64 so the Play Store does not offer broken APKs to incompatible devices:
 
@@ -396,8 +396,21 @@ and some Mali GPUs hard-freeze (#324). `libcdsprpc.so` is for the Qualcomm NPU.
 
 **Web**
 
-Web runs on the GPU backend only (MediaPipe has no web CPU backend). Add the CDN
-script(s) for the **engine package(s) you use** to your `web/index.html`.
+On web, MediaPipe ignores `preferredBackend` and always runs on the GPU
+(WebGPU); ONNX honours `PreferredBackend.cpu` by pinning WASM.
+
+**Every web app** needs the model storage helpers. Copy `cache_api.js` and
+`opfs_helper.js` from this package's `web/` directory into your app's `web/`
+(find the package directory with
+`grep -A1 '"name": "flutter_gemma"' .dart_tool/package_config.json`), then load
+them in `web/index.html`:
+
+```html
+  <script src="cache_api.js"></script>
+  <script src="opfs_helper.js"></script>
+```
+
+Then add the CDN script(s) for the **engine package(s) you use**.
 
 * **`flutter_gemma_mediapipe`** (`.task` / `-web.task` models) — add:
 ```html
@@ -444,9 +457,17 @@ script(s) for the **engine package(s) you use** to your `web/index.html`.
   </script>
 ```
 
+* **`LiteRtEmbeddingBackend`** (web embeddings, `flutter_gemma_litertlm`) — load
+  `flutter_gemma_embeddings`' `web/litert_embeddings.js` (LiteRT.js), pinned to a
+  release tag with a Subresource-Integrity hash; see the
+  [`flutter_gemma_embeddings` web setup](https://pub.dev/packages/flutter_gemma_embeddings#web-setup).
+
 * **`flutter_gemma_rag_sqlite`** (web RAG) — copy the package's custom
   `sqlite3.wasm` (with `sqlite-vec`/`vec0` statically linked) into your app's web
-  root. No CDN `<script>` needed; see that package's README for the exact path.
+  root as `rag/sqlite3.wasm`, and serve the app with
+  `Cross-Origin-Opener-Policy: same-origin` +
+  `Cross-Origin-Embedder-Policy: require-corp`. No CDN `<script>` needed; see
+  that package's README.
 
 > **Model compatibility:** mobile `.task` models often don't work on web — use
 > the `-web.task` (MediaPipe) or `.litertlm` (LiteRT-LM) web variant. Check the
@@ -456,10 +477,11 @@ script(s) for the **engine package(s) you use** to your `web/index.html`.
 
 > **⚠️ Desktop Model Format**
 >
-> Desktop is served exclusively by the **`flutter_gemma_litertlm`** package and
-> uses **LiteRT-LM format only** (`.litertlm` files). There is no MediaPipe
-> engine on desktop — `.task` / `.bin` models used on mobile/web are **NOT
-> compatible** with desktop. (`flutter_gemma_embeddings` and
+> Desktop is served primarily by the **`flutter_gemma_litertlm`** package
+> (`.litertlm` files); `flutter_gemma_onnx` also runs on all three desktop OSes,
+> and `flutter_gemma_builtin_ai` runs Apple Foundation Models on macOS. There is
+> no MediaPipe engine on desktop — `.task` / `.bin` models used on mobile/web are
+> **NOT compatible** with desktop. (`flutter_gemma_embeddings` and
 > `flutter_gemma_rag_qdrant` / `flutter_gemma_rag_sqlite` also support desktop.)
 >
 > The native library is fetched at build time by the package's Native-Assets
@@ -484,15 +506,15 @@ Inference (LiteRT-LM C API) and embeddings (LiteRT C API) on all native platform
 **macOS Setup:**
 
 macOS requires a small `post_install` block in your
-`macos/Podfile`. The Apple accelerator dylibs Google ships upstream
-(`libGemmaModelConstraintProvider.dylib`, `libLiteRtMetalAccelerator.dylib`,
-`libLiteRtTopKMetalSampler.dylib`) were linked without
+`macos/Podfile`. The Apple companion dylibs Google ships upstream
+(`libGemmaModelConstraintProvider.dylib`, `libLiteRtMetalAccelerator.dylib`)
+were linked without
 `-Wl,-headerpad_max_install_names`, so Dart Native Assets' JIT bundling path
 (used by `dart run` / `dart build_runner` / `flutter test` on a pure Dart
 library) cannot rewrite their install_name to a long absolute path inside
 `.dart_tool/lib/` and aborts (#247). To unblock both `dart run` and
 `flutter build macos`, the plugin's `hook/build.dart` skips bundling those
-three through Native Assets on macOS, and we instead copy them into
+two through Native Assets on macOS, and we instead copy them into
 `App.app/Contents/Frameworks/` ourselves and patch `LiteRtLm.dylib`'s
 `LC_LOAD_DYLIB` reference to the new framework path.
 
@@ -1339,7 +1361,7 @@ android/app/src/main/assets/models/gemma3-270m-it-q8.litertlm
 2. Check "Copy items if needed"
 3. Add to target membership
 
-**Web** (Static files in `web/` directory) — web uses MediaPipe only, so `.task` (or `-web.task`):
+**Web** (Static files in `web/` directory) — a `-web.task` build for MediaPipe, or a web `.litertlm` build for LiteRT-LM (early preview):
 ```bash
 # Place model files in web/ directory
 example/web/gemma3-270m-it.task
@@ -1682,7 +1704,7 @@ All embedding models generate **768-dimensional vectors**. The numbers in names 
 | **[EmbeddingGemma 1024](https://huggingface.co/litert-community/embeddinggemma-300m)** | 300M | 768D | 1024 tokens | 183MB | Long documents, detailed content | ✅ |
 | **[EmbeddingGemma 2048](https://huggingface.co/litert-community/embeddinggemma-300m)** | 300M | 768D | 2048 tokens | 196MB | Very long documents | ✅ |
 
-**Performance Comparison (Android Pixel 8 with GPU acceleration):**
+**Performance Comparison (Android Pixel 8):**
 - **Gecko 64**: ~109ms/doc embedding, 130ms search (⚡ **fastest** - 2.6x faster than EmbeddingGemma)
 - **EmbeddingGemma 256**: ~286ms/doc embedding, 342ms search (🎯 **more accurate** - 300M vs 110M params)
 
@@ -1882,7 +1904,7 @@ final supported = await FlutterGemma.isStreamingSupported();
 ```
 
 #### Backend Support
-- **GPU only on Web** — MediaPipe has no web CPU backend, so web models must run on the GPU (`PreferredBackend.gpu`).
+- **GPU only on Web (MediaPipe)** — the MediaPipe web engine ignores `preferredBackend` and always runs on the browser's GPU (WebGPU). ONNX on web pins WASM for `PreferredBackend.cpu`.
 
 #### CORS Configuration
 - **Required for custom servers:** Enable CORS headers on your model hosting server
@@ -1936,7 +1958,7 @@ fully supported.
 ### Mobile Platform Specifics
 
 #### Android
-- **GPU Support:** Requires OpenGL libraries in `AndroidManifest.xml`
+- **GPU Support:** nothing to add — the OpenCL `<uses-native-library>` entries come from `flutter_gemma`'s own manifest through the manifest merger
 - **ProGuard:** Automatic rules included for release builds
 - **Storage:** Local file system in app documents directory
 
@@ -2013,11 +2035,13 @@ String cleanedResponse = ModelThinkingFilter.cleanResponse(
   fileType: ModelFileType.litertlm,
 );
 
-// The filter automatically removes model-specific tokens like:
-// - <end_of_turn> tags (Gemma models)
-// - <think>...</think> blocks (DeepSeek)
-// - <|channel>thought\n...<channel|> blocks (Gemma 4 E2B/E4B)
-// - Extra whitespace and formatting
+// It removes the reasoning blocks (for these model types even when
+// isThinking is false):
+// - <think>...</think> (DeepSeek, Qwen, Qwen3)
+// - <|channel>thought\n...<channel|> (Gemma 3 / Gemma 4 types)
+// and trims whitespace. Turn markers (<end_of_turn>, <|im_end|>) are stripped
+// only for .bin / .tflite files — on .task and .litertlm the runtime already
+// ends the turn.
 ```
 
 This is automatically handled by the chat API, but can be useful for custom inference implementations.

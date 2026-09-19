@@ -5,7 +5,12 @@
 # 2. set_use_hw_masking_for_npu setter (Intel LunarLake/PantherLake NPU)
 # 3. GPU smooth-UI knobs — gpu_context_low_priority + kernel_batch_size (#364)
 # 4. gpu_registry.cc dlopen rewrite for App-Store-safe framework paths (Apple)
-# 5. minizip/zlib source mirrored off the flaky zlib.net (CI reliability)
+#
+# v0.17.0 migration: section 11 (minizip/zlib mirror) was deleted — upstream's
+# WORKSPACE now ships `urls = [tensorflow mirror, mirror.bazel.build,
+# zlib.net]`, which is exactly what that section existed to add. It had become
+# a permanent WARN, and a patcher that always warns is one whose warnings
+# nobody reads.
 #
 # v0.14.0 migration (Phase 0): upstream 80f301f natively added a per-session
 # sampler C API, set_max_num_images, set_litert_dispatch_lib_dir, set_cache_dir
@@ -286,22 +291,24 @@ fi
 
 # 10a. sampler_factory.cc — DELIBERATELY NOT PATCHED.
 #
-# Patching the Metal sampler dlopen to find the framework binary exposes a
-# different bug: the bundled libLiteRtTopKMetalSampler.dylib only exports 3
-# of the 7 C ABI functions sampler_factory expects (upstream issue #2073).
-# When dlopen succeeds, GetSamplerCApi() does dlsym for UpdateConfig which
-# returns NULL — and a later virtual call through the half-built sampler
-# vtable dereferences uninitialized memory, crashing the app with
-# EXC_BAD_ACCESS deep inside the inference pipeline (observed on iPhone
-# 16 Pro device with Gemma 4 E2B GPU temperature=0.0 test 2026-04-30).
+# Patching the Metal sampler dlopen to find the framework binary was tried and
+# crashed: EXC_BAD_ACCESS deep inside the inference pipeline (iPhone 16 Pro,
+# Gemma 4 E2B GPU, temperature=0.0, 2026-04-30). The cause recorded at the time
+# was a sampler dylib exporting only 3 of the 7 C ABI functions sampler_factory
+# expects, so dlsym for UpdateConfig returned NULL and a later call through the
+# half-built sampler vtable dereferenced uninitialized memory.
 #
-# Leaving the original "libLiteRtTopKMetalSampler.dylib" basename means
-# dlopen on Apple cannot resolve it (Native Assets bundles a framework, not
-# a flat .dylib), so sampler_factory.cc falls back to the CPU sampling
+# That cause does not hold for the prebuilts this script now builds against:
+# upstream's libLiteRtTopKMetalSampler.dylib exports 7 of 7 at v0.16.0 (macOS)
+# and at v0.17.0 (macOS and iOS). The 3-of-7 dylib in upstream #2073 is the
+# WebGPU sampler, which went from 3 to 7 exports in v0.17.0. Enabling the Metal
+# GPU sampler therefore needs a fresh device run, not a wait for upstream.
+#
+# Until then, leaving the original "libLiteRtTopKMetalSampler.dylib" basename
+# means dlopen on Apple cannot resolve it (Native Assets bundles a framework,
+# not a flat .dylib), so sampler_factory.cc falls back to the CPU sampling
 # path — same behavior we had pre-0.14.1. Inference still runs on the GPU
 # accelerator; only the per-token argmax happens on CPU (~1-5 ms/token).
-#
-# When upstream ships a 7/7 export sampler dylib, revisit this patch.
 
 # 10b. gpu_registry.cc lives in LiteRT (transitive dep). Bazel applies
 # patch_cmds AFTER extracting an http_archive — that's the canonical hook for
@@ -350,42 +357,6 @@ else
     echo "  SKIP: WORKSPACE already has FLUTTER_GEMMA_GPU_REGISTRY_PATCH"
   else
     echo "  WARN: $WORKSPACE_FILE not found"
-  fi
-fi
-
-# ── 11. Mirror the minizip/zlib source off the flaky zlib.net ──
-# Upstream's `minizip` http_archive fetches zlib-1.3.1.tar.gz from
-# https://zlib.net/fossils/ — which is chronically unreliable in CI (it
-# intermittently serves corrupted/varying bytes, failing the sha256 check and
-# aborting the whole Bazel build; observed 3x in one release cycle). Prepend the
-# GitHub release asset (github.com/madler/zlib v1.3.1), which is byte-identical
-# (same sha256 9a93b2b7...) and immutable. Bazel tries `urls` in order, so the
-# GitHub mirror is used first and zlib.net stays as a fallback.
-export WORKSPACE_FILE="$DIR/WORKSPACE"
-if [ -f "$WORKSPACE_FILE" ] && ! grep -q "FLUTTER_GEMMA_ZLIB_MIRROR" "$WORKSPACE_FILE"; then
-  python3 - <<'PYEOF'
-import os
-ws = os.environ['WORKSPACE_FILE']
-with open(ws) as f:
-    s = f.read()
-old = '    url = "https://zlib.net/fossils/zlib-1.3.1.tar.gz",'
-new = ('    # FLUTTER_GEMMA_ZLIB_MIRROR: GitHub release first (immutable, same\n'
-       '    # sha256), zlib.net as fallback — zlib.net is flaky in CI.\n'
-       '    urls = [\n'
-       '        "https://github.com/madler/zlib/releases/download/v1.3.1/zlib-1.3.1.tar.gz",\n'
-       '        "https://zlib.net/fossils/zlib-1.3.1.tar.gz",\n'
-       '    ],')
-if old in s:
-    s = s.replace(old, new)
-    with open(ws, 'w') as f:
-        f.write(s)
-    print("  OK: minizip/zlib mirrored to GitHub release (zlib.net as fallback)")
-else:
-    print("  WARN: minizip zlib.net url line not found; skipping zlib mirror")
-PYEOF
-else
-  if [ -f "$WORKSPACE_FILE" ]; then
-    echo "  SKIP: WORKSPACE already has FLUTTER_GEMMA_ZLIB_MIRROR"
   fi
 fi
 

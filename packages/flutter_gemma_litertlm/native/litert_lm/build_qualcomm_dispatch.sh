@@ -40,7 +40,7 @@ LITERT_DIR="/tmp/LiteRT"
 #
 # Do NOT go back to a literal, and do NOT use LiteRT v2.1.1 or earlier — the
 # LiteRtDispatchApi struct has breaking ABI changes after it.
-LITERTLM_REF="${LITERTLM_REF:-924e79c91542761242244e4f1651851f822e4cbb}"   # v0.16.0
+LITERTLM_REF="${LITERTLM_REF:-e9fd8c53ff968071774206163027dd84bedfe925}"   # v0.17.0
 LITERT_REF="${LITERT_REF:-}"
 if [ -z "$LITERT_REF" ]; then
   echo "Resolving LITERT_REF from LiteRT-LM $LITERTLM_REF WORKSPACE..."

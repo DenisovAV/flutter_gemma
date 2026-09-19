@@ -60,6 +60,9 @@ silently do the other thing.
 [ ] Pre-flight: git clean · analyze 0 err · flutter test green · build web + one native target
 [ ] 1a  every package whose lib/ changed is in the publish list (grep, don't guess)
 [ ] 1b/c native: dylibs/build-scripts changed? → rebuild + SHA256 + native release, else N/A
+[ ] 1b-bis native changed → build-native checks 1–10 done: #9 NPU result written into
+        its table (device, date, pass count), #10 matrix (LLM + embeddings +
+        speech on every platform) pasted into the PR body
 [ ] 5b  manifest gate RUN and printed "N platform(s) compared" — N == number of tarballs
 [ ] 1e  core public API changed? → upgrade-genkit (realign + version), else N/A
 [ ] 1f  shared code duplicated across satellites patched everywhere (grep the pattern)

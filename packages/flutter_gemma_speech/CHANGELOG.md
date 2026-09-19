@@ -1,3 +1,6 @@
+## 0.5.1
+- Windows: STT/TTS failed with `CreateTensorBufferFromHostMemory` status 3 (needs flutter_gemma_litertlm 1.7.0).
+
 ## 0.5.0
 - Whisper: output language is a parameter, no longer hardcoded English (#500).
 

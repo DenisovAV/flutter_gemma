@@ -63,34 +63,25 @@ const int kLiteRtMaxRank = 8;
 
 // ----- LiteRtLayout (litert_layout.h) ----------------------------------------
 //
-// struct LiteRtLayout {
+// typedef struct {
 //   unsigned int rank : 7;
-//   bool has_strides : 1;
+//   unsigned int has_strides : 1;
 //   int32_t dimensions[8];
 //   uint32_t strides[8];
-// };
+// } LiteRtLayout;
 //
-// MSVC does NOT pack bit-fields with different underlying types into a single
-// storage unit, so this struct has two different binary layouts depending on
-// which compiler built the LiteRT shared library:
+// One binary layout on every compiler: `dimensions[]` at byte offset 4,
+// 68 bytes in total. Until LiteRT d84656955 `has_strides` was a `bool`, and
+// MSVC gave it a storage unit of its own, which moved `dimensions[]` to offset
+// 8 on Windows (google-ai-edge/LiteRT#7459). Every bundle we ship is built
+// from a LiteRT pin after that fix, so a separate MSVC mirror would put every
+// shape 4 bytes off; upstream now static_asserts the shared layout.
 //
-//   * GCC / Clang (macOS, iOS, Android, Linux): `unsigned int rank : 7` and
-//     `bool has_strides : 1` share one 4-byte int, so `dimensions[]` starts
-//     at byte offset 4. Total size 68 bytes.
-//   * MSVC (Windows): the `bool` bit-field opens a fresh storage unit, so
-//     there is an extra 4 bytes of padding before `dimensions[]`, which then
-//     starts at byte offset 8. Total size 72 bytes.
-//
-// Refs: https://learn.microsoft.com/en-us/cpp/c-language/c-bit-fields
-// and https://randomascii.wordpress.com/2010/06/06/bit-field-packing-with-visual-c/.
-// LiteRT upstream declares the struct as non-opaque and ships no accessor
-// functions, so we mirror both layouts here.
-//
-// FFI has no bit-field support, so each layout packs rank + has_strides as a
-// single `Uint8` the caller composes (low 7 bits = rank, high bit = has_strides).
+// FFI has no bit-field support, so rank + has_strides are a single `Uint8`
+// the caller composes (low 7 bits = rank, high bit = has_strides).
 
-/// LiteRtLayout as packed by GCC/Clang. Used on every platform except
-/// Windows. Read [LiteRtLayoutView] for layout-agnostic accessors.
+/// LiteRtLayout, identical on every platform. The name predates the upstream
+/// fix above. Read [LiteRtLayoutView] for accessors.
 final class LiteRtLayoutPosix extends Struct {
   @Uint8()
   external int rankAndHasStrides;
@@ -111,68 +102,24 @@ final class LiteRtLayoutPosix extends Struct {
   external Array<Uint32> strides;
 }
 
-/// LiteRtLayout as packed by MSVC. Used on Windows only.
-final class LiteRtLayoutMsvc extends Struct {
-  @Uint8()
-  external int rankAndHasStrides;
-  // ignore: unused_field
-  @Uint8()
-  external int pad0;
-  // ignore: unused_field
-  @Uint8()
-  external int pad1;
-  // ignore: unused_field
-  @Uint8()
-  external int pad2;
-  // ignore: unused_field
-  @Uint32()
-  external int boolStorageUnit;
-
-  @Array(8)
-  external Array<Int32> dimensions;
-
-  @Array(8)
-  external Array<Uint32> strides;
-}
-
-/// Layout-agnostic view over a `LiteRtLayout*` returned from the C API.
-/// Pick the right struct (POSIX vs MSVC) based on the host compiler ABI
-/// at allocation time so callers don't need to think about it.
+/// View over a `LiteRtLayout*` filled in by the C API.
 class LiteRtLayoutView {
-  LiteRtLayoutView._(this._posix, this._msvc);
+  LiteRtLayoutView._(this._layout);
 
-  /// Allocate a layout in the right ABI for the current platform.
-  /// Free with [free].
-  factory LiteRtLayoutView.calloc() {
-    if (Platform.isWindows) {
-      return LiteRtLayoutView._(nullptr, calloc<LiteRtLayoutMsvc>());
-    }
-    return LiteRtLayoutView._(calloc<LiteRtLayoutPosix>(), nullptr);
-  }
+  /// Allocate a zeroed layout. Free with [free].
+  factory LiteRtLayoutView.calloc() =>
+      LiteRtLayoutView._(calloc<LiteRtLayoutPosix>());
 
-  final Pointer<LiteRtLayoutPosix> _posix;
-  final Pointer<LiteRtLayoutMsvc> _msvc;
+  final Pointer<LiteRtLayoutPosix> _layout;
 
   /// Pass to LiteRt accessor functions (e.g. `getInputTensorLayout`).
-  Pointer<Void> get pointer =>
-      Platform.isWindows ? _msvc.cast<Void>() : _posix.cast<Void>();
+  Pointer<Void> get pointer => _layout.cast<Void>();
 
-  int get rank =>
-      (Platform.isWindows
-          ? _msvc.ref.rankAndHasStrides
-          : _posix.ref.rankAndHasStrides) &
-      0x7f;
+  int get rank => _layout.ref.rankAndHasStrides & 0x7f;
 
-  int dimension(int i) =>
-      Platform.isWindows ? _msvc.ref.dimensions[i] : _posix.ref.dimensions[i];
+  int dimension(int i) => _layout.ref.dimensions[i];
 
-  void free() {
-    if (Platform.isWindows) {
-      calloc.free(_msvc);
-    } else {
-      calloc.free(_posix);
-    }
-  }
+  void free() => calloc.free(_layout);
 }
 
 // ----- LiteRtRankedTensorType (litert_model_types.h) -------------------------
@@ -182,12 +129,8 @@ class LiteRtLayoutView {
 //   LiteRtLayout layout;
 // };
 //
-// Same MSVC vs GCC/Clang bit-field packing problem as `LiteRtLayout` (see
-// the comment block above). Two backing structs + a tiny view, picked at
-// allocation time by [LiteRtRankedTensorTypeView].
-//
-// Size 72 bytes on GCC/Clang, 76 bytes on MSVC (the inner `LiteRtLayout` is
-// 68 vs 72 bytes respectively).
+// Embeds `LiteRtLayout`, so it shares the single layout described above:
+// 72 bytes on every platform.
 
 final class LiteRtRankedTensorTypePosix extends Struct {
   @Int32()
@@ -195,73 +138,27 @@ final class LiteRtRankedTensorTypePosix extends Struct {
   external LiteRtLayoutPosix layout;
 }
 
-final class LiteRtRankedTensorTypeMsvc extends Struct {
-  @Int32()
-  external int elementType;
-  external LiteRtLayoutMsvc layout;
-}
-
-/// Layout-agnostic builder for `LiteRtRankedTensorType*`. Use this to fill
-/// in element type, rank, and dimensions without caring which compiler
-/// produced the LiteRT shared library.
+/// Builder for `LiteRtRankedTensorType*`: element type, rank, dimensions.
 class LiteRtRankedTensorTypeView {
-  LiteRtRankedTensorTypeView._(this._posix, this._msvc);
+  LiteRtRankedTensorTypeView._(this._type);
 
-  /// Allocate a ranked tensor type in the right ABI for the current
-  /// platform. Free with [free].
-  factory LiteRtRankedTensorTypeView.calloc() {
-    if (Platform.isWindows) {
-      return LiteRtRankedTensorTypeView._(
-        nullptr,
-        calloc<LiteRtRankedTensorTypeMsvc>(),
-      );
-    }
-    return LiteRtRankedTensorTypeView._(
-      calloc<LiteRtRankedTensorTypePosix>(),
-      nullptr,
-    );
-  }
+  /// Allocate a zeroed ranked tensor type. Free with [free].
+  factory LiteRtRankedTensorTypeView.calloc() =>
+      LiteRtRankedTensorTypeView._(calloc<LiteRtRankedTensorTypePosix>());
 
-  final Pointer<LiteRtRankedTensorTypePosix> _posix;
-  final Pointer<LiteRtRankedTensorTypeMsvc> _msvc;
+  final Pointer<LiteRtRankedTensorTypePosix> _type;
 
   /// Pass to LiteRt functions that consume a `LiteRtRankedTensorType*`.
-  Pointer<Void> get pointer =>
-      Platform.isWindows ? _msvc.cast<Void>() : _posix.cast<Void>();
+  Pointer<Void> get pointer => _type.cast<Void>();
 
-  set elementType(int value) {
-    if (Platform.isWindows) {
-      _msvc.ref.elementType = value;
-    } else {
-      _posix.ref.elementType = value;
-    }
-  }
+  set elementType(int value) => _type.ref.elementType = value;
 
   /// Set rank (1..127) and clear `has_strides`.
-  set rank(int value) {
-    final byte = value & 0x7f;
-    if (Platform.isWindows) {
-      _msvc.ref.layout.rankAndHasStrides = byte;
-    } else {
-      _posix.ref.layout.rankAndHasStrides = byte;
-    }
-  }
+  set rank(int value) => _type.ref.layout.rankAndHasStrides = value & 0x7f;
 
-  void setDimension(int i, int value) {
-    if (Platform.isWindows) {
-      _msvc.ref.layout.dimensions[i] = value;
-    } else {
-      _posix.ref.layout.dimensions[i] = value;
-    }
-  }
+  void setDimension(int i, int value) => _type.ref.layout.dimensions[i] = value;
 
-  void free() {
-    if (Platform.isWindows) {
-      calloc.free(_msvc);
-    } else {
-      calloc.free(_posix);
-    }
-  }
+  void free() => calloc.free(_type);
 }
 
 // ----- Dynamic library resolution --------------------------------------------

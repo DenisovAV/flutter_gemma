@@ -11,7 +11,7 @@
 #
 # Usage:
 #   ./build_android.sh [ref]
-#   ./build_android.sh 032334d        # default for 0.15.0 (post-6571c42 main HEAD)
+#   ./build_android.sh e9fd8c53       # v0.17.0 (the default)
 #   ./build_android.sh v0.11.0        # WARNING: v0.11.0 prebuilt accelerators
 #                                     # are ABI-incompatible with libLiteRtLm
 #                                     # rebuilt from v0.11.0 source. Use 032334d
@@ -23,7 +23,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PREBUILT_DIR="$SCRIPT_DIR/prebuilt/android_arm64"
 LITERT_LM_DIR="/tmp/LiteRT-LM"
-DEFAULT_REF="924e79c91542761242244e4f1651851f822e4cbb"
+DEFAULT_REF="e9fd8c53ff968071774206163027dd84bedfe925"   # v0.17.0
 VERSION="${1:-}"
 
 # Resolve Android NDK — prefer ANDROID_NDK_HOME env, else newest under

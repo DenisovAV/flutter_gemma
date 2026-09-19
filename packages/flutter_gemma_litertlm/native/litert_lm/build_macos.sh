@@ -8,7 +8,7 @@
 #
 # Usage:
 #   ./build_macos.sh [ref]
-#   ./build_macos.sh 032334d        # explicit commit (default for 0.15.0)
+#   ./build_macos.sh e9fd8c53       # v0.17.0 (the default)
 #   ./build_macos.sh v0.11.0        # WARNING: v0.11.0 prebuilt accelerators
 #                                   # are ABI-incompatible with libLiteRtLm
 #                                   # rebuilt from v0.11.0 source — crashes
@@ -22,7 +22,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PREBUILT_DIR="$SCRIPT_DIR/prebuilt/macos_arm64"
 LITERT_LM_DIR="/tmp/LiteRT-LM"
-DEFAULT_REF="924e79c91542761242244e4f1651851f822e4cbb"
+DEFAULT_REF="e9fd8c53ff968071774206163027dd84bedfe925"   # v0.17.0
 VERSION="${1:-}"
 
 echo "=== Building libLiteRtLm.dylib for macOS arm64 ==="

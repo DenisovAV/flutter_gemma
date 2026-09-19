@@ -83,7 +83,7 @@ final chat = await model.createChat(maxOutputTokens: 100);        // reply cap
 
 ## Web
 
-- **GPU only.** MediaPipe has no web CPU backend, so web models must run on `PreferredBackend.gpu`.
+- **MediaPipe is GPU-only on web.** The web engine ignores `preferredBackend` and always runs on the browser's GPU (WebGPU). ONNX on web is the exception: `PreferredBackend.cpu` pins WASM there.
 - **Mobile `.task` models often don't work on web** — use the `-web.task` (MediaPipe) or `.litertlm` (LiteRT-LM) web variant.
 - **Memory / cache limits:**
 
@@ -131,6 +131,16 @@ executor surface.
 affected versions use `PreferredBackend.cpu` or `.npu`. macOS/Linux GPU and
 Windows CPU/NPU were never affected. See [Desktop → Known
 limitations](/docs/desktop#known-limitations).
+</Warning>
+
+## Windows embeddings and speech fail with status 3
+
+<Warning>
+**Fixed in litertlm 1.7.0.** On Windows, embeddings and on-device speech
+(STT/TTS) fail with `LiteRT call failed: CreateTensorBufferFromHostMemory(...)
+(status=3)` in litertlm 1.4.0–1.6.4. Upgrade `flutter_gemma_litertlm` to 1.7.0
+(and `flutter_gemma_speech` to 0.5.1). Text generation and the other platforms
+were never affected.
 </Warning>
 
 ## NPU
@@ -206,8 +216,10 @@ inside the package.
 
 - **The build fails with a download error or an HTTP status.** The first build of
   each platform needs `github.com` reachable. In an air-gapped or proxied CI,
-  pre-populate that cache directory, or vendor the archives and point the build
-  at them.
+  copy the whole `flutter_gemma/native` cache directory from a machine that
+  built the same package versions, including its hidden version-marker files —
+  a folder copied without them is discarded and fetched again. There is no
+  setting that points the build at archives you vendor yourself.
 - **The build fails with `CHECKSUM MISMATCH`.** The bytes served do not match
   what the package version was pinned to. Re-run once to rule out a corrupt
   transfer. If it persists, the release asset was replaced after publication —
@@ -218,8 +230,9 @@ inside the package.
   package claims to support now fails the build when its library cannot be
   produced.
 - **Maintainers only:** a local `native/<name>/prebuilt/<target>/` overrides the
-  pinned release, and the hook says so on stderr when it takes that path. If a
-  new release "did not take", that line is the first thing to look for.
+  pinned release. `flutter_gemma_rag_sqlite` says so on stderr when it takes that
+  path; `flutter_gemma_litertlm` and `flutter_gemma_onnx` take it silently. If a
+  new release "did not take", look for that directory first.
 
 ## Function calling
 

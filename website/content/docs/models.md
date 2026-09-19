@@ -173,8 +173,8 @@ await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
 await FlutterGemma.installModel(modelType: ModelType.deepSeek)
   .fromNetwork(url).install();
 
-// Phi-4 (uses general type)
-await FlutterGemma.installModel(modelType: ModelType.general)
+// Phi-4 (its own type — parses Phi's tool-call markers)
+await FlutterGemma.installModel(modelType: ModelType.phi)
   .fromNetwork(url).install();
 ```
 
@@ -413,7 +413,7 @@ are English-only.
 | Model | Output | Size | Status | Auth |
 |---|---|---|---|---|
 | **[Matcha](https://huggingface.co/litert-community/Matcha-TTS)** | 16-bit PCM @ 22050 Hz | ~90 MB | ✅ end-to-end | ❌ |
-| **[Qwen3-TTS](https://huggingface.co/litert-community/Qwen3-TTS-12Hz-0.6B-Base)** (11 langs) | 16-bit PCM | ~1.9 GB | ✅ end-to-end | ❌ |
+| **[Qwen3-TTS](https://huggingface.co/litert-community/Qwen3-TTS-12Hz-0.6B-Base)** (10 langs + `auto`) | 16-bit PCM | ~1.9 GB | ✅ end-to-end | ❌ |
 | **[Inflect-Nano-v2](https://huggingface.co/sasha-denisov/inflect-nano-v2-litert)** (fast) | 16-bit PCM @ 24 kHz | ~8 MB | ✅ end-to-end | ❌ |
 
 ## Text embedding models
@@ -434,7 +434,7 @@ model-dependent — e.g. all-MiniLM-L6-v2 is 384-dim.) See
 | **[EmbeddingGemma 1024](https://huggingface.co/litert-community/embeddinggemma-300m)** | 300M | 768D | 1024 tokens | 183MB | ✅ |
 | **[EmbeddingGemma 2048](https://huggingface.co/litert-community/embeddinggemma-300m)** | 300M | 768D | 2048 tokens | 196MB | ✅ |
 
-**Performance (Android Pixel 8, GPU acceleration):**
+**Performance (Android Pixel 8):**
 
 - **Gecko 64**: ~109 ms/doc embedding, 130 ms search (fastest — 2.6× faster than EmbeddingGemma).
 - **EmbeddingGemma 256**: ~286 ms/doc embedding, 342 ms search (more accurate — 300M vs 110M params).

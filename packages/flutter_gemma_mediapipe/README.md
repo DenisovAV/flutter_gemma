@@ -58,7 +58,7 @@ statically linked binaries".
 
 | Platform | Support |
 |----------|---------|
-| Android  | ✅ `MediaPipeTasksGenAI` (Gradle) |
+| Android  | ✅ `com.google.mediapipe:tasks-genai` (Gradle) |
 | iOS      | ✅ `MediaPipeTasksGenAI` (CocoaPods) — **requires iOS 16.0+** |
 | Web      | ✅ `@mediapipe/tasks-genai` (CDN, see above) |
 | Desktop  | ❌ (MediaPipe `.task` not supported on desktop — use `flutter_gemma_litertlm`) |

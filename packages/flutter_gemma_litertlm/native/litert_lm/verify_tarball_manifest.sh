@@ -33,7 +33,12 @@ REPO="${FLUTTER_GEMMA_REPO:-DenisovAV/flutter_gemma}"
 # Keep this EMPTY unless you are deliberately dropping a file — every entry
 # needs a comment explaining why, so the gate stays meaningful.
 INTENTIONAL_DROPS=(
-  # e.g. "windows_x86_64:tbb12_debug.dll"  # dropped debug TBB, prod-only ship
+  # native-v0.17.0: #437 stages release TBB only. native-v0.16.0 was packed
+  # before it landed and still carried the parallel debug set.
+  "windows_x86_64:tbb12_debug.dll"
+  "windows_x86_64:tbbbind_2_5_debug.dll"
+  "windows_x86_64:tbbmalloc_debug.dll"
+  "windows_x86_64:tbbmalloc_proxy_debug.dll"
 )
 
 _is_intentional() {

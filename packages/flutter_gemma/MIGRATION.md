@@ -25,7 +25,7 @@ dependencies:
 ```yaml
 dependencies:
   flutter_gemma: ^1.8.3                 # core — always required
-  flutter_gemma_litertlm: ^1.6.4        # add if you run .litertlm models (also provides LiteRtEmbeddingBackend)
+  flutter_gemma_litertlm: ^1.7.0        # add if you run .litertlm models (also provides LiteRtEmbeddingBackend)
   flutter_gemma_mediapipe: ^1.0.6       # add if you run .task / .bin models
   flutter_gemma_embeddings: ^2.1.1      # add if you compute embeddings (needs a backend, see above)
   flutter_gemma_rag_qdrant: ^1.3.1      # add for native on-device RAG (qdrant)
@@ -118,7 +118,8 @@ final hits = await FlutterGemmaPlugin.instance.searchSimilar(query: query, topK:
 ## What you'll see if you forget step 2
 
 - Calling `getActiveModel()` with no matching `inferenceEngines` registered throws
-  a `StateError` telling you which package to add.
+  a `StateError` naming the model's `ModelFileType` and the engines that are
+  registered — add the engine package for that file type.
 - `createEmbeddingModel()` / auto-embedding RAG with no `embeddingBackends` throws
   a clear "add an embedding backend package" error (e.g. `flutter_gemma_litertlm`'s
   `LiteRtEmbeddingBackend`).

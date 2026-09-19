@@ -69,7 +69,9 @@ grep -rohE "LiteRt[A-Za-z_]+" \
   packages/flutter_gemma_speech/lib/src/litert/ | sort -u
 ```
 
-Known pins: v0.14.0 → `622f1f3c` (**breaking** for embeddings); v0.15.0 → `3cb830ad` (safe — four headers byte-identical, `litert_compiled_model.h` only gains `LiteRtGetCompiledModelEnvironment()`); v0.16.0 → `0ff28117f1cb5556d0e015bf80b773f74e2bee51`.
+**Diff the structs too, not only the function signatures.** A struct we mirror by hand (`LiteRtLayout`, `LiteRtRankedTensorType`) can change layout while every symbol and signature stays the same, so the symbol list above passes. LiteRT `d84656955` (2026-07-09) turned `bool has_strides : 1` into `unsigned int has_strides : 1`, which moved `dimensions[]` from offset 8 to 4 **under MSVC only**; our Windows-only mirror kept offset 8 and broke Windows embeddings and speech from native-v0.16.0 on (pitfall #16). Diff `litert/c/litert_layout.h` and `litert/c/litert_model_types.h` at both refs, and when a divergence we work around disappears upstream, delete the workaround in the same bump. `test/ffi/litert_layout_abi_test.dart` pins the current sizes.
+
+Known pins: v0.14.0 → `622f1f3c` (**breaking** for embeddings; predates `d84656955`); v0.15.0 → `3cb830ad` (safe — four headers byte-identical, `litert_compiled_model.h` only gains `LiteRtGetCompiledModelEnvironment()`); v0.16.0 → `0ff28117f1cb5556d0e015bf80b773f74e2bee51` (contains `d84656955`); v0.17.0 → `9fe5be45564c868408e6514c8aabb83e211a0911` (headers additive; the GPU samplers' `Create` gained a leading `runtime_c_api` argument, prebuilt samplers refreshed upstream in `a24911058`).
 
 **Never hardcode this ref in a build script.** `build_qualcomm_dispatch.sh` carried a literal `5c5b9ce6` from the native-v0.12.0 era and nobody noticed for four releases, because a stale dispatch library does not fail politely — see the NPU section below. Derive it from the WORKSPACE of the LiteRT-LM revision being built:
 
@@ -295,7 +297,7 @@ Expect ~3 minutes warm and a 707-724 KB stripped `ELF 64-bit aarch64` exporting 
 Always pass the pinned SHA explicitly — the scripts' `DEFAULT_REF` lags the release you're migrating to.
 
 ```bash
-REF=<tag-commit-sha>          # v0.16.0 = 924e79c91542761242244e4f1651851f822e4cbb
+REF=<tag-commit-sha>          # v0.17.0 = e9fd8c53ff968071774206163027dd84bedfe925 (v0.16.0 = 924e79c9…)
 export ANDROID_NDK_HOME="$HOME/Library/Android/sdk/ndk/29.0.14206865"   # r29 mandatory
 
 packages/flutter_gemma_litertlm/native/litert_lm/build_macos.sh   "$REF"    # macOS arm64
@@ -495,8 +497,18 @@ If anything other than `.framework/` is in there, App Store will reject with ITM
 
 Nothing in checks 1–8 touches NPU. Both dispatch libraries load only when `PreferredBackend.npu` is requested on matching hardware, so they need real devices:
 
-- **Intel NPU** — LunarLake/PantherLake. Our access is the Intel Tiber VM (see the `project_intel_npu_vm` memory). Run the litertlm smoke suite with `--plain-name "NPU"` **on its own**: inside the full file the NPU group runs after GPU, and async WebGPU teardown blows the per-test timer on the first NPU `engine_create`.
-- **Qualcomm NPU** — Snapdragon 8 Gen 3 / 8 Elite. Ours is Qualcomm Device Cloud (QDC).
+- **Intel NPU** — LunarLake/PantherLake. Our access is the Intel Tiber box `pdx88-k0687` (see the `project_intel_npu_vm` memory): ssh over ngrok with the mandatory `-i ~/.ssh/flutter_gemma_win_v14`, `cmd.exe` shell, commands in the **foreground** (a detached task dies with the ssh session). The console entry is the reservation's **Connect** button (Guacamole). The model is not on HF — it lives on the box at `%USERPROFILE%\dev-gemma4-2b-lnl\gemma4_2b_lnl.litertlm`. Put the bundle under test in the checkout's `prebuilt/windows_x86_64/` (the hook reads it before the cache), then run the litertlm smoke suite with `--plain-name "NPU"` **on its own**: inside the full file the NPU group runs after GPU, and async WebGPU teardown blows the per-test timer on the first NPU `engine_create`. Reference numbers (0.15.2): `engine_create` ~1 s, ~54 chunks/s, greedy run1 == run2.
+- **Qualcomm NPU** — Snapdragon 8 Gen 3 / 8 Elite. Ours is Qualcomm Device Cloud (QDC); the exact sequence is below.
+
+The NPU group **skips** (and counts as passed) when its model file is absent, so a green run means nothing until the log shows `engine_create` on the NPU. Grep for it; a `[Gemma4 NPU] SKIP` line means the check did not run.
+
+**Record the outcome here, every release** — device, date, pass count. The method was written down long before any result was, and a finished check kept reading as pending:
+
+| Native | Qualcomm (QDC) | Intel (Tiber) |
+|---|---|---|
+| v0.15.2 | — | ✅ 18/18, Lunar Lake 258V, 2026-05-15 |
+| v0.16.0 | ✅ 23/23, Snapdragon 8 Elite, 2026-08-15 | ⚠️ not recorded |
+| v0.17.0 | ⏳ pending | ⏳ pending — Tiber gateway unreachable since 2026-09-18 |
 
 Both are slow, awkward, and easy to skip. Skipping them is what shipped the two frozen dispatch libraries described above.
 
@@ -508,6 +520,37 @@ QDC gives you an SSH tunnel that forwards the **ADB server port (5037)**, not a 
 2. `nohup … & disown` — there is no `setsid` on macOS, and with it the tunnel never starts at all.
 3. `flutter test -d <device>` **cannot work here.** It needs `adb forward` for the Dart VM Service, and with the server itself proxied the forward binds on the remote side. Use an Espresso instrumentation run instead.
 4. Sessions are time-capped (100 min standard, 300 on request). A tunnel that stops responding mid-run is usually just an expired session — check that before debugging the transport.
+
+The tunnel itself (key file and session host come from the QDC session page; the host changes per session — it was `sa762844`, then `sa763293`). The run on 2026-08-14 wrapped it in a small loop that re-spawns ssh when it drops:
+
+```bash
+adb kill-server
+nohup ssh -i ~/Downloads/qdc_id_<date>.pem -o StrictHostKeyChecking=accept-new -o ServerAliveInterval=30 \
+  -L 5037:<session-host>.sa.svc.cluster.local:5037 -N sshtunnel@ssh.qdc.qualcomm.com > tunnel.log 2>&1 & disown
+adb devices -l   # must list the QDC device; check ro.soc.model before anything else
+```
+
+The NPU model is SoC-specific and is not on the device: `gemma-4-E2B-it_qualcomm_sm8750.litertlm` (sm8750 = Snapdragon 8 Elite, QNN HTP V79, ~2.9 GB) from `litert-community/gemma-4-E2B-it-litert-lm`. `engine_create` rejects it on any other SoC. The QDC device has internet, so download it **on the device** — pushing 3 GB through the tunnel eats the session and drops (keep `adb push` with retries only as the fallback):
+
+```bash
+adb shell 'mkdir -p /data/local/tmp/flutter_gemma_test && cd /data/local/tmp/flutter_gemma_test && \
+  curl -sL -o gemma-4-E2B-it_qualcomm_sm8750.litertlm \
+  https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it_qualcomm_sm8750.litertlm'
+```
+
+Check first, before spending minutes: `getprop ro.soc.model` must say `SM8750` (platform `sun`). `/vendor/dsp/cdsp/` carries **no** `libQnnHtpV79Skel.so` even on Qualcomm's own reference image — that is why the bundle ships the Skel libraries itself.
+
+Build **both** APKs with the test as the target, install both, and run the instrumentation (the app id and runner are in `example/android/app/build.gradle.kts`):
+
+```bash
+T=<absolute path to integration_test/litertlm_ffi_test.dart>
+./gradlew app:assembleDebug -Ptarget="$T" app:assembleDebugAndroidTest -Ptarget="$T"
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+adb shell am instrument -w -r dev.flutterberlin.flutter_gemma_example.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+`OK (N tests)` is the pass line. On v0.16.0 the first full pass was `Tests run: 23, Failures: 2`, and the rerun went `OK (23 tests)` — read the failures before rerunning.
 
 Building the instrumentation APK: `flutter build apk` is **wrong**, it packs `main.dart`. The app APK must carry the test entrypoint:
 
@@ -523,6 +566,27 @@ grep -ac "<a string unique to the test file>" app/build/outputs/apk/debug/app-de
 ```
 
 And beware the Espresso idle timeout: `Could not launch intent within 45000 ms` is usually not a broken test but app startup doing real work — ours was restoring a 3 GB active model, so the main thread never went idle. Clear app state, or start from a build that doesn't auto-restore.
+
+### 10. Functional matrix — every platform, every native consumer
+
+The bundle has **three** consumers — LLM inference (LiteRT-LM C API), embeddings and speech (LiteRT C API through hand-mirrored structs) — and a platform can break one while the others pass. Windows embeddings **and** speech were broken from native-v0.16.0 until 2026-09-18 while every Windows GPU and NPU run was green, because nobody ran them there (pitfall #16). Run all three everywhere:
+
+| Suite | What it covers |
+|---|---|
+| `litertlm_ffi_test.dart` (full) | CPU + GPU text/streaming/vision/audio/thinking, chat, multi-session (several `engine_create` per process), embeddings (`Embedding non-blocking (#299)`) |
+| `stt_moonshine_test.dart` | STT through the LiteRT C API (~104 MB model from HF) |
+| `tts_smoke_test.dart` | Matcha TTS; compares against a golden (`rms 0.0781`, error < 1e-5 on every platform in v0.17.0) |
+| `qwen3_tts_test.dart` | only when Qwen3 code changed (~1 GB download); macOS is enough |
+
+Where and how, with the traps that cost time in the v0.17.0 cycle:
+
+- **macOS** — local. The example's Podfile stager copies companions from the **cache** (`~/Library/Caches/flutter_gemma/native/macos_arm64/`), not from the build, so a maintainer machine runs a 0.16/0.17 mix. For the run, move the cache's `libGemmaModelConstraintProvider.dylib` aside (the stager picks its source by that one file and falls back to `prebuilt/`), restore it in a `trap`.
+- **iOS device** — USB only (`ioreg -p IOUSB` must show `iPhone@…`; `transportType: localNetwork` ⇒ "Cannot start app on wirelessly tethered iOS device"). On Xcode 26+ `enable-lldb-debugging` must be `true`, otherwise flutter never sees the VM Service URL and hangs at "not discovered" (memory `project_ios_device_xcode26_lldb`). The simulator is CPU-only by design.
+- **Android** — GPU/OpenCL needs a real device (Galaxy S24 via FTL, memory `project_ftl_flutter_integration_test_build`); the `gemma_api36_arm64` emulator is enough for CPU speech.
+- **Linux** — GCE `flutter-gemma-linux` (T4) and `flutter-gemma-linux-gpu` (L4, often stocked out in `us-central1-b`). The T4 box boots a mainline 6.16 kernel without the NVIDIA module (Vulkan falls back to `llvmpipe`); for GPU runs `kexec` once into `6.8.0-*-gcp`. Prove the GPU was used from throughput (T4: ~42 chunks/s GPU vs ~2.4 CPU), not from test names.
+- **Windows** — Tiber for NPU + Arc; GCE `flutter-gemma-gpu` (T4) covers CPU, discrete-GPU WebGPU, embeddings and speech when Tiber is down. On GCE: Scheduled Task (`S4U`) + log polling, `powershell -EncodedCommand` for anything with `$`.
+
+Put a worktree of the branch on each VM instead of switching its checkout, drop the CI artifact into `prebuilt/<platform>/`, and **prove provenance per run**: sha256 (Linux/Windows) or LC_UUID (Apple) of the libraries inside the built app against the artifact. Record the matrix in the PR body.
 
 ---
 
@@ -545,8 +609,9 @@ And beware the Espresso idle timeout: `Could not launch intent within 45000 ms` 
 | 13 | Qualcomm dispatch hardcoded to LiteRT `5c5b9ce6` — SIGSEGV in `LiteRtDestroyOptions`, and `-gcc-toolchain` when rebuilt | Derive `LITERT_REF` from WORKSPACE; check #9 on device | native-v0.12.0 → v0.16.0; rebuilt and **verified on Snapdragon 8 Elite via QDC** at v0.16.0 |
 | 14 | Blanket copy of OpenVino `runtime\bin` ships debug DLLs (`openvinod.dll`) beside release | Explicit allow-list + `throw` on missing | caught pre-publish at v0.16.0 |
 | 15 | QNN runtime libs left at an old QAIRT while the dispatch moved — `Qnn System library version 1.8.0 is mismatched` | Check #9 on device; compare file sizes against the SDK | native-v0.12.0 → v0.16.0, **caught on device** |
+| 16 | Windows-only `LiteRtLayoutMsvc` mirror kept after LiteRT `d84656955` unified the layout — every host-memory tensor buffer got a shape 4 bytes off: `CreateTensorBufferFromHostMemory` `status=3` in embeddings and STT | Check #10 on Windows; struct diff at both `LITERT_REF`s | **native-v0.16.0 → fixed in `67b9857f`**; seen on Tiber 2026-08-10 and misread as a bad box cache |
 
-Every one of those would have been caught by checks 1-9 before commit. **Run them all every time.**
+Every one of those would have been caught by checks 1-10 before commit. **Run them all every time.**
 
 Three patterns deserve emphasis because nothing in the build output hints at them:
 

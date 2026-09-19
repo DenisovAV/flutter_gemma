@@ -32,7 +32,7 @@ statement: **there is no MediaPipe engine on desktop.** See
 │   │           ↓ dart:ffi                           │ │
 │   │  ───────────────────────────────────           │ │
 │   │  libLiteRtLm.{dylib,dll,so}                    │ │
-│   │  + libLiteRt.{dylib,dll,so}                    │ │
+│   │  + libLiteRt.{dll,so} (Linux/Windows)          │ │
 │   │  + libLiteRtMetalAccelerator.dylib (macOS)     │ │
 │   │  + libLiteRtWebGpuAccelerator.{dll,so}         │ │
 │   │  + libwebgpu_dawn.{dll,so} (Linux/Windows GPU) │ │
@@ -143,9 +143,10 @@ manual step** is adding a `post_install` block to your app's `macos/Podfile` so
 the upstream companion dylibs get wrapped into `.framework` bundles (and
 re-signed) inside `Contents/Frameworks/`, and `LiteRtLm.dylib`'s `LC_LOAD_DYLIB`
 reference is re-pointed at the new framework path (LiteRT-LM's `gpu_registry`
-resolves the Metal accelerator through that framework). Without it,
-`engine_create` returns null on `PreferredBackend.gpu` and the model silently
-falls back to CPU.
+resolves the Metal accelerator through that framework). Without it the
+companion dylibs are never bundled, and `LiteRtLm.dylib` — which links
+`libGemmaModelConstraintProvider.dylib` directly — fails to load on every
+backend, CPU included.
 
 Paste this into your `macos/Podfile` (replacing any existing `post_install`
 block) and run `pod install`:
@@ -243,14 +244,19 @@ drops them. A `.litertlm` model loads on macOS without them.
 `flutter_gemma_litertlm` bundles every required DLL — no manual setup. The bundle
 includes:
 
-- `LiteRtLm.dll`, `LiteRt.dll`, `libGemmaModelConstraintProvider.dll`
+- `LiteRtLm.dll`, `LiteRt.dll`, `libGemmaModelConstraintProvider.dll`, `StreamProxy.dll`
 - `libLiteRtWebGpuAccelerator.dll`, `libLiteRtTopKWebGpuSampler.dll`
 - `webgpu_dawn.dll` (Dawn WebGPU backend — split into a shared lib in LiteRT-LM v0.14.0; the accelerator DLL imports it, so GPU fails without it)
 - `dxil.dll` + `dxcompiler.dll` (DirectX Shader Compiler runtime — required for WebGPU/DX12 shader compilation; from [microsoft/DirectXShaderCompiler v1.9.2602](https://github.com/microsoft/DirectXShaderCompiler/releases/tag/v1.9.2602))
+- `LiteRtDispatch.dll`, the OpenVINO runtime (`openvino*.dll`) and TBB (`tbb*.dll`) — the Intel NPU dispatch behind `PreferredBackend.npu` on Lunar Lake / Panther Lake
+
+Most companion DLLs ship under two names (`LiteRt.dll` and `libLiteRt.dll`, and
+so on): Native Assets drops the `lib` prefix on Windows, while `LiteRtLm.dll`
+imports them with it.
 
 `StreamProxy.dll` exposes a `LoadLibraryExA(LOAD_WITH_ALTERED_SEARCH_PATH)` helper
-that the plugin uses to pre-load `libLiteRt.dll`, `libLiteRtWebGpuAccelerator.dll`,
-and `libLiteRtTopKWebGpuSampler.dll` before opening `LiteRtLm.dll`. Without this,
+that the plugin uses to pre-load `LiteRt.dll`, `libLiteRtTopKWebGpuSampler.dll`
+and `libLiteRtWebGpuAccelerator.dll`, then `LiteRtLm.dll` itself. Without this,
 modern Windows DLL search order doesn't always include the application directory
 for secondary `LoadLibrary` calls — they would fail to find the GPU accelerator
 DLL and silently fall back to CPU.
@@ -349,18 +355,19 @@ own library. The define was corrected in 1.4.0 and Windows GPU works again.
 On 1.2.0–1.3.1 use `PreferredBackend.cpu` or `.npu`. macOS/Linux GPU and
 Windows CPU/NPU were never affected.
 
-### Per-token sampler runs on CPU on all desktop platforms
+### Per-token sampler: GPU on Windows, CPU on macOS and Linux
 
 When `preferredBackend: PreferredBackend.gpu`, the **forward pass** (prefill +
-decode) runs on the GPU accelerator (Metal, DX12, Vulkan). The **per-token
-sampler** (top-k / top-p / argmax) runs on CPU — roughly 1–5 ms per token vs. the
-full LLM generation, which is dominated by the forward pass. The **vision
-encoder** likewise runs on CPU by default (the GPU delegate can't prepare its
-ops); override per-encoder with `preferredVisionBackend:` / `preferredAudioBackend:`
+decode) runs on the GPU accelerator (Metal, DX12, Vulkan). Where the **per-token
+sampler** (top-k / top-p / argmax) runs depends on the platform; on CPU it costs
+roughly 1–5 ms per token, small next to the forward pass. The **vision
+encoder** runs on CPU by default (the GPU delegate can't prepare its ops);
+override per-encoder with `preferredVisionBackend:` / `preferredAudioBackend:`
 on `getActiveModel(...)`.
 
-- **macOS, Windows** — upstream `libLiteRtTopKMetalSampler` / `libLiteRtTopKWebGpuSampler` ship with incomplete C ABI exports (3 of 7 functions); the factory falls back to the CPU chain. ([#1990](https://github.com/google-ai-edge/LiteRT-LM/issues/1990), [#2073](https://github.com/google-ai-edge/LiteRT-LM/issues/2073))
-- **Linux** — the prebuilt sampler `.so` holds a process-static `wgpu::Instance` that any second `engine_create` rejects. Since runtime model swap matters more than the few ms saved, the plugin doesn't preload it and lets the factory fall back to CPU.
+- **Windows** — GPU. The plugin preloads `libLiteRtTopKWebGpuSampler.dll`, which in `native-v0.17.0` exports its full C ABI (7 of 7 functions).
+- **macOS** — CPU. The bundle does not ship `libLiteRtTopKMetalSampler`: upstream opens it by bare file name, which cannot reach a library inside the app bundle, so the factory uses the CPU chain.
+- **Linux** — CPU. The sampler `.so` exports its full C ABI, but it holds a process-static `wgpu::Instance` that any second `engine_create` rejects. Since runtime model swap matters more than the few ms saved, the plugin doesn't preload it and lets the factory fall back to CPU.
 
 ### `randomSeed` / `temperature` / `topK` / `topP` — only the first session's values apply
 
@@ -368,7 +375,8 @@ on `getActiveModel(...)`.
 **Only the first generation on an engine sets the sampler.** Every later session
 on that same engine keeps those values, whatever it asks for. Upstream defect
 ([LiteRT-LM #2080](https://github.com/google-ai-edge/LiteRT-LM/issues/2080),
-open), reproducing on v0.14.0, v0.15.0 and v0.16.0, on CPU as well as GPU.
+open), reproducing on v0.14.0, v0.15.0 and v0.16.0 on CPU as well as GPU, and on
+v0.17.0 (checked on CPU).
 </Warning>
 
 `topK` defaults to `1`, which is greedy — so the common shape is: an app loads a
@@ -411,13 +419,17 @@ stderr.
 
 ### `glibc 2.38 not found` on Linux
 
-You're hitting a stale local binary. Clear it and let `hook/build.dart` re-fetch
-the correct glibc-2.34 binary:
+The loaded `libLiteRtLm.so` was built against a newer glibc than your system
+has. The released Linux bundle needs glibc 2.34, so this is a stale copy in the
+build cache. Clear it and let `hook/build.dart` re-fetch the release:
 
 ```
-rm -rf native/litert_lm/prebuilt/linux_x86_64/
+rm -rf ~/.cache/flutter_gemma/native
 flutter clean && flutter run
 ```
+
+Working on the package itself? A local `native/litert_lm/prebuilt/linux_x86_64/`
+takes precedence over the release without saying so — delete that too.
 
 ### Windows GPU shaders fail to compile
 
@@ -442,7 +454,9 @@ directory (see [Troubleshooting → desktop storage](/docs/troubleshooting)). Us
 
 ### Pre-cached engine + new code = stale cache
 
-LiteRT-LM caches compiled GPU shaders next to the model file
-(`<model>.litertlm_<random>_mldrift_program_cache.bin`). After upgrading the
-plugin or the model, delete that file and the engine rebuilds the cache on first
-run.
+LiteRT-LM caches compiled GPU shaders in the app's support directory (what
+`getApplicationSupportDirectory()` returns — not the `flutter_gemma/` folder the
+model sits in), as `<model>.litertlm_<mtime>_<size>_mldrift_program_cache.bin`.
+The name is keyed on the model file's timestamp and size, so a new model build
+gets a fresh cache by itself (the old file stays behind). After upgrading the
+plugin, delete the file and the engine rebuilds the cache on first run.

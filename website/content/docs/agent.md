@@ -39,7 +39,7 @@ used below).
 dependencies:
   flutter_gemma: ^1.8.3
   flutter_gemma_agent: ^0.2.5
-  flutter_gemma_litertlm: ^1.6.4   # an inference engine (LiteRtLmEngine)
+  flutter_gemma_litertlm: ^1.7.0   # an inference engine (LiteRtLmEngine)
 ```
 
 The agent is **unverified on Web** — nothing disables it, but it has never been driven in a browser. See the note below.
@@ -62,8 +62,9 @@ execution mechanisms:
 return an `ErrorResult`; text / native-intent / MCP skills work on Linux.
 ³ Unverified on Web rather than disabled: nothing in the package gates on the
 platform, and the web `.litertlm` path does emit well-formed tool calls. What is
-missing is a run of the agent itself (see the note below). Native-intent skills
-are stubbed on web by design.
+missing is a run of the agent itself (see the note below). On web, native-intent
+skills open `mailto:` / `sms:` links and a Google Calendar event page instead of
+OS surfaces.
 
 JS skills run in a headless, sandboxed webview. To grant a secure context (so
 skills using `crypto.subtle` and other secure-context Web APIs work), the package
@@ -77,8 +78,9 @@ runs in a sandboxed `<iframe>`.
 > `.litertlm` path emits well-formed tool calls and survives the
 > call → result → continue round-trip. What is missing is a run of the agent
 > itself in a browser — that has never been done, and the loop's context
-> balancing leans on `sizeInTokens`, which is approximate on web. Native-intent
-> skills are stubbed on web by design. The agent is verified on **Android, iOS,
+> balancing leans on `sizeInTokens`, which is approximate on web. On web,
+> native-intent skills open `mailto:` / `sms:` links and a Google Calendar event
+> page rather than OS surfaces. The agent is verified on **Android, iOS,
 > macOS, and Windows** — use those until a web run exists. The example app
 > disables the agent on web accordingly.
 

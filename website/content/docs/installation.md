@@ -283,8 +283,9 @@ classes), so it needs no ProGuard rules.
 #### Android architecture support
 
 MediaPipe text inference (`.task` / `.bin`) works on `arm64-v8a`, `x86_64`, and
-`armeabi-v7a`. Everything else (`.litertlm` FFI, embedding via LiteRT FFI, image
-generation) is **`arm64-v8a` only**:
+`armeabi-v7a`. Everything backed by `libLiteRtLm` (`.litertlm` inference,
+including its vision and audio input, embedding via LiteRT FFI, speech) is
+**`arm64-v8a` only**:
 
 | Android feature | arm64-v8a | x86_64 | armeabi-v7a |
 |---|:---:|:---:|:---:|
@@ -292,7 +293,6 @@ generation) is **`arm64-v8a` only**:
 | `.litertlm` (FFI) | ✅ | ❌ | ❌ |
 | Embedding (LiteRT FFI) | ✅ | ❌ | ❌ |
 | Speech STT + TTS (LiteRT FFI) | ✅ | ❌ | ❌ |
-| Image generation (vision) | ✅ | ❌ | ❌ |
 
 If your app uses only the arm64-only features, restrict the build to arm64 so the
 Play Store does not offer broken APKs to incompatible devices:
@@ -314,8 +314,21 @@ be shimmed on older devices. MediaPipe `.task` models work on lower API levels.
 
 ### Web
 
-Web runs on the GPU backend only (MediaPipe has no web CPU backend). Add the CDN
-script(s) for the **engine package(s) you use** to your `web/index.html`.
+On web, MediaPipe ignores `preferredBackend` and always runs on the GPU
+(WebGPU); ONNX honours `PreferredBackend.cpu` by pinning WASM.
+
+**Every web app** needs flutter_gemma's model storage helpers. Copy `cache_api.js`
+and `opfs_helper.js` from the `flutter_gemma` package's `web/` directory into
+your app's `web/` (find the package directory with
+`grep -A1 '"name": "flutter_gemma"' .dart_tool/package_config.json`), then load
+them in `web/index.html`:
+
+```
+<script src="cache_api.js"></script>
+<script src="opfs_helper.js"></script>
+```
+
+Then add the CDN script(s) for the **engine package(s) you use**.
 
 **`flutter_gemma_mediapipe`** (`.task` / `-web.task` models):
 
@@ -368,10 +381,28 @@ window.ortReady = (async () => {
 Only add the shim(s) for the arm(s) you use — `transformersReady` for
 `OnnxEngine`, `ortReady` for `OnnxEmbeddingBackend`.
 
-**`flutter_gemma_rag_sqlite`** (web RAG): add the sqlite-vec loader — a
-`sqlite3.wasm` with the `sqlite-vec` extension statically linked, loaded via
-`package:sqlite3/wasm.dart`. See that package's README for the exact `<script>` +
-Subresource-Integrity hash.
+**`LiteRtEmbeddingBackend`** (web embeddings, `flutter_gemma_litertlm`): runs on
+LiteRT.js through `flutter_gemma_embeddings`' `web/litert_embeddings.js`. Load it
+pinned to a release tag with a Subresource-Integrity hash — the
+[`flutter_gemma_embeddings` README](https://pub.dev/packages/flutter_gemma_embeddings)
+has the tag and how to compute the hash:
+
+```
+<script type="module"
+        src="https://cdn.jsdelivr.net/gh/DenisovAV/flutter_gemma@<tag>/packages/flutter_gemma_embeddings/web/litert_embeddings.js"
+        integrity="sha384-<hash>"
+        crossorigin="anonymous"></script>
+```
+
+**`flutter_gemma_rag_sqlite`** (web RAG): no `<script>`. Copy the package's
+`web/rag/sqlite3.wasm` (a `sqlite3.wasm` with `sqlite-vec` statically linked)
+into your app's web root as `rag/sqlite3.wasm`, and serve the app with the
+cross-origin isolation headers OPFS persistence needs:
+
+```
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Embedder-Policy: require-corp
+```
 
 <Info>
 **Model compatibility:** mobile `.task` models often don't work on web — use the

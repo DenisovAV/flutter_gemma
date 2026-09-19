@@ -133,7 +133,7 @@ if (hasLegacy) {
   }
   db.execute('DROP TABLE documents');   // only after the loop succeeds
 }
-db.dispose();
+db.close();
 ```
 
 Dropping the table is what makes the block a no-op on later launches. There is

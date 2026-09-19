@@ -137,6 +137,17 @@ from a SHA256-verified GitHub release — no manual setup on native platforms.
 
 ## Troubleshooting
 
+### Windows: embeddings or speech fail with `status=3` (fixed in 1.7.0)
+
+Symptom: on Windows only, `LiteRtEmbeddingBackend` and `flutter_gemma_speech`
+fail with `LiteRT call failed: CreateTensorBufferFromHostMemory(...) (status=3)`
+in 1.4.0–1.6.4. Text generation is unaffected.
+
+Cause: LiteRT made `LiteRtLayout` one layout on every compiler; this package
+still wrote tensor shapes in the old MSVC layout on Windows.
+
+Fix: upgrade to 1.7.0 (and `flutter_gemma_speech` to 0.5.1).
+
 ### Garbled or empty streams on Android (fixed in 1.5.2)
 
 Symptom: a generation delivers zero chunks and throws
@@ -172,7 +183,8 @@ native version bump can leave the library unbundled, surfacing as an opaque
 
 ```bash
 flutter clean
-rm -rf ~/Library/Caches/flutter_gemma/native        # macOS / Linux
+rm -rf ~/Library/Caches/flutter_gemma/native        # macOS
+rm -rf ~/.cache/flutter_gemma/native                # Linux
 # Windows: rmdir /s "%LOCALAPPDATA%\flutter_gemma\native"  (path may vary)
 flutter pub get
 ```

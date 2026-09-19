@@ -84,9 +84,11 @@ String cleanedResponse = ModelThinkingFilter.cleanResponse(
   fileType: ModelFileType.task,
 );
 
-// The filter removes model-specific tokens like:
-// - <end_of_turn> tags (Gemma models)
-// - <think>...</think> blocks (DeepSeek)
-// - <|channel>thought\n...<channel|> blocks (Gemma 4 E2B/E4B)
-// - extra whitespace and formatting
+// It removes the reasoning blocks (for these model types even when
+// isThinking is false):
+// - <think>...</think> (DeepSeek, Qwen, Qwen3)
+// - <|channel>thought\n...<channel|> (Gemma 3 / Gemma 4 types)
+// and trims whitespace. Turn markers (<end_of_turn>, <|im_end|>) are stripped
+// only for .bin / .tflite files — on .task and .litertlm the runtime already
+// ends the turn.
 ```

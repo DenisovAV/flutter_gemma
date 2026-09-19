@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter_gemma/core/utils/gemma_log.dart';
 
 import 'package:flutter/foundation.dart';
@@ -10,6 +11,7 @@ import 'package:flutter_gemma/core/model.dart';
 import 'package:flutter_gemma/core/tool.dart';
 import 'package:flutter_gemma/core/chat.dart';
 import 'package:flutter_gemma/core/extensions.dart';
+import 'package:flutter_gemma/core/function_call_parser.dart';
 import 'package:flutter_gemma/core/parsing/sdk_response_parser.dart';
 import 'litert_lm_client.dart';
 import 'package:flutter_gemma/core/domain/platform_types.dart';
@@ -114,12 +116,7 @@ class FfiInferenceModel extends InferenceModel with CloseNotifier {
       // new one. See PR #310 review.
       await _session?.close();
 
-      // For Gemma 4, push tools into the SDK conversation config so it can
-      // render native `<|tool>declaration:...<tool|>` tokens via minja. Other
-      // model types still use Dart-side prompt injection in chat.dart.
-      final toolsJson = (modelType == ModelType.gemma4 && tools.isNotEmpty)
-          ? SdkResponseParser.serializeToolsForSdk(tools)
-          : null;
+      final toolsJson = _nativeToolsJson(tools);
 
       final beforeConv = sessionSw.elapsedMilliseconds;
       final handle = await ffiClient.createConversationHandle(
@@ -213,9 +210,7 @@ class FfiInferenceModel extends InferenceModel with CloseNotifier {
       );
     }
 
-    final toolsJson = (modelType == ModelType.gemma4 && tools.isNotEmpty)
-        ? SdkResponseParser.serializeToolsForSdk(tools)
-        : null;
+    final toolsJson = _nativeToolsJson(tools);
 
     // The LiteRT-LM engine allows only ONE live conversation at a time
     // (upstream #966), so concurrent sessions can't each hold a real native
@@ -305,6 +300,18 @@ class FfiInferenceModel extends InferenceModel with CloseNotifier {
     return chat!;
   }
 
+  /// `tools_json` for a model whose tool calling LiteRT-LM runs natively —
+  /// Gemma 4, and FunctionGemma — and null for every other model, which gets a
+  /// Dart-side tools prompt in chat.dart instead. The runtime renders the
+  /// declarations from it, parses calls into `tool_calls` and takes results as
+  /// role `tool`. Same predicate [InferenceChat] uses to skip its own prompt,
+  /// so the declarations are rendered exactly once.
+  String? _nativeToolsJson(List<Tool> tools) =>
+      tools.isNotEmpty &&
+          FunctionCallParser.usesSdkPassthrough(modelType, fileType: fileType)
+      ? SdkResponseParser.serializeToolsForSdk(tools)
+      : null;
+
   @override
   Future<void> close() async {
     if (_isClosed) return;
@@ -358,14 +365,28 @@ class FfiInferenceModelSession extends InferenceModelSession
   Uint8List? _pendingAudio;
   bool _isClosed = false;
 
-  /// Last full raw JSON response from SDK. For Gemma 4 this is the structured
-  /// OpenAI Chat Completions object (with `tool_calls` if any). chat.dart reads
-  /// it via [lastRawResponse] before fallback to text extraction.
+  /// Whether LiteRT-LM runs this model's tool calling natively (Gemma 4, and
+  /// FunctionGemma); see [FunctionCallParser.usesSdkPassthrough].
+  late final bool _nativeTools = FunctionCallParser.usesSdkPassthrough(
+    modelType,
+    fileType: fileType,
+  );
+
+  /// Tool results staged since the last generation, for [_nativeTools] models.
+  final List<({String name, Object? response})> _pendingToolResponses = [];
+
+  /// Whether anything other than a tool result was staged for this turn.
+  bool _stagedNonToolContent = false;
+
+  /// Last full raw JSON response from SDK. For native tool models this is the
+  /// structured OpenAI Chat Completions object (with `tool_calls` if any).
+  /// chat.dart reads it via [lastRawResponse] before fallback to text
+  /// extraction.
   String? _lastRawResponse;
 
   /// Most recent raw SDK JSON. Returns the response of the last [getResponse]
-  /// or [getResponseAsync]. For Gemma 4 use [LiteRtLmFfiClient.extractToolCalls]
-  /// on this string to surface tool calls.
+  /// or [getResponseAsync]. For native tool models use
+  /// [SdkResponseParser.extractToolCalls] on this string to surface tool calls.
   @override
   String? get lastRawResponse => _lastRawResponse;
 
@@ -384,6 +405,24 @@ class FfiInferenceModelSession extends InferenceModelSession
     );
     _queryBuffer.write(prompt);
 
+    if (_nativeTools && message.type == MessageType.toolResponse) {
+      final name = message.toolName;
+      if (name == null) {
+        throw ArgumentError.value(
+          message,
+          'message',
+          'A tool response needs toolName: the runtime formats the result as '
+              'response:NAME{...}, and without a name it answers no call',
+        );
+      }
+      _pendingToolResponses.add((
+        name: name,
+        response: SdkResponseParser.toolResponsePayload(message.text),
+      ));
+    } else if (prompt.isNotEmpty || message.hasImage || message.hasAudio) {
+      _stagedNonToolContent = true;
+    }
+
     if (message.hasImage && supportImage) {
       if (message.imageBytes != null) {
         _pendingImages.add(message.imageBytes!);
@@ -399,6 +438,39 @@ class FfiInferenceModelSession extends InferenceModelSession
     }
   }
 
+  /// The staged tool results as one role-`tool` message, when they are the
+  /// whole turn. LiteRT-LM's template continues the model's own turn only after
+  /// a `tool` message; sent as user text, the model opens a new turn and calls
+  /// the same function again. A turn that also carries user text or media is a
+  /// user message, so there the results stay in the text they were staged as —
+  /// the history replay after a context trim stages exactly that mix.
+  String? _takeToolResponseMessage() {
+    final onlyTools =
+        _pendingToolResponses.isNotEmpty && !_stagedNonToolContent;
+    final message = onlyTools
+        ? SdkResponseParser.buildToolResponsesJson(_pendingToolResponses)
+        : null;
+    _pendingToolResponses.clear();
+    _stagedNonToolContent = false;
+    return message;
+  }
+
+  /// This turn's raw SDK stream: the tool-result message when there is one,
+  /// the staged user message otherwise.
+  Stream<String> _rawTurn(
+    String text,
+    List<Uint8List>? images,
+    Uint8List? audio,
+    String? toolMessage,
+  ) => toolMessage != null
+      ? handle.chatRawMessage(toolMessage, enableThinking: enableThinking)
+      : handle.chatRaw(
+          text,
+          imageBytes: images,
+          audioBytes: audio,
+          enableThinking: enableThinking,
+        );
+
   @override
   Future<String> getResponse() async {
     _assertNotClosed();
@@ -410,23 +482,19 @@ class FfiInferenceModelSession extends InferenceModelSession
         : null;
     _pendingAudio = null;
     _pendingImages.clear();
+    final toolMessage = _takeToolResponseMessage();
 
     final genSw = Stopwatch()..start();
     int? firstChunkMs;
     var chunkCount = 0;
 
-    // For Gemma 4, walk raw SDK JSON so chat.dart can read `tool_calls` via
-    // [LiteRtLmFfiClient.extractToolCalls]. Other models keep the existing
+    // Native tool models walk raw SDK JSON so chat.dart can read `tool_calls`
+    // via [SdkResponseParser.extractToolCalls]. Other models keep the existing
     // text-only fast path (raw JSON cache stays null).
-    if (modelType == ModelType.gemma4) {
+    if (_nativeTools) {
       final rawBuffer = StringBuffer();
       final textBuffer = StringBuffer();
-      await for (final rawChunk in handle.chatRaw(
-        text,
-        imageBytes: images,
-        audioBytes: audio,
-        enableThinking: enableThinking,
-      )) {
+      await for (final rawChunk in _rawTurn(text, images, audio, toolMessage)) {
         if (firstChunkMs == null) {
           firstChunkMs = genSw.elapsedMilliseconds;
           gemmaLog(
@@ -493,19 +561,15 @@ class FfiInferenceModelSession extends InferenceModelSession
         : null;
     _pendingAudio = null;
     _pendingImages.clear();
+    final toolMessage = _takeToolResponseMessage();
 
     final genSw = Stopwatch()..start();
     int? firstChunkMs;
     var chunkCount = 0;
 
-    if (modelType == ModelType.gemma4) {
+    if (_nativeTools) {
       final rawBuffer = StringBuffer();
-      await for (final rawChunk in handle.chatRaw(
-        text,
-        imageBytes: images,
-        audioBytes: audio,
-        enableThinking: enableThinking,
-      )) {
+      await for (final rawChunk in _rawTurn(text, images, audio, toolMessage)) {
         if (firstChunkMs == null) {
           firstChunkMs = genSw.elapsedMilliseconds;
           gemmaLog(
@@ -631,6 +695,7 @@ class FfiInferenceModelSession extends InferenceModelSession
     _queryBuffer.clear();
     _pendingImages.clear();
     _pendingAudio = null;
+    _pendingToolResponses.clear();
     handle.close();
     onClose();
   }
@@ -680,39 +745,44 @@ class _VirtualConversationHandle implements ConversationHandle {
   /// whether the live conversation already holds this session's history.
   final Object token = Object();
 
-  /// Completed turns (user + assistant), replayed as a `messages_json`
-  /// preface to rebuild this session's context when it next becomes active.
-  final List<({String role, String text})> _history = [];
+  /// Completed turns, replayed as a `messages_json` preface to rebuild this
+  /// session's context when it next becomes active. Whole messages rather than
+  /// role and text, because a tool round is an assistant turn with
+  /// `tool_calls` followed by a role-`tool` message, and neither survives being
+  /// flattened to text.
+  final List<Map<String, Object?>> _history = [];
 
   bool _closed = false;
 
-  /// Drive one turn through the multiplexer, then record the user message and
-  /// the generated assistant reply so the NEXT turn replays them as preface.
-  /// [extractText] maps each raw chunk to the text appended to the recorded
-  /// assistant turn (text path strips JSON; raw path keeps the chunk for the
-  /// caller but we still record only the extracted text in history).
+  /// Drive one turn through the multiplexer, then record the sent [message]
+  /// and the generated assistant reply so the NEXT turn replays them as
+  /// preface. [raw] decides what the caller gets per chunk (raw SDK JSON or its
+  /// text); history records the reply the same way either way.
   Stream<String> _run(
-    String text, {
+    Map<String, Object?> message, {
     required bool raw,
     bool enableThinking = false,
   }) async* {
     if (_closed) throw StateError('Conversation handle is closed');
-    final messageJson = LiteRtLmFfiClient.buildMessageJson(text);
+    final messageJson = jsonEncode(message);
     final extraContext = enableThinking ? '{"enable_thinking": true}' : null;
     // Snapshot history BEFORE this turn — the live message is sent separately.
-    final historySnapshot = List<({String role, String text})>.from(_history);
+    final historySnapshot = List<Map<String, Object?>>.from(_history);
     final assistantText = StringBuffer();
+    final assistantRaw = StringBuffer();
     var recorded = false;
     void record() {
       if (recorded) return;
       recorded = true;
       // Record both turns so the next switch back replays the full context.
-      // The user message was already fed live into the native conversation, so
-      // it must land in history even if generation errored partway — otherwise
-      // a session switch+rebuild would replay a context that omits a turn the
+      // The message was already fed live into the native conversation, so it
+      // must land in history even if generation errored partway — otherwise a
+      // session switch+rebuild would replay a context that omits a turn the
       // model actually saw, silently diverging native and Dart state.
-      _history.add((role: 'user', text: text));
-      _history.add((role: 'assistant', text: assistantText.toString()));
+      _history.add(message);
+      _history.add(
+        _assistantTurn(assistantText.toString(), assistantRaw.toString()),
+      );
     }
 
     try {
@@ -731,6 +801,7 @@ class _VirtualConversationHandle implements ConversationHandle {
       )) {
         final chunkText = LiteRtLmFfiClient.extractTextFromResponse(rawChunk);
         assistantText.write(chunkText);
+        assistantRaw.write(rawChunk);
         yield raw ? rawChunk : chunkText;
       }
       record();
@@ -738,6 +809,31 @@ class _VirtualConversationHandle implements ConversationHandle {
       // Also record on error/cancel so the user turn isn't lost.
       record();
     }
+  }
+
+  /// The assistant turn to replay: its tool calls when it made any, so the
+  /// tool results recorded after it still answer something, and its text
+  /// otherwise.
+  static Map<String, Object?> _assistantTurn(String text, String raw) {
+    final calls = SdkResponseParser.extractToolCalls(raw);
+    if (calls.isEmpty) {
+      return {
+        'role': 'assistant',
+        'content': [
+          {'type': 'text', 'text': text},
+        ],
+      };
+    }
+    return {
+      'role': 'assistant',
+      'tool_calls': [
+        for (final call in calls)
+          {
+            'type': 'function',
+            'function': {'name': call.name, 'arguments': call.args},
+          },
+      ],
+    };
   }
 
   // Virtual sessions replay history as a text-only `messages_json` preface, so
@@ -762,7 +858,7 @@ class _VirtualConversationHandle implements ConversationHandle {
     bool enableThinking = false,
   }) {
     _rejectMedia(imageBytes, audioBytes);
-    return _run(text, raw: false, enableThinking: enableThinking);
+    return _run(_userMessage(text), raw: false, enableThinking: enableThinking);
   }
 
   @override
@@ -773,8 +869,22 @@ class _VirtualConversationHandle implements ConversationHandle {
     bool enableThinking = false,
   }) {
     _rejectMedia(imageBytes, audioBytes);
-    return _run(text, raw: true, enableThinking: enableThinking);
+    return _run(_userMessage(text), raw: true, enableThinking: enableThinking);
   }
+
+  @override
+  Stream<String> chatRawMessage(
+    String messageJson, {
+    bool enableThinking = false,
+  }) => _run(
+    jsonDecode(messageJson) as Map<String, Object?>,
+    raw: true,
+    enableThinking: enableThinking,
+  );
+
+  static Map<String, Object?> _userMessage(String text) =>
+      jsonDecode(LiteRtLmFfiClient.buildMessageJson(text))
+          as Map<String, Object?>;
 
   @override
   void cancelGeneration() => client.cancelVirtualTurn(token);

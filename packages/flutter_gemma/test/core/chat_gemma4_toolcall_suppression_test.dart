@@ -70,6 +70,31 @@ Future<List<ModelResponse>> _streamGemma4(
   return chat.generateChatResponseAsync().toList();
 }
 
+InferenceChat _functionGemmaChat(
+  List<String> tokens, {
+  String? raw,
+  required ModelFileType fileType,
+}) => InferenceChat(
+  sessionCreator: () async => _SdkSession(tokens, raw),
+  maxTokens: 1024,
+  modelType: ModelType.functionGemma,
+  fileType: fileType,
+  supportsFunctionCalls: true,
+  tools: [
+    const Tool(
+      name: 'multiply',
+      description: 'Multiply two numbers',
+      parameters: {
+        'type': 'object',
+        'properties': {
+          'a': {'type': 'number'},
+          'b': {'type': 'number'},
+        },
+      },
+    ),
+  ],
+);
+
 void main() {
   test(
     'a Gemma 4 tool-call JSON turn never leaks into the text channel',
@@ -260,4 +285,57 @@ void main() {
       );
     },
   );
+
+  group('FunctionGemma on .litertlm takes the same passthrough path', () {
+    // What LiteRT-LM's FunctionGemma data processor returns for a call.
+    const raw =
+        '{"role":"assistant","tool_calls":[{"type":"function","function":'
+        '{"name":"multiply","arguments":{"a":1234.0,"b":5678.0}}}]}';
+    const question = Message(text: 'what is 1234 times 5678?', isUser: true);
+
+    test('its tool-call JSON never reaches the text channel', () async {
+      final chat = _functionGemmaChat(
+        const [raw],
+        raw: raw,
+        fileType: ModelFileType.litertlm,
+      );
+      await chat.initSession();
+      await chat.addQuery(question);
+      final responses = await chat.generateChatResponseAsync().toList();
+
+      expect(responses.whereType<TextResponse>(), isEmpty);
+      final call = responses.whereType<FunctionCallResponse>().single;
+      expect(call.name, 'multiply');
+      expect(call.args, {'a': 1234.0, 'b': 5678.0});
+    });
+
+    test('the sync path surfaces the same call', () async {
+      final chat = _functionGemmaChat(
+        const [raw],
+        raw: raw,
+        fileType: ModelFileType.litertlm,
+      );
+      await chat.initSession();
+      await chat.addQuery(question);
+      final response = await chat.generateChatResponse();
+
+      expect(response, isA<FunctionCallResponse>());
+      expect((response as FunctionCallResponse).name, 'multiply');
+    });
+
+    test('on .task the same JSON is not read as a passthrough call', () async {
+      // MediaPipe has no native tools: FunctionGemma there writes its own wire
+      // format into the text stream, and a JSON blob is just text.
+      final chat = _functionGemmaChat(
+        const [raw],
+        raw: raw,
+        fileType: ModelFileType.task,
+      );
+      await chat.initSession();
+      await chat.addQuery(question);
+      final responses = await chat.generateChatResponseAsync().toList();
+
+      expect(responses.whereType<FunctionCallResponse>(), isEmpty);
+    });
+  });
 }

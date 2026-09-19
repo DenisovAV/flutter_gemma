@@ -48,10 +48,11 @@ class InferenceChat {
   /// Whether the runtime/SDK injects the tool declarations itself, so this chat
   /// must NOT weave its own JSON tools prompt (that would double-wrap them). The
   /// engine's explicit override wins; absent one it derives from the model's
-  /// [FunctionCallFormat] (true for SDK-passthrough models like Gemma 4). This
-  /// replaces the former hardcoded `modelType == ModelType.gemma4` check, so an
-  /// engine that injects tools natively could opt in for any model type. No
-  /// shipping engine sets the override yet (Gemma 4 gets `true` via its format).
+  /// [FunctionCallFormat] (true for SDK-passthrough models: Gemma 4, and
+  /// FunctionGemma on `.litertlm`). This replaces the former hardcoded
+  /// `modelType == ModelType.gemma4` check, so an engine that injects tools
+  /// natively could opt in for any model type. No shipping engine sets the
+  /// override yet (both models get `true` via their format).
   ///
   /// NOTE: this governs the INPUT side only (skipping declaration injection).
   /// Reading tool calls BACK is still keyed off
@@ -62,7 +63,10 @@ class InferenceChat {
   /// structured SDK response.
   late final bool runtimeInjectsToolDeclarations =
       _runtimeInjectsToolDeclarationsOverride ??
-      FunctionCallParser.runtimeInjectsToolDeclarations(modelType);
+      FunctionCallParser.runtimeInjectsToolDeclarations(
+        modelType,
+        fileType: fileType,
+      );
 
   /// Serializes genai_primitives sendMessage/generateContent calls so
   /// concurrent turns can't interleave staging into the shared session buffer.
@@ -128,10 +132,11 @@ class InferenceChat {
     // Only add tools prompt for the first user text message (not a tool response)
     // and only if the model supports function calls.
     // Runtime-injected declarations are exempt: when the runtime/SDK renders the
-    // tools itself (today only Gemma 4's `tools_json` at conversation creation;
-    // in future, e.g. a web Prompt API arm passing native `tools`), a Dart-side
-    // prompt injection would double-wrap them. Gated on
-    // [runtimeInjectsToolDeclarations], not a hardcoded model type.
+    // tools itself (today the `tools_json` LiteRT-LM gets at conversation
+    // creation for Gemma 4 and for FunctionGemma on .litertlm; in future, e.g. a
+    // web Prompt API arm passing native `tools`), a Dart-side prompt injection
+    // would double-wrap them. Gated on [runtimeInjectsToolDeclarations], not a
+    // hardcoded model type.
     if (message.isUser &&
         message.type == MessageType.text &&
         !_toolsInstructionSent &&
@@ -204,12 +209,12 @@ class InferenceChat {
       fileType: fileType,
     );
 
-    // SDK-passthrough path (today: Gemma 4): the SDK already parsed
-    // `<|tool_call>...<tool_call|>` into structured `tool_calls` JSON. Read it
-    // from session.lastRawResponse before falling back to the legacy regex
-    // parser on cleanedResponse. Keyed off the format (mirrors the streaming
-    // path below), not a hardcoded model type.
-    if (FunctionCallParser.usesSdkPassthrough(modelType) &&
+    // SDK-passthrough path (Gemma 4, and FunctionGemma on .litertlm): the SDK
+    // already parsed the model's call tokens into structured `tool_calls` JSON.
+    // Read it from session.lastRawResponse before falling back to the legacy
+    // regex parser on cleanedResponse. Keyed off the format (mirrors the
+    // streaming path below), not a hardcoded model type.
+    if (FunctionCallParser.usesSdkPassthrough(modelType, fileType: fileType) &&
         tools.isNotEmpty &&
         supportsFunctionCalls &&
         toolChoice != ToolChoice.none &&
@@ -324,8 +329,9 @@ class InferenceChat {
     // Track if we emitted a function call (to record correct history and skip session clearing)
     bool emittedFunctionCall = false;
 
-    // SDK-passthrough tool-call suppression (currently Gemma 4; keyed off the
-    // format, not the model — see FunctionCallParser.usesSdkPassthrough). The
+    // SDK-passthrough tool-call suppression (Gemma 4, and FunctionGemma on
+    // .litertlm; keyed off the format, not the model — see
+    // FunctionCallParser.usesSdkPassthrough). The
     // C++ runtime streams a tool-call turn as the raw
     // `{"role":"assistant","tool_calls":[...]}` JSON (one or more concatenated
     // objects) AND exposes it via lastRawResponse. The passthrough format reports
@@ -341,7 +347,7 @@ class InferenceChat {
     // tool-call JSON OR all text, never prose-then-JSON — Gemma 4's SDK emits a
     // pure tool_calls object for a call, so the first-char classification holds.
     final bool sdkPassthrough =
-        FunctionCallParser.usesSdkPassthrough(modelType) &&
+        FunctionCallParser.usesSdkPassthrough(modelType, fileType: fileType) &&
         tools.isNotEmpty &&
         supportsFunctionCalls &&
         toolChoice != ToolChoice.none &&

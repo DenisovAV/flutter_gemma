@@ -43,6 +43,22 @@ window.litertLmReady = (async () => {
   return m.Engine;
 })();
 </script>
+
+  <!-- Cache API for persistent storage -->
+  <script src="cache_api.js"></script>
+
+  <!-- OPFS Helper for large model streaming (>2GB) -->
+  <script src="opfs_helper.js"></script>
+
+  <!-- flutter_gemma_embeddings web setup: LiteRT.js embedding forward pass
+       (LiteRtEmbeddingBackend, registered in ai_engine.dart) runs via this
+       loader. Pinned to the v1.8.3 tag with a Subresource Integrity hash so
+       a CDN compromise can't inject code. See
+       flutter_gemma_embeddings/README.md "Web setup". -->
+  <script type="module"
+          src="https://cdn.jsdelivr.net/gh/DenisovAV/flutter_gemma@v1.8.3/packages/flutter_gemma_embeddings/web/litert_embeddings.js"
+          integrity="sha384-YM+zieh9rAKhApnCw2JmJn5v6YHoqgCurx6m246E74d0Ow0S5zmJHKTPXLvXV/df"
+          crossorigin="anonymous"></script>
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>

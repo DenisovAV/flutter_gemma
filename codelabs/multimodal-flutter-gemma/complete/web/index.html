@@ -43,6 +43,14 @@ window.litertLmReady = (async () => {
   return m.Engine;
 })();
 </script>
+
+  <!-- Persistent web model storage. `.litertlm` models install via OPFS
+       streaming (opfs_helper.js), which needs cache_api.js for the smaller
+       reads/writes alongside it. Without these two scripts a web model
+       install fails: core's web storage path calls window.cachePut from
+       cache_api.js. -->
+  <script src="cache_api.js"></script>
+  <script src="opfs_helper.js"></script>
 </head>
 <body>
   <!--

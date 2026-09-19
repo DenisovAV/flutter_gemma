@@ -18,6 +18,10 @@ Future<void> main() async {
   // can open; the registry picks one per model from `ModelFileType`. Nothing
   // in the chat code knows or cares which engine ends up answering.
   await FlutterGemma.initialize(
+    // OPFS-backed storage. `.litertlm` on web streams through it — the Cache
+    // API path Chrome falls back to under `cacheApi` blob-fetches the whole
+    // file, which the browser caps at ~2 GB.
+    webStorageMode: WebStorageMode.streaming,
     inferenceEngines: [LiteRtLmEngine(), const BuiltInAiEngine()],
     huggingFaceToken: _hfToken.isEmpty ? null : _hfToken,
   );
@@ -67,7 +71,7 @@ class _EnginesAppState extends State<EnginesApp> {
     } on UnsupportedError {
       if (mounted) {
         setState(() {
-          _choice = Models.gemma3;
+          _choice = Models.downloaded;
           _reason =
               'No built-in model on this platform — using a downloaded model.';
         });
@@ -96,11 +100,11 @@ class _EnginesAppState extends State<EnginesApp> {
         'The OS has a built-in model; it will fetch the feature once.',
       ),
       BuiltInAiAvailability.unavailableDisabled => (
-        Models.gemma3,
+        Models.downloaded,
         'Built-in AI is turned off on this device — using a downloaded model.',
       ),
       _ => (
-        Models.gemma3,
+        Models.downloaded,
         'No built-in model here ($status) — using a downloaded model.',
       ),
     };

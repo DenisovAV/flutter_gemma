@@ -13,7 +13,15 @@ Future<void> main() async {
 
   // Engines are opt-in: the core registers none, and without LiteRtLmEngine
   // the first getActiveModel() throws a StateError telling you to add one.
-  await FlutterGemma.initialize(inferenceEngines: [LiteRtLmEngine()]);
+  //
+  // `WebStorageMode.streaming` is required for `.litertlm` web models: the
+  // @litert-lm/core engine reads the model from OPFS via a ReadableStream,
+  // avoiding the ~2 GB blob-fetch limit that the default cacheApi mode hits
+  // on Gemma 4 E2B's web build. Native platforms ignore this option.
+  await FlutterGemma.initialize(
+    webStorageMode: WebStorageMode.streaming,
+    inferenceEngines: [LiteRtLmEngine()],
+  );
 
   runApp(const SkillsApp());
 }

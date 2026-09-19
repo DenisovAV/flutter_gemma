@@ -17,11 +17,11 @@ dependencies:
   genkit_google_genai: ^0.3.1
 
   # On-device AI via genkit_flutter_gemma
-  genkit_flutter_gemma: ^0.6.0
-  flutter_gemma: ^1.8.1
+  genkit_flutter_gemma: ^0.6.1
+  flutter_gemma: ^1.8.3
   # LiteRT-LM engine (.litertlm inference) + LiteRT embedding backend —
   # flutter_gemma 1.x registers no engines by default; opt in here.
-  flutter_gemma_litertlm: ^1.6.3
+  flutter_gemma_litertlm: ^1.7.0
 
   # Hybrid on-device ↔ cloud routing
   genkit_hybrid: ^0.2.1

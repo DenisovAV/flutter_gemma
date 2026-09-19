@@ -28,7 +28,12 @@ Future<void> main() async {
   // never reaches `runApp` and the symptom is a blank window and a stack trace
   // in a console nobody is looking at.
   try {
-    await FlutterGemma.initialize(inferenceEngines: [LiteRtLmEngine()]);
+    await FlutterGemma.initialize(
+      inferenceEngines: [LiteRtLmEngine()],
+      // OPFS streaming, not the Cache API default — required for a
+      // `.litertlm` model install on the web since flutter_gemma 0.16.2.
+      webStorageMode: WebStorageMode.streaming,
+    );
   } catch (error) {
     runApp(_StartupFailed(error: error));
     return;

@@ -106,10 +106,12 @@ It shows one line of text and nothing else. That is the whole app:
   CLI needs — if you skip this run, do a `flutter pub get` before Step 2.
 * **The platform setup is already done**: Android's internet permission and
   `minSdk 30`, iOS 15 and its three memory entitlements, the two macOS
-  entitlements and the `post_install` block in `macos/Podfile`, and the script tag
-  in `web/index.html`. [Getting Started](/codelabs/getting-started-flutter-gemma)
-  explains each one. They are here so that when the assistant's code fails, it is
-  the code — not a missing entitlement that looks the same from outside.
+  entitlements and the `post_install` block in `macos/Podfile`, and
+  `web/index.html`'s three script tags — the `@litert-lm/core` handshake plus
+  `cache_api.js` and `opfs_helper.js` for persistent web model storage.
+  [Getting Started](/codelabs/getting-started-flutter-gemma) explains each one.
+  They are here so that when the assistant's code fails, it is the code — not a
+  missing entitlement that looks the same from outside.
 
 One macOS caveat carries over from Getting Started: with Swift Package Manager
 enabled and no other CocoaPods plugin in the app, Flutter drops the Podfile, its
@@ -307,15 +309,21 @@ The engine package does not re-export the core. Import only the second and
 `FlutterGemma` is an undefined name — the one mistake on this list the compiler
 does catch.
 
-**2. The engine is registered.**
+**2. The engine is registered, and web storage is set for a 2 GB model.**
 
 ```dart
-await FlutterGemma.initialize(inferenceEngines: [LiteRtLmEngine()]);
+await FlutterGemma.initialize(
+  webStorageMode: WebStorageMode.streaming,
+  inferenceEngines: [LiteRtLmEngine()],
+);
 ```
 
-The core registers no engine of its own. Leave this out and the app builds, the
-download works, and the first `getActiveModel()` throws a `StateError` asking for
-an engine package.
+The core registers no engine of its own. Leave `inferenceEngines` out and the
+app builds, the download works, and the first `getActiveModel()` throws a
+`StateError` asking for an engine package. On web, leave `webStorageMode` out
+and the default `cacheApi` mode fails to install Gemma 4 E2B's ~2 GB web
+build — Chromium's blob-fetch limit sits at about 2 GB. `streaming` reads the
+model from OPFS instead; native platforms ignore the option.
 
 **3. The file type is declared.**
 
@@ -344,9 +352,11 @@ final chat = await inference.createChat(
 ```
 
 `maxTokens` is the whole context window — prompt, history and reply together. An
-assistant told to keep replies short reaches for `maxTokens: 100`; on `.litertlm`
-that is raised back to 1024 with a warning in the log, and the replies are as long
-as before. The reply is capped with `maxOutputTokens`.
+assistant told to keep replies short reaches for `maxTokens: 100`; on native
+`.litertlm` that is raised back to 1024 with a debug-log warning, and the replies
+are as long as before. The web `.litertlm` engine does not use the value at
+all — same replies, no warning either. The reply is capped with
+`maxOutputTokens` on every platform.
 
 **5. The user's message says it is from the user.**
 

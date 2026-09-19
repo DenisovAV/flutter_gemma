@@ -18,6 +18,10 @@ Future<void> main() async {
   // can open; the registry picks one per model from `ModelFileType`. Nothing
   // in the chat code knows or cares which engine ends up answering.
   await FlutterGemma.initialize(
+    // OPFS-backed storage. `.litertlm` on web streams through it — the Cache
+    // API path Chrome falls back to under `cacheApi` blob-fetches the whole
+    // file, which the browser caps at ~2 GB.
+    webStorageMode: WebStorageMode.streaming,
     inferenceEngines: [LiteRtLmEngine(), const BuiltInAiEngine()],
     huggingFaceToken: _hfToken.isEmpty ? null : _hfToken,
   );
@@ -34,7 +38,7 @@ class EnginesApp extends StatefulWidget {
 
 class _EnginesAppState extends State<EnginesApp> {
   /// Which model — and therefore which engine — the app is using right now.
-  ModelChoice _choice = Models.gemma3;
+  ModelChoice _choice = Models.downloaded;
 
   @override
   Widget build(BuildContext context) {

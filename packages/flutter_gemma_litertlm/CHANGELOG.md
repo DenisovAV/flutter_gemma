@@ -1,3 +1,7 @@
+## 1.7.0
+- Native runtime: LiteRT-LM v0.17.0 (`native-v0.17.0`).
+- Windows: embeddings and speech failed with `CreateTensorBufferFromHostMemory` status 3.
+
 ## 1.6.4
 - `maxTokens` is no longer clamped up to 1024 on `PreferredBackend.npu`.
 

@@ -133,6 +133,16 @@ Windows CPU/NPU were never affected. See [Desktop → Known
 limitations](/docs/desktop#known-limitations).
 </Warning>
 
+## Windows embeddings and speech fail with status 3
+
+<Warning>
+**Fixed in litertlm 1.7.0.** On Windows, embeddings and on-device speech
+(STT/TTS) fail with `LiteRT call failed: CreateTensorBufferFromHostMemory(...)
+(status=3)` in litertlm 1.4.0–1.6.4. Upgrade `flutter_gemma_litertlm` to 1.7.0
+(and `flutter_gemma_speech` to 0.5.1). Text generation and the other platforms
+were never affected.
+</Warning>
+
 ## NPU
 
 **The model answers, fluently, about the beginning of a long prompt and ignores

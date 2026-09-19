@@ -138,6 +138,14 @@ class _NativeBundle {
 
 /// LiteRT-LM native library version and release info.
 ///
+/// 0.17.0 — built from LiteRT-LM `e9fd8c53` (v0.17.0) with LiteRT `9fe5be45`.
+/// All 7 platforms rebuilt; the zlib mirror patch is gone (the v0.17.0
+/// WORKSPACE lists the mirrors itself).
+/// The GPU samplers' `Create` gained a leading `runtime_c_api` argument —
+/// upstream refreshed the prebuilt samplers with it, so nothing to patch here.
+/// The 4 `tbb*_debug.dll` files 0.16.0 still carried are dropped on purpose
+/// (#437: release TBB only).
+///
 /// 0.16.0 — built from LiteRT-LM `924e79c9` with LiteRT `0ff28117`. There is no
 /// native-v0.15.0; the jump is 0.14.0 → 0.16.0. All 7 platforms rebuilt.
 ///
@@ -166,7 +174,7 @@ class _NativeBundle {
 /// Android: `-Wl,-z,max-page-size=16384` (Google Play 16KB).
 const _litertlmBundle = _NativeBundle(
   namespace: 'litertlm',
-  version: '0.16.0',
+  version: '0.17.0',
   releaseTagPrefix: 'native-v',
   archivePrefix: 'litertlm',
   mainLibName: 'LiteRtLm',
@@ -177,24 +185,24 @@ const _litertlmBundle = _NativeBundle(
   // in a dedicated PR (tracked: roadmap entry in CHANGELOG for 0.16.0).
   useFlatLayout: true,
   markerFileName: '.flutter_gemma_native_version',
-  // All 7 rebuilt for 0.16.0. These sums must equal both the bytes GitHub
+  // All 7 rebuilt for 0.17.0. These sums must equal both the bytes GitHub
   // serves and the `checksums_litertlm.txt` published on the release — a stale
   // txt sent a user down the wrong path while debugging a mismatch (#316).
   checksums: {
     'litertlm-linux_x86_64.tar.gz':
-        '33734e5de5b915f45a0c4e72b96a21ee71c7708263c665e328af2f7e2b396fc2',
+        'e192a6c8e2ea91861ce7dcde3ddce879d78cf4d830ca1eae6793a71d280818e1',
     'litertlm-linux_arm64.tar.gz':
-        '8d3114307ad55261f30d88c8b045509f3abf67461c0503ca14adbe0fe31227de',
+        '8e5943d72c121f22f3c37e02da182ca5f2fab3fc2cb5081f6789863bf3c40696',
     'litertlm-windows_x86_64.tar.gz':
-        '925e665dd2d40245f38457011576b612b2b377e24aaded53f960d0faa4464dec',
+        '1eaa70688b606f76905905c4fc24c839303716e7797babc19b781044127e440f',
     'litertlm-macos_arm64.tar.gz':
-        'c597554a7a5cdf099658227099a54ef4916c5802b9182757e656e1788f9426b6',
+        '4221b199ee2b7f659168acef3ed053a9943a45d0875a1126b41ba8dbd061c617',
     'litertlm-ios_arm64.tar.gz':
-        '4fae776d252bd58993413284a0612864535c2c6d49b07e9052ff936624d26069',
+        'b36308fa14f83ad223e523412e2631e92511bffde59fa88b99393acc5b33b582',
     'litertlm-ios_sim_arm64.tar.gz':
-        '669277872ef9825df9762fa1c5225c9335da3ab2323349083cbc62a7626073d3',
+        '9a9aedf47246358daac50d3617a587a6250da0b553a617e2a5323b7d55b5dc2a',
     'litertlm-android_arm64.tar.gz':
-        '197dd324d82f22b7b6427004bfe8fb90223c625f77282c85305f79db6db16141',
+        '93b944acbc701f519643dac261083c0e996bb259d0f70c28d5f083d16a85d30b',
   },
   companions: [
     'GemmaModelConstraintProvider',

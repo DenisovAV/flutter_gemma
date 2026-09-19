@@ -60,6 +60,7 @@ jobs:
         run: bash packages/flutter_gemma_litertlm/native/litert_lm/patch_c_api.sh C:/LiteRT-LM
 
       - name: Build LiteRtLm.dll
+        # static_link_msvcrt: see build-litertlm-native.yml (#456).
         run: |
           cd C:\LiteRT-LM
           bazel --output_base="$env:BAZEL_OUTPUT_BASE" `
@@ -68,6 +69,7 @@ jobs:
             --build_tag_filters='-nowindows' `
             --features=compiler_param_file `
             --features=archive_param_file `
+            --features=static_link_msvcrt `
             --spawn_strategy=local `
             --define=litert_runtime_link_mode=dynamic `
             --define=resolve_symbols_in_exec=false `
@@ -130,6 +132,18 @@ jobs:
         run: |
           New-Item -ItemType Directory -Path artifacts -Force
           Copy-Item C:\LiteRT-LM\bazel-bin\c\libLiteRtLm.dylib artifacts\LiteRtLm.dll
+          # LiteRtLm.dll must carry its own C++ runtime (#456). Check the binary,
+          # not the flag: Bazel ignores an unknown --features name. KERNEL32 is
+          # the positive control - without it dumpbin read nothing, and "no
+          # runtime import" would pass vacuously.
+          $deps = dumpbin /dependents artifacts\LiteRtLm.dll
+          if (-not ($deps -match '^\s+KERNEL32\.dll')) {
+            throw "dumpbin listed no imports for LiteRtLm.dll:`n$($deps -join "`n")"
+          }
+          $crt = $deps -match '^\s+(msvcp|vcruntime|concrt)\d'
+          if ($crt) {
+            throw "LiteRtLm.dll imports the VC++ runtime: $(($crt | ForEach-Object Trim) -join ', ')"
+          }
           Copy-Item StreamProxy.dll artifacts\
           $prebuilt = 'C:\LiteRT-LM\prebuilt\windows_x86_64'
           # No `else` used to mean a missing companion shipped silently. With

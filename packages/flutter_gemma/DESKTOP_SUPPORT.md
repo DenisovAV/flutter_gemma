@@ -43,7 +43,7 @@ Detailed setup and reference for running Flutter Gemma on **macOS, Windows, and 
 ```
 
 **Native libraries** are fetched at build time by `hook/build.dart` from the
-GitHub release `native-v0.16.0`, SHA256-verified, and bundled by Flutter
+GitHub release `native-v0.17.0`, SHA256-verified, and bundled by Flutter
 [Native Assets](https://docs.flutter.dev/development/platform-integration/c-interop)
 into the application bundle. End-users only need to add a small
 `post_install` snippet to their **macOS** `Podfile` so the upstream companion
@@ -100,7 +100,7 @@ No Java/JVM/JRE required.
 # pubspec.yaml
 dependencies:
   flutter_gemma: ^1.8.3            # core
-  flutter_gemma_litertlm: ^1.6.4   # .litertlm engine — required on desktop
+  flutter_gemma_litertlm: ^1.7.0   # .litertlm engine — required on desktop
 ```
 
 ```dart

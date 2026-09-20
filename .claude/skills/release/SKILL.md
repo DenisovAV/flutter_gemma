@@ -74,6 +74,8 @@ silently do the other thing.
 [ ] 2   versions bumped: pubspec + podspec (if any) + CLAUDE.md Current-Version line
 [ ] 7   CHANGELOG: one short line per package, every published package
 [ ] 8   dart pub publish --dry-run → 0 warnings, every package
+[ ] 8b  native bundle moved? → litertlm_native_tools_test.dart green on every
+        platform in the release (the smoke suite never passes a tool), else N/A
 [ ] 12a website + README version pins bumped to the just-published versions
 [ ] 12b new/changed public API + behavior documented (README + website)  ← SAME PR
 [ ] 12d skills/: `skills_review.sh <last-tag>` run, every flagged skill READ,
@@ -567,6 +569,24 @@ dart pub publish --dry-run     # 0 warnings (package size is informational — t
 ```
 
 **NEVER publish without dry-run first.** Publishing is IRREVERSIBLE.
+
+### 8b. One tool call on a device — required whenever the native bundle moved
+
+```bash
+cd packages/flutter_gemma/example
+flutter test integration_test/litertlm_native_tools_test.dart -d macos   # and every other platform in the release
+```
+
+Host tests cannot see this, and neither can the litertlm smoke suite: it never
+passes a tool, so it never loads `libGemmaModelConstraintProvider`. A mismatch
+between that Google prebuilt and the runtime we build segfaults on the first
+tool call — `CompositeLogitMask::Apply`, no Dart error, every other gate green.
+native-v0.17.0 shipped that way and broke tool calling for everyone on
+litertlm 1.7.0.
+
+The suite asserts the text that follows the tool result, not just that a call
+was parsed. The weaker assertion is why a second bug — tool results sent as role
+`user`, so the model answered by calling again — survived for months.
 
 ## Step 9: Commit + tag + push
 

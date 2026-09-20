@@ -520,10 +520,17 @@ The static pre-check, before any device is involved — the provider must carry
 the type the runtime asks it for:
 
 ```bash
-grep -q ComputeMask /tmp/LiteRT-LM/runtime/components/constrained_decoding/constraint.h \
-  && strings -a <prebuilt>/libGemmaModelConstraintProvider.* | grep -c LogitMask
-# → non-zero, or every tool call on that platform will segfault
+H=/tmp/LiteRT-LM/runtime/components/constrained_decoding/constraint.h
+[ -f "$H" ] || { echo "no constraint.h — the check cannot run"; exit 1; }
+if grep -q ComputeMask "$H"; then want=1; else want=0; fi
+if strings -a <prebuilt>/libGemmaModelConstraintProvider.* | grep -q LogitMask; then have=1; else have=0; fi
+[ "$want" = "$have" ] || echo "MISMATCH: source ComputeMask=$want, provider LogitMask=$have"
 ```
+
+Two-sided, and `-f` first, for the same reason the CI guard is: a provider
+OLDER than the runtime segfaults, a NEWER one segfaults the same way from the
+other side (which is what happens if you build an older ref while `PREBUILT_REF`
+still points at main), and a `grep` on a missing header silently answers "no".
 
 ### 10. NPU on real silicon — the only check that covers the dispatch libraries
 

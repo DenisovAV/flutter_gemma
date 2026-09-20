@@ -1,3 +1,6 @@
+## 1.8.4
+- FunctionGemma on `.litertlm` answers a tool result instead of repeating the call.
+
 ## 1.8.3
 - Inference skill: NPU needs a Gemma 4 bundle; Gemma 3 drops prefill chunks silently.
 - Inference skill: macOS setup no longer adds iOS-only entitlements that break unsigned builds.

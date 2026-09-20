@@ -79,12 +79,14 @@ echo "Pulling LFS files..."
 PREBUILT_REF="${PREBUILT_REF:-4453b286c549d216584866ed49b6fed6d11fa3a7}"
 echo "Taking prebuilt companions from $PREBUILT_REF"
 git lfs pull --include="prebuilt/macos_arm64/*"
-# The provider comes from a different commit than the source. git restore +
-# lfs pull will not carry it (lfs checks out what the index points at), so
-# fetch that one file from the LFS media endpoint.
+# One file, from a different commit than the source: fetch it straight from the
+# LFS media endpoint. `git restore --source=<ref>` does the same job, but then
+# the ref lives in two places — the restore and this build's assumptions — and a
+# stale one is invisible. A URL carries the ref where you can read it.
 curl -fsSL -o "prebuilt/macos_arm64/libGemmaModelConstraintProvider.dylib" \
   "https://media.githubusercontent.com/media/google-ai-edge/LiteRT-LM/$PREBUILT_REF/prebuilt/macos_arm64/libGemmaModelConstraintProvider.dylib"
-# Fail here, not an hour later at the end of the build.
+# Fail here, not an hour later at the end of the build: a wrong PREBUILT_REF
+# looks exactly like a correct one until something reads the binary.
 if grep -q 'ComputeMask' runtime/components/constrained_decoding/constraint.h; then
   strings -a "prebuilt/macos_arm64/libGemmaModelConstraintProvider.dylib" | grep -q 'LogitMask' || {
     echo "ERROR: prebuilt provider predates the ComputeMask Constraint ABI — every tool call would segfault" >&2

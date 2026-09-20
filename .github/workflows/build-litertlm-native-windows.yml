@@ -65,9 +65,8 @@ jobs:
           # refresh of those binaries. Their wheel compiles the provider in, so
           # their release lane never sees it.
           git lfs pull --include="prebuilt/windows_x86_64/*"
-          # The provider comes from a different commit than the source; git restore
-          # + lfs pull would not carry it, because lfs checks out what the index
-          # points at. Fetch the one file from the LFS media endpoint instead.
+          # One file, from a different commit than the source: fetch it straight
+          # from the LFS media endpoint, where the ref is visible in the URL.
           curl.exe -fsSL -o C:\LiteRT-LM\prebuilt\windows_x86_64\libGemmaModelConstraintProvider.dll `
             "https://media.githubusercontent.com/media/google-ai-edge/LiteRT-LM/$env:PREBUILT_REF/prebuilt/windows_x86_64/libGemmaModelConstraintProvider.dll"
           if ($LASTEXITCODE -ne 0) { throw "could not fetch the provider for $env:PREBUILT_REF" }

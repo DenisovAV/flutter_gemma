@@ -687,11 +687,14 @@ model is served a prompt it never saw. The value has to be the **same**
 everywhere, and the wrong one produces a fluent wrong answer rather than an
 error.
 
-**`--learning-rate 1e-5`, one epoch**, because the default is twenty times that
-and these rows are all tool calls. At the default the held-out score is exactly
-the same and the model stops answering in prose at all — it has learned that a
-turn *is* a call. The score cannot see that; only asking it something that is
-not a tool call can.
+**`--learning-rate 1e-5`, one epoch**, because that is already the whole gain:
+18 of 18 held-out calls, the same score the default rate and three epochs
+reach. Tool choice is learned in the first pass. Raising the rate buys nothing
+here and spends the model's residual small talk — FunctionGemma is an action
+model, `google/mobile-actions` has 9654 rows and not one where the assistant
+writes a sentence after a tool result, so prose was never its job. If you want
+the model to *discuss* what the tool returned, that is Gemma 4, which this app
+also ships.
 
 **`prepare` splits by content hash**, into `train.jsonl` and `heldout.jsonl`,
 and rejects rows it cannot score. The held-out half is never trained on:

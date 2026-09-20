@@ -132,41 +132,37 @@ operation name and every argument match.
 | the published FunctionGemma this codelab downloads | 13 / 18 |
 | tuned here, one epoch at 1e-5 | 18 / 18 |
 
-The gain is in one place. The base model answers *"which system am I using?"*
-with a refusal in prose — it never calls `get_device_info` — and four of its
-five misses are that. After training it calls. Colours it already got right:
-all six, before any training, which is worth knowing before you fine-tune
-anything. Measure the base first and you may be done.
+The gain is in one place, and it is the place that matters: the base answers
+*"which system am I using?"* with a refusal in prose and never calls
+`get_device_info` — four of its five misses are that one tool. After training it
+calls, every time.
 
-## The dial you are turning
+Colours it already got right: all six, in six phrasings, before any training.
+Measure the base first; the rows worth writing are the ones it gets wrong.
 
-Train the same 72 rows harder and the held-out score does not move — it is 18/18
-at 1e-5, at 5e-5 and at three epochs of the default 2e-4 — while the model comes
-apart behind it:
+## How hard to train, and why gently is enough
 
-| | tool choice | after a tool result | plain question, no tools |
-|---|---|---|---|
-| base | 13 / 18 | narrates every tool | refuses, sometimes with a stray `<start_function_call>` |
-| 1 epoch @ 1e-5 | 18 / 18 | narrates `multiply`, silent after a colour | same as base |
-| 1 epoch @ 5e-5 | 18 / 18 | silent | a `<start_function_call>` before the prose |
-| 3 epochs @ 2e-4 | 18 / 18 | silent | `<start_function_call>: Hello!` |
+One epoch at 1e-5 is a twentieth of litetune's default, and it is not timidity:
+on this task it is already the whole gain. The held-out score is 18/18 at 1e-5,
+at 5e-5 and at three epochs of 2e-4 — the tool choice is learned in the first
+pass, and everything after that is spent on something else.
 
-Every row here is a prompt and the call it should make, and nothing else. Train
-on them hard enough and the model learns that a turn *is* a call — including
-where this app needs prose: the sentence after a tool result. Held-out accuracy
-cannot see it, because every held-out row is a tool call too.
+What it is spent on is worth knowing before you spend it. FunctionGemma is an
+action model: `google/mobile-actions`, the corpus it was tuned on, is 9654 rows
+of *developer, user, call* and **not one** row where the assistant writes a
+sentence after a tool result. Ending a turn at the call is what this model is
+for. The base still answers in prose now and then — that is residual Gemma 3
+behind the task tuning, not a promise — and more training on calls leaves less
+of it: at 1e-5 `multiply` is still narrated and the colour is not, at 5e-5
+neither is.
 
-There is no data fix inside litetune: it trains one user turn, and a row whose
-prompt carries the call and the tool's response is refused in
-`runtime_rendered` mode — those prompts are already rendered. The turn after a
-result is not something you can teach here; it is something you avoid
-destroying. Even at 1e-5 this run lost it for `change_background_color`, the
-tool whose rows are newest and most uniform, while keeping it for `multiply`.
+So train for the thing the model is for, and keep the rate low because there is
+nothing further to gain by raising it. If you want a model that *talks* about
+what the tool returned, that is Gemma 4's job, and `complete/` ships it.
 
-That is the honest shape of a fine-tune this small: it moves what you trained
-and it costs what you did not. The app stays usable either way — the screen
-still repaints, because the app acts on the tool's result rather than on the
-model's sentence — and `complete/` downloads the stock models by default.
+Either way the app stays correct: it renders the tool's own result rather than
+waiting for the model to describe it, which is why the screen repaints whether
+or not a sentence follows.
 
 ## Check the model you got, not the number
 
@@ -175,11 +171,11 @@ is not one:
 
 > hello, who are you?
 
-with no tools in the session, and *"make the background blue"* with them. The
-first must read like the base model's answer; the second must repaint AND say
-so. A model that opens the first with `<start_function_call>`, or goes silent
-on the second, is over-trained, whatever its held-out score says. Halve the
-learning rate and convert again.
+with no tools in the session, and *"make the background blue"* with them. You
+are looking for a model that still behaves like the base did where you did not
+train it — the base's own answers are the bar, not a chat model's. If the first
+answer is worse than the stock model's, the rate was too high for what you
+gained; halve it and convert again.
 
 18 held-out rows is also too few to resolve anything: litetune says so on every
 run, and the interval it prints spans more than the difference it measures.

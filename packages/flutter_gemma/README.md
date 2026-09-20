@@ -458,12 +458,12 @@ Then add the CDN script(s) for the **engine package(s) you use**.
 ```
 
 * **`LiteRtEmbeddingBackend`** (web embeddings, `flutter_gemma_litertlm`) — copy
-  the four files in `flutter_gemma_embeddings`' `web/` into your own `web/`
+  the four files in `flutter_gemma_litertlm`' `web/` into your own `web/`
   (`litert_embeddings.js`, `sentencepiece.js`, `litert.js`, `tensorflow.js` —
   one bundle in four pieces) and load the entry module locally:
   `<script type="module" src="litert_embeddings.js"></script>`. The WASM runtime
   comes from a pinned CDN by default; see the
-  [`flutter_gemma_embeddings` web setup](https://pub.dev/packages/flutter_gemma_embeddings#web-setup).
+  [`flutter_gemma_litertlm` embeddings on web](https://pub.dev/packages/flutter_gemma_litertlm#embeddings-on-web).
 
 * **`flutter_gemma_rag_sqlite`** (web RAG) — copy the package's custom
   `sqlite3.wasm` (with `sqlite-vec`/`vec0` statically linked) into your app's web

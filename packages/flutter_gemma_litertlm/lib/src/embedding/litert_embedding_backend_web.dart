@@ -9,7 +9,7 @@ import 'package:flutter_gemma/core/registry/runtime_config.dart';
 import 'package:flutter_gemma/flutter_gemma_interface.dart' show EmbeddingModel;
 import 'package:flutter_gemma/core/model_management/model_specs.dart'
     show EmbeddingModelSpec;
-import 'package:flutter_gemma_embeddings/web_embedding_model.dart';
+import 'web/web_embedding_model.dart';
 
 /// Web LiteRT embedding backend — builds [WebEmbeddingModel] (LiteRT.js).
 class LiteRtEmbeddingBackend implements EmbeddingBackendProvider {

@@ -34,7 +34,9 @@ dependencies:
   # ^1.7.0: every tensor this package builds goes through litertlm's
   # LiteRtRankedTensorTypeView, and before 1.7.0 that view still used the MSVC
   # LiteRtLayout on Windows — STT/TTS failed there with status 3.
-  flutter_gemma_litertlm: ^1.7.0
+  # ^2.0.0: 1.x still declared flutter_gemma_embeddings, and this package only
+  # ever wanted litertlm's LiteRT bindings and its shared native bundle.
+  flutter_gemma_litertlm: ^2.0.0
   ffi: ^2.1.0
   meta: ^1.9.0
 

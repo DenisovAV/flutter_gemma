@@ -395,7 +395,7 @@ module is loaded locally:
 The WASM runtime underneath comes from a pinned CDN copy by default
 (`flutter_gemma_embeddings` 2.2.0+) — nothing else to install. To serve it
 yourself, copy `node_modules/@litertjs/core/wasm/` into `web/wasm/` and set
-`LiteRtWebRuntime.wasmPath = '/wasm/';` before the first embedding. See the
+`LiteRtWebRuntime.wasmPath = '/wasm/';` (from `flutter_gemma_litertlm`) before the first embedding. See the
 [`flutter_gemma_embeddings` web setup](https://pub.dev/packages/flutter_gemma_embeddings#web-setup).
 
 **`flutter_gemma_rag_sqlite`** (web RAG): no `<script>`. Copy the package's

@@ -150,7 +150,7 @@ Core has NO pigeon (dropped at the 1.0 cut; its value types are hand-written in 
 - **LiteRT-LM**: native libs from `native-v0.17.1` GitHub Release (LiteRT-LM pin `5e58e9a0` = upstream v0.17.1, LiteRT pin `9fe5be45` unchanged since v0.17.0, companion prebuilts from upstream main `4453b286` — the v0.17.x tags carry a `libGemmaModelConstraintProvider` built against the pre-`ComputeMask` `Constraint`, so with a runtime built from their own source every tool call segfaults in `CompositeLogitMask::Apply`). v0.17.1: a tool-call argument declared `"type": "integer"` reaches the app as an integer instead of `1000.0`; the Android tarball's four Qualcomm Skel blobs are raised to `p_align=0x4000`, because at 4 KB Google Play rejects every app that ships them (#529). v0.17.0: the GPU samplers' `Create` gained a leading `runtime_c_api` argument (upstream refreshed the prebuilt samplers); `LiteRtLayout` has been one layout on every compiler since LiteRT `d84656955` (already in the v0.16.0 pin) — our Windows-only MSVC mirror broke Windows embeddings and speech from native-v0.16.0 until litertlm 1.7.0 dropped it. Android tarball bundles the Qualcomm QNN dispatch stack and Windows tarball bundles Intel NPU dispatch (`LiteRtDispatch.dll` + OpenVino runtime + TBB) for `PreferredBackend.npu` (Qualcomm Snapdragon / Intel LunarLake/PantherLake) — both dispatch libs are **rebuilt from the pin every release**; carrying them forward is what silently broke NPU on both platforms (see the `build-native` skill). v0.16.0: fixes the Android OpenCL per-turn memory leak (LiteRT-LM #2699, #348/#402); v0.15.0 **broke the stream-callback ABI** (4-arg → 2-arg chunk object) with no compat path, handled by a runtime probe in `stream_proxy.c`. Windows discrete GPU works again — the crash was our own dead `litert_link_capi_so` Bazel define, not an upstream regression (#2957 retracted).
 - **sqlite-vec**: `flutter_gemma_rag_sqlite` fetches the per-platform `vec0` loadable from the `native-sqlite-vec-v<X>` GitHub Release (`sqlite-vec-<target>.tar.gz` + `checksums_sqlite_vec.txt`), SHA256-verified by its `hook/build.dart`. `<X>` names the **upstream sqlite-vec release** the bytes were built from; a letter suffix (`0.1.9-a`) is only for RE-releasing changed bytes under an already-published number. The loadables are NOT committed — `native/sqlite_vec/prebuilt/` is a maintainer override produced by `build_local.sh`, gitignored and `.pubignore`d.
 - **large_file_handler**: `^0.5.0` (core dep; 0.5.0 declares all 6 platforms — needed for pana platform support + the dart2wasm-clean web graph)
-- **Current Version**: core `flutter_gemma` `1.8.5`, `flutter_gemma_rag_sqlite` `1.3.2`, `flutter_gemma_rag_qdrant` `1.3.1`; `flutter_gemma_litertlm` `1.8.0`, `flutter_gemma_mediapipe` `1.0.6`, `flutter_gemma_embeddings` `2.2.0`, `flutter_gemma_speech` `0.5.1`; `flutter_gemma_agent` `0.2.5`, `flutter_gemma_builtin_ai` `0.2.2`, `flutter_gemma_onnx` `0.3.3`; `genkit_flutter_gemma` `0.6.1`, `genkit_hybrid` `0.2.1`
+- **Current Version**: core `flutter_gemma` `1.9.0`, `flutter_gemma_rag_sqlite` `1.3.2`, `flutter_gemma_rag_qdrant` `1.3.1`; `flutter_gemma_litertlm` `2.0.0`, `flutter_gemma_mediapipe` `1.0.6`, `flutter_gemma_embeddings` `3.0.0`, `flutter_gemma_speech` `0.5.1`; `flutter_gemma_agent` `0.2.5`, `flutter_gemma_builtin_ai` `0.2.2`, `flutter_gemma_onnx` `0.4.0`; `genkit_flutter_gemma` `0.6.1`, `genkit_hybrid` `0.2.1`
 - **0.15.2**: embedding unified on LiteRT C API via Dart FFI on all native platforms (Android + iOS + Desktop). Drops `localagents-rag` JVM dep on Android and the separate TFLite C 0.12.7 tarball on Desktop; `TensorFlowLiteC` pod no longer needed on iOS. Single source of truth for `TaskType.prefix` in Dart, fixes cross-platform embedding drift (#264).
 
 ## Platform-Specific Setup
@@ -251,6 +251,8 @@ flutter analyze && dart format . && tool/test_all.sh
 | `lib/core/domain/` | ModelSource sealed classes |
 | `lib/core/registry/{inference_engine_provider,embedding_backend_provider,engine_registry,embedding_registry,runtime_config}.dart` | Probe-chain registry contracts engines/backends implement |
 | `lib/core/lifecycle/close_notifier.dart` | `CloseNotifier` mixin (addCloseListener / fireCloseListeners) |
+| `lib/core/embedding/` | The embedding seam engines implement: `EmbeddingForwardPass` + `ForwardResult` + `ForwardPassDescriptor`, the `EmbeddingTokenizer` adapter, `meanPoolAndNormalize`, and the isolate worker behind `CommonEmbeddingModel`. Contracts only — tokenizer IMPLEMENTATIONS stay in `flutter_gemma_embeddings` |
+| `lib/core/registry/embedding_tokenizer_{provider,registry}.dart` | Probe chain for tokenizers, so an engine asks for one instead of naming one (which is what made it depend on a sibling package) |
 | `lib/core/services/vector_store_filter.dart` | Sealed `Condition` + `Filter` envelope (must/should/mustNot) |
 | `lib/core/infrastructure/unconfigured_vector_store.dart` | Default `VectorStoreRepository` sentinel — throws "add a RAG package" |
 | `lib/mobile/flutter_gemma_mobile.dart` | Mobile shell — registry-dispatch createModel + EmbeddingModelSpec |
@@ -268,6 +270,7 @@ flutter analyze && dart format . && tool/test_all.sh
 | File | Purpose |
 |------|---------|
 | `lib/src/litert_lm_engine*.dart` | `LiteRtLmEngine` (InferenceEngineProvider; native + web arms via conditional export) |
+| `lib/src/embedding/web/`, `web/*.js`, `tool/web_build/` | The LiteRT.js embedding bundle — `WebEmbeddingModel`, `LiteRtWebRuntime` (WASM runtime URL, pinned `@litertjs/core`) and the vite build that emits all four JS files. Moved here in 2.0.0: it is LiteRT, and keeping it beside the engine is what removes the sibling dependency |
 | `lib/src/ffi/litert_lm_client.dart` | Per-platform FFI client (loading, preload, log capture) |
 | `lib/src/ffi/litert_lm_bindings.dart` | Generated dart:ffi bindings to LiteRT-LM C API (inference) |
 | `lib/src/ffi/ffi_inference_model.dart` | FFI inference model (mixes CloseNotifier) |
@@ -275,17 +278,15 @@ flutter analyze && dart format . && tool/test_all.sh
 | `hook/build.dart` | Native Assets hook — OWNS the litertlm bundle; `stage()` is **Apple-only** (Xcode cycle) |
 | `native/litert_lm/{build_ios.sh,patch_c_api.sh,stream_proxy.c}` | iOS dylib rebuild + C API patcher + preload helper |
 
-**`packages/flutter_gemma_embeddings/` (runtime-AGNOSTIC common embedder — 2.0.0; depends ONLY on core; the engine supplies the forward-pass over a seam):**
+**`packages/flutter_gemma_embeddings/` (tokenizer implementations — 3.0.0; depends ONLY on core, and NOTHING depends on it: engines get a tokenizer from core's registry, which the app fills from here):**
 
 | File | Purpose |
 |------|---------|
-| `lib/src/forward_pass.dart` | `EmbeddingForwardPass` seam (async load/run/close) + `ForwardResult` + `ForwardPassDescriptor` (`EmbeddingOutputContract` + top-level-tear-off factory, isolate-sendable) |
-| `lib/src/embedding_worker.dart` | Engine-agnostic isolate worker: builds the engine's forward core from the descriptor inside the isolate; dispatches finalize on the contract (`pooledFinal`→verbatim, `tokenLevel`→pool) |
+| `lib/src/tokenizer_provider.dart` | `GemmaEmbeddingTokenizers` — the registrable `EmbeddingTokenizerProvider` an app passes to `initialize(embeddingTokenizers:)` |
+| `lib/src/tokenizer_router.dart` | `resolveEmbeddingTokenizer` — sniffs the tokenizer file and routes WordPiece / SigLIP2-refusal / SentencePiece (moved from `flutter_gemma_onnx`; never was ONNX-specific) |
+| `lib/src/wordpiece_tokenizer_json.dart` | The WordPiece `tokenizer.json` parse step, split out so it carries no `dart:js_interop` and stays VM-testable |
 | `lib/src/embedding_tokenizer.dart` | Gemma SentencePiece tokenize + BOS=2/EOS=1 + TaskType prefix (`.json`/`.model` loader) |
-| `lib/src/pooling.dart` | `meanPoolAndNormalize` (token-level `[1,seq,dim]` only; rejects rank-2 to block the D5 double-normalize trap) |
-| `lib/src/common_embedding_model.dart` | `CommonEmbeddingModel` facade (`EmbeddingModel` + CloseNotifier) |
-| *(no engine dep, no `hook/build.dart`)* | The LiteRT forward-pass lives in `flutter_gemma_litertlm/lib/src/embedding/` (`LiteRtEmbeddingForwardPass` + `LiteRtEmbeddingBackend`, which provides the registered backend) |
-| ⚠️ **known sibling edge, being removed** | `flutter_gemma_litertlm` and `flutter_gemma_onnx` both declare this package, for the tokenizer loaders and the model facade. That breaks *Packages → core, never to each other*. The fix is a tokenizer **provider** registered like every other backend: `EmbeddingTokenizerProvider` + registry in core, the routing implementation here, `FlutterGemma.initialize(embeddingTokenizers: [...])` from the app — so an engine names no tokenizer and a text-only app stops resolving this package (and `dart_sentencepiece_tokenizer`) at all |
+| *(no engine dep, no `hook/build.dart`, no `web/`)* | The seam, worker, pooling and facade moved to core's `lib/core/embedding/` in 1.9.0; the LiteRT.js web bundle moved to `flutter_gemma_litertlm` |
 
 **`packages/flutter_gemma_mediapipe/` (.task MediaPipe; mobile + web, NO desktop):**
 

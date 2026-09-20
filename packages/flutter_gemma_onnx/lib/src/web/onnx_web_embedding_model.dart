@@ -14,7 +14,6 @@
 // same convention as `WordPieceEmbeddingTokenizer._`'s constructor.
 // ignore_for_file: prefer_initializing_formals
 import 'dart:async';
-import 'dart:js_interop';
 
 import 'package:flutter/foundation.dart' show VoidCallback;
 import 'package:flutter_gemma/core/lifecycle/close_notifier.dart';
@@ -32,30 +31,9 @@ import 'onnx_web_embedding_forward_pass.dart';
 import 'opfs_web_resolver.dart';
 import 'ort_web_client.dart';
 
-/// `fetch(url).then(r => r.text())` — used to load the `tokenizer.json` text
-/// (the model file itself is handed straight to `ort.InferenceSession.create`
-/// as a URL; onnxruntime-web fetches it internally).
-@JS('fetch')
-external JSPromise<_FetchResponse> _fetchJs(JSString url);
-
-extension type _FetchResponse._(JSObject _) implements JSObject {
-  external JSBoolean get ok;
-  external JSNumber get status;
-  external JSPromise<JSString> text();
-}
-
-Future<String> _fetchText(String url) async {
-  final response = await _fetchJs(url.toJS).toDart;
-  if (!response.ok.toDart) {
-    throw StateError(
-      'Failed to fetch "$url": HTTP ${response.status.toDartInt}',
-    );
-  }
-  return (await response.text().toDart).toDart;
-}
-
 /// ONNX Runtime Web embedding model — `onnxruntime-web` over a WordPiece
-/// (MiniLM-family) `.onnx`/`.ort` export. See `onnx_web_tokenizer_loader.dart`
+/// (MiniLM-family) `.onnx`/`.ort` export. The tokenizer arrives as a
+/// registered factory (see `EmbeddingTokenizerProvider`)
 /// for the v1 WordPiece-only scope (SentencePiece/EmbeddingGemma-ONNX is a
 /// known web gap, not silently mishandled).
 class OnnxWebEmbeddingModel extends EmbeddingModel with CloseNotifier {

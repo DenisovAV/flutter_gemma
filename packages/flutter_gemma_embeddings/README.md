@@ -25,12 +25,25 @@ Installs the agent skills `flutter_gemma` bundles — this package depends on it
 
 ```dart
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
 import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 
 await FlutterGemma.initialize(
   embeddingBackends: [LiteRtEmbeddingBackend()],
+  embeddingTokenizers: [GemmaEmbeddingTokenizers()],
 );
 ```
+
+Two lists, because they answer different questions. The backend is the engine
+that turns token ids into a vector; the tokenizer is what turns text into those
+ids, and which one a model needs is a property of the MODEL — EmbeddingGemma is
+SentencePiece whether LiteRT or ONNX Runtime runs it. Keeping them apart is why
+neither engine package depends on this one, and why an app that never embeds
+anything resolves neither.
+
+Forget the second list and the first embedding throws a `StateError` naming the
+package to add — it never silently falls back to a tokenizer with the wrong
+convention.
 
 `LiteRtEmbeddingBackend` provides the embedding model used by the auto-embedding
 RAG methods (`addDocument` / `searchSimilar`) and by `createEmbeddingModel`. Pair
@@ -39,83 +52,13 @@ it with a vector store from `flutter_gemma_rag_sqlite` or
 
 ## Web setup
 
-On web, `flutter_gemma_litertlm`'s embedding backend runs via LiteRT.js. Copy
-all four files from this package's `web/` into your app's `web/`, next to
-`index.html` — `litert_embeddings.js` imports the other three by relative path,
-so they have to sit together:
+The web embedding bundle moved to `flutter_gemma_litertlm` in 3.0.0 — it is
+LiteRT.js, and it belongs with the package named after it. See
+[flutter_gemma_litertlm's web setup](https://pub.dev/packages/flutter_gemma_litertlm#embeddings-on-web).
 
-```
-litert_embeddings.js  sentencepiece.js  litert.js  tensorflow.js
-```
-
-They are four pieces of one bundle (the entry plus three vendor chunks), built
-together by `tool/web_build`, so never mix them across package versions. Find
-this package's directory with
-`grep -A1 '"name": "flutter_gemma_embeddings"' .dart_tool/package_config.json`,
-then load the entry module from `web/index.html`:
-
-```html
-<script type="module" src="litert_embeddings.js"></script>
-```
-
-Upgrading from an earlier version: delete the copies in your app's `web/` and
-re-copy all four from this version. Before 2.2.0 two of them came from
-`flutter_gemma_litertlm/web/`, which no longer has them, and the copies you
-have are built against a different `@litertjs/core` than the runtime this
-version loads. If you built your own `web/wasm/`, either delete it and take the
-CDN default or rebuild it from the version in `LiteRtWebRuntime.pinnedVersion`.
-
-> Earlier versions of this README told you to load `litert_embeddings.js`
-> straight from a CDN with a Subresource-Integrity hash. That cannot work: the
-> module's three imports are resolved against the CDN path, where two of them
-> do not exist (this package ships only two of the four files), so the module
-> never executes and every embedding call fails on an undefined global. SRI
-> would not have covered the imports either.
-
-### The WASM runtime
-
-LiteRT.js loads a WASM runtime at the first embedding call —
-`litert_wasm_internal.js`, or `litert_wasm_compat_internal.js` on a browser
-without relaxed SIMD, each with a ~9 MB `.wasm` beside it. Since 2.2.0 they come
-from the pinned `@litertjs/core` build on jsDelivr by default — nothing to
-install, and nothing this package has to carry into every native-only app.
-
-To serve them yourself (offline, an air-gapped deploy, or a CSP that forbids
-third-party script), copy `node_modules/@litertjs/core/wasm/` into your app's
-`web/wasm/` and point the package at it before the first embedding:
-
-```dart
-import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
-
-LiteRtWebRuntime.wasmPath = '/wasm/';
-```
-
-Those files come from `@litertjs/core` — `npm i @litertjs/core@2.5.3` in a
-scratch directory, then copy its `wasm/`.
-
-Set the prefix before the first embedding — the runtime is loaded once and
-cached, so a later assignment is ignored. LiteRT.js inserts the separator when
-it joins the prefix with the file name, so the trailing slash above is
-convention, not a requirement; the value is root-absolute, and an app served
-under a base href other than `/` needs `/my-app/wasm/` or a full URL.
-
-Pin `@litertjs/core` to `LiteRtWebRuntime.pinnedVersion` if you vendor it. The
-runtime and this package's `web/litert.js` are two halves of one release —
-`litert.js` calls that release's WASM entry points by name — and a mismatch
-fails at the first embedding with something that does not mention versions at
-all: a runtime older than the glue gives
-`Cannot read properties of undefined (reading 'create')`.
-
-Serving it yourself is also the answer if a third-party script in your app's
-runtime path is not acceptable to you: LiteRT.js injects the `<script>` itself,
-so the CDN copy carries no Subresource-Integrity hash.
-
-Whatever host you use must send `Access-Control-Allow-Origin` (LiteRT.js sets
-`crossOrigin="anonymous"` on the script it injects) and serve `.wasm` as
-`application/wasm`.
-
-Native platforms need no setup — the LiteRT native library is bundled at build
-time by `flutter_gemma_litertlm`'s Native-Assets hook.
+This package has no web assets of its own: on web its tokenizers run only for
+backends that tokenize in Dart (WordPiece), while the LiteRT web arm tokenizes
+inside `sentencepiece.js`.
 
 ## Platforms
 

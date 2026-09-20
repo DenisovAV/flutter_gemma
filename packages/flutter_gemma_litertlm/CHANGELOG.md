@@ -1,3 +1,6 @@
+## 2.0.0
+- BREAKING: no longer depends on `flutter_gemma_embeddings`; owns the LiteRT.js web bundle and asks core for a tokenizer.
+
 ## 1.8.0
 - Google Play no longer rejects apps over 16 KB page sizes (#529).
 - Native runtime LiteRT-LM v0.17.1: integer tool-call arguments stay integers.

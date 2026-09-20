@@ -9,5 +9,5 @@
 /// underneath never resolves there).
 library;
 
-export 'src/web/flutter_gemma_web_embedding_model.dart';
-export 'src/web_runtime.dart';
+export 'src/embedding/web/web_embedding_model.dart';
+export 'src/embedding/web/web_runtime.dart';

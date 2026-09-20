@@ -30,7 +30,6 @@ library;
 // flutter_gemma_onnx) implement `EmbeddingForwardPass` and build a
 // `ForwardPassDescriptor` from a top-level factory tear-off to plug into the
 // common embedder below.
-export 'src/web_runtime.dart';
 // Moved to core so an engine package can implement the seam without depending
 // on this one. Re-exported here so a single import still covers the whole
 // embedding surface for app and test code.

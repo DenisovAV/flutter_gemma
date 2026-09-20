@@ -1,6 +1,6 @@
 name: flutter_gemma_embeddings
 description: "Runtime-agnostic on-device text embedding pipeline for flutter_gemma: tokenization, isolate worker, pooling and normalization. Pair with an engine package for a backend."
-version: 2.2.0
+version: 3.0.0
 homepage: https://fluttergemma.dev
 repository: https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_gemma_embeddings
 topics: [embeddings, gemma, litert, rag, on-device]
@@ -25,7 +25,10 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_gemma: ^1.5.9
+  # ^1.9.0: this version needs core's embedding seam and the tokenizer
+  # registry (`EmbeddingTokenizerRegistry`), which land in 1.9.0. An older
+  # core resolves and then fails to compile — better here than there.
+  flutter_gemma: ^1.9.0
   # Floor is 1.4.1, not 1.3.3, and that is deliberate. 1.4.0 added
   # `pre_tokenizer` validation with no `Split` case and rejected the
   # Gemma-family tokenizer.json this package loads (upstream #35); 1.4.1 accepts

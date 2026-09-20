@@ -1,3 +1,6 @@
+## 3.0.0
+- BREAKING: register `GemmaEmbeddingTokenizers()` via `embeddingTokenizers:`; web bundle moved to `flutter_gemma_litertlm`.
+
 ## 2.2.0
 - Fix web embeddings: all four bundle files ship here, WASM runtime from a CDN.
 

@@ -24,6 +24,12 @@ export 'src/ffi/litert_bindings_stub.dart'
 // flutter_gemma_embeddings (embedder decoupling, 1.5.0). Native arm builds a
 // `ForwardPassDescriptor` over the LiteRT C API forward pass; web arm builds
 // the LiteRT.js-backed `WebEmbeddingModel` directly.
+// Where the LiteRT.js WASM runtime is fetched from on web. Plain Dart with no
+// imports at all, so it is exported unconditionally: an app sets it once at
+// startup, and on native it is simply inert. The web MODEL beside it is not
+// exported here — it pulls dart:js_interop, which must not reach a native build.
+export 'src/embedding/web/web_runtime.dart';
+
 export 'src/embedding/litert_embedding_backend_web.dart'
     if (dart.library.ffi) 'src/embedding/litert_embedding_backend.dart';
 

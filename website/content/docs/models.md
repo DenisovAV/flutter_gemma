@@ -157,9 +157,10 @@ When installing models, specify the correct `ModelType`:
 | **General** | `ModelType.general` | FastVLM 0.5B, SmolLM 135M, LFM2.5 230M, SmolLM3 3B, Phi-4 Mini Reasoning, Qwen2-VL 2B, SmolVLM2 500M, LLaVA-OneVision 0.5B |
 
 <Info>
-Gemma 4 uses `ModelType.gemma4` so its native tool-call tokens are routed through
-the LiteRT-LM SDK's chat-template path. For Gemma 3 and earlier, keep
-`ModelType.gemmaIt`.
+Gemma 4 (`ModelType.gemma4`) and FunctionGemma on a `.litertlm` route their native
+tool-call tokens through the LiteRT-LM SDK's chat-template path. For Gemma 3 and
+earlier, keep `ModelType.gemmaIt`; a `.task` FunctionGemma keeps the text format
+flutter_gemma renders itself.
 </Info>
 
 **Usage example:**

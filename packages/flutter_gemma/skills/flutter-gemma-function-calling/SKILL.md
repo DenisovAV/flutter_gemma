@@ -9,7 +9,7 @@ Packages, engine and model install are in the flutter-gemma-inference skill. Thi
 
 ## Rules
 
-1. `createChat` needs `tools` and `supportsFunctionCalls: true`. Without the flag no call is parsed and only a debug warning is logged — and on Gemma 4 with `.litertlm` the declarations still reach the SDK, so the model answers with raw tool-call JSON inside the text stream.
+1. `createChat` needs `tools` and `supportsFunctionCalls: true`. Without the flag no call is parsed and only a debug warning is logged — and on `.litertlm` with Gemma 4 or FunctionGemma the declarations still reach the SDK, so the model answers with raw tool-call JSON inside the text stream.
 2. Pass `modelType` on web and on ONNX. `createChat` on native `.litertlm`, on MediaPipe Android and iOS, and on built-in AI uses the installed model's type when it is left out; the web engines and ONNX fall back to `ModelType.gemmaIt`, and another model's calls then arrive as raw text. `openChat` always falls back — pass it there on every platform.
 3. Switch over all four `ModelResponse` subtypes. It is sealed — a switch that leaves out `ThinkingResponse` does not compile.
 4. Return tool results as data, errors included. Never throw from a tool.
@@ -112,6 +112,14 @@ The model can recover from an error it can read. An exception thrown out of a to
 **Raw markers in the text**
 - Symptom: `<|tool_call>` or `<tool_call|>` appears in `TextResponse` tokens.
 - Fix: `modelType` does not match the installed model.
+
+**Model calls the same tool again instead of answering the result**
+- Symptom: FunctionGemma on `.litertlm` repeats the call it just made after `Message.toolResponse`.
+- Fix: `flutter_gemma` 1.8.4 with `flutter_gemma_litertlm` 1.7.1 — both halves. Core picks the wire format, the engine sends it; older pairs send the result as an ordinary user message.
+
+**Nothing after the tool result**
+- Symptom: the call arrives, the result goes back, and the stream ends with no text.
+- Fix: nothing to fix on FunctionGemma — it is an action model and ending the turn at the call is what it was trained for. Render the tool's own result, and use Gemma 4 when the model should talk about what came back.
 
 ## Web
 

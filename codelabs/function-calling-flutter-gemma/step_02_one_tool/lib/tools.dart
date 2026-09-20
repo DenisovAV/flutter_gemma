@@ -4,8 +4,8 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 ///
 /// A [Tool] is a DECLARATION and nothing else — a name, a description the
 /// model reads, and a JSON Schema for the arguments. It holds no code and it
-/// cannot run: the SDK renders this into the prompt and parses a call back
-/// out, and running the call is the app's job. [runMultiply] below is the half
+/// cannot run: the runtime renders this into the prompt and hands the call
+/// back parsed, and running the call is the app's job. [runMultiply] below is the half
 /// that actually computes something, and `chat_page.dart` is where the two are
 /// wired together.
 ///

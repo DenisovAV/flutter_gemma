@@ -521,11 +521,24 @@ the type the runtime asks it for:
 
 ```bash
 H=/tmp/LiteRT-LM/runtime/components/constrained_decoding/constraint.h
-[ -f "$H" ] || { echo "no constraint.h — the check cannot run"; exit 1; }
-if grep -q ComputeMask "$H"; then want=1; else want=0; fi
-if strings -a <prebuilt>/libGemmaModelConstraintProvider.* | grep -q LogitMask; then have=1; else have=0; fi
-[ "$want" = "$have" ] || echo "MISMATCH: source ComputeMask=$want, provider LogitMask=$have"
+P=<prebuilt>/libGemmaModelConstraintProvider.dylib   # or .so / .dll — ONE file
+if [ ! -f "$H" ] || [ ! -s "$P" ]; then
+  echo "cannot check: need both $H and a non-empty $P"
+elif [ "$(grep -q ComputeMask "$H" && echo 1 || echo 0)" \
+     = "$(grep -q LogitMask "$P" && echo 1 || echo 0)" ]; then
+  echo "provider ABI: source and provider agree"
+else
+  echo "MISMATCH — every tool call on that platform would segfault"
+fi
 ```
+
+Three things this shape is deliberate about: `grep` reads the binary directly
+(`strings … | grep -q` exits at the first match and, under `set -o pipefail`,
+the SIGPIPE makes the whole pipeline report failure — the guard then says "no
+LogitMask" for every provider that has one); it names ONE file rather than a
+glob, because a glob over a directory holding both a `.so` and a `.dylib`
+answers for the union; and it prints rather than `exit`s, because you paste it
+into your own shell.
 
 Two-sided, and `-f` first, for the same reason the CI guard is: a provider
 OLDER than the runtime segfaults, a NEWER one segfaults the same way from the

@@ -19,12 +19,12 @@ class ModelChoice {
 
   /// Which family's function-call format the SDK should read and write.
   ///
-  /// This is not decoration. `ModelType.functionGemma` selects
-  /// `FunctionGemmaCallFormat`, which renders the tool declarations into a
-  /// developer turn and parses `<start_function_call>call:name{…}` back out
-  /// again. Name a different family and the SDK writes a prompt these weights
-  /// were never trained on and looks for a call in a syntax they never emit —
-  /// so every turn comes back as plain text and nothing says why.
+  /// This is not decoration. On a `.litertlm`, `ModelType.functionGemma` puts
+  /// the chat on the runtime's tool path: LiteRT-LM renders the declarations
+  /// into the developer turn these weights were trained on, and hands the call
+  /// back already parsed. Name a different family and the model is served a
+  /// prompt it never saw, in a syntax it never emits — so every turn comes
+  /// back as plain text and nothing says why.
   final ModelType modelType;
 
   final String sizeLabel;

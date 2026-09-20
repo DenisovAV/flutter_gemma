@@ -61,7 +61,7 @@ call. That is the rule the loop in Step 3 exists to keep.
 * why every committed call must be answered on every exit path, including the
   ones you did not plan for
 * what `toolChoice` actually changes — and, on both models here, what it does
-  not: neither can be forced to call, for two different reasons
+  not: neither can be forced to call, and on a `.litertlm` for the same reason
 * how to fine-tune a 270M model on your own tools with **litetune**, convert it
   to `.litertlm`, and measure what the conversion cost
 * that a model you tuned loads through the same API as one you downloaded —
@@ -163,7 +163,7 @@ A tool the model can call is made of three parts, and it helps to name them
 before any of them appear on screen.
 
 **The declaration** is a `Tool`: a name, a description, and a JSON Schema for
-the arguments. It holds no code and it cannot run. The SDK renders it into the
+the arguments. It holds no code and it cannot run. The runtime renders it into the
 prompt; the model reads it and nothing else. The description is not a comment —
 it is the only thing that tells the model *when* this is the right function.
 
@@ -221,12 +221,12 @@ that decides whether any of them work:
   );
 ```
 
-`ModelType.functionGemma` is the line to pause on. It selects the format the
-SDK writes *and* reads: the declarations go into a developer turn these weights
-were trained on, and `<start_function_call>call:multiply{…}` is parsed back
-into a `FunctionCallResponse`. Name a different family and the SDK writes a
-prompt the model never saw and waits for a syntax it never emits — every turn
-comes back as plain text and nothing says why.
+`ModelType.functionGemma` is the line to pause on. On a `.litertlm` it puts the
+chat on the runtime's tool path: LiteRT-LM renders the declarations into the
+developer turn these weights were trained on, and hands the call back already
+parsed as a `FunctionCallResponse`. Name a different family and the model is
+served a prompt it never saw, in a syntax it never emits — every turn comes
+back as plain text and nothing says why.
 
 ### Declare the function
 
@@ -796,6 +796,8 @@ const backgroundTool = Tool(
   parameters: {
     'type': 'object',
     'properties': {
+      // The model reads the list. Leaving it out is how you get a call for a
+      // colour this app has never heard of.
       'color': {
         'type': 'string',
         'description': 'One of: red, green, blue, yellow, purple, orange.',
@@ -811,9 +813,13 @@ knows that a model was involved — the page reads the same result map the model
 is shown:
 
 ```dart
-final result = runTool(call);
-final painted = backgroundFrom(result);   // null unless this call set a colour
-if (painted != null) _background = painted;
+    final result = runTool(call);
+    // The app reacts to the answer it just produced, rather than to the call:
+    // one map is the model's knowledge and the screen's, so they cannot drift.
+    final painted = backgroundFrom(result);
+    if (mounted) {
+      setState(() {
+        if (painted != null) _background = painted;
 ```
 
 One answer, two readers. The model writes its sentence from that map and the
@@ -896,9 +902,9 @@ declaration renders two ways.
         // forwards `tools` to `createSession` without consulting this — so
         // `none` cannot take them back out. What it switches off is the SDK's
         // suppression of tool-call JSON, which is why a call made under `none`
-        // can arrive as raw markup in the bubble. On a `.task` model the SDK
-        // writes the declarations into the prompt itself, and there `none`
-        // really does leave them out.
+        // can arrive as raw markup in the bubble. On a `.task` FunctionGemma
+        // the SDK writes the declarations into the prompt itself, and there
+        // `none` really does leave them out.
         toolChoice: _toolChoice,
 ```
 
@@ -912,8 +918,11 @@ format actually puts on the wire.
 On a `.task` FunctionGemma through MediaPipe it is a different story: there the
 SDK writes the declarations into the prompt text itself, so `none` really does
 leave them out and the model never learns the tools exist. Same switch, two
-meanings, decided by the file type — and not by the model alone, since a
-`.task` Gemma 4 stays on the runtime's path either way.
+meanings, decided by the file type and the family together. The fourth
+combination is the one to know about: a `.task` Gemma 4 is a passthrough model
+on a runtime that has no tool path, and MediaPipe never forwards `tools` to the
+session — so its declarations are written by nobody, whatever `toolChoice`
+says.
 
 Switch to `required` and **neither** model obeys it. The app says so rather
 than leaving you to wonder:

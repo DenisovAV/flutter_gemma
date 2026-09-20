@@ -134,9 +134,9 @@ class _ChatPageState extends State<ChatPage> {
         // forwards `tools` to `createSession` without consulting this — so
         // `none` cannot take them back out. What it switches off is the SDK's
         // suppression of tool-call JSON, which is why a call made under `none`
-        // can arrive as raw markup in the bubble. On a `.task` model the SDK
-        // writes the declarations into the prompt itself, and there `none`
-        // really does leave them out.
+        // can arrive as raw markup in the bubble. On a `.task` FunctionGemma
+        // the SDK writes the declarations into the prompt itself, and there
+        // `none` really does leave them out.
         toolChoice: _toolChoice,
         // Reason first, then answer. On weights with no thinking training this
         // buys nothing, which is why the switch is disabled for those.

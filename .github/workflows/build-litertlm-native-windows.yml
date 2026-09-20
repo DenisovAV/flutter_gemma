@@ -165,10 +165,9 @@ jobs:
         run: |
           New-Item -ItemType Directory -Path artifacts -Force
           Copy-Item C:\LiteRT-LM\bazel-bin\c\libLiteRtLm.dylib artifacts\LiteRtLm.dll
-          # LiteRtLm.dll must carry its own C++ runtime (#456). Check the binary,
-          # not the flag: Bazel ignores an unknown --features name. KERNEL32 is
-          # the positive control - without it dumpbin read nothing, and "no
-          # runtime import" would pass vacuously.
+          # The CRT check for #456 runs at the END of this step, once every DLL
+          # is in artifacts\ — see "the allow-list is what a Flutter Windows
+          # app already ships" below.
           Copy-Item StreamProxy.dll artifacts\
           $prebuilt = 'C:\LiteRT-LM\prebuilt\windows_x86_64'
           # No `else` used to mean a missing companion shipped silently. With
@@ -339,14 +338,20 @@ jobs:
           # ran before StreamProxy and the dispatch were copied and skipped
           # them with a silent `continue`, which is the same vacuity it was
           # written to remove. Missing now means the build is broken: throw.
-          # LiteRtDispatch links OpenVINO's C++ API and must keep the dynamic
-          # CRT, but only the three DLLs the VC++ 2015-2022 redistributable
-          # installs; vcruntime140_threads needs 14.38+, which a clean Windows
-          # does not have (#456).
+          # The allow-list is what a Flutter Windows app already ships beside its
+          # exe, NOT what the redistributable installs — the redist also carries
+          # vcruntime140_threads.dll, and needing that is exactly #456. Checked
+          # over every DLL in the bundle, not only ours: openvino/tbb come from
+          # Intel's SDK and an SDK bump is precisely how a new CRT import would
+          # arrive unnoticed. LiteRtLm must import none at all; LiteRtDispatch
+          # links OpenVINO's C++ API and keeps the dynamic CRT.
           $allowed = @('msvcp140.dll', 'vcruntime140.dll', 'vcruntime140_1.dll')
-          foreach ($ours in @('LiteRtLm.dll', 'LiteRtDispatch.dll', 'StreamProxy.dll')) {
+          $shipped = @(Get-ChildItem artifacts\*.dll | ForEach-Object { $_.Name })
+          foreach ($must in @('LiteRtLm.dll', 'LiteRtDispatch.dll', 'StreamProxy.dll')) {
+            if ($shipped -notcontains $must) { throw "$must is not in artifacts - this step should have copied it" }
+          }
+          foreach ($ours in $shipped) {
             $path = "artifacts\$ours"
-            if (-not (Test-Path $path)) { throw "$ours is not in artifacts - this step should have copied it" }
             $deps = dumpbin /dependents $path
             if (-not ($deps -match '^\s+KERNEL32\.dll')) {
               throw "dumpbin listed no imports for ${ours}:`n$($deps -join "`n")"
@@ -357,7 +362,7 @@ jobs:
               throw "LiteRtLm.dll imports the VC++ runtime: $($crt -join ', ') - static_link_msvcrt did not apply"
             }
             if ($bad.Count -gt 0) {
-              throw "$ours imports a VC++ runtime the redistributable does not install: $($bad -join ', ')"
+              throw "$ours imports a VC++ runtime a Flutter Windows app does not ship: $($bad -join ', ')"
             }
             Write-Host "$ours CRT imports: $(if ($crt.Count) { $crt -join ', ' } else { 'none' })"
           }

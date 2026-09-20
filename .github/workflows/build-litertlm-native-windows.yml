@@ -15,10 +15,10 @@ on:
       litertlm_version:
         description: 'LiteRT-LM ref (tag, branch, or commit SHA)'
         required: true
-      prebuilt_ref:
-        description: 'Upstream ref to take prebuilt companion libs from (default: 4453b286, the first refresh with the new Constraint ABI)'
-        required: false
         default: 'e9fd8c53ff968071774206163027dd84bedfe925'
+      prebuilt_ref:
+        description: 'Upstream ref to take prebuilt companion libs from (blank = 4453b286, the first refresh with the new Constraint ABI)'
+        required: false
 
 jobs:
   build-windows-x86_64:

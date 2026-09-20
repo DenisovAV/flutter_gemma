@@ -54,7 +54,7 @@ silently do the other thing.
    is what reading the flagged skills is for. Step 12d is the release backstop,
    not the first time this happens.
 
-### Definition of Done (paste it; check 1a–12b before Step 10 publish; 12c is verified after merge)
+### Definition of Done (paste it; check 1a–8b before Step 10 publish; 10b right after it; 12a/12b belong to the release PR and 12c is verified after merge)
 
 ```
 [ ] Pre-flight: git clean · analyze 0 err · flutter test green · build web + one native target
@@ -641,35 +641,51 @@ dart pub publish --force      # only after user approval; --force is non-interac
 
 ## Step 10b: Run the Codelabs workflow — after the publish, not before
 
-The codelab step apps depend on **published** packages (`flutter_gemma: ^1.8.4`),
-not on `path:` siblings, so their check validates the world users install from
-rather than this repo's tree. Two things follow, and both bit this release:
+The codelab step apps depend on **published** packages — a hosted constraint
+such as `flutter_gemma: ^1.8.3`, never a `path:` sibling — so their check
+validates the world users install from rather than this repo's tree. (Floors
+differ per codelab: at 1.8.4 twenty step apps pinned `^1.8.3` and four `^1.8.4`,
+so "the codelabs" are never all on the version you just published.) Two things
+follow, and both bit this release:
 
 1. **It is legitimately red between the release merge and the publish.** The
    floors on the branch name versions that do not exist on pub.dev yet, so
    `pub get` fails with `… which doesn't match any versions, version solving
    failed`. That is a correct report, not a defect — do not "fix" it, and do not
    merge a lower floor to make it green.
-2. **Nothing re-runs it for you.** Its `push` trigger is path-filtered to
-   `codelabs/**`, `tool/**` and its own workflow file, and a release rarely
-   touches any of them — the merge that publishes new versions produces no
-   Codelabs run at all. The nightly `cron: '0 3 * * *'` is what would eventually
+2. **Nothing re-runs it for you.** Whatever run the release merge produces
+   measures the PRE-publish world, and no later event re-measures it. Either the
+   merge touched `codelabs/**` (or `tool/**`, or the workflow file) and you get
+   one red run from before the packages existed — 1.8.4's merge touched 555
+   files under `codelabs/` and did exactly that — or it touched none of them and
+   the push filter yields no run whatsoever, as the two follow-up merges in that
+   same release did. The nightly `cron: '0 3 * * *'` is what would eventually
    catch it, which is too late to be part of the release.
 
-So run it by hand once the new versions are actually being served. `dart pub
-publish` warns that a version takes up to 10 minutes to become available, and a
-re-run started a minute after the upload fails again on the same constraint —
-the resolver has not seen it yet:
+So run it by hand once the new versions are actually being served. Uploaded is
+not served: pub.dev answers a successful publish with *"it may take up-to 10
+minutes before the new version is available"*, and a run started a minute after
+the upload fails again on the same constraint — the resolver has not seen it
+yet.
 
 ```bash
-# 1. is the version actually served, not merely uploaded?
-#    prints 1 when pub.dev serves it, 0 (and exit 1) while it does not
-curl -s https://pub.dev/api/packages/<pkg> | grep -c '"version":"<X.Y.Z>"'
+# 1. is the version SERVED, not merely uploaded? Parse the version list rather
+#    than grepping the body: `grep -c` counts LINES (the string also appears
+#    under `latest`), and `curl -s` without -f pipes an HTTP error body into it.
+curl -sf https://pub.dev/api/packages/<pkg> \
+  | python3 -c "import sys,json;print('<X.Y.Z>' in {v['version'] for v in json.load(sys.stdin)['versions']})"
 # 2. only then DISPATCH a run against main as it stands now
 gh workflow run codelabs.yml --ref main
-gh run list --workflow codelabs.yml --branch main --limit 1 \
-  --json databaseId,event,headSha --jq '.[0]'
+# 3. find THAT run — --branch alone also matches the push and schedule runs
+gh run list --workflow codelabs.yml --branch main --event workflow_dispatch \
+  --limit 1 --json databaseId,headSha,status --jq '.[0]'
 ```
+
+Two readings to get right: an empty result from (3) means the run has not been
+registered yet — it appears a few seconds after the dispatch — not that the
+dispatch failed. And a traceback from (1) means the fetch failed (`curl -f`
+passed nothing on), not that the version is missing; a missing version prints
+`False`.
 
 **Dispatch, do not re-run.** `gh run rerun` replays the tree of the commit that
 run was created from — and by the point above, that commit is NOT the release:
@@ -678,10 +694,10 @@ merges back. A `workflow_dispatch` on `--ref main` is the only form that tests
 what main holds now. Re-running the old run is right only when you deliberately
 want that older tree re-measured against the new pub.dev state.
 
-Filter by `--branch main` when looking a run up: unfiltered, `gh run list`
-interleaves `pull_request` runs from every open branch, and the top row during a
-release is usually somebody's PR — re-running that one measures nothing and
-confuses its author.
+Filter the lookup, do not take the top row: unfiltered, `gh run list`
+interleaves `pull_request` runs from every open branch — during the 1.8.4
+release four of the five newest rows belonged to one feature branch's PR, and
+acting on that row measures nothing and confuses its author.
 
 Its concurrency group keys on the event, so a dispatched run cannot cancel the
 nightly `schedule` one either.

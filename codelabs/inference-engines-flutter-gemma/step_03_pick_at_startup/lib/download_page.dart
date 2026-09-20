@@ -212,8 +212,8 @@ class _ErrorCard extends StatelessWidget {
             if (model.isBuiltIn) ...[
               const SizedBox(height: 12),
               FilledButton(
-                onPressed: () => onSwitch(Models.gemma3),
-                child: Text('Use ${Models.gemma3.label} instead'),
+                onPressed: () => onSwitch(Models.downloaded),
+                child: Text('Use ${Models.downloaded.label} instead'),
               ),
             ],
           ],

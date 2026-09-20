@@ -31,6 +31,12 @@
 
   <title>Gemma Hybrid AI</title>
   <link rel="manifest" href="manifest.json">
+
+  <!-- flutter_gemma web model storage: required once Step 3 adds
+       flutter_gemma — installModel()/installEmbedder() on web call into
+       these for persistent Cache Storage / OPFS. -->
+  <script src="cache_api.js"></script>
+  <script src="opfs_helper.js"></script>
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>

@@ -40,8 +40,13 @@ By the end you will have:
 * One coding assistant that reads Agent Skills: Antigravity, Claude Code, Codex,
   Cursor, GitHub Copilot, Cline or OpenCode. Step 2 covers each of them, and
   Antigravity and Claude Code in detail
-* Any one of Flutter's six platforms to run the result on
-* About 3 GB of free space: Gemma 4 E2B is 2.6 GB on a device, 2.0 GB on the web
+* Any one of Flutter's six platforms to run the result on. On **Android** it has
+  to be an arm64 device or emulator: `flutter_gemma_litertlm` ships an arm64
+  library and nothing else, so a 32-bit or x86_64 image has no runtime to load
+  (an Apple-silicon Mac's emulator is arm64)
+* About 3.5 GB of free space: Gemma 4 E2B is 2.6 GB on a device and 2.0 GB on
+  the web, and neither a phone nor a browser near its storage limit takes a
+  write that only just fits, so leave headroom
 
 You do not need to have done
 [Getting Started](/codelabs/getting-started-flutter-gemma). It helps to have seen
@@ -106,10 +111,15 @@ It shows one line of text and nothing else. That is the whole app:
   CLI needs — if you skip this run, do a `flutter pub get` before Step 2.
 * **The platform setup is already done**: Android's internet permission and
   `minSdk 30`, iOS 15 and its three memory entitlements, the two macOS
-  entitlements and the `post_install` block in `macos/Podfile`, and the script tag
-  in `web/index.html`. [Getting Started](/codelabs/getting-started-flutter-gemma)
-  explains each one. They are here so that when the assistant's code fails, it is
-  the code — not a missing entitlement that looks the same from outside.
+  entitlements and the `post_install` block in `macos/Podfile`, and
+  `web/index.html`'s three script tags — the `@litert-lm/core` handshake plus
+  `cache_api.js` and `opfs_helper.js`, the two scripts core's web model storage
+  reaches for. What they buy you is storage, not a lasting install: the bytes
+  survive a reload in OPFS, the app's handle on them does not, so a reloaded
+  tab reports the model installed and downloads it again anyway.
+  [Getting Started](/codelabs/getting-started-flutter-gemma) explains each one.
+  They are here so that when the assistant's code fails, it is the code — not a
+  missing entitlement that looks the same from outside.
 
 One macOS caveat carries over from Getting Started: with Swift Package Manager
 enabled and no other CocoaPods plugin in the app, Flutter drops the Podfile, its
@@ -307,15 +317,24 @@ The engine package does not re-export the core. Import only the second and
 `FlutterGemma` is an undefined name — the one mistake on this list the compiler
 does catch.
 
-**2. The engine is registered.**
+**2. The engine is registered, and web storage is set for a 2 GB model.**
 
 ```dart
-await FlutterGemma.initialize(inferenceEngines: [LiteRtLmEngine()]);
+await FlutterGemma.initialize(
+  webStorageMode: WebStorageMode.streaming,
+  inferenceEngines: [LiteRtLmEngine()],
+);
 ```
 
-The core registers no engine of its own. Leave this out and the app builds, the
-download works, and the first `getActiveModel()` throws a `StateError` asking for
-an engine package.
+The core registers no engine of its own. Leave `inferenceEngines` out and the
+app builds, the download works, and the first `getActiveModel()` throws a
+`StateError` asking for an engine package. On web, leave `webStorageMode` out
+and the default `cacheApi` mode buffers the whole download in memory as one
+blob — and browsers cap a single blob at roughly 2 GB, Chrome refusing past it
+with `ERR_BLOB_OUT_OF_MEMORY`. Gemma 4 E2B's web build is 2.0 GB, right on
+that line: close enough that this codelab streams. `streaming` writes the
+download into OPFS and reads the model back from there instead; native
+platforms ignore the option.
 
 **3. The file type is declared.**
 
@@ -344,9 +363,11 @@ final chat = await inference.createChat(
 ```
 
 `maxTokens` is the whole context window — prompt, history and reply together. An
-assistant told to keep replies short reaches for `maxTokens: 100`; on `.litertlm`
-that is raised back to 1024 with a warning in the log, and the replies are as long
-as before. The reply is capped with `maxOutputTokens`.
+assistant told to keep replies short reaches for `maxTokens: 100`; on native
+`.litertlm` that is raised back to 1024 with a debug-log warning, and the replies
+are as long as before. The web `.litertlm` engine does not use the value at
+all — same replies, no warning either. The reply is capped with
+`maxOutputTokens` on every platform.
 
 **5. The user's message says it is from the user.**
 

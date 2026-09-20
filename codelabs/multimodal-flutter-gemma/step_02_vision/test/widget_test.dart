@@ -8,11 +8,17 @@ void main() {
   // already has, so a name that drifts from its URL does not re-download — it
   // strands the app on a download screen the gate is never satisfied by. It is
   // a cheap mistake to make here and an expensive one to carry into Step 3,
-  // where the same gate stands in front of 2.59 GB.
-  test('the model id matches the last segment of its URL', () {
-    const model = Models.smolVlm2;
-    expect(model.fileName, model.url.split('/').last, reason: model.label);
-  });
+  // where the same gate stands in front of 2.59 GB. Checked for both builds
+  // directly — `kIsWeb` is false in this VM test, so `model.url`/`model.fileName`
+  // alone would never exercise the web pair.
+  test(
+    'each build of the model is installed under the file its URL fetches',
+    () {
+      const model = Models.smolVlm2;
+      expect(model.nativeFileName, model.nativeUrl.split('/').last);
+      expect(model.webFileName, model.webUrl.split('/').last);
+    },
+  );
 
   testWidgets('the download screen offers the model before any plugin call', (
     tester,

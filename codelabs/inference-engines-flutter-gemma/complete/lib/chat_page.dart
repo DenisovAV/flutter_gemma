@@ -145,7 +145,7 @@ class _ChatPageState extends State<ChatPage> {
   /// something a `catch` around the tap could reach. So ask here and drop the
   /// entry instead. Windows and Linux have no built-in arm at all.
   List<ModelChoice> get _alternatives {
-    final all = <ModelChoice>[Models.gemma3, Models.qwen3];
+    final all = <ModelChoice>[...Models.downloadable];
     try {
       all.add(Models.builtIn);
     } on UnsupportedError {

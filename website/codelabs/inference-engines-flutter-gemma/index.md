@@ -53,6 +53,9 @@ point.
   `chrome://flags/#prompt-api-for-gemini-nano` for local development, an
   [origin trial](https://developer.chrome.com/origintrials) token for a real
   site). One of those lets you watch both engines answer
+* On **Android**, an arm64 device or emulator: `flutter_gemma_litertlm` ships an
+  arm64 library and nothing else, so a 32-bit or x86_64 image has no runtime to
+  load. An Apple-silicon Mac's emulator is arm64
 * Chrome has a hardware floor for its copy of Nano that the flag does not lift.
   `flutter_gemma_builtin_ai` states it as **~22 GB of free disk and a GPU with
   more than 4 GB of VRAM**, or a CPU-only path on a machine with 16 GB of RAM.
@@ -85,8 +88,8 @@ Duration: 5
 ### Before you run
 
 The downloaded model in this codelab — the one every fallback path lands on —
-is Gemma 3 1B, and its Hugging Face repository is behind a licence gate. Accept
-the terms on the
+is `Models.downloaded`, and on every native platform that is Gemma 3 1B, whose
+Hugging Face repository is behind a licence gate. Accept the terms on the
 [model page](https://huggingface.co/litert-community/Gemma3-1B-IT) once, create
 a read token in your Hugging Face settings, and start every run with it:
 
@@ -98,9 +101,17 @@ flutter run --dart-define=HF_TOKEN=hf_your_token
 Step 2. Without the token the download 401s — and since a device without a
 built-in model takes the fallback path, that is most devices. If you would
 rather not have a Hugging Face account, `Models.qwen3` in `model.dart` is
-ungated. The fallback is named in two places — the startup policy in
-`main.dart` and the setup screen's **Use … instead** button in
-`download_page.dart` — so repoint both.
+ungated. The fallback is named in exactly one place — the `Models.downloaded`
+getter in `model.dart` — so repoint that one line and every fallback path picks
+it up: the startup policy in `main.dart`, the setup screen's **Use … instead**
+button in `download_page.dart`, and the chat's switch-model menu.
+
+On the **web** this question does not come up: the browser engine
+(`@litert-lm/core`) only runs a `.litertlm` file exported for it, and neither
+Gemma 3 1B nor Qwen3 has one — the native files install fine and then fail at
+engine creation. `Models.downloaded` already resolves to `Models.gemma4Web`
+there (the same web build [Getting Started](/codelabs/getting-started-flutter-gemma)
+uses), so nothing to repoint and no token needed.
 
 ### One list of engines
 
@@ -111,6 +122,7 @@ Open `step_01_starter` and run it. It is the Getting Started app: download a
 await FlutterGemma.initialize(
   inferenceEngines: [LiteRtLmEngine()],
   huggingFaceToken: _hfToken.isEmpty ? null : _hfToken,
+  webStorageMode: WebStorageMode.streaming,
 );
 ```
 
@@ -183,12 +195,19 @@ by itself.
 
 ```dart
 await FlutterGemma.initialize(
+  webStorageMode: WebStorageMode.streaming,
   inferenceEngines: [LiteRtLmEngine(), const BuiltInAiEngine()],
   huggingFaceToken: _hfToken.isEmpty ? null : _hfToken,
 );
 ```
 
-Two engines, side by side. Neither knows about the other.
+Two engines, side by side. Neither knows about the other. `webStorageMode:
+WebStorageMode.streaming` matters only on the web: it stores a downloaded
+`.litertlm` in OPFS and reads it back as a stream, rather than buffering the
+whole file in memory as one Cache API blob. Browsers cap a single blob at
+roughly 2 GB — Chrome refuses past it with `ERR_BLOB_OUT_OF_MEMORY` — and the
+web model here is 2.0 GB, right on that line. Close enough that every codelab
+in this series streams. Native platforms ignore the option entirely.
 
 ### Rename these first
 
@@ -441,7 +460,10 @@ error card pattern-matches the status and renders a sentence instead: where the
 toggle lives for a disabled feature, that the OS is older than the model
 requires, or else the status itself.
 
-Under that sentence sits a **Use Gemma 3 1B instead** button, because a retry
+Under that sentence sits a **Use … instead** button, its label pulled straight
+from `Models.downloaded.label` — **Use Gemma 3 1B instead** on native
+platforms, **Use Gemma 4 E2B (web build) instead** in the browser — because a
+retry
 rarely helps here: only `unavailableDisabled` can change after you flip the
 setting it names; for every other status the OS either has a model or it does
 not, and pressing **Use built-in model** again reproduces the exception. The
@@ -468,7 +490,7 @@ Future<void> _pickAtStartup() async {
   try {
     builtIn = Models.builtIn;
   } on UnsupportedError {
-    if (mounted) setState(() => _choice = Models.gemma3);
+    if (mounted) setState(() => _choice = Models.downloaded);
     return;
   }
 
@@ -486,7 +508,7 @@ Future<void> _pickAtStartup() async {
     BuiltInAiAvailability.available ||
     BuiltInAiAvailability.downloadable ||
     BuiltInAiAvailability.downloading => builtIn,
-    _ => Models.gemma3,
+    _ => Models.downloaded,
   };
   if (mounted) setState(() => _choice = choice);
 }
@@ -532,8 +554,8 @@ The manual switch from Step 2 stays in the menu, so you can override the app's
 choice and compare. Neither route is one-way. When the probe lands the app on
 the built-in setup screen — for `downloadable` as much as for a switch you made
 by hand — and `ensureReady()` then fails there, however it fails — a typed
-status, or the ten-minute wait on a fetch that never finishes — the error card's **Use Gemma 3
-1B instead** button hands the app back to the downloaded model. Without it the
+status, or the ten-minute wait on a fetch that never finishes — the error card's
+**Use … instead** button hands the app back to the downloaded model. Without it the
 only control on that screen would re-run the same failure, and on a
 `downloadable` device even a restart would probe the same status and land you
 there again.
@@ -552,7 +574,7 @@ try {
 } on UnsupportedError {
   if (mounted) {
     setState(() {
-      _choice = Models.gemma3;
+      _choice = Models.downloaded;
       _reason =
           'No built-in model on this platform — using a downloaded model.';
     });
@@ -573,11 +595,11 @@ final (choice, reason) = switch (status) {
     'The OS has a built-in model; it will fetch the feature once.',
   ),
   BuiltInAiAvailability.unavailableDisabled => (
-    Models.gemma3,
+    Models.downloaded,
     'Built-in AI is turned off on this device — using a downloaded model.',
   ),
   _ => (
-    Models.gemma3,
+    Models.downloaded,
     'No built-in model here ($status) — using a downloaded model.',
   ),
 };
@@ -606,6 +628,9 @@ That is the finished app. Run `complete` on whatever you have:
   this platform — using a downloaded model*, and Gemma downloads the same way.
   Not a failure: it is the fallback working, and it is the one branch you can
   see without owning the hardware
+* Chrome without the Prompt API flag or origin trial → the same fallback, but
+  the model that downloads is `Models.gemma4Web` (2.0 GB, ungated) rather than
+  Gemma 3 1B — the browser engine cannot open the native file at all
 
 Same chat page every way.
 
@@ -622,7 +647,9 @@ extends further than these two engines:
   Transformers.js
 * **LiteRT-LM** — the engine you already registered — has a **web** arm too,
   running `.litertlm` in the browser through `@litert-lm/core`, which is what
-  makes this app's fallback work in Chrome as well
+  makes this app's fallback work in Chrome as well. It only runs a `.litertlm`
+  file exported for the browser, though — `Models.downloaded` is
+  `Models.gemma4Web` there, not `Models.gemma3`, for exactly that reason
 
 Each registers the same way and answers through the same chat code.
 

@@ -3,9 +3,9 @@ name: Codelabs
 on:
   push:
     branches: [main]
-    paths: ['codelabs/**', 'tool/check_codelabs.sh', '.github/workflows/codelabs.yml']
+    paths: ['codelabs/**', 'tool/**', '.github/workflows/codelabs.yml']
   pull_request:
-    paths: ['codelabs/**', 'tool/check_codelabs.sh', '.github/workflows/codelabs.yml']
+    paths: ['codelabs/**', 'tool/**', '.github/workflows/codelabs.yml']
   # The step apps pin published packages, so they can break without anyone
   # touching this repo. A nightly run is what catches that.
   schedule:

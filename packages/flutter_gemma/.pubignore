@@ -70,6 +70,12 @@ example/web/models/
 example/web/wasm/
 example/web/*.js
 example/web/*.wasm
+# ...and the wasm one level deeper: the `*` above does not cross a `/`, so this
+# 800 KB binary rode along in every release. It belongs to
+# flutter_gemma_rag_sqlite — which ships its own copy, and is where the docs
+# send you — and here it is read only by example/integration_test/, which this
+# file already excludes.
+example/web/rag/
 example/web/*.model
 !example/web/index.html
 !example/web/manifest.json

@@ -1,5 +1,6 @@
 ## 1.8.4
 - FunctionGemma on `.litertlm` answers a tool result instead of repeating the call.
+- Drop the example's 800 KB sqlite-vec wasm from the published archive.
 
 ## 1.8.3
 - Inference skill: NPU needs a Gemma 4 bundle; Gemma 3 drops prefill chunks silently.

@@ -77,7 +77,7 @@ silently do the other thing.
 [ ] 8b  native bundle moved? → litertlm_native_tools_test.dart green on every
         platform in the release (the smoke suite never passes a tool), else N/A
 [ ] 10b  after publishing: pub.dev actually SERVES the new versions (its API
-        lags minutes behind the upload), then re-run the Codelabs workflow
+        lags minutes behind the upload), then dispatch Codelabs on main
 [ ] 12a website + README version pins bumped to the just-published versions
 [ ] 12b new/changed public API + behavior documented (README + website)  ← SAME PR
 [ ] 12d skills/: `skills_review.sh <last-tag>` run, every flagged skill READ,
@@ -639,7 +639,7 @@ dart pub publish --dry-run    # verify once more (expect 0 warnings on a clean m
 dart pub publish --force      # only after user approval; --force is non-interactive
 ```
 
-## Step 10b: Re-run the Codelabs workflow — after the publish, not before
+## Step 10b: Run the Codelabs workflow — after the publish, not before
 
 The codelab step apps depend on **published** packages (`flutter_gemma: ^1.8.4`),
 not on `path:` siblings, so their check validates the world users install from
@@ -656,21 +656,35 @@ rather than this repo's tree. Two things follow, and both bit this release:
    Codelabs run at all. The nightly `cron: '0 3 * * *'` is what would eventually
    catch it, which is too late to be part of the release.
 
-So re-run it by hand once the new versions are actually being served. `dart pub
+So run it by hand once the new versions are actually being served. `dart pub
 publish` warns that a version takes up to 10 minutes to become available, and a
 re-run started a minute after the upload fails again on the same constraint —
 the resolver has not seen it yet:
 
 ```bash
 # 1. is the version actually served, not merely uploaded?
+#    prints 1 when pub.dev serves it, 0 (and exit 1) while it does not
 curl -s https://pub.dev/api/packages/<pkg> | grep -c '"version":"<X.Y.Z>"'
-# 2. only then re-run the last Codelabs run
-gh run list --workflow codelabs.yml --limit 1 --json databaseId --jq '.[0].databaseId'
-gh run rerun <id> --failed
+# 2. only then DISPATCH a run against main as it stands now
+gh workflow run codelabs.yml --ref main
+gh run list --workflow codelabs.yml --branch main --limit 1 \
+  --json databaseId,event,headSha --jq '.[0]'
 ```
 
-Its concurrency group keys on the event, so a manual re-run of the `push` run
-cannot cancel the nightly `schedule` one.
+**Dispatch, do not re-run.** `gh run rerun` replays the tree of the commit that
+run was created from — and by the point above, that commit is NOT the release:
+the last Codelabs run is whatever last touched `codelabs/**`, often several
+merges back. A `workflow_dispatch` on `--ref main` is the only form that tests
+what main holds now. Re-running the old run is right only when you deliberately
+want that older tree re-measured against the new pub.dev state.
+
+Filter by `--branch main` when looking a run up: unfiltered, `gh run list`
+interleaves `pull_request` runs from every open branch, and the top row during a
+release is usually somebody's PR — re-running that one measures nothing and
+confuses its author.
+
+Its concurrency group keys on the event, so a dispatched run cannot cancel the
+nightly `schedule` one either.
 
 ## Step 11: Optional — GitHub plugin release
 

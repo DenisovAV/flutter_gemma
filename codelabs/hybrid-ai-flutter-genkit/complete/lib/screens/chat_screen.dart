@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:genkit/genkit.dart';
 import 'package:image_picker/image_picker.dart';
@@ -27,6 +28,10 @@ class _ChatScreenState extends State<ChatScreen> {
   String _statusMessage = 'Initializing...';
 
   bool _ragReady = false;
+  // Set on web only — on-device embeddings need LiteRT.js's WASM runtime,
+  // which no published package ships yet (see AiEngine.initialize). Read by
+  // the banner in build() so RAG shows as unavailable, not silently absent.
+  String? _ragUnavailableReason;
 
   late final AiEngine _engine;
   RagService? _ragService;
@@ -65,21 +70,29 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     if (_engine.localReady) {
-      try {
-        if (mounted) setState(() => _statusMessage = 'Setting up RAG...');
-        final rag = RagService(
-          ai: _engine.ai,
-          embedderName: _engine.embedderName,
-        );
-        await rag.initialize(
-          onStatus: (s) {
-            if (mounted) setState(() => _statusMessage = s);
-          },
-        );
-        _ragService = rag;
-        _ragReady = true;
-      } catch (e) {
-        debugPrint('RAG init failed: $e');
+      if (kIsWeb) {
+        // Don't even try: AiEngine registers no embedding backend on web,
+        // so RagService.initialize() would just fail on the first embed
+        // call. Report why up front instead of via a caught exception.
+        _ragUnavailableReason =
+            'RAG needs a WASM runtime not yet published for web';
+      } else {
+        try {
+          if (mounted) setState(() => _statusMessage = 'Setting up RAG...');
+          final rag = RagService(
+            ai: _engine.ai,
+            embedderName: _engine.embedderName,
+          );
+          await rag.initialize(
+            onStatus: (s) {
+              if (mounted) setState(() => _statusMessage = s);
+            },
+          );
+          _ragService = rag;
+          _ragReady = true;
+        } catch (e) {
+          debugPrint('RAG init failed: $e');
+        }
       }
     }
 
@@ -302,6 +315,31 @@ class _ChatScreenState extends State<ChatScreen> {
               },
             ),
           ),
+          if (_ragUnavailableReason != null)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    size: 16,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'RAG unavailable: $_ragUnavailableReason',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           if (_lastRagSources.isNotEmpty)
             Container(
               width: double.infinity,

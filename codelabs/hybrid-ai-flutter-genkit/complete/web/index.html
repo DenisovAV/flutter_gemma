@@ -50,13 +50,11 @@ window.litertLmReady = (async () => {
   <!-- OPFS Helper for large model streaming (>2GB) -->
   <script src="opfs_helper.js"></script>
 
-  <!-- flutter_gemma_embeddings web setup: LiteRT.js embedding forward pass
-       (LiteRtEmbeddingBackend, registered in ai_engine.dart) runs via this
-       loader. litert_embeddings.js imports three siblings by relative path
-       (./tensorflow.js, ./litert.js, ./sentencepiece.js) so all four files
-       must live together in web/ — a CDN one-liner for just the entry
-       module 404s on those imports and never executes. -->
-  <script type="module" src="litert_embeddings.js"></script>
+  <!-- No web setup for embeddings: LiteRtEmbeddingBackend (ai_engine.dart)
+       is registered !kIsWeb only. Its forward pass runs via LiteRT.js,
+       which on web needs a WASM bundle (litert_wasm_internal.js + a
+       9.4 MB .wasm) that no published package ships. RAG is native-only
+       for now — see the codelab's "Web setup for embeddings" section. -->
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>

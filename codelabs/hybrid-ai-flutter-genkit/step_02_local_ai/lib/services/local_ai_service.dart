@@ -17,10 +17,6 @@ const String _hfModelFile = kIsWeb
     ? 'gemma-4-E2B-it-web.litertlm'
     : 'Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm';
 const ModelType _modelType = kIsWeb ? ModelType.gemma4 : ModelType.gemmaIt;
-const String _embeddingModelUrl =
-    'https://huggingface.co/litert-community/embeddinggemma-300m/resolve/main/embeddinggemma-300M_seq256_mixed-precision.tflite';
-const String _tokenizerUrl =
-    'https://huggingface.co/litert-community/embeddinggemma-300m/resolve/main/sentencepiece.model';
 
 // Pass at build time: flutter run --dart-define=HF_TOKEN=hf_xxx
 const String _hfToken = String.fromEnvironment('HF_TOKEN');
@@ -70,16 +66,12 @@ class LocalAIService implements AIService {
         .withProgress((p) => onProgress?.call(p)) // p is int 0..100
         .install();
 
-    await FlutterGemma.installEmbedder()
-        .modelFromNetwork(
-          _embeddingModelUrl,
-          token: _hfToken.isNotEmpty ? _hfToken : null,
-        )
-        .tokenizerFromNetwork(
-          _tokenizerUrl,
-          token: _hfToken.isNotEmpty ? _hfToken : null,
-        )
-        .install();
+    // No installEmbedder() call here: this app never computes an embedding
+    // (RagService doesn't exist until Step 6, by which point this whole
+    // file is retired — see Step 4) and initialize() registers no embedding
+    // backend either, so downloading the ~300 MB model here would just be
+    // wasted bandwidth. embedderName/embedders below stay purely
+    // declarative, ready for Step 4's AiEngine to actually install it.
 
     // One Genkit instance for both inference and embeddings.
     _ai = Genkit(

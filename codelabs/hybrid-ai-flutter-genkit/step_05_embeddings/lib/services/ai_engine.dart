@@ -131,6 +131,15 @@ class AiEngine {
     // Test seam: skip the embedder download when RAG isn't exercised.
     bool downloadEmbedder = true,
   }) async {
+    // On-device embeddings need LiteRT.js's WASM runtime
+    // (litert_wasm_internal.js + a 9.4 MB .wasm) — no published package
+    // ships it, and the path it loads from (/wasm/) is hardcoded, so
+    // there's nothing an app can point at today. RAG stays native-only:
+    // don't declare the embedder, don't register its backend, don't
+    // download it. ChatScreen surfaces the reason instead of leaving RAG
+    // silently off.
+    final embeddingsSupported = downloadEmbedder && !kIsWeb;
+
     // Declarative plugin config — always includes the on-device plugin (its
     // models/embedders are looked up by name later, independent of whether
     // the install below actually succeeds).
@@ -144,7 +153,7 @@ class AiEngine {
             fileType: ModelFileType.litertlm,
           ),
         ],
-        embedders: downloadEmbedder
+        embedders: embeddingsSupported
             ? [FlutterGemmaEmbedderConfig(name: kEmbedder)]
             : const [],
       ),
@@ -175,16 +184,18 @@ class AiEngine {
     // now lives inside this try/catch (not before Genkit is built) so an
     // engine-init failure only suppresses localReady, never cloud.
     try {
-      // Opt into LiteRT-LM (.litertlm inference) + its LiteRT embedding
-      // backend. `webStorageMode: streaming` (OPFS-backed) is what the size
-      // demands: the 2.0 GB web build sits right on the ~2 GB blob ceiling
-      // the default cacheApi mode would have to buffer it into, so the
-      // @litert-lm/core engine reads it from OPFS as a ReadableStream.
-      // Ignored on non-web.
+      // Opt into LiteRT-LM (.litertlm inference) +, off web, its LiteRT
+      // embedding backend (see embeddingsSupported above). `webStorageMode:
+      // streaming` (OPFS-backed) is what the size demands: the 2.0 GB web
+      // build sits right on the ~2 GB blob ceiling the default cacheApi
+      // mode would have to buffer it into, so the @litert-lm/core engine
+      // reads it from OPFS as a ReadableStream. Ignored on non-web.
       await FlutterGemma.initialize(
         webStorageMode: WebStorageMode.streaming,
         inferenceEngines: [LiteRtLmEngine()],
-        embeddingBackends: [LiteRtEmbeddingBackend()],
+        embeddingBackends: embeddingsSupported
+            ? [LiteRtEmbeddingBackend()]
+            : const [],
       );
 
       // fileType MUST be litertlm to match the LiteRT-LM engine registered
@@ -214,9 +225,9 @@ class AiEngine {
       localReady = false;
     }
 
-    // EMBEDDER (OPTIONAL): RAG-only, never blocks chat — a failure here must
-    // not flip localReady or rethrow.
-    if (downloadEmbedder && localReady) {
+    // EMBEDDER (OPTIONAL, native-only): RAG-only, never blocks chat — a
+    // failure here must not flip localReady or rethrow.
+    if (embeddingsSupported && localReady) {
       try {
         await FlutterGemma.installEmbedder()
             .modelFromNetwork(

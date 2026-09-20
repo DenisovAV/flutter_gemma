@@ -25,6 +25,11 @@ Asserted per app, and why each oracle is the one it is:
 - Is the `@litert-lm/core` handshake published? A live `<script>` must ASSIGN
   `window.litertLmReady`; the word in prose or in a `//`-commented line is not
   a handshake.
+- An app that ships `litert_embeddings.js` must ship the whole module graph it
+  imports and load it as a module. The rule is "if you ship it, ship it whole",
+  not "if you register the backend, ship it": registering
+  `LiteRtEmbeddingBackend` behind a `!kIsWeb` gate is legitimate — on web the
+  LiteRT.js runtime needs a WASM bundle no published package ships.
 - Does every `FlutterGemma.initialize(` call ask for OPFS streaming? Checked
   per CALL SITE, over that call's own argument list, with Dart comments and
   string literals removed — one compliant call used to license every other
@@ -66,7 +71,6 @@ SCRIPT_ELEMENT = re.compile(
 HANDSHAKE_ASSIGNMENT = re.compile(r"(?:window\s*\.\s*)?litertLmReady\s*=")
 INITIALIZE_CALL = re.compile(r"FlutterGemma\s*\.\s*initialize\s*\(")
 STREAMING_ARG = re.compile(r"webStorageMode:\s*WebStorageMode\s*\.\s*streaming")
-EMBEDDING_BACKEND = re.compile(r"LiteRtEmbeddingBackend\s*\(")
 
 errors: list[str] = []
 root = Path.cwd()
@@ -301,7 +305,9 @@ def check_app(app: Path) -> None:
         if text is not None:
             sources[path] = strip_code_noise(text)
 
-    if any(EMBEDDING_BACKEND.search(code) for code in sources.values()):
+    # Keyed on the entry module being present, not on the Dart registration:
+    # an app may legitimately register the backend on native only.
+    if (app / "web" / "litert_embeddings.js").exists():
         for package, names in EMBEDDINGS_JS.items():
             package_dir = resolved_package_dir(app, package)
             if package_dir is None:
@@ -316,7 +322,10 @@ def check_app(app: Path) -> None:
                 if not source.is_file():
                     fail(f"{source} is not in the resolved package — cannot compare")
                 elif not copy.exists():
-                    fail(f"{rel(copy)} is missing — copy it from {source}")
+                    fail(
+                        f"{rel(copy)} is missing — litert_embeddings.js imports it; "
+                        f"copy it from {source}"
+                    )
                 elif copy.read_bytes() != source.read_bytes():
                     fail(f"{rel(copy)} differs from the resolved package's {source}")
         if not loads_script(html, "litert_embeddings.js", module=True):

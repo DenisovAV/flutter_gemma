@@ -189,6 +189,15 @@ MUST_FAIL = {
 
 # The guard must NOT fire on these: they are correct, just spelled differently.
 MUST_PASS = {
+    "embeddings backend registered for native only": lambda app: (
+        (app / "lib" / "main.dart").write_text(
+            MAIN.replace(
+                "    inferenceEngines: [LiteRtLmEngine()],",
+                "    inferenceEngines: [LiteRtLmEngine()],\n"
+                "    embeddingBackends: kIsWeb ? const [] : const [LiteRtEmbeddingBackend()],",
+            )
+        )
+    ),
     "defer and ./ prefix": lambda app: (app / "web" / "index.html").write_text(
         INDEX.replace(
             '<script src="cache_api.js"></script>',

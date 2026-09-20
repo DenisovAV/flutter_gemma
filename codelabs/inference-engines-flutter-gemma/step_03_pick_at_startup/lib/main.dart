@@ -18,6 +18,10 @@ Future<void> main() async {
   // can open; the registry picks one per model from `ModelFileType`. Nothing
   // in the chat code knows or cares which engine ends up answering.
   await FlutterGemma.initialize(
+    // OPFS-backed storage. On web the model is 2.0 GB, right on the ~2 GB
+    // blob ceiling the default `cacheApi` mode would have to buffer it into,
+    // so `.litertlm` streams out of OPFS instead.
+    webStorageMode: WebStorageMode.streaming,
     inferenceEngines: [LiteRtLmEngine(), const BuiltInAiEngine()],
     huggingFaceToken: _hfToken.isEmpty ? null : _hfToken,
   );
@@ -57,7 +61,7 @@ class _EnginesAppState extends State<EnginesApp> {
     try {
       builtIn = Models.builtIn;
     } on UnsupportedError {
-      if (mounted) setState(() => _choice = Models.gemma3);
+      if (mounted) setState(() => _choice = Models.downloaded);
       return;
     }
 
@@ -75,7 +79,7 @@ class _EnginesAppState extends State<EnginesApp> {
       BuiltInAiAvailability.available ||
       BuiltInAiAvailability.downloadable ||
       BuiltInAiAvailability.downloading => builtIn,
-      _ => Models.gemma3,
+      _ => Models.downloaded,
     };
     if (mounted) setState(() => _choice = choice);
   }

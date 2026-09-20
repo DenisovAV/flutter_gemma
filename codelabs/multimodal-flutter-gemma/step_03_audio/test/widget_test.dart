@@ -10,11 +10,17 @@ void main() {
   // `isModelInstalled` is keyed by file name. `install()` skips bytes it
   // already has, so a name that drifts from its URL does not re-download — it
   // strands the app on a download screen the gate is never satisfied by. At
-  // 2.59 GB that is not a small mistake.
-  test('the model id matches the last segment of its URL', () {
-    const model = Models.gemma4;
-    expect(model.fileName, model.url.split('/').last, reason: model.label);
-  });
+  // 2.59 GB that is not a small mistake. Checked for both builds directly —
+  // `kIsWeb` is false in this VM test, so `model.url`/`model.fileName` alone
+  // would never exercise the web pair.
+  test(
+    'each build of the model is installed under the file its URL fetches',
+    () {
+      const model = Models.gemma4;
+      expect(model.nativeFileName, model.nativeUrl.split('/').last);
+      expect(model.webFileName, model.webUrl.split('/').last);
+    },
+  );
 
   // Forty-four bytes the model has to be able to parse. A wrong length or a
   // wrong sample rate here is not a crash — it is a clip the model hears at

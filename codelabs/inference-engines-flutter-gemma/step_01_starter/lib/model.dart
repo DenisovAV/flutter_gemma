@@ -27,9 +27,13 @@ class ModelChoice {
 
 /// The models this quickstart offers.
 ///
-/// Both are `.litertlm`, the format the LiteRT-LM engine reads on Android,
-/// iOS, desktop and the web. (`.task` files are MediaPipe-only — a different
-/// engine package, and no desktop support.)
+/// All three are `.litertlm`, the format the LiteRT-LM engine reads on
+/// Android, iOS, desktop and the web — but the browser engine
+/// (`@litert-lm/core`) only runs a `.litertlm` file exported for it. [gemma3]
+/// and [qwen3] are native builds: they install fine on web and then fail when
+/// the engine starts. [gemma4Web] is this app's one web-exported model, and
+/// `main.dart` picks it there instead. (`.task` files are MediaPipe-only — a
+/// different engine package, and no desktop support.)
 abstract final class Models {
   /// The plugin's namesake. `ekv4096` in the file name is the KV-cache the
   /// weights were built for, so this model can carry a 4096-token context.
@@ -40,7 +44,7 @@ abstract final class Models {
         'Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm',
     fileName: 'Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm',
     modelType: ModelType.gemmaIt,
-    sizeLabel: '0.5 GB',
+    sizeLabel: '0.6 GB',
     requiresToken: true,
   );
 
@@ -54,6 +58,20 @@ abstract final class Models {
     fileName: 'Qwen3-0.6B.litertlm',
     modelType: ModelType.qwen3,
     sizeLabel: '0.6 GB',
+    requiresToken: false,
+  );
+
+  /// The web build. The browser engine (`@litert-lm/core`) runs only models
+  /// exported for it — the native files above install on web and then fail
+  /// when the engine starts — and Gemma 4 E2B is the smallest one published.
+  static const gemma4Web = ModelChoice(
+    label: 'Gemma 4 E2B (web build)',
+    url:
+        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/'
+        'resolve/main/gemma-4-E2B-it-web.litertlm',
+    fileName: 'gemma-4-E2B-it-web.litertlm',
+    modelType: ModelType.gemma4,
+    sizeLabel: '2.0 GB',
     requiresToken: false,
   );
 }

@@ -43,6 +43,18 @@ window.litertLmReady = (async () => {
   return m.Engine;
 })();
 </script>
+
+  <!-- Cache API for persistent storage -->
+  <script src="cache_api.js"></script>
+
+  <!-- OPFS Helper for large model streaming (>2GB) -->
+  <script src="opfs_helper.js"></script>
+
+  <!-- No web setup for embeddings: LiteRtEmbeddingBackend (ai_engine.dart)
+       is registered !kIsWeb only. Its forward pass runs via LiteRT.js,
+       which on web needs a WASM bundle (litert_wasm_internal.js + a
+       9.4 MB .wasm) that no published package ships. RAG is native-only
+       for now — see the codelab's "Web setup for embeddings" section. -->
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>

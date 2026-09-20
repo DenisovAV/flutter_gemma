@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
@@ -9,8 +10,10 @@ import 'model.dart';
 ///   flutter run --dart-define=HF_TOKEN=hf_your_token
 const _hfToken = String.fromEnvironment('HF_TOKEN');
 
-/// Change this one line to run the whole app on a different model.
-const _model = Models.gemma3;
+/// Change this one line to run the whole app on a different model. On web
+/// it stays `Models.gemma4Web` — the browser engine only runs `.litertlm`
+/// files exported for it, and that is the only one published.
+const _model = kIsWeb ? Models.gemma4Web : Models.gemma3;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,6 +24,10 @@ Future<void> main() async {
   await FlutterGemma.initialize(
     inferenceEngines: [LiteRtLmEngine()],
     huggingFaceToken: _hfToken.isEmpty ? null : _hfToken,
+    // OPFS streaming. On web the model is 2.0 GB, right on the ~2 GB blob
+    // ceiling the default `cacheApi` mode would have to buffer it into.
+    // The other platforms ignore this option.
+    webStorageMode: WebStorageMode.streaming,
   );
 
   runApp(const QuickstartApp());

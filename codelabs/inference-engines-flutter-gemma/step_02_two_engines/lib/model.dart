@@ -27,7 +27,8 @@ class ModelChoice {
   /// because there is no file and no install record.
   final String id;
 
-  /// What the model IS — decides the chat template.
+  /// What the model IS — the engine bakes in the chat template;
+  /// modelType instead drives thinking-tag stripping & tool parsing.
   final ModelType modelType;
 
   /// Which engine opens it. `.litertlm` → LiteRtLmEngine, `.builtIn` →
@@ -56,7 +57,7 @@ abstract final class Models {
     url:
         'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/'
         'Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm',
-    sizeLabel: '0.5 GB',
+    sizeLabel: '0.6 GB',
     requiresToken: true,
   );
 
@@ -71,6 +72,32 @@ abstract final class Models {
         'Qwen3-0.6B.litertlm',
     sizeLabel: '0.6 GB',
   );
+
+  /// The web build. The browser engine (`@litert-lm/core`) runs only models
+  /// exported for it — [gemma3] and [qwen3] install fine on web and then fail
+  /// when the engine starts — and Gemma 4 E2B is the smallest one published.
+  static const gemma4Web = ModelChoice(
+    label: 'Gemma 4 E2B (web build)',
+    id: 'gemma-4-E2B-it-web.litertlm',
+    modelType: ModelType.gemma4,
+    fileType: ModelFileType.litertlm,
+    url:
+        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/'
+        'resolve/main/gemma-4-E2B-it-web.litertlm',
+    sizeLabel: '2.0 GB',
+  );
+
+  /// The model the app downloads when it is not running the built-in engine.
+  /// Native platforms get [gemma3]; the browser engine only runs a
+  /// `.litertlm` file built for it, and [gemma4Web] is the only one
+  /// published, so on web the fallback is fixed.
+  static ModelChoice get downloaded => kIsWeb ? gemma4Web : gemma3;
+
+  /// The downloadable models to offer in the chat's switch-model menu. On
+  /// web, [qwen3] has no browser build and the native [gemma3] file installs
+  /// and then fails at engine creation — offer only what can actually run.
+  static List<ModelChoice> get downloadable =>
+      kIsWeb ? [gemma4Web] : [gemma3, qwen3];
 
   /// The model the platform ships: Gemini Nano on Android and in Chrome, Apple
   /// Foundation Models on iOS and macOS. Nothing to download — the OS or the

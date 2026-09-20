@@ -31,6 +31,12 @@
 
   <title>Gemma Quickstart</title>
   <link rel="manifest" href="manifest.json">
+
+  <!-- Cache API + OPFS helper: FlutterGemma.initialize's
+       webStorageMode: WebStorageMode.streaming needs both to install
+       .litertlm models on web. Copied verbatim from flutter_gemma's own web/. -->
+  <script src="cache_api.js"></script>
+  <script src="opfs_helper.js"></script>
 </head>
 <body>
   <!--

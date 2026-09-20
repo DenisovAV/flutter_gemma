@@ -38,12 +38,18 @@ of decisions the API asks you to make, and this codelab is built around them:
 ### What you'll need
 
 * Flutter 3.44 or newer
-* Any one of Flutter's six platforms: an Android device or emulator, an iOS
-  device or simulator, an Apple-silicon Mac, a Windows or Linux desktop, or
-  Chrome. The same code runs on all of them — Step 2 lists the handful of
-  things each one asks of you
-* About 1 GB of free space and a connection that can pull it
-* Optionally, a free Hugging Face account (Step 2 explains when you need one)
+* Any one of Flutter's six platforms: an arm64 Android device or emulator (an
+  Apple-silicon Mac's emulator is arm64), an iOS device or simulator, an
+  Apple-silicon Mac, a Windows or Linux desktop, or Chrome. The same code runs
+  on all of them — Step 2 lists the handful of things each one asks of you, and
+  which model it downloads there
+* Free space and a connection that can pull it: about 1 GB on native, where the
+  models are 0.6 GB each (Gemma 3 1B and Qwen3), and about 3 GB on the web,
+  where the app downloads a different, larger model — 2.0 GB, and a browser
+  that is nearly out of storage refuses a write rather than slowing down, so
+  leave it headroom (Step 2 explains why the web model is a different one)
+* Optionally, a free Hugging Face account (Step 2 explains when you need one —
+  not on the web)
 
 ### Get the code
 
@@ -110,6 +116,14 @@ is one such runtime — the LiteRT-LM engine, which reads `.litertlm` files on
 Android, iOS, desktop and the web. There are others (MediaPipe for `.task`, ONNX
 Runtime, the OS built-in models), and you take only the one you need, because
 each drags in native binaries you would otherwise ship for nothing.
+
+On the web, "reads `.litertlm` files" comes with a catch this codelab's model
+choice is built around: the browser engine (`@litert-lm/core`) only runs a
+`.litertlm` file **exported for it**. The two native files this codelab uses
+elsewhere — Gemma 3 1B and Qwen3 — have no such export; they install on web
+and then fail the moment the engine starts. The "Choose a model" section below
+says which one does exist and why `main.dart` reaches for it only on that one
+platform.
 
 ### Configure the platforms
 
@@ -246,11 +260,12 @@ wants a working vendor driver: Mesa's `llvmpipe` software fallback caps
 `maxStorageBufferRange` at 128 MB, and the [desktop docs](/docs/desktop) list
 both the driver packages and which models that cap rules out.
 
-**Web** — one script tag. The browser arm loads the runtime from a CDN, and that
-ES module assigns no window globals — module scripts are deferred, so Dart would
-reach the engine before the constructor exists. `web/index.html` publishes a
-promise instead, and Dart awaits it. Every step app from this one on carries it
-in `<head>`:
+**Web** — three script tags, two of them copied out of the plugin. The browser
+arm loads the runtime from a CDN, and that ES module assigns no window globals —
+module scripts are deferred, so Dart would reach the engine before the
+constructor exists. `web/index.html` publishes a promise instead, and Dart
+awaits it. Every step app from this one on carries it in `<head>`, followed by
+the two scripts the plugin's own web storage needs:
 
 ```html
 <script type="module">
@@ -260,12 +275,69 @@ window.litertLmReady = (async () => {
   return m.Engine;
 })();
 </script>
+
+  <!-- Cache API + OPFS helper: FlutterGemma.initialize's
+       webStorageMode: WebStorageMode.streaming needs both to install
+       .litertlm models on web. Copied verbatim from flutter_gemma's own web/. -->
+  <script src="cache_api.js"></script>
+  <script src="opfs_helper.js"></script>
 ```
 
+`cache_api.js` and `opfs_helper.js` are not a pub.dev asset — copy them out of
+the `flutter_gemma` package pub already resolved on your machine. Find where
+that is:
+
+```bash
+grep -A1 '"name": "flutter_gemma"' .dart_tool/package_config.json
+```
+
+...and copy the two files out of `web/` at that path into your own app's
+`web/`, next to `index.html`.
+
+The last piece is one argument on `FlutterGemma.initialize`, back in
+`main.dart`:
+
+```dart
+webStorageMode: WebStorageMode.streaming,
+```
+
+With `streaming`, a `.litertlm` install on the web goes through OPFS (Origin
+Private File System) and is read back as a stream. The default `cacheApi` mode
+instead buffers the whole download in memory as one blob, and browsers cap a
+single blob at roughly 2 GB — Chrome refuses past it with
+`ERR_BLOB_OUT_OF_MEMORY`. The web model below is 2.0 GB, right on that line.
+Close enough that every codelab in this series uses `streaming` rather than
+find out, browser by browser, where the real limit sits.
+
 The web arm is an early preview: WebGPU, and text only — no images, no audio.
-The model is not a file on disk there. The browser fetches it and keeps it in
-the Cache API, which survives a reload and a browser restart, so "installed"
-means "in this browser's storage, on this machine".
+The model is not a file on disk there — the browser writes it into OPFS, so
+"installed" means "in this browser's storage, on this machine". The bytes stay
+in OPFS across a reload; the app's handle on them does not. The `opfs://`
+mapping lives in memory and only the download registers it, so after a reload
+the install record still reads "installed" and the download screen is skipped,
+while the engine is handed the original download URL and fetches the whole
+model again. Keep the tab open while you work: a reload costs you another 2 GB
+over the network, not another 2 GB on disk.
+
+One more thing is web-specific, and it is not a preview limitation — it is a
+different model. Verified against the published packages: install and open
+either `Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm` (Step 3's Gemma 3
+1B) or `Qwen3-0.6B.litertlm` in a browser, and both download fine, then fail
+the moment the engine starts:
+
+```text
+Error: Streaming kTfLitePrefillDecode models is not supported yet.
+```
+
+That is `@litert-lm/core` refusing a file it was never built for — those two
+are native exports, and the browser engine only runs a `.litertlm` file
+**exported for the web**. Neither Gemma 3 1B nor Qwen3 has one published.
+[Gemma 4 E2B](https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm)
+does — `gemma-4-E2B-it-web.litertlm`, 2.0 GB, and ungated, so no Hugging Face
+token either — and it is what this codelab's apps download on web instead.
+"Same code, different platform" still holds: `main.dart` picks the model with
+one `kIsWeb` check, and every line after that — install, chat, streaming — is
+the code you are about to write for Gemma 3 1B, unmodified.
 
 ### Register the engine
 
@@ -279,9 +351,16 @@ works without one — nothing has to open the file to write it.) Wire it up in
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Engines are fully opt-in: the core package registers none by itself.
+  // Without LiteRtLmEngine here, the first model call throws a StateError
+  // that tells you to add an engine package.
   await FlutterGemma.initialize(
     inferenceEngines: [LiteRtLmEngine()],
     huggingFaceToken: _hfToken.isEmpty ? null : _hfToken,
+    // OPFS streaming. On web the model is 2.0 GB, right on the ~2 GB blob
+    // ceiling the default `cacheApi` mode would have to buffer it into.
+    // The other platforms ignore this option.
+    webStorageMode: WebStorageMode.streaming,
   );
 
   runApp(const QuickstartApp());
@@ -302,7 +381,7 @@ abstract final class Models {
         'Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm',
     fileName: 'Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm',
     modelType: ModelType.gemmaIt,
-    sizeLabel: '0.5 GB',
+    sizeLabel: '0.6 GB',
     requiresToken: true,
   );
 
@@ -316,7 +395,26 @@ abstract final class Models {
     sizeLabel: '0.6 GB',
     requiresToken: false,
   );
+
+  // The web build — see "Configure the platforms" → Web, above, for why this
+  // one exists and the other two do not run in a browser.
+  static const gemma4Web = ModelChoice(
+    label: 'Gemma 4 E2B (web build)',
+    url:
+        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/'
+        'resolve/main/gemma-4-E2B-it-web.litertlm',
+    fileName: 'gemma-4-E2B-it-web.litertlm',
+    modelType: ModelType.gemma4,
+    sizeLabel: '2.0 GB',
+    requiresToken: false,
+  );
 }
+```
+
+Which one the app actually runs is one line in `main.dart`:
+
+```dart
+const _model = kIsWeb ? Models.gemma4Web : Models.gemma3;
 ```
 
 Gemma's repository is behind a licence gate: open the
@@ -328,10 +426,11 @@ at run time:
 flutter run --dart-define=HF_TOKEN=hf_your_token
 ```
 
-**No Hugging Face account, or in a hurry?** Switch the app's one `_model`
-constant to `Models.qwen3`. That repository is ungated, so it downloads with no
-token at all, and every other line of this codelab stays the same. Swapping
-models really is a one-line change.
+**No Hugging Face account, or in a hurry?** On native platforms, switch the
+`_model` constant's non-web arm to `Models.qwen3`. That repository is ungated
+too, so it downloads with no token at all, and every other line of this
+codelab stays the same. On the web the app already needs no token — `_model`
+picks `gemma4Web` for you, and that repository is ungated as well.
 
 A token belongs on the command line, never in source control. `String.fromEnvironment` reads it at compile time and the value never enters a file you might commit. The plugin attaches it only to URLs whose host contains `huggingface.co`, so a token set once does not ride along to the other hosts your app downloads from. (That test is a substring match, so treat it as a convenience rather than a security boundary.)
 
@@ -349,10 +448,15 @@ await FlutterGemma.installModel(
     .install();
 ```
 
-The two arguments to `installModel` answer different questions. `modelType`
-says **what the model is**, which decides the chat template wrapped around
-your messages. `fileType` says **which runtime reads the file**, and it is the
-line people forget: it defaults to `task`, which routes to MediaPipe.
+The two arguments to `installModel` answer different questions. `fileType`
+says **which runtime reads the file**, and it is the line people forget: it
+defaults to `task`, which routes to MediaPipe. `modelType` says **what the
+model is** — but for a `.litertlm` file it does *not* choose the chat
+template: the LiteRT-LM engine applies the file's own baked-in template on
+every platform, so your message goes in raw either way. What `modelType`
+drives instead is model-specific handling downstream — which format the
+plugin parses a model's tool calls with, and per-model quirks such as
+Qwen3's `/no_think` suffix and its thinking-tag stripping.
 
 It is not about where the bytes land — they land in the same place either way.
 `fileType` is what the registry matches engines against: it asks each
@@ -429,11 +533,14 @@ spot — there is nobody left to do it later.
 
 **`maxTokens` is the context window**, not a cap on the answer's length — the
 prompt, the history and the reply all share it. Ask for 100 hoping for a short
-reply and you do not get a short reply: the LiteRT-LM engine raises the value
-back to 1024 — the smallest context a `.litertlm` model's baked KV cache can be
-built for — and logs that it did. The setting is corrected, not honoured, so it
-achieves nothing at all. To cap the answer, use `maxOutputTokens` on the chat,
-as above, and leave `maxTokens` big enough for prompt + history + reply.
+reply and you do not get a short reply: on Android, iOS and desktop the
+LiteRT-LM engine raises the value back to 1024 — the smallest context a
+`.litertlm` model's baked KV cache can be built for — and logs that it did.
+LiteRT-LM's *web* arm does not use `maxTokens` at all, so there is no
+correction and no log there. (MediaPipe's web engine does pass it on, for what
+that is worth here: this app never registers MediaPipe.) Either way it is not a
+length cap, so use `maxOutputTokens` on the chat, as above, and leave
+`maxTokens` big enough for prompt + history + reply.
 
 Sending a message is two calls — add it, then ask:
 
@@ -609,7 +716,7 @@ the kind of mistake that is invisible when it is wrong:
 
 ```dart
 test('every model id matches the last segment of its URL', () {
-  for (final model in [Models.gemma3, Models.qwen3]) {
+  for (final model in [Models.gemma3, Models.qwen3, Models.gemma4Web]) {
     expect(model.fileName, model.url.split('/').last, reason: model.label);
   }
 });
@@ -626,7 +733,7 @@ you promise your users a resumable download.
 
 The corollary bites on Android: because a Hugging Face transfer cannot pause,
 one that runs past WorkManager's nine-minute execution cap fails outright
-instead of pausing and re-enqueuing. On a slow connection a 0.5 GB model can
+instead of pausing and re-enqueuing. On a slow connection a 0.6 GB model can
 hit that, and the fix is a faster network or a host that supports resume — not
 a retry loop.
 
@@ -696,7 +803,9 @@ core API is the entry point to everything else the plugin does:
   [Package Skills codelab](/codelabs/package-skills-flutter-gemma) installs
   them and shows how to check what it writes
 * **swap the model** — change one constant; `.litertlm` files from
-  [litert-community](https://huggingface.co/litert-community) all work the same way
+  [litert-community](https://huggingface.co/litert-community) all work the same
+  way on native platforms — on the web, only a file exported for the browser
+  engine does
 * **run a different engine** — the OS built-in model (Gemini Nano, Apple
   Foundation Models) needs no download at all
 * **send images and audio** — `Message.withImages` / `Message.withAudio`, on

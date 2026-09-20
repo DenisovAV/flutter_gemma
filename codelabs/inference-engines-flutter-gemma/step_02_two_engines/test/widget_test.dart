@@ -6,7 +6,7 @@ import 'package:gemma_quickstart/model.dart';
 
 void main() {
   test('every downloaded model id matches the last segment of its URL', () {
-    for (final model in [Models.gemma3, Models.qwen3]) {
+    for (final model in [Models.gemma3, Models.qwen3, Models.gemma4Web]) {
       expect(model.id, model.url!.split('/').last, reason: model.label);
     }
   });

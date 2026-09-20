@@ -20,7 +20,10 @@ Two models, and the second one is the point. Step 2 starts on **SmolVLM2
 500M**: 0.36 GB, about a minute of download, and the app is describing your
 own photograph. Step 3 wants audio — and no flag switches on an encoder the
 weights do not contain, so it moves to **Gemma 4 E2B**, 2.59 GB. Seven times
-the size, said plainly rather than in a footnote.
+the size, said plainly rather than in a footnote. (That is the native journey.
+On the web, SmolVLM2 has no browser build at all, so Step 2 is already Gemma 4
+E2B there — Step 2's own section explains why, and Step 3 changes nothing
+further on that platform.)
 
 You pay it once. Those weights read pictures *and* hear you, so the app never
 ends up juggling one model per modality: `complete` ships exactly one.
@@ -75,10 +78,16 @@ this codelab hands you one of each.
   `flutter run` with no `--dart-define`. Step 1 is Getting Started's finished
   app unchanged, and it still runs that codelab's gated Gemma 3 1B, which needs
   `--dart-define=HF_TOKEN=hf_...`
-* Room for **0.36 GB** in Step 2, and for **2.59 GB** from Step 3 on — plus the
-  memory to open the larger one, roughly 6 GB of RAM. A 4 GB phone is killed by
-  the OS rather than told no
-* Android, a real iPhone or iPad, macOS, Windows or Linux for the full thing.
+* Room for **0.36 GB** in Step 2 on native, and for **2.59 GB** from Step 3 on
+  — plus the memory to open the larger one, roughly 6 GB of RAM. A 4 GB phone
+  is killed by the OS rather than told no. On the **web**, Step 2 already
+  needs Gemma 4 E2B's **2.0 GB** web build (SmolVLM2 has none), so leave about
+  3 GB free for it — a browser close to its storage quota refuses the write
+  rather than slowing down; Step 3 needs nothing further there — same file,
+  already installed
+* Android (an **arm64** device or emulator — `flutter_gemma_litertlm` ships an
+  arm64 library and nothing else, so a 32-bit or x86_64 image has no runtime to
+  load), a real iPhone or iPad, macOS, Windows or Linux for the full thing.
   The web and the iOS Simulator both run this app; Step 4 covers what they do
   instead
 
@@ -222,39 +231,114 @@ that can see:
   /// `createChat`. Nothing in CI runs a model, so this line is the only
   /// evidence these weights were ever executed.
   static const smolVlm2 = ModelChoice(
-    label: 'SmolVLM2 500M',
-    url:
+    nativeLabel: 'SmolVLM2 500M',
+    nativeUrl:
         'https://huggingface.co/litert-community/SmolVLM2-500M/resolve/main/'
         'SmolVLM2-500M.litertlm',
-    fileName: 'SmolVLM2-500M.litertlm',
+    nativeFileName: 'SmolVLM2-500M.litertlm',
     // `general` and not `gemmaIt`: SmolVLM2 is not a Gemma, and the chat
     // template that ships inside the `.litertlm` is the right one to use.
-    modelType: ModelType.general,
-    sizeLabel: '0.36 GB',
+    nativeModelType: ModelType.general,
+    nativeSize: '0.36 GB',
+    // The web substitute: the same Gemma 4 E2B web build Step 3 uses.
+    webLabel: 'Gemma 4 E2B',
+    webUrl:
+        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/'
+        'resolve/main/gemma-4-E2B-it-web.litertlm',
+    webFileName: 'gemma-4-E2B-it-web.litertlm',
+    webModelType: ModelType.gemma4,
+    webSize: '2.0 GB',
   );
 ```
 
-`ModelType.general` and not `gemmaIt` is the line worth pausing on: SmolVLM2 is
-not a Gemma, so the right chat template is the one shipped inside the
-`.litertlm` file. Naming the wrong family does not fail loudly — it wraps the
-prompt in another model's turn markers, and the answers simply get worse.
+Native only. The browser `.litertlm` runtime runs a dedicated web export of a
+checkpoint, never the native file, and SmolVLM2 publishes no web export.
+Install `SmolVLM2-500M.litertlm` in Chrome anyway and it downloads fine, then
+fails at engine creation:
 
-0.36 GB is roughly a minute of download. That is the reason this step starts
-here: you should be reading a model's description of your own photograph before
-you have finished reading this page, not waiting out a multi-gigabyte download
-to find out whether the wiring is right.
+```text
+Error: Streaming kTfLitePrefillDecode models is not supported yet.
+```
+
+So `ModelChoice` carries a native pair and a web pair, the same shape Step 3
+uses for its own two builds of one checkpoint — except here the two platforms
+do not even agree on which *model* it is. On the web this one resolves to the
+Gemma 4 E2B web build: the exact pair Step 3 installs natively, just arriving
+a step early. `modelType` has to follow the platform for the same reason the
+URL does — `general` for SmolVLM2, `gemma4` for the substitute — and every call
+site (`main.dart`'s gate, `download_page.dart`, `createChat`) reads it through
+one getter, so the two can never drift apart the way two independently-set
+fields could.
+
+Run this step in Chrome and you get a real chat: the Gemma 4 E2B web build
+talks, it just cannot see — vision is a native feature in this codelab, not
+because of anything Step 2 does differently on the web, but because the
+browser runtime has no vision executor for *any* checkpoint. The picture
+button stays live all the same, here and in Step 3 — and so does Step 3's
+microphone: press either in a browser and the attachment is dropped, and the
+model answers as though you had sent text alone. The only warning is a single
+line at `createChat`, printed once per session and only in a debug build,
+saying vision and audio are being forced off; after that every turn drops the
+pixels or the samples with nothing logged at all. In a release build even that
+one line is gone — `gemmaLog` compiles out of release entirely. That silent
+drop is exactly what Step 4 closes, by asking the platform what it supports
+instead of assuming. For now the point is narrower: SmolVLM2 never installs in
+a browser, and it fails loudly rather than quietly when you try.
+
+`ModelType.general` and not `gemmaIt` is still the right call for the native
+build, but not for the reason it would be on an older format. On `.litertlm`
+the prompt never gets a hand-built wrapper: the engine applies the chat
+template baked into the file itself, on every platform this codelab targets,
+so naming the wrong family here does not double the turn markers. (It used to,
+on iOS — before flutter_gemma 1.8.3 the SDK still wrapped `.litertlm` prompts
+by hand there, a leftover from when iOS ran the format through MediaPipe, so
+the markers reached the model twice. Fixed now, everywhere.)
+
+What `modelType` still decides for a `.litertlm` reply: which reasoning blocks
+the SDK strips out of it — `<think>...</think>` for `deepSeek`, `qwen` and
+`qwen3`, the `<|channel>thought` block for `gemmaIt` and `gemma4` — and which
+format a tool call in the response is parsed with. SmolVLM2 reasons in neither
+form and calls no tools, which is the real reason `general` is right here, not
+a guard against a prompt that was never going to be corrupted.
+
+0.36 GB is roughly a minute of download, on native. That is the reason this
+step starts here: you should be reading a model's description of your own
+photograph before you have finished reading this page, not waiting out a
+multi-gigabyte download to find out whether the wiring is right. (On the web
+the download is the 2.0 GB Gemma 4 build above, and there is no photograph to
+read a description of — see the vision note above.)
 
 The repository is ungated, so `main.dart` also loses the Hugging Face plumbing
 it inherited from Getting Started. It gains a `try` in exchange:
 
 ```dart
   try {
-    await FlutterGemma.initialize(inferenceEngines: [LiteRtLmEngine()]);
+    await FlutterGemma.initialize(
+      inferenceEngines: [LiteRtLmEngine()],
+      // OPFS streaming, not the Cache API default: the web build is 2.0 GB,
+      // right on the ~2 GB blob ceiling, so it is not worth buffering.
+      webStorageMode: WebStorageMode.streaming,
+    );
   } catch (error) {
     runApp(_StartupFailed(error: error));
     return;
   }
 ```
+
+`webStorageMode` is the web half of this step, and it earns its own sentence.
+It is not something the format demands: the browser engine takes either
+storage mode — `flutter_gemma_litertlm`'s web arm accepts a Cache API blob URL
+and an OPFS stream alike, and its own doc reserves streaming for models past
+2 GB. What changed in flutter_gemma 0.16.2 was that web `.litertlm` inference
+arrived at all, not that streaming became compulsory. The reason to set it
+here is size. The default `WebStorageMode.cacheApi` buffers the whole download
+in memory as one blob, and browsers cap a single blob at roughly 2 GB — Chrome
+refuses past it with `ERR_BLOB_OUT_OF_MEMORY`. The Gemma 4 E2B web build this
+step installs in the browser is 2.0 GB, right on that line. Close enough that
+every `.litertlm` install in this codelab uses `WebStorageMode.streaming` from
+here on: streaming writes the download into OPFS and reads the model back from
+there instead of holding it whole in memory. It is not the only thing a web
+install needs — Step 4 covers the rest.
 
 That is not ceremony. This is the earliest thing in the app that can fail —
 hot-restarting after adding a plugin throws `MissingPluginException` right here
@@ -382,9 +466,12 @@ encoder in it at all, and a session flag cannot wire up a part that is not
 there. So this step does the thing the rest of the codelab spends its time
 telling you that you rarely need to do: it changes models.
 
-**This step downloads 2.59 GB.** Gemma 4 E2B is seven times the size of what
-you have been running, and there is no honest way to shrink that number: audio
-needs weights that were trained with it.
+**This step downloads 2.59 GB** on Android, iOS and desktop. On the web it
+downloads **nothing new** — Step 2 already installed this checkpoint's web
+build there, because SmolVLM2 has no web build of its own (see Step 2).
+Gemma 4 E2B is seven times the size of SmolVLM2 on native, and there is no
+honest way to shrink that number: audio needs weights that were trained
+with it.
 
 What you get for the seven times is the reason to stop here rather than keep
 collecting: this one checkpoint reads pictures *and* hears you. You pay once.
@@ -405,21 +492,44 @@ ships exactly one model, and it is this one.
   /// models open to cover two kinds of input.
   static const gemma4 = ModelChoice(
     label: 'Gemma 4 E2B',
-    url:
+    nativeUrl:
         'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/'
         'resolve/main/gemma-4-E2B-it.litertlm',
-    fileName: 'gemma-4-E2B-it.litertlm',
+    nativeFileName: 'gemma-4-E2B-it.litertlm',
+    nativeSize: '2.59 GB',
+    webUrl:
+        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/'
+        'resolve/main/gemma-4-E2B-it-web.litertlm',
+    webFileName: 'gemma-4-E2B-it-web.litertlm',
+    webSize: '2.0 GB',
     modelType: ModelType.gemma4,
-    sizeLabel: '2.59 GB',
   );
 ```
 
-The id changed, so the download screen is back on the next launch: the gate in
-`main.dart` asks `isModelInstalled('gemma-4-E2B-it.litertlm')` and the answer
-is no. Step 2's file is not deleted for you — every step app in this codelab
-shares one application identity, so SmolVLM2 is still sitting exactly where it
-was. Press the delete button in `step_02_vision` before you move on if you want
-that 0.36 GB back.
+Two URLs, not one — the same `litert-community/gemma-4-E2B-it-litert-lm`
+repository publishes a build for the native FFI engine and a separate one for
+`@litert-lm/core`, the web arm. `ModelChoice.url` (and `.fileName`,
+`.sizeLabel`) resolve to whichever pair matches with a single `kIsWeb` check,
+so `main.dart` and `download_page.dart` read one property each and never
+branch on platform themselves. The test suite checks both pairs directly —
+`nativeFileName` against `nativeUrl`, `webFileName` against `webUrl` — because
+a VM test never sets `kIsWeb`, so the getters alone would leave the web pair
+unchecked.
+
+The id changed **on native** — SmolVLM2's file name is not Gemma 4's — so the
+download screen is back on the next launch there: the gate in `main.dart` asks
+`isModelInstalled('gemma-4-E2B-it.litertlm')` and the answer is no. Step 2's
+file is not deleted for you — every step app in this codelab shares one
+application identity, so SmolVLM2 is still sitting exactly where it was. Press
+the delete button in `step_02_vision` before you move on if you want that
+0.36 GB back.
+
+On the **web**, nothing changes. Step 2's own `ModelChoice` already resolves
+to `gemma-4-E2B-it-web.litertlm` in the browser (see Step 2), so this gate's
+`isModelInstalled` check finds it already there, and the app opens straight
+into chat — no second download, no download screen, no id to change. Step 3's
+only contribution on the web is the `supportAudio` flag below, applied to a
+model that was already installed a step ago.
 
 ### Add the package
 
@@ -801,6 +911,32 @@ vision on the web today means MediaPipe `.task` models and the
 `flutter_gemma_mediapipe` package — a different engine, documented in
 [MediaPipe](/docs/mediapipe); the Inference Engines codelab pairs LiteRT-LM with
 built-in AI instead, so it is not the place to look for this one.)
+
+That "the model downloads" is not automatic, and it is worth naming what makes
+it true, because none of it is specific to this codelab. Every step's
+`web/index.html` loads `cache_api.js` and `opfs_helper.js` after the
+`litertLmReady` handshake — copied byte-for-byte from `flutter_gemma`'s own
+`web/` directory (`grep -A1 '"name": "flutter_gemma"'
+.dart_tool/package_config.json` finds it in your own project) — because core's
+web storage reaches OPFS through `window.flutterGemmaOPFS` in `opfs_helper.js`
+and the Cache API through `window.cacheHas` and friends in `cache_api.js`, and
+streaming mode uses both. Not as alternatives — on different paths. The
+download itself goes to OPFS and never touches the Cache API. But the
+`opfs://` mapping it registers lives in memory, so after a reload core's
+lookup for an installed model finds nothing and asks the Cache API to restore
+a URL before it gives up. Ship only `opfs_helper.js` and that restore call
+hits an undefined global, the `catch` around it swallows the error, and an app
+that still reads "installed" silently re-downloads the whole model.
+`FlutterGemma.initialize` passes `webStorageMode: WebStorageMode.streaming`
+from Step 2 on, which is what routes those bytes through OPFS rather than the
+Cache API default; see
+Step 2 for why a 2 GB model is streamed rather than buffered. And `model.dart`
+installs a different file on the web than everywhere else —
+`gemma-4-E2B-it-web.litertlm` rather than `gemma-4-E2B-it.litertlm`, a separate
+build of the same checkpoint built for `@litert-lm/core` (see Step 3). All
+three are invisible to the compiler: the web build still compiles and still
+runs `flutter analyze` clean without them. Drop the scripts or the web model
+file and a learner finds out in the browser, at install or at engine creation.
 
 **The iOS Simulator** is the case the two questions do not cover, and the
 reason is not that Dart cannot see it — `device_info_plus` exposes

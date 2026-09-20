@@ -1,4 +1,5 @@
-import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
+import 'package:flutter/foundation.dart'
+    show debugPrint, kIsWeb, visibleForTesting;
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 import 'package:genkit/genkit.dart';
@@ -8,9 +9,17 @@ import 'package:genkit_google_genai/genkit_google_genai.dart';
 import 'package:genkit_hybrid/genkit_hybrid.dart';
 
 // Prod installs the on-device LLM straight from Hugging Face by repo + file
-// (the plugin applies the configured token to gated huggingface.co URLs).
-const _hfRepo = 'litert-community/Gemma3-1B-IT';
-const _hfModelFile = 'Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm';
+// (the plugin applies the configured token to gated huggingface.co URLs). The
+// browser engine only runs dedicated web builds — Gemma 3 1B has none — so on
+// web this installs Gemma 4 E2B's public web build instead (~2.0 GB, vs
+// ~0.6 GB for the gated native file).
+const _hfRepo = kIsWeb
+    ? 'litert-community/gemma-4-E2B-it-litert-lm'
+    : 'litert-community/Gemma3-1B-IT';
+const _hfModelFile = kIsWeb
+    ? 'gemma-4-E2B-it-web.litertlm'
+    : 'Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm';
+const _modelType = kIsWeb ? ModelType.gemma4 : ModelType.gemmaIt;
 const _embeddingModelUrl =
     'https://huggingface.co/litert-community/embeddinggemma-300m/resolve/main/embeddinggemma-300M_seq256_mixed-precision.tflite';
 const _tokenizerUrl =
@@ -119,6 +128,15 @@ class AiEngine {
     // Test seam: skip the embedder download when RAG isn't exercised.
     bool downloadEmbedder = true,
   }) async {
+    // On-device embeddings need LiteRT.js's WASM runtime
+    // (litert_wasm_internal.js + a 9.4 MB .wasm) — no published package
+    // ships it, and the path it loads from (/wasm/) is hardcoded, so
+    // there's nothing an app can point at today. RAG stays native-only:
+    // don't declare the embedder, don't register its backend, don't
+    // download it. ChatScreen surfaces the reason instead of leaving RAG
+    // silently off.
+    final embeddingsSupported = downloadEmbedder && !kIsWeb;
+
     // Declarative plugin config — always includes the on-device plugin (its
     // models/embedders are looked up by name later, independent of whether
     // the install below actually succeeds).
@@ -128,11 +146,11 @@ class AiEngine {
         models: [
           FlutterGemmaModelConfig(
             name: kLocalModel,
-            modelType: ModelType.gemmaIt,
+            modelType: _modelType,
             fileType: ModelFileType.litertlm,
           ),
         ],
-        embedders: downloadEmbedder
+        embedders: embeddingsSupported
             ? [FlutterGemmaEmbedderConfig(name: kEmbedder)]
             : const [],
       ),
@@ -163,17 +181,24 @@ class AiEngine {
     // now lives inside this try/catch (not before Genkit is built) so an
     // engine-init failure only suppresses localReady, never cloud.
     try {
-      // Opt into LiteRT-LM (.litertlm inference) + its LiteRT embedding
-      // backend.
+      // Opt into LiteRT-LM (.litertlm inference) +, off web, its LiteRT
+      // embedding backend (see embeddingsSupported above). `webStorageMode:
+      // streaming` (OPFS-backed) is what the size demands: the 2.0 GB web
+      // build sits right on the ~2 GB blob ceiling the default cacheApi
+      // mode would have to buffer it into, so the @litert-lm/core engine
+      // reads it from OPFS as a ReadableStream. Ignored on non-web.
       await FlutterGemma.initialize(
+        webStorageMode: WebStorageMode.streaming,
         inferenceEngines: [LiteRtLmEngine()],
-        embeddingBackends: [LiteRtEmbeddingBackend()],
+        embeddingBackends: embeddingsSupported
+            ? [LiteRtEmbeddingBackend()]
+            : const [],
       );
 
       // fileType MUST be litertlm to match the LiteRT-LM engine registered
       // above.
       final llm = FlutterGemma.installModel(
-        modelType: ModelType.gemmaIt,
+        modelType: _modelType,
         fileType: ModelFileType.litertlm,
       );
       if (localModelPath != null) {
@@ -197,9 +222,9 @@ class AiEngine {
       localReady = false;
     }
 
-    // EMBEDDER (OPTIONAL): RAG-only, never blocks chat — a failure here must
-    // not flip localReady or rethrow.
-    if (downloadEmbedder && localReady) {
+    // EMBEDDER (OPTIONAL, native-only): RAG-only, never blocks chat — a
+    // failure here must not flip localReady or rethrow.
+    if (embeddingsSupported && localReady) {
       try {
         await FlutterGemma.installEmbedder()
             .modelFromNetwork(

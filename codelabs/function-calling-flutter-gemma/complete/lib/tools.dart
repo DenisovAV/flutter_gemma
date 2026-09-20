@@ -37,15 +37,18 @@ const multiplyTool = Tool(
 /// The device clock.
 ///
 /// A tool with no arguments, which is worth having one of: the declaration
-/// still carries `parameters`, and the SDK still renders a `type: OBJECT` for
-/// it. Drop the map entirely and FunctionGemma's prompt loses the parameters
-/// block, which reads to the model as a declaration that was cut off.
+/// still carries `parameters` and a `type`, and the runtime renders a
+/// `type: OBJECT` for it. Drop the map entirely and the parameters block goes
+/// with it, which reads to the model as a declaration that was cut off — but
+/// an empty `properties` map is wrong too. The runtime prints it and
+/// FunctionGemma's own chat template omits it, so the two render the same
+/// declaration differently, and Step 4 refuses to train on that shape.
 const clockTool = Tool(
   name: 'get_current_time',
   description:
       'Return the current local date and time on this device. Use this '
       'whenever the answer depends on what time it is now.',
-  parameters: {'type': 'object', 'properties': <String, dynamic>{}},
+  parameters: {'type': 'object'},
 );
 
 /// What the app is running on.
@@ -57,7 +60,7 @@ const deviceTool = Tool(
   description:
       'Return the platform this app is running on. Use this when asked about '
       'the device, the operating system, or where the app is running.',
-  parameters: {'type': 'object', 'properties': <String, dynamic>{}},
+  parameters: {'type': 'object'},
 );
 
 /// Everything the model is told it can call.

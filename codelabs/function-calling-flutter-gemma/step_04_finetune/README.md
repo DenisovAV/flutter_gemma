@@ -9,6 +9,11 @@ tools.json    the three declarations, the same ones lib/tools.dart holds
 raw.jsonl     72 prompt -> tool-call rows to train and score on
 ```
 
+Written for **litetune 0.1.7**, which is the first release that trains and
+scores a model the way the runtime calls it. Earlier versions trained the call
+as plain text, and a model tuned by one of them answers an application with
+something the runtime does not read back as a call at all.
+
 `tool/check_codelabs.sh` discovers step apps by their `pubspec.yaml`. There is
 none here on purpose, so this directory is not analyzed, tested or built — it
 is data and commands.
@@ -51,11 +56,18 @@ Run them from this directory. Each is separate because each fails differently.
 ```bash
 # 1. Split, and reject rows that cannot be scored. Seconds.
 litetune prepare --data raw.jsonl --output-dir data --context-length 1024 \
-                 --tokenizer google/functiongemma-270m-it
+                 --tokenizer google/functiongemma-270m-it \
+                 --base-model google/functiongemma-270m-it \
+                 --declarations tools.json
 
-# 2. Fine-tune. CPU is fine at this size.
+# 2. Fine-tune. One epoch at 5e-5 — a quarter of the default rate — because
+#    58 rows that are all tool calls will happily eat the rest of the model;
+#    see "The dial you are turning" below. On a CPU add --dtype float32:
+#    bfloat16 has no hardware behind it there and ran 165x slower.
 litetune tune --model google/functiongemma-270m-it --data data/train.jsonl \
-              --output-dir tuned --prompt-mode prerendered --method lora
+              --output-dir tuned --method lora --epochs 1 \
+              --learning-rate 5e-5 --dtype float32 \
+              --prompt-mode runtime_rendered --declarations tools.json
 
 # 3. Convert, sweeping recipes rather than trusting a default.
 litetune convert --model tuned/model --output-dir artifacts \
@@ -63,14 +75,15 @@ litetune convert --model tuned/model --output-dir artifacts \
 
 # 4. Measure what the conversion cost, against the float twin.
 #    `convert` names the artifact; look the filename up rather than build it.
+#    The prompt mode comes from the record `tune` left beside the checkpoint.
 litetune verify --model artifacts/weight_only_wi8_afp32/<name>.litertlm \
                 --reference tuned/model --data data/heldout.jsonl \
-                --json > manifest.json
+                --declarations tools.json --json > manifest.json
 
 # 5. Package the artifact with what was measured about it.
 litetune bundle --output-dir bundle \
                 --model artifacts/weight_only_wi8_afp32/<name>.litertlm \
-                --declarations tools.json --prompt-mode prerendered \
+                --declarations tools.json --prompt-mode runtime_rendered \
                 --base-model google/functiongemma-270m-it \
                 --base-model-revision <commit-sha> \
                 --adapter tuned/adapter \
@@ -78,10 +91,18 @@ litetune bundle --output-dir bundle \
                 --verify-manifest manifest.json
 ```
 
-`--prompt-mode prerendered` because that is what this app does: `InferenceChat`
-renders the declarations into the prompt itself for `ModelType.functionGemma`.
-The value must be the **same** in `tune` and `bundle`; the wrong one produces a
-fluent wrong answer rather than an error.
+`--prompt-mode runtime_rendered`, and `tools.json` passed to every stage, because
+that is how this app calls the model: the declarations go to LiteRT-LM, which
+renders them and parses the call back out. Train the other mode — `prerendered`,
+where the application writes the declarations into the prompt text — and the
+model is served a prompt it never saw. The value must be the **same** everywhere;
+the wrong one produces a fluent wrong answer rather than an error.
+
+`tools.json` is these three declarations in the shape `complete/lib/tools.dart`
+sends them. `prepare` refuses shapes the runtime and the model's own chat
+template render differently, which is why no declaration here carries an empty
+`properties` map, and why every `multiply` row sends numbers rather than the
+strings they used to be.
 
 `--recipe` has no default, and litetune's own line for why is worth keeping:
 *"A sweep of one is not a comparison."*
@@ -94,10 +115,60 @@ Run `complete/`, choose **Open a .litertlm from disk**, and paste the absolute
 path. Nothing in `lib/` changes — it is a `.litertlm`, and the app opens it the
 way it opens the two it downloads.
 
-## About these 72 rows
+On macOS the app is sandboxed, so a path under `~/Downloads` or in a scratch
+directory is not readable from inside it. Copy the file into the app's own
+documents directory — `~/Library/Containers/dev.fluttergemma.functioncalling/Data/Documents/`
+— and paste that path.
 
-They are enough to run all five commands end to end and get a file out. They
-are not enough to move a quality number: litetune's own published figures come
-from thousands of examples, and half of these are held out for scoring. Treat
-the run as a rehearsal of the pipeline, and bring your own data when you want
-a result.
+## What this run actually measured
+
+Run end to end on a MacBook Pro M4 Pro: `prepare` a second, `tune` 61s,
+`convert` 84s for `weight_only_wi8_afp32`, `verify` 52s. The held-out split is
+14 rows, scored through the runtime's tool path — a call counts only when the
+operation name and every argument match.
+
+| | picks the right tool |
+|---|---|
+| the published FunctionGemma this codelab downloads | 9 / 14 |
+| tuned here, one epoch at 5e-5 | 14 / 14 |
+
+The gain is concentrated in one place. The base model answers *"which system am
+I using?"* with a refusal in prose — it never calls `get_device_info` — and
+four of its five misses are that. After training it calls.
+
+## The dial you are turning
+
+Train the same 58 rows harder — three epochs at the default 2e-4 — and the
+held-out score is the same 14/14, while the model is ruined. Ask it to multiply
+and it makes one correct call and then says nothing, where the base writes
+*"The result of multiplying 1234 times 5678 is 7006652."* Ask it *"hello, who
+are you?"* with **no tools declared at all** and it answers
+`<start_function_call>: Hello!`.
+
+Every row here is a prompt and the call it should make, and nothing else. Train
+on them hard enough and the model learns that a turn *is* a call — including in
+the two places this codelab needs prose: the sentence after a tool result, and
+an ordinary question. Held-out accuracy cannot see either, because every
+held-out row is a tool call too.
+
+There is no data fix inside litetune: it trains one user turn, and a row whose
+prompt carries the call and the tool's response is refused outright in
+`runtime_rendered` mode — those prompts are already rendered. So the turn after
+a result is not a thing you can teach here; it is a thing you avoid destroying.
+Hence one epoch at a quarter of the default rate, and the last check below.
+
+## Check the model you got, not the number
+
+`verify` scores tool calls. Before you ship the artifact, ask it one thing that
+is not one:
+
+> hello, who are you?
+
+with no tools in the session. A tuned model that opens that answer with
+`<start_function_call>` is over-trained, whatever its held-out score says. Halve
+the learning rate or the epochs and convert again.
+
+14 held-out rows is also too few to resolve anything: litetune says so on every
+run, and the interval it prints spans more than the difference it measures.
+Treat the pipeline as rehearsed and the numbers as a direction, then bring your
+own data.

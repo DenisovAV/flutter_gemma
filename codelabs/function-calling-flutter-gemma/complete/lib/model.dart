@@ -47,11 +47,11 @@ class ModelChoice {
 
   /// Which family's function-call format the SDK writes and reads.
   ///
-  /// This is not decoration. `functionGemma` renders the declarations into a
-  /// developer turn and parses `<start_function_call>call:name{…}` back out;
-  /// `gemma4` hands the declarations to the runtime as structured `tools_json`
-  /// and reads the call back from the SDK's own parsed response. Name the
-  /// wrong family and the SDK writes a prompt these weights never saw and
+  /// This is not decoration. On a `.litertlm` both families go through the
+  /// runtime's own tool path — the declarations travel as structured
+  /// `tools_json`, the call comes back parsed — but each family has its own
+  /// wire format underneath, and the runtime picks it from this name. Name the
+  /// wrong family and the model is handed a prompt these weights never saw and
   /// waits for a syntax they never emit — every turn comes back as plain text
   /// and nothing says why.
   final ModelType modelType;

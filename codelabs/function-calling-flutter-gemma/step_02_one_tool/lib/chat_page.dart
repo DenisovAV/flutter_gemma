@@ -94,11 +94,11 @@ class _ChatPageState extends State<ChatPage> {
       setState(() => _inference = inference);
 
       final chat = await inference.createChat(
-        // Which family's call syntax the SDK writes and reads. With
-        // `ModelType.functionGemma` it renders the declarations into a
-        // developer turn these weights were trained on, and parses
-        // `<start_function_call>call:multiply{…}` back into the
-        // `FunctionCallResponse` the loop below waits for.
+        // Which family's call syntax to speak. For FunctionGemma on a
+        // `.litertlm`, the declarations go to LiteRT-LM, which renders them
+        // into the developer turn these weights were trained on, hands the
+        // call back as structured `tool_calls`, and takes your result as a
+        // role-`tool` message that continues the same model turn.
         modelType: widget.model.modelType,
         // The declarations. This is the whole of "the model can call your
         // code": a list of names, descriptions and argument schemas.

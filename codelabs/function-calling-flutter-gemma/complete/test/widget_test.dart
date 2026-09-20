@@ -37,19 +37,27 @@ void main() {
     expect(multiplyTool.parameters['required'], <String>['a', 'b']);
   });
 
-  // A no-argument tool still carries `parameters`. Dropping the map makes
-  // FunctionGemma's rendered declaration lose its parameters block, which
-  // reads to the model as a declaration that was cut off.
-  test('the no-argument tools still declare an object type', () {
+  // A no-argument tool still carries `parameters` with a `type`: drop the map
+  // and the rendered declaration loses its parameters block, which reads to the
+  // model as a declaration that was cut off. It must NOT carry an empty
+  // `properties`, though — the runtime prints that and FunctionGemma's own chat
+  // template omits it, so the same declaration renders two ways and a model
+  // tuned on one is served the other.
+  test('the no-argument tools declare a type and no properties', () {
     for (final tool in [clockTool, deviceTool]) {
       expect(tool.parameters['type'], 'object', reason: tool.name);
-      expect(tool.parameters['properties'], isEmpty, reason: tool.name);
+      expect(
+        tool.parameters.containsKey('properties'),
+        isFalse,
+        reason: tool.name,
+      );
     }
   });
 
   group('runMultiply answers whatever the model wrote', () {
-    // FunctionGemma is trained to emit arguments as strings, so this is the
-    // ordinary case, not the exotic one.
+    // The runtime's tool path hands numbers over as doubles, but a call read
+    // back from text — the web arm, or an artifact exported without the
+    // function_gemma model type — still arrives with string arguments.
     test('strings', () {
       expect(runMultiply({'a': '1234', 'b': '5678'}), {'result': 7006652});
     });

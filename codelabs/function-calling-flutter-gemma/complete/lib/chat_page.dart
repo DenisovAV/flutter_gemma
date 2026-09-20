@@ -26,7 +26,7 @@ enum _TurnKind { user, thinking, model, toolCall, toolResult }
 /// like a model that had nothing to say.
 const _maxToolTurns = 6;
 
-/// The finished app: three tools, a loop the SDK drives, and two session
+/// The finished app: four tools, a loop the SDK drives, and two session
 /// settings you can change while it is running.
 class ChatPage extends StatefulWidget {
   const ChatPage({
@@ -86,7 +86,7 @@ class _ChatPageState extends State<ChatPage> {
     try {
       // maxTokens is the CONTEXT WINDOW — prompt + history + reply share it.
       // It is NOT a reply-length cap; for that, pass maxOutputTokens below.
-      // Three declarations, every call and every tool response all live in
+      // Four declarations, every call and every tool response all live in
       // this budget for the rest of the conversation, and thinking is spent
       // out of it too.
       //
@@ -125,18 +125,18 @@ class _ChatPageState extends State<ChatPage> {
       inference.createChat(
         // Which family's call syntax the SDK writes and reads.
         modelType: widget.model.modelType,
-        // Three declarations now instead of one. Nothing else in this file
-        // changed to add the second and third: the loop dispatches by name.
+        // Four declarations now instead of one. Nothing else in this file
+        // changed to add the other three: the loop dispatches by name.
         tools: toolbox,
         supportsFunctionCalls: true,
-        // Whether the model may, must, or must not call — and how much of that
-        // lands depends on who renders the declarations. On FunctionGemma the
-        // SDK renders them into the prompt, so `none` leaves them out and the
-        // model never learns the tools exist. On Gemma 4 the runtime renders
-        // them from `tools_json`, which `createChat` passes whatever you
-        // choose here — so `none` cannot take them back out. What it does
-        // switch off there is the SDK's suppression of tool-call JSON, which
-        // is why a call made under `none` can arrive as raw JSON in the bubble.
+        // Whether the model may, must, or must not call. On a `.litertlm` the
+        // runtime holds the declarations for both families — `createChat`
+        // forwards `tools` to `createSession` without consulting this — so
+        // `none` cannot take them back out. What it switches off is the SDK's
+        // suppression of tool-call JSON, which is why a call made under `none`
+        // can arrive as raw markup in the bubble. On a `.task` model the SDK
+        // writes the declarations into the prompt itself, and there `none`
+        // really does leave them out.
         toolChoice: _toolChoice,
         // Reason first, then answer. On weights with no thinking training this
         // buys nothing, which is why the switch is disabled for those.
@@ -316,7 +316,7 @@ class _ChatPageState extends State<ChatPage> {
   /// This callback is the whole of the app's half of the loop. Everything
   /// around it — collecting the calls, staging the responses, deciding whether
   /// to generate again — is in the SDK. And it dispatches by NAME, which is
-  /// why the second and third tool cost this file nothing.
+  /// why the second, third and fourth tool cost this file nothing.
   Future<Map<String, dynamic>> _onToolCall(FunctionCallResponse call) async {
     final result = runTool(call);
     // The app reacts to the answer it just produced, rather than to the call:

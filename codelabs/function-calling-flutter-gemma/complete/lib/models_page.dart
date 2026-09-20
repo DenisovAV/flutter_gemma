@@ -64,14 +64,18 @@ class _ModelsPageState extends State<ModelsPage> {
             const Text(
               'The absolute path to the file. Nothing is copied — the app '
               'records where the file is, so moving or deleting it later '
-              'takes the model with it.',
+              'takes the model with it.\n\n'
+              'On macOS this app is sandboxed: a path under ~/Downloads is '
+              'not readable from inside it. Copy the file into the app\'s '
+              'own Documents directory and paste that path.',
             ),
             const SizedBox(height: 12),
             TextField(
               controller: controller,
               autofocus: true,
               decoration: const InputDecoration(
-                hintText: '/Users/you/tuning/artifacts/…/model.litertlm',
+                hintText:
+                    '…/Containers/dev.fluttergemma.functioncalling/Data/Documents/model.litertlm',
                 border: OutlineInputBorder(),
               ),
               onSubmitted: (v) => Navigator.of(context).pop(v.trim()),

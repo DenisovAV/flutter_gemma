@@ -569,7 +569,7 @@ in.
 
 `step_04_finetune/` is not a Flutter app — it has no `pubspec.yaml`, so the
 codelab gate does not analyze or build it. What it holds is the two inputs a
-[litetune](https://github.com/DenisovAV/litetune) run needs, for the three
+[litetune](https://github.com/DenisovAV/litetune) run needs, for the four
 tools this codelab declares.
 
 ### What litetune is
@@ -578,11 +578,12 @@ It takes a Hugging Face checkpoint through LoRA fine-tuning, merges, exports to
 `.litertlm`, and bundles the result with metadata — five commands, because each
 stage fails differently and a single `run` would hide which one you are in.
 
-**This is alpha software**, and its own statement of what has been measured is
-worth quoting: *measured end to end on `google/functiongemma-270m-it` and
-function calling only*. That is precisely the model and the task you have been
-running since Step 2 — so this codelab is inside the one path the tool has
-actually been measured on. Its other scorer and its other base models are not.
+**This is alpha software**, and it says what it has measured: four models end to
+end — `google/functiongemma-270m-it` with the tool-call scorer, and
+`google/gemma-3-270m-it`, `google/gemma-3-1b-it` and `Qwen/Qwen3-0.6B` with
+`exact-text` on a 77-way intent task. The first of those is precisely the model
+and the task you have been running since Step 2, so this codelab sits inside the
+path the tool knows best.
 
 ```bash
 pip install litetune
@@ -691,7 +692,7 @@ error.
 18 of 18 held-out calls, the same score the default rate and three epochs
 reach. Tool choice is learned in the first pass. Raising the rate buys nothing
 here and spends the model's residual small talk — FunctionGemma is an action
-model, `google/mobile-actions` has 9654 rows and not one where the assistant
+model, `google/mobile-actions` has 9654 rows (8693 of them training) and not one where the assistant
 writes a sentence after a tool result, so prose was never its job. If you want
 the model to *discuss* what the tool returned, that is Gemma 4, which this app
 also ships.
@@ -708,8 +709,8 @@ base instead and both numbers come back unavailable, because one measurement
 cannot separate two effects.
 
 **`--recipe` has no default**, and litetune's own line for why is the right one
-to keep: *"A sweep of one is not a comparison."* Two of its four recipes have
-been measured (`dynamic_wi8_afp32`, `weight_only_wi8_afp32`) and two have not.
+to keep: *"A sweep of one is not a comparison."* Four of its six recipes reached a score;
+the two plain 4-bit ones were measured to a refusal, which is a result too.
 The two artifacts a sweep produces are 0.04% apart in bytes; nothing in file
 size, exit code or logs separates them, and running both against held-out data
 is the only thing that does.
@@ -723,6 +724,12 @@ Commands 4 and 5 are what let you say anything about it.
 Here is the punchline, and it is a small one on purpose. Run `complete/`,
 choose **Open a .litertlm from disk**, paste the absolute path that `convert`
 printed, and the app runs your model.
+
+On macOS the app is sandboxed, so a path under `~/Downloads` or in a scratch
+directory is not readable from inside it. Copy the file into the app's own
+documents directory first —
+`~/Library/Containers/dev.fluttergemma.functioncalling/Data/Documents/` — and
+paste that path instead.
 
 Not one line of Dart changes. The `.litertlm` you produced is a `.litertlm`,
 and the only thing that differs is where the bytes are:
@@ -752,7 +759,7 @@ cannot work.
 **If you skip this step**, nothing downstream breaks. `complete/` ships two
 models it can download and works on either.
 
-## Step 5: Three tools, toolChoice, and thinking
+## Step 5: Four tools, toolChoice, and thinking
 Duration: 12
 
 `complete/` is the finished app: a model list, four tools, and two session
@@ -826,6 +833,7 @@ const toolRunners = <String, ToolRunner>{
   'multiply': runMultiply,
   'get_current_time': runClock,
   'get_device_info': runDeviceInfo,
+  'change_background_color': runChangeBackground,
 };
 ```
 
@@ -855,41 +863,41 @@ const clockTool = Tool(
   description:
       'Return the current local date and time on this device. Use this '
       'whenever the answer depends on what time it is now.',
-  parameters: {'type': 'object', 'properties': <String, dynamic>{}},
+  parameters: {'type': 'object'},
 );
 ```
 
-— because FunctionGemma's rendered declaration gates the whole `parameters`
-block on that map. Drop it and the model reads a declaration that was cut off.
+— because a declaration with no `parameters` at all reads to the model as one
+that was cut off. An empty `properties` map is the other wrong answer: the
+runtime prints it and the model's own chat template omits it, so the same
+declaration renders two ways.
 
-### toolChoice, and the models that cannot obey it
+### toolChoice, and what it cannot do
 
-`ToolChoice` has three values, and what each one is worth depends on **who
-renders the declarations** for the model you picked:
+`ToolChoice` has three values, and on a `.litertlm` the honest summary is that
+`none` is weaker than its name for **both** models here:
 
 ```dart
-        // Whether the model may, must, or must not call — and how much of that
-        // lands depends on who renders the declarations. On FunctionGemma the
-        // SDK renders them into the prompt, so `none` leaves them out and the
-        // model never learns the tools exist. On Gemma 4 the runtime renders
-        // them from `tools_json`, which `createChat` passes whatever you
-        // choose here — so `none` cannot take them back out. What it does
-        // switch off there is the SDK's suppression of tool-call JSON, which
-        // is why a call made under `none` can arrive as raw JSON in the bubble.
+        // Whether the model may, must, or must not call. On a `.litertlm` the
+        // runtime holds the declarations for both families — `createChat`
+        // forwards `tools` to `createSession` without consulting this — so
+        // `none` cannot take them back out. What it switches off is the SDK's
+        // suppression of tool-call JSON, which is why a call made under `none`
+        // can arrive as raw markup in the bubble.
         toolChoice: _toolChoice,
 ```
 
-Switch to `none` on **FunctionGemma** and ask the multiplication question
-again: the declarations are gone from the prompt, you get the model's own
-arithmetic, and that is the demonstration.
+Switch to `none` and ask the multiplication question again. The declarations
+are still with the session, so the model may still call; what changes is that
+the SDK stops swallowing the call turn, and you see the raw
+`{"role":"assistant","tool_calls":[…]}` in the reply bubble instead of prose.
+Worth doing once — it is the clearest possible look at what the passthrough
+format actually puts on the wire.
 
-On **Gemma 4** the same switch is weaker than its name. Its declarations are
-carried by the session — `createChat` forwards `tools` to `createSession`
-without consulting `toolChoice` — so `none` cannot unsay them. All it does
-there is turn off the SDK's swallowing of a tool-call turn, so if the model
-calls anyway you see the raw `{"role":"assistant","tool_calls":[…]}` in the
-reply bubble instead of prose. Worth trying once, because it is the clearest
-possible look at what the passthrough format actually puts on the wire.
+On a `.task` model through MediaPipe it is a different story: there the SDK
+writes the declarations into the prompt text itself, so `none` really does
+leave them out and the model never learns the tools exist. Same switch, two
+meanings, decided by the file type.
 
 Switch to `required` and **neither** model obeys it. The app says so rather
 than leaving you to wonder:

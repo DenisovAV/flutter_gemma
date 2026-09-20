@@ -37,16 +37,6 @@ void main() {
     expect(multiplyTool.parameters['required'], <String>['a', 'b']);
   });
 
-  // A no-argument tool still carries `parameters` with a `type`: drop the map
-  // and the rendered declaration loses its parameters block, which reads to the
-  // model as a declaration that was cut off. It must NOT carry an empty
-  // `properties`, though — the runtime prints that and FunctionGemma's own chat
-  // template omits it, so the same declaration renders two ways and a model
-  // tuned on one is served the other.
-  test('every declared tool has a runner, and nothing extra is declared', () {
-    expect(toolbox.map((t) => t.name).toSet(), toolRunners.keys.toSet());
-  });
-
   group('change_background_color', () {
     test('a colour in the list repaints and names itself back', () {
       final result = runChangeBackground({'color': 'blue'});

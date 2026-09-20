@@ -1,7 +1,7 @@
 // End-to-end check of a tool-calling turn on a real device or desktop.
 //
 // Downloads Gemma 4 E2B (2.59 GB, ungated — no Hugging Face token), opens one
-// chat with all three declarations and thinking on, and asks a question whose
+// chat with all four declarations and thinking on, and asks a question whose
 // answer the model cannot produce on its own. The claim under test is the
 // codelab's thesis: the model asks, the app answers, and the number in the
 // reply is the one YOUR function computed.

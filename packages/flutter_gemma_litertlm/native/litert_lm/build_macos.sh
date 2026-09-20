@@ -87,13 +87,23 @@ curl -fsSL -o "prebuilt/macos_arm64/libGemmaModelConstraintProvider.dylib" \
   "https://media.githubusercontent.com/media/google-ai-edge/LiteRT-LM/$PREBUILT_REF/prebuilt/macos_arm64/libGemmaModelConstraintProvider.dylib"
 # Fail here, not an hour later at the end of the build: a wrong PREBUILT_REF
 # looks exactly like a correct one until something reads the binary.
-if grep -q 'ComputeMask' runtime/components/constrained_decoding/constraint.h; then
-  strings -a "prebuilt/macos_arm64/libGemmaModelConstraintProvider.dylib" | grep -q 'LogitMask' || {
-    echo "ERROR: prebuilt provider predates the ComputeMask Constraint ABI — every tool call would segfault" >&2
-    exit 1
-  }
-  echo "provider ABI: LogitMask present, matches this source"
-fi
+CONSTRAINT_H=runtime/components/constrained_decoding/constraint.h
+[ -f "$CONSTRAINT_H" ] || {
+  echo "ERROR: $CONSTRAINT_H is missing, so the provider ABI cannot be checked. A guard that cannot read its input must not pass." >&2
+  exit 1
+}
+# Two-sided on purpose. A provider OLDER than the runtime segfaults in
+# CompositeLogitMask::Apply; a provider NEWER than the runtime does the same
+# thing from the other side, and that is reachable whenever this script is
+# pointed at a ref from before upstream's 2026-08-21 Constraint change while
+# PREBUILT_REF still names a post-change commit.
+if grep -q 'ComputeMask' "$CONSTRAINT_H"; then want=1; else want=0; fi
+if strings -a "prebuilt/macos_arm64/libGemmaModelConstraintProvider.dylib" | grep -q 'LogitMask'; then have=1; else have=0; fi
+[ "$want" = "$have" ] || {
+  echo "ERROR: provider/runtime Constraint ABI mismatch (source wants ComputeMask=$want, provider has LogitMask=$have) — every tool call would segfault. Point PREBUILT_REF at a commit whose prebuilts match this source." >&2
+  exit 1
+}
+echo "provider ABI: source and provider agree (ComputeMask=$want)"
 
 # 5. Build
 echo "Building with Bazel..."

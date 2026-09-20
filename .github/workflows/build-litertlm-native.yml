@@ -18,6 +18,9 @@ on:
         description: 'Publish to GitHub Release'
         type: boolean
         default: false
+      release_tag:
+        description: 'Release tag to publish to (blank = native-<litertlm_version>). Use this for a re-release of the same upstream source, e.g. native-v0.17.0-a.'
+        required: false
 
 jobs:
   build-linux-x86_64:
@@ -60,11 +63,15 @@ jobs:
           curl -fsSL -o prebuilt/linux_x86_64/libGemmaModelConstraintProvider.so \
             "https://media.githubusercontent.com/media/google-ai-edge/LiteRT-LM/$PREBUILT_REF/prebuilt/linux_x86_64/libGemmaModelConstraintProvider.so"
           # Fail here, not an hour later in Collect artifacts.
-          if grep -q 'ComputeMask' runtime/components/constrained_decoding/constraint.h; then
-            strings -a "prebuilt/linux_x86_64/libGemmaModelConstraintProvider.so" | grep -q 'LogitMask' || {
-              echo "::error::prebuilt provider predates the ComputeMask Constraint ABI - every tool call would segfault"; exit 1; }
-            echo "provider ABI: LogitMask present, matches this source"
-          fi
+          H=runtime/components/constrained_decoding/constraint.h
+          [ -f "$H" ] || { echo "::error::$H is missing, so the provider ABI cannot be checked"; exit 1; }
+          # Two-sided: a provider older than the runtime segfaults, and so does
+          # a newer one against an older runtime — reachable whenever this runs
+          # on a ref from before upstream's 2026-08-21 Constraint change.
+          if grep -q 'ComputeMask' "$H"; then want=1; else want=0; fi
+          if strings -a "prebuilt/linux_x86_64/libGemmaModelConstraintProvider.so" | grep -q 'LogitMask'; then have=1; else have=0; fi
+          [ "$want" = "$have" ] || { echo "::error::provider/runtime Constraint ABI mismatch (source ComputeMask=$want, provider LogitMask=$have)"; exit 1; }
+          echo "provider ABI: source and provider agree (ComputeMask=$want)"
 
       - name: Patch C API
         run: bash packages/flutter_gemma_litertlm/native/litert_lm/patch_c_api.sh /tmp/LiteRT-LM
@@ -179,11 +186,15 @@ jobs:
           curl -fsSL -o prebuilt/linux_arm64/libGemmaModelConstraintProvider.so \
             "https://media.githubusercontent.com/media/google-ai-edge/LiteRT-LM/$PREBUILT_REF/prebuilt/linux_arm64/libGemmaModelConstraintProvider.so"
           # Fail here, not an hour later in Collect artifacts.
-          if grep -q 'ComputeMask' runtime/components/constrained_decoding/constraint.h; then
-            strings -a "prebuilt/linux_arm64/libGemmaModelConstraintProvider.so" | grep -q 'LogitMask' || {
-              echo "::error::prebuilt provider predates the ComputeMask Constraint ABI - every tool call would segfault"; exit 1; }
-            echo "provider ABI: LogitMask present, matches this source"
-          fi
+          H=runtime/components/constrained_decoding/constraint.h
+          [ -f "$H" ] || { echo "::error::$H is missing, so the provider ABI cannot be checked"; exit 1; }
+          # Two-sided: a provider older than the runtime segfaults, and so does
+          # a newer one against an older runtime — reachable whenever this runs
+          # on a ref from before upstream's 2026-08-21 Constraint change.
+          if grep -q 'ComputeMask' "$H"; then want=1; else want=0; fi
+          if strings -a "prebuilt/linux_arm64/libGemmaModelConstraintProvider.so" | grep -q 'LogitMask'; then have=1; else have=0; fi
+          [ "$want" = "$have" ] || { echo "::error::provider/runtime Constraint ABI mismatch (source ComputeMask=$want, provider LogitMask=$have)"; exit 1; }
+          echo "provider ABI: source and provider agree (ComputeMask=$want)"
 
       - name: Patch C API
         run: bash packages/flutter_gemma_litertlm/native/litert_lm/patch_c_api.sh /tmp/LiteRT-LM
@@ -318,14 +329,17 @@ jobs:
           # Absolute paths on purpose: `cd` moves PowerShell's location, not the
           # process working directory, so a .NET call with a relative path reads
           # from the workspace root and fails there instead.
-          if (Select-String -Path C:\LiteRT-LM\runtime\components\constrained_decoding\constraint.h -Pattern 'ComputeMask' -Quiet) {
-            $prov = [System.Text.Encoding]::ASCII.GetString([System.IO.File]::ReadAllBytes($provPath))
-            Write-Host "provider scan: $($prov.Length) chars, LogitMask at $($prov.IndexOf('LogitMask'))"
-            if (-not $prov.Contains('LogitMask')) {
-              throw "prebuilt provider predates the ComputeMask Constraint ABI - every tool call would segfault"
-            }
-            Write-Host "provider ABI: LogitMask present, matches this source"
+          # Two-sided: a provider older than the runtime segfaults in
+          # CompositeLogitMask::Apply, and a newer one against an older runtime
+          # does the same — reachable whenever this builds a ref from before
+          # upstream's 2026-08-21 Constraint change.
+          $want = [bool](Select-String -Path C:\LiteRT-LM\runtime\components\constrained_decoding\constraint.h -Pattern 'ComputeMask' -Quiet)
+          $prov = [System.Text.Encoding]::ASCII.GetString([System.IO.File]::ReadAllBytes($provPath))
+          $have = $prov.Contains('LogitMask')
+          if ($want -ne $have) {
+            throw "provider/runtime Constraint ABI mismatch (source ComputeMask=$want, provider LogitMask=$have) - every tool call would segfault"
           }
+          Write-Host "provider ABI: source and provider agree (ComputeMask=$want)"
 
       - name: Patch C API
         shell: bash
@@ -443,13 +457,28 @@ jobs:
           # not the flag: Bazel ignores an unknown --features name. KERNEL32 is
           # the positive control - without it dumpbin read nothing, and "no
           # runtime import" would pass vacuously.
-          $deps = dumpbin /dependents artifacts\LiteRtLm.dll
-          if (-not ($deps -match '^\s+KERNEL32\.dll')) {
-            throw "dumpbin listed no imports for LiteRtLm.dll:`n$($deps -join "`n")"
-          }
-          $crt = $deps -match '^\s+(msvcp|vcruntime|concrt)\d'
-          if ($crt) {
-            throw "LiteRtLm.dll imports the VC++ runtime: $(($crt | ForEach-Object Trim) -join ', ')"
+          # Every DLL we build ourselves, not just LiteRtLm: the NPU dispatch is
+          # also ours, and it links OpenVINO's C++ API, so it must keep the
+          # dynamic CRT — but only the three DLLs a Flutter Windows app already
+          # ships. vcruntime140_threads is never allowed: it arrives only with
+          # the 14.38+ redistributable, which a clean Windows does not have (#456).
+          $allowed = @('msvcp140.dll', 'vcruntime140.dll', 'vcruntime140_1.dll')
+          foreach ($ours in @('LiteRtLm.dll', 'LiteRtDispatch.dll', 'StreamProxy.dll')) {
+            $path = "artifacts\$ours"
+            if (-not (Test-Path $path)) { continue }
+            $deps = dumpbin /dependents $path
+            if (-not ($deps -match '^\s+KERNEL32\.dll')) {
+              throw "dumpbin listed no imports for ${ours}:`n$($deps -join "`n")"
+            }
+            $crt = @($deps -match '^\s+(msvcp|vcruntime|concrt)\d' | ForEach-Object { $_.Trim().ToLower() })
+            $bad = @($crt | Where-Object { $allowed -notcontains $_ })
+            if ($ours -eq 'LiteRtLm.dll' -and $crt.Count -gt 0) {
+              throw "LiteRtLm.dll imports the VC++ runtime: $($crt -join ', ') - static_link_msvcrt did not apply"
+            }
+            if ($bad.Count -gt 0) {
+              throw "$ours imports a VC++ runtime a Flutter app does not ship: $($bad -join ', ')"
+            }
+            Write-Host "$ours CRT imports: $(if ($crt.Count) { $crt -join ', ' } else { 'none' })"
           }
           Copy-Item StreamProxy.dll artifacts\
           $prebuilt = 'C:\LiteRT-LM\prebuilt\windows_x86_64'
@@ -474,13 +503,12 @@ jobs:
           # Same ABI assert as the Linux jobs: a provider from before upstream's
           # ComputeMask change segfaults on the first tool call and nothing else
           # in this build would notice.
-          if (Select-String -Path C:\LiteRT-LM\runtime\components\constrained_decoding\constraint.h -Pattern 'ComputeMask' -Quiet) {
-            $bytes = [System.IO.File]::ReadAllBytes("artifacts\libGemmaModelConstraintProvider.dll")
-            if (-not [System.Text.Encoding]::ASCII.GetString($bytes).Contains('LogitMask')) {
-              throw "libGemmaModelConstraintProvider.dll predates the ComputeMask Constraint ABI - every tool call would segfault. Point prebuilt_ref at an upstream commit whose prebuilts carry it."
-            }
-            Write-Host "provider ABI: LogitMask present, matches this source"
+          $want = [bool](Select-String -Path C:\LiteRT-LM\runtime\components\constrained_decoding\constraint.h -Pattern 'ComputeMask' -Quiet)
+          $have = [System.Text.Encoding]::ASCII.GetString([System.IO.File]::ReadAllBytes("artifacts\libGemmaModelConstraintProvider.dll")).Contains('LogitMask')
+          if ($want -ne $have) {
+            throw "provider/runtime Constraint ABI mismatch in the shipped artifact (source ComputeMask=$want, provider LogitMask=$have)"
           }
+          Write-Host "provider ABI: shipped artifact agrees with this source (ComputeMask=$want)"
           # DXC runtime — search recursively because the zip layout puts the
           # x64 binaries in bin\x64\ inside the archive root.
           foreach ($dxc in 'dxil.dll', 'dxcompiler.dll') {
@@ -674,16 +702,17 @@ jobs:
       - name: Delete old CI assets from release
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag != '' && inputs.release_tag || format('native-{0}', inputs.litertlm_version) }}
         run: |
           for asset in litertlm-linux_x86_64.tar.gz litertlm-linux_arm64.tar.gz litertlm-windows_x86_64.tar.gz checksums_litertlm.txt; do
-            gh release delete-asset "native-$LITERTLM_VERSION" "$asset" -y 2>/dev/null || true
+            gh release delete-asset "$RELEASE_TAG" "$asset" -y 2>/dev/null || true
           done
 
       - name: Create/update GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: native-${{ env.LITERTLM_VERSION }}
-          name: Native Libraries ${{ env.LITERTLM_VERSION }}
+          tag_name: ${{ inputs.release_tag != '' && inputs.release_tag || format('native-{0}', env.LITERTLM_VERSION) }}
+          name: Native Libraries ${{ inputs.release_tag != '' && inputs.release_tag || format('native-{0}', env.LITERTLM_VERSION) }}
           body: |
             LiteRT-LM native libraries built from source ${{ env.LITERTLM_VERSION }}.
 

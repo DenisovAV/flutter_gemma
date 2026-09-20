@@ -73,12 +73,13 @@ class ModelChoice {
   /// Can this model be *forced* to call a tool?
   ///
   /// `ToolChoice.required` needs a way to say "you must call a function" in
-  /// the prompt the model actually reads, and neither of these has one.
-  /// FunctionGemma's format cannot express it, so the SDK logs a warning and
-  /// behaves as `auto`. Gemma 4's declarations go to the runtime as
-  /// `tools_json`, which carries no `tool_choice` — so `required` is `auto`
-  /// there too, without even the warning. Reasonable behaviour on the SDK's
-  /// part, and very confusing to watch if the app does not say so.
+  /// the prompt the model actually reads, and neither of these has one. On a
+  /// `.litertlm` both families hand their declarations to the runtime as
+  /// `tools_json`, which carries no `tool_choice`, so `required` is `auto` for
+  /// both — and the SDK's old FunctionGemma warning is not even reached, since
+  /// that lived on the path where the SDK wrote the declarations itself.
+  /// Reasonable behaviour, and very confusing to watch if the app does not
+  /// say so.
   final bool supportsRequiredToolChoice;
 
   /// Points an install at wherever this model's bytes are.
@@ -117,7 +118,7 @@ abstract final class Models {
 
   /// The reason to pay 2.59 GB instead of 284 MB.
   ///
-  /// Same three tools, same loop — but these weights can reason out loud
+  /// Same four tools, same loop — but these weights can reason out loud
   /// before deciding which function to call, and they hold a conversation
   /// either side of it. Nine times the download for the thing the small model
   /// cannot do at all.

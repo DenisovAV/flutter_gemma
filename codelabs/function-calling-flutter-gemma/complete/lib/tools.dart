@@ -5,8 +5,8 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 /// What a tool actually is, on the app's side: a Dart function from the
 /// arguments the model wrote to the map the model will be shown.
 ///
-/// Synchronous on purpose. Everything these three do is local and instant —
-/// arithmetic, a clock, a constant — which is what keeps this codelab offline
+/// Synchronous on purpose. Everything these four do is local and instant —
+/// arithmetic, a clock, a constant, a colour — which keeps this codelab offline
 /// and its answers checkable. A tool that talks to the network returns a
 /// `Future` and the loop awaits it; nothing else changes.
 typedef ToolRunner = Map<String, dynamic> Function(Map<String, dynamic> args);

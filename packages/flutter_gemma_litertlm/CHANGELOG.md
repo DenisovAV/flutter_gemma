@@ -1,5 +1,6 @@
 ## 1.7.1
 - Native runtime `native-v0.17.0-a`: tool calls no longer crash the app.
+- FunctionGemma on `.litertlm` takes the runtime's tool path — needs core 1.8.4.
 - Windows needs no Visual C++ runtime beyond what a Flutter app ships (#456).
 
 ## 1.7.0

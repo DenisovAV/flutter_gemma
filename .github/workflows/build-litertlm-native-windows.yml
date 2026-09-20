@@ -76,14 +76,17 @@ jobs:
           # Absolute paths on purpose: `cd` moves PowerShell's location, not the
           # process working directory, so a .NET call with a relative path reads
           # from the workspace root and fails there instead.
-          if (Select-String -Path C:\LiteRT-LM\runtime\components\constrained_decoding\constraint.h -Pattern 'ComputeMask' -Quiet) {
-            $prov = [System.Text.Encoding]::ASCII.GetString([System.IO.File]::ReadAllBytes($provPath))
-            Write-Host "provider scan: $($prov.Length) chars, LogitMask at $($prov.IndexOf('LogitMask'))"
-            if (-not $prov.Contains('LogitMask')) {
-              throw "prebuilt provider predates the ComputeMask Constraint ABI - every tool call would segfault"
-            }
-            Write-Host "provider ABI: LogitMask present, matches this source"
+          # Two-sided: a provider older than the runtime segfaults in
+          # CompositeLogitMask::Apply, and a newer one against an older runtime
+          # does the same — reachable whenever this builds a ref from before
+          # upstream's 2026-08-21 Constraint change.
+          $want = [bool](Select-String -Path C:\LiteRT-LM\runtime\components\constrained_decoding\constraint.h -Pattern 'ComputeMask' -Quiet)
+          $prov = [System.Text.Encoding]::ASCII.GetString([System.IO.File]::ReadAllBytes($provPath))
+          $have = $prov.Contains('LogitMask')
+          if ($want -ne $have) {
+            throw "provider/runtime Constraint ABI mismatch (source ComputeMask=$want, provider LogitMask=$have) - every tool call would segfault"
           }
+          Write-Host "provider ABI: source and provider agree (ComputeMask=$want)"
 
       - name: Patch C API
         shell: bash
@@ -166,13 +169,28 @@ jobs:
           # not the flag: Bazel ignores an unknown --features name. KERNEL32 is
           # the positive control - without it dumpbin read nothing, and "no
           # runtime import" would pass vacuously.
-          $deps = dumpbin /dependents artifacts\LiteRtLm.dll
-          if (-not ($deps -match '^\s+KERNEL32\.dll')) {
-            throw "dumpbin listed no imports for LiteRtLm.dll:`n$($deps -join "`n")"
-          }
-          $crt = $deps -match '^\s+(msvcp|vcruntime|concrt)\d'
-          if ($crt) {
-            throw "LiteRtLm.dll imports the VC++ runtime: $(($crt | ForEach-Object Trim) -join ', ')"
+          # Every DLL we build ourselves, not just LiteRtLm: the NPU dispatch is
+          # also ours, and it links OpenVINO's C++ API, so it must keep the
+          # dynamic CRT — but only the three DLLs a Flutter Windows app already
+          # ships. vcruntime140_threads is never allowed: it arrives only with
+          # the 14.38+ redistributable, which a clean Windows does not have (#456).
+          $allowed = @('msvcp140.dll', 'vcruntime140.dll', 'vcruntime140_1.dll')
+          foreach ($ours in @('LiteRtLm.dll', 'LiteRtDispatch.dll', 'StreamProxy.dll')) {
+            $path = "artifacts\$ours"
+            if (-not (Test-Path $path)) { continue }
+            $deps = dumpbin /dependents $path
+            if (-not ($deps -match '^\s+KERNEL32\.dll')) {
+              throw "dumpbin listed no imports for ${ours}:`n$($deps -join "`n")"
+            }
+            $crt = @($deps -match '^\s+(msvcp|vcruntime|concrt)\d' | ForEach-Object { $_.Trim().ToLower() })
+            $bad = @($crt | Where-Object { $allowed -notcontains $_ })
+            if ($ours -eq 'LiteRtLm.dll' -and $crt.Count -gt 0) {
+              throw "LiteRtLm.dll imports the VC++ runtime: $($crt -join ', ') - static_link_msvcrt did not apply"
+            }
+            if ($bad.Count -gt 0) {
+              throw "$ours imports a VC++ runtime a Flutter app does not ship: $($bad -join ', ')"
+            }
+            Write-Host "$ours CRT imports: $(if ($crt.Count) { $crt -join ', ' } else { 'none' })"
           }
           Copy-Item StreamProxy.dll artifacts\
           $prebuilt = 'C:\LiteRT-LM\prebuilt\windows_x86_64'
@@ -198,13 +216,12 @@ jobs:
           # Same ABI assert as the Linux jobs: a provider from before upstream's
           # ComputeMask change segfaults on the first tool call and nothing else
           # in this build would notice.
-          if (Select-String -Path C:\LiteRT-LM\runtime\components\constrained_decoding\constraint.h -Pattern 'ComputeMask' -Quiet) {
-            $bytes = [System.IO.File]::ReadAllBytes("artifacts\libGemmaModelConstraintProvider.dll")
-            if (-not [System.Text.Encoding]::ASCII.GetString($bytes).Contains('LogitMask')) {
-              throw "libGemmaModelConstraintProvider.dll predates the ComputeMask Constraint ABI - every tool call would segfault. Point prebuilt_ref at an upstream commit whose prebuilts carry it."
-            }
-            Write-Host "provider ABI: LogitMask present, matches this source"
+          $want = [bool](Select-String -Path C:\LiteRT-LM\runtime\components\constrained_decoding\constraint.h -Pattern 'ComputeMask' -Quiet)
+          $have = [System.Text.Encoding]::ASCII.GetString([System.IO.File]::ReadAllBytes("artifacts\libGemmaModelConstraintProvider.dll")).Contains('LogitMask')
+          if ($want -ne $have) {
+            throw "provider/runtime Constraint ABI mismatch in the shipped artifact (source ComputeMask=$want, provider LogitMask=$have)"
           }
+          Write-Host "provider ABI: shipped artifact agrees with this source (ComputeMask=$want)"
           foreach ($dxc in 'dxil.dll', 'dxcompiler.dll') {
             $src = Get-ChildItem -Recurse -Filter $dxc -Path dxc | Where-Object { $_.FullName -match 'x64' } | Select-Object -First 1
             if (-not $src) {

@@ -41,10 +41,10 @@ It runs on CPU, which is workable at 270M. The stage environments are cached
 and they are large: `convert` pulls ~1.6 GB, `tune` 588 MB. `litetune env`
 shows what is on disk and `litetune env --clean` removes it.
 
-This is alpha software, and its alpha is stated as *measured end to end on
-`google/functiongemma-270m-it` and function calling* — which is exactly the
-model and the task this codelab is on. The other scorer and the other base
-models it supports are outside what has been measured.
+This is alpha software, and it states what it has measured: four models end to
+end — `google/functiongemma-270m-it` with the tool-call scorer, and three others
+(`gemma-3-270m-it`, `gemma-3-1b-it`, `Qwen3-0.6B`) with `exact-text` on a 77-way
+intent task. The first is exactly the model and the task this codelab is on.
 
 **You can skip this step.** The app in `complete/` works on the stock
 FunctionGemma and on Gemma 4 without any of it.
@@ -62,7 +62,7 @@ litetune prepare --data raw.jsonl --output-dir data --context-length 1024 \
 
 # 2. Fine-tune. One epoch at 1e-5 — a twentieth of the default rate — because
 #    72 rows that are all tool calls will happily eat the rest of the model;
-#    see "The dial you are turning" below. On a CPU add --dtype float32:
+#    see "How hard to train" below. On a CPU add --dtype float32:
 #    bfloat16 has no hardware behind it there and ran 165x slower.
 litetune tune --model google/functiongemma-270m-it --data data/train.jsonl \
               --output-dir tuned --method lora --epochs 1 \
@@ -137,8 +137,10 @@ The gain is in one place, and it is the place that matters: the base answers
 `get_device_info` — four of its five misses are that one tool. After training it
 calls, every time.
 
-Colours it already got right: all six, in six phrasings, before any training.
-Measure the base first; the rows worth writing are the ones it gets wrong.
+Colours it already got right — a separate check, not part of the 18: asked for
+each of the six in six different phrasings, the stock model called
+`change_background_color` with the right colour every time. Measure the base
+first; the rows worth writing are the ones it gets wrong.
 
 ## How hard to train, and why gently is enough
 
@@ -148,7 +150,7 @@ at 5e-5 and at three epochs of 2e-4 — the tool choice is learned in the first
 pass, and everything after that is spent on something else.
 
 What it is spent on is worth knowing before you spend it. FunctionGemma is an
-action model: `google/mobile-actions`, the corpus it was tuned on, is 9654 rows
+action model: `google/mobile-actions`, the corpus it was tuned on, is 9654 rows (8693 train, 961 eval)
 of *developer, user, call* and **not one** row where the assistant writes a
 sentence after a tool result. Ending a turn at the call is what this model is
 for. The base still answers in prose now and then — that is residual Gemma 3

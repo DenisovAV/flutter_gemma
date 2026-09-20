@@ -1,5 +1,5 @@
 ## 0.4.0
-- BREAKING: no longer depends on `flutter_gemma_embeddings`; asks core for a tokenizer instead of naming one.
+- No longer depends on `flutter_gemma_embeddings`; asks core for a tokenizer, so register `embeddingTokenizers:`.
 
 ## 0.3.3
 - Prefer `pooler_output` over `last_hidden_state`; re-index corpora from any graph exposing both.

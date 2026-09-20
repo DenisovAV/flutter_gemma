@@ -1,6 +1,6 @@
-## 3.0.0
-- BREAKING: this package is now the tokenizers — register `GemmaEmbeddingTokenizers()` via `embeddingTokenizers:`.
-- BREAKING: the web bundle moved to `flutter_gemma_litertlm`.
+## 2.2.0
+- Register `GemmaEmbeddingTokenizers()` via `initialize(embeddingTokenizers:)` — engines no longer name a tokenizer.
+- The web bundle moved to `flutter_gemma_litertlm`; re-copy the four JS files from there.
 
 ## 2.1.1
 - Lift the `dart_sentencepiece_tokenizer` cap — 1.4.1 is now required, not excluded.

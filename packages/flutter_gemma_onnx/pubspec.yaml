@@ -42,7 +42,7 @@ dev_dependencies:
   # depend on a sibling (see "Packages -> core, never to each other"). The ORT
   # host smoke test builds a real tokenizer, which an app gets by registering
   # `embeddingTokenizers:` instead.
-  flutter_gemma_embeddings: ^3.0.0
+  flutter_gemma_embeddings: ^2.2.0
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0

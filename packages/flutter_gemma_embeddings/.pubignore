@@ -1,6 +1,6 @@
-# The web bundle is BUILT here and its output is committed to web/, so the
-# build itself does not need to ship — but it must stay in the repo, because
-# web/litert.js and the WASM runtime it loads are two halves of one
-# @litertjs/core release and have to be rebuilt together.
+# The build that produces web/ ships with it, lockfile included. web/litert.js
+# and the WASM runtime it loads are two halves of one @litertjs/core release,
+# so a rebuild has to resolve the same tree — shipping package.json without
+# package-lock.json would hand someone a recipe that produces a DIFFERENT
+# bundle from the one beside it. Only node_modules/ is excluded.
 tool/web_build/node_modules/
-tool/web_build/package-lock.json

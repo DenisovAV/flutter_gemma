@@ -1,5 +1,5 @@
 ## 2.2.0
-- Fix web embeddings: all four bundle files ship here, rebuilt on `@litertjs/core` 2.5.3, runtime from a CDN by default (`LiteRtWebRuntime.wasmPath`).
+- Fix web embeddings: all four bundle files ship here, WASM runtime from a CDN.
 
 ## 2.1.1
 - Lift the `dart_sentencepiece_tokenizer` cap — 1.4.1 is now required, not excluded.

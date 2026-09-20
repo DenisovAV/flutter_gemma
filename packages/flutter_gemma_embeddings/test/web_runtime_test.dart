@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -8,23 +11,42 @@ void main() {
         '${LiteRtWebRuntime.pinnedVersion}/wasm/';
   });
 
-  // The pin is not cosmetic: `web/litert.js` is the JS half of the runtime and
-  // calls the WASM entry points of the release it was built against. Mixing
-  // halves fails at the first embedding ("loadAndCompileWebGpu is not defined"
-  // when 0.2.x glue met a 2.x runtime — measured in Chrome 153). This has to
-  // match what tool/web_build resolved.
-  test('the pin matches the version web/litert.js was built against', () {
-    expect(LiteRtWebRuntime.pinnedVersion, '2.5.3');
+  // The pin is not cosmetic: web/litert.js is the JS half of the runtime and
+  // calls the WASM entry points of the release it was built against (0.2.x
+  // called loadAndCompileWebGpu; 2.x has loadModel + compileModel). Mixing
+  // halves fails at the first embedding, in a browser, with an error that
+  // names neither version.
+  //
+  // The oracle is the lockfile npm wrote, not a literal typed here: a version
+  // asserted against a copy of itself cannot catch "rebuilt the bundle, forgot
+  // the constant", which is the only way this drifts.
+  test('the pin matches the @litertjs/core the bundle was built from', () {
+    final lock = File('tool/web_build/package-lock.json');
+    if (!lock.existsSync()) {
+      // Published copies of this package ship the source but not the lockfile.
+      markTestSkipped('no lockfile — running outside the repo');
+      return;
+    }
+    final packages =
+        (jsonDecode(lock.readAsStringSync()) as Map)['packages'] as Map;
+    final resolved =
+        (packages['node_modules/@litertjs/core'] as Map)['version'] as String;
+
     expect(
-      LiteRtWebRuntime.wasmPath,
-      'https://cdn.jsdelivr.net/npm/@litertjs/core@2.5.3/wasm/',
+      LiteRtWebRuntime.pinnedVersion,
+      resolved,
+      reason:
+          'web/litert.js was built from @litertjs/core $resolved, so the WASM '
+          'runtime must come from that release too. Update pinnedVersion.',
     );
   });
 
-  // LiteRT.js appends the file name to this prefix, so a missing trailing
-  // slash silently requests `…/wasmlitert_wasm_internal.js`.
-  test('the default ends in a slash', () {
-    expect(LiteRtWebRuntime.wasmPath, endsWith('/'));
+  test('the default points at the pinned release', () {
+    expect(
+      LiteRtWebRuntime.wasmPath,
+      'https://cdn.jsdelivr.net/npm/@litertjs/core@'
+      '${LiteRtWebRuntime.pinnedVersion}/wasm/',
+    );
   });
 
   test('an app can point it at its own copy', () {

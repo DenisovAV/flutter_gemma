@@ -58,6 +58,13 @@ then load the entry module from `web/index.html`:
 <script type="module" src="litert_embeddings.js"></script>
 ```
 
+Upgrading from an earlier version: delete the copies in your app's `web/` and
+re-copy all four from this version. Before 2.2.0 two of them came from
+`flutter_gemma_litertlm/web/`, which no longer has them, and the copies you
+have are built against a different `@litertjs/core` than the runtime this
+version loads. If you built your own `web/wasm/`, either delete it and take the
+CDN default or rebuild it from the version in `LiteRtWebRuntime.pinnedVersion`.
+
 > Earlier versions of this README told you to load `litert_embeddings.js`
 > straight from a CDN with a Subresource-Integrity hash. That cannot work: the
 > module's three imports are resolved against the CDN path, where two of them
@@ -67,10 +74,11 @@ then load the entry module from `web/index.html`:
 
 ### The WASM runtime
 
-LiteRT.js loads a WASM runtime (`litert_wasm_internal.js` plus a ~9 MB `.wasm`)
-at the first embedding call. No pub package can ship those bytes, so since
-2.2.0 they come from the pinned `@litertjs/core` build on jsDelivr by default —
-nothing to install.
+LiteRT.js loads a WASM runtime at the first embedding call —
+`litert_wasm_internal.js`, or `litert_wasm_compat_internal.js` on a browser
+without relaxed SIMD, each with a ~9 MB `.wasm` beside it. Since 2.2.0 they come
+from the pinned `@litertjs/core` build on jsDelivr by default — nothing to
+install, and nothing this package has to carry into every native-only app.
 
 To serve them yourself (offline, an air-gapped deploy, or a CSP that forbids
 third-party script), copy `node_modules/@litertjs/core/wasm/` into your app's
@@ -79,20 +87,24 @@ third-party script), copy `node_modules/@litertjs/core/wasm/` into your app's
 ```dart
 import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
 
-LiteRtWebRuntime.wasmPath = '/wasm/'; // trailing slash required
+LiteRtWebRuntime.wasmPath = '/wasm/';
 ```
 
-Set it before the first embedding — the runtime is loaded once and cached, so a
-later assignment is ignored. The prefix is root-absolute: an app served under a
-base href other than `/` needs `/my-app/wasm/` or a full URL.
+Those files come from `@litertjs/core` — `npm i @litertjs/core@2.5.3` in a
+scratch directory, then copy its `wasm/`.
+
+Set the prefix before the first embedding — the runtime is loaded once and
+cached, so a later assignment is ignored. LiteRT.js inserts the separator when
+it joins the prefix with the file name, so the trailing slash above is
+convention, not a requirement; the value is root-absolute, and an app served
+under a base href other than `/` needs `/my-app/wasm/` or a full URL.
 
 Pin `@litertjs/core` to `LiteRtWebRuntime.pinnedVersion` if you vendor it. The
 runtime and this package's `web/litert.js` are two halves of one release —
 `litert.js` calls that release's WASM entry points by name — and a mismatch
 fails at the first embedding with something that does not mention versions at
-all (`Cannot read properties of undefined (reading 'create')` with a runtime
-older than the glue; `loadAndCompileWebGpu is not defined` the other way
-round).
+all: a runtime older than the glue gives
+`Cannot read properties of undefined (reading 'create')`.
 
 Serving it yourself is also the answer if a third-party script in your app's
 runtime path is not acceptable to you: LiteRT.js injects the `<script>` itself,

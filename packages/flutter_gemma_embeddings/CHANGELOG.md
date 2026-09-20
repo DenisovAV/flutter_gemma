@@ -1,7 +1,5 @@
 ## 2.2.0
-- Web embeddings work without shipping a WASM runtime: `LiteRtWebRuntime.wasmPath` defaults to the pinned `@litertjs/core` build on a CDN (was a hardcoded `/wasm/` that no package served).
-- Web bundle rebuilt against `@litertjs/core` 2.5.3, and `web/` now carries all four of its files — `litert.js` and `tensorflow.js` moved here from `flutter_gemma_litertlm`.
-- The build that produces them moved in too, as `tool/web_build`.
+- Fix web embeddings: all four bundle files ship here, rebuilt on `@litertjs/core` 2.5.3, runtime from a CDN by default (`LiteRtWebRuntime.wasmPath`).
 
 ## 2.1.1
 - Lift the `dart_sentencepiece_tokenizer` cap — 1.4.1 is now required, not excluded.

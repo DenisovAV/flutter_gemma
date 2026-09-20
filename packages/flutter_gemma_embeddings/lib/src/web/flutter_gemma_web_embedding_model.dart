@@ -15,6 +15,10 @@ class WebEmbeddingModel extends EmbeddingModel with CloseNotifier {
     this._tokenizerPath,
   });
 
+  /// Where the page's LiteRT.js runtime was actually loaded from, if at all.
+  /// Static because the runtime is one per page, not one per model.
+  static String? _loadedWasmPath;
+
   final VoidCallback onClose;
   final String? _modelPath;
   final String? _tokenizerPath;
@@ -44,13 +48,25 @@ class WebEmbeddingModel extends EmbeddingModel with CloseNotifier {
     }
 
     try {
+      // Configurable since 2.2.0; the old hardcoded '/wasm/' was served by
+      // nothing, so this call always failed. See [LiteRtWebRuntime].
+      final wasmPath = LiteRtWebRuntime.wasmPath;
+      // The runtime is a page-level singleton behind a flag in
+      // litert_embeddings.js: once it has loaded, a different prefix is
+      // discarded there without a word. Say so here instead.
+      if (_loadedWasmPath != null && _loadedWasmPath != wasmPath) {
+        gemmaLog(
+          'LiteRtWebRuntime.wasmPath changed to $wasmPath after the runtime '
+          'was loaded from $_loadedWasmPath — the new value is ignored. Set it '
+          'before the first embedding.',
+        );
+      }
       await LiteRTWebEmbeddings.initialize(
         _modelPath,
         _tokenizerPath,
-        // Configurable since 2.2.0; the old hardcoded '/wasm/' was served by
-        // nothing, so this call always failed. See [LiteRtWebRuntime].
-        wasmPath: LiteRtWebRuntime.wasmPath,
+        wasmPath: wasmPath,
       );
+      _loadedWasmPath ??= wasmPath;
       _isInitialized = true;
       if (kDebugMode) {
         gemmaLog('✅ LiteRT embeddings initialized successfully');

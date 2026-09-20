@@ -1,10 +1,12 @@
 /// Where the LiteRT.js WASM runtime is fetched from on web.
 ///
-/// Web embeddings run through LiteRT.js, which loads a WASM runtime
-/// (`litert_wasm_internal.js` + a ~9 MB `.wasm`) at the first embedding call.
-/// No pub package can ship those bytes, so until 2.2.0 this pointed at
-/// `/wasm/` — a path nothing served, which made web embeddings fail for every
-/// consumer with `Failed to load LiteRT model: undefined`.
+/// Web embeddings run through LiteRT.js, which loads a WASM runtime at the
+/// first embedding call — `litert_wasm_internal.js` or, without relaxed SIMD,
+/// `litert_wasm_compat_internal.js`, each with a ~9 MB `.wasm` beside it.
+/// Shipping both variants in this package would put ~5.7 MB compressed into
+/// every install of it, native-only apps included, so until 2.2.0 this pointed
+/// at `/wasm/` — a path nothing served, which made web embeddings fail for
+/// every consumer with `Failed to load LiteRT model: undefined`.
 ///
 /// The default is now the pinned CDN copy, measured working in Chrome:
 /// jsDelivr serves it with `Access-Control-Allow-Origin: *`,
@@ -16,8 +18,10 @@
 /// it is the JS glue built against a specific `@litertjs/core`, and it calls
 /// that release's WASM entry points by name. 0.2.x called
 /// `loadAndCompileWebGpu`, which 2.x replaced with `loadModel` + `compileModel`
-/// — feed one half a runtime from the other and it fails with
-/// `loadAndCompileWebGpu is not defined`. Both halves are rebuilt together from
+/// — point this at a release other than the one `web/litert.js` was built from
+/// and the first embedding fails with something that names no version at all
+/// (`Cannot read properties of undefined (reading 'create')` for a runtime
+/// older than the glue). Both halves are rebuilt together from
 /// `tool/web_build`, so this pin moves when that build does.
 ///
 /// Serve it yourself — offline, an air-gapped deploy, or a CSP that forbids
@@ -28,9 +32,10 @@
 /// LiteRtWebRuntime.wasmPath = '/wasm/';
 /// ```
 ///
-/// A trailing slash is required: LiteRT.js appends the file name to it, and the
-/// prefix is root-absolute — an app served under a base href other than `/`
-/// needs the full path (`/my-app/wasm/`) or an absolute URL.
+/// LiteRT.js inserts the separator itself when it joins this with the file
+/// name, so the trailing slash is convention here, not a requirement. The
+/// value above is root-absolute: an app served under a base href other than
+/// `/` needs the full path (`/my-app/wasm/`) or an absolute URL.
 ///
 /// Set it BEFORE the first embedding. The runtime is loaded once and cached
 /// behind a flag in `litert_embeddings.js`, so a later assignment is ignored

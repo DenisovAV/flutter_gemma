@@ -8,7 +8,7 @@
 // knowable once the session opens and the output names are visible in the
 // graph, which is after the descriptor was built.
 
-import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart'
+import 'package:flutter_gemma/core/embedding/forward_pass.dart'
     show EmbeddingForwardPass, EmbeddingOutputContract, ForwardResult;
 
 import 'ort_client.dart';

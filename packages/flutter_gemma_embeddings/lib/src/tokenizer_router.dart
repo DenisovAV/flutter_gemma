@@ -1,7 +1,13 @@
-// Tokenizer routing for the ONNX embedding backend (Phase 2 — plain-ORT
-// embedding forward pass, hardened plan Task 3).
+// Tokenizer routing, shared by every embedding backend.
 //
-// One factory covers both model families this backend targets — MiniLM
+// Nothing here is engine-specific and nothing ever was: it reads the
+// tokenizer file and picks a family. Which family a model needs is a property
+// of the MODEL — EmbeddingGemma is SentencePiece whether LiteRT or ONNX
+// Runtime executes its weights, MiniLM is WordPiece either way. It lived in
+// flutter_gemma_onnx until the tokenizer became a registered provider; LiteRT
+// meanwhile hardcoded SentencePiece and would mis-tokenize anything else.
+//
+// One factory covers both model families — MiniLM
 // (WordPiece `tokenizer.json`) and EmbeddingGemma-300M-ONNX (SentencePiece,
 // either a raw binary `tokenizer.model`/`sentencepiece.model` OR a
 // HuggingFace `tokenizer.json` whose `model.type` is `BPE`/`Unigram`, NOT
@@ -23,14 +29,10 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter_gemma_embeddings/embedding_tokenizer.dart'
-    show loadGemmaSentencePieceEmbeddingTokenizer;
-import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart'
-    show EmbeddingTokenizer;
-import 'package:flutter_gemma_embeddings/tokenizer_convention.dart'
-    show isSiglip2TokenizerJson;
-import 'package:flutter_gemma_embeddings/wordpiece_embedding_tokenizer.dart'
-    show WordPieceEmbeddingTokenizer;
+import 'embedding_tokenizer.dart' show loadGemmaSentencePieceEmbeddingTokenizer;
+import 'package:flutter_gemma/core/embedding/tokenizer_adapter.dart' show EmbeddingTokenizer;
+import 'tokenizer_convention.dart' show isSiglip2TokenizerJson;
+import 'wordpiece_embedding_tokenizer.dart' show WordPieceEmbeddingTokenizer;
 
 /// [EmbeddingTokenizerFactory] tear-off (production path for the ONNX
 /// backend). Routes:
@@ -41,7 +43,7 @@ import 'package:flutter_gemma_embeddings/wordpiece_embedding_tokenizer.dart'
 ///    `model.type: BPE`) -> the Gemma SentencePiece adapter, same convention
 ///    as the LiteRT path (see `embedding_tokenizer.dart`'s byte-identity
 ///    guard).
-Future<EmbeddingTokenizer> loadOnnxEmbeddingTokenizer(
+Future<EmbeddingTokenizer> resolveEmbeddingTokenizer(
   String tokenizerPath,
 ) async {
   // Only attempt to read+decode as JSON for a `.json`-named file — a raw

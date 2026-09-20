@@ -12,11 +12,13 @@ import 'package:flutter_gemma/core/registry/runtime_config.dart';
 import 'package:flutter_gemma/flutter_gemma_interface.dart' show EmbeddingModel;
 import 'package:flutter_gemma/core/model_management/model_specs.dart'
     show EmbeddingModelSpec;
-import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart'
-    show CommonEmbeddingModel, EmbeddingOutputContract, ForwardPassDescriptor;
+import 'package:flutter_gemma/core/embedding/common_embedding_model.dart'
+    show CommonEmbeddingModel;
+import 'package:flutter_gemma/core/embedding/forward_pass.dart'
+    show EmbeddingOutputContract, ForwardPassDescriptor;
+import 'package:flutter_gemma/core/registry/embedding_tokenizer_registry.dart';
 
 import 'onnx_embedding_forward_pass.dart';
-import 'onnx_tokenizer_loader.dart';
 
 /// ONNX Runtime embedding backend — plain ORT forward pass (no GenAI, no
 /// text generation) over an `.onnx`/`.ort` embedding model directory. Pure
@@ -102,7 +104,7 @@ class OnnxEmbeddingBackend implements EmbeddingBackendProvider {
         engineTag: 'ONNX',
         modelPath: config.modelPath,
         factory: createOnnxEmbeddingForwardPass,
-        tokenizerFactory: loadOnnxEmbeddingTokenizer,
+        tokenizerFactory: EmbeddingTokenizerRegistry.instance.resolveFor(spec),
         // Default only — the real value is discovered once the ONNX session
         // opens and its output names are visible, then reported per-request
         // via `OnnxEmbeddingForwardPass.outputContract` (design D-T2). The

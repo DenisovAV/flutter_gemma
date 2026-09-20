@@ -18,9 +18,9 @@ import 'dart:io';
 import 'dart:isolate';
 
 import 'package:flutter_gemma_embeddings/src/embedding_tokenizer.dart';
-import 'package:flutter_gemma_embeddings/src/embedding_worker.dart';
-import 'package:flutter_gemma_embeddings/src/forward_pass.dart';
-import 'package:flutter_gemma_embeddings/src/tokenizer_adapter.dart';
+import 'package:flutter_gemma/core/embedding/embedding_worker.dart';
+import 'package:flutter_gemma/core/embedding/forward_pass.dart';
+import 'package:flutter_gemma/core/embedding/tokenizer_adapter.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Fake forward pass: behavior selected by [_FakeMode] (encoded into the

@@ -7,7 +7,9 @@ image: https://fluttergemma.dev/images/og-image.png
 As of **1.0**, the monolithic `flutter_gemma` plugin is split into a small
 **core** package plus **opt-in** packages for each engine / backend. Your app
 ships only the native weight it actually uses. All packages live in one monorepo
-(a Dart pub workspace) and the opt-in packages depend on core one-directionally.
+(a Dart pub workspace). The opt-in packages depend on core and never on each
+other: core owns the contracts and picks the implementation, a package provides
+it, and your app wires the two together in `FlutterGemma.initialize(...)`.
 
 ## The packages
 

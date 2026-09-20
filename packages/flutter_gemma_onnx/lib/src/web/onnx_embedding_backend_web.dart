@@ -5,6 +5,7 @@
 
 import 'package:flutter_gemma/core/registry/embedding_backend_provider.dart';
 import 'package:flutter_gemma/core/registry/runtime_config.dart';
+import 'package:flutter_gemma/core/registry/embedding_tokenizer_registry.dart';
 import 'package:flutter_gemma/flutter_gemma_interface.dart' show EmbeddingModel;
 import 'package:flutter_gemma/core/model_management/model_specs.dart'
     show EmbeddingModelSpec;
@@ -49,6 +50,7 @@ class OnnxEmbeddingBackend implements EmbeddingBackendProvider {
     return OnnxWebEmbeddingModel(
       modelPath: config.modelPath,
       tokenizerPath: tokenizerPath,
+      tokenizerFactory: EmbeddingTokenizerRegistry.instance.resolveFor(spec),
       onClose: () {}, // core resets its state via addCloseListener
     );
   }

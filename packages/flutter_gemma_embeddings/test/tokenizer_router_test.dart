@@ -1,13 +1,13 @@
-// Unit tests for `loadOnnxEmbeddingTokenizer`'s routing (Phase 2 hardened
+// Unit tests for `resolveEmbeddingTokenizer`'s routing (Phase 2 hardened
 // plan Task 3). No native session; exercises real file I/O against tiny
 // fixtures written to a temp dir.
 
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
+import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_embeddings/wordpiece_embedding_tokenizer.dart';
-import 'package:flutter_gemma_onnx/src/embedding/onnx_tokenizer_loader.dart';
+import 'package:flutter_gemma_embeddings/src/tokenizer_router.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _wordPieceVocab = {
@@ -84,7 +84,7 @@ void main() {
     final path = '${tmpDir.path}/tokenizer.json';
     await File(path).writeAsString(_wordPieceJson());
 
-    final tokenizer = await loadOnnxEmbeddingTokenizer(path);
+    final tokenizer = await resolveEmbeddingTokenizer(path);
     expect(tokenizer, isA<WordPieceEmbeddingTokenizer>());
   });
 
@@ -101,7 +101,7 @@ void main() {
     // The Gemma SentencePiece adapter cannot parse this HF BPE schema
     // either — it throws, but importantly it is REACHED (not silently
     // treated as WordPiece, which would corrupt every token id).
-    await expectLater(loadOnnxEmbeddingTokenizer(path), throwsA(anything));
+    await expectLater(resolveEmbeddingTokenizer(path), throwsA(anything));
   });
 
   test(
@@ -111,7 +111,7 @@ void main() {
     'invalid UTF-8, verified against a real tokenizer.model download)',
     () async {
       final path = '${tmpDir.path}/tokenizer.model';
-      // Write genuinely invalid-UTF-8 bytes — if `loadOnnxEmbeddingTokenizer`
+      // Write genuinely invalid-UTF-8 bytes — if `resolveEmbeddingTokenizer`
       // ever tried `readAsString()` on this path, it would throw
       // FileSystemException before even reaching the SentencePiece loader.
       await File(path).writeAsBytes([0xFF, 0xFE, 0x00, 0x01, 0x02]);
@@ -119,7 +119,7 @@ void main() {
       // The SentencePiece adapter itself will fail on this garbage — the
       // point is WHERE it fails (inside SentencePiece parsing, not
       // File.readAsString's UTF-8 decode).
-      await expectLater(loadOnnxEmbeddingTokenizer(path), throwsA(anything));
+      await expectLater(resolveEmbeddingTokenizer(path), throwsA(anything));
     },
   );
 
@@ -131,7 +131,7 @@ void main() {
     await File(path).writeAsString(_siglip2Json());
 
     await expectLater(
-      loadOnnxEmbeddingTokenizer(path),
+      resolveEmbeddingTokenizer(path),
       throwsA(
         isA<UnsupportedError>().having(
           (e) => e.message,
@@ -161,7 +161,7 @@ void main() {
 
       // It loads: the Gemma adapter accepts this stub vocabulary. The
       // assertion is that the guard did not claim the file.
-      expect(await loadOnnxEmbeddingTokenizer(path), isA<EmbeddingTokenizer>());
+      expect(await resolveEmbeddingTokenizer(path), isA<EmbeddingTokenizer>());
     }
   });
 }

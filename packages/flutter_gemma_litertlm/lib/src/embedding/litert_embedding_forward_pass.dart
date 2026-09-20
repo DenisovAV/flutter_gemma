@@ -31,7 +31,7 @@ import 'package:ffi/ffi.dart';
 // Dart), so importing the public barrel here hits none of the
 // conditional-export analyzer quirk `litert_bindings.dart` below works
 // around; only that package's `CommonEmbeddingModel` export is conditional.
-import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart'
+import 'package:flutter_gemma/core/embedding/forward_pass.dart'
     show EmbeddingForwardPass, EmbeddingOutputContract, ForwardResult;
 // Public, native-only bindings library (not the package barrel): this file
 // is native-only — never reached on web — so it always needs the real FFI

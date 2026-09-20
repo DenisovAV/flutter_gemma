@@ -21,15 +21,14 @@ import 'package:flutter_gemma/core/lifecycle/close_notifier.dart';
 import 'package:flutter_gemma/core/utils/gemma_log.dart' show gemmaLog;
 import 'package:flutter_gemma/flutter_gemma_interface.dart'
     show EmbeddingModel, TaskType;
-import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart'
-    show
-        EmbeddingOutputContract,
-        EmbeddingTokenizer,
-        ForwardResult,
-        meanPoolAndNormalize;
+import 'package:flutter_gemma/core/embedding/forward_pass.dart'
+    show EmbeddingOutputContract, ForwardResult;
+import 'package:flutter_gemma/core/embedding/pooling.dart'
+    show meanPoolAndNormalize;
+import 'package:flutter_gemma/core/embedding/tokenizer_adapter.dart'
+    show EmbeddingTokenizer, EmbeddingTokenizerFactory;
 
 import 'onnx_web_embedding_forward_pass.dart';
-import 'onnx_web_tokenizer_loader.dart';
 import 'opfs_web_resolver.dart';
 import 'ort_web_client.dart';
 
@@ -63,12 +62,18 @@ class OnnxWebEmbeddingModel extends EmbeddingModel with CloseNotifier {
   OnnxWebEmbeddingModel({
     required String modelPath,
     required String tokenizerPath,
+    required this.tokenizerFactory,
     required this.onClose,
   }) : _modelPath = modelPath,
        _tokenizerPath = tokenizerPath;
 
   final String _modelPath;
   final String _tokenizerPath;
+  /// Resolved from core's tokenizer registry by the backend, not chosen here:
+  /// the tokenizer family is a property of the model, and its implementations
+  /// live in a package this one does not depend on.
+  final EmbeddingTokenizerFactory tokenizerFactory;
+
   final VoidCallback onClose;
 
   OnnxWebEmbeddingForwardPass? _pass;
@@ -93,8 +98,7 @@ class OnnxWebEmbeddingModel extends EmbeddingModel with CloseNotifier {
     // or ort.InferenceSession.create() directly — resolve to a blob: URL
     // first. No-op for the cacheApi/none paths (already blob:/https:).
     final resolvedTokenizerPath = await resolveOnnxWebPath(_tokenizerPath);
-    final tokenizerText = await _fetchText(resolvedTokenizerPath);
-    _tokenizer = parseOnnxEmbeddingTokenizerWeb(tokenizerText);
+    _tokenizer = await tokenizerFactory(resolvedTokenizerPath);
 
     final resolvedModelPath = await resolveOnnxWebPath(_modelPath);
     final pass = OnnxWebEmbeddingForwardPass(resolvedModelPath, OrtWebClient());

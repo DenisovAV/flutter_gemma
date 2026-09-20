@@ -1669,6 +1669,11 @@ turn. Since **1.8.4** (with `flutter_gemma_litertlm` 1.7.1) that holds for Funct
 before it, its tool results were sent as an ordinary user message, and the model answered them by
 repeating the call it had just made.
 
+Where a call comes back as text rather than structured `tool_calls` — the web SDK, or a
+`.litertlm` exported without the FunctionGemma model type, whose runtime opens no tool-call
+channel — flutter_gemma parses that text itself, so your code still receives a
+`FunctionCallResponse`.
+
 Nothing in your own code changes: the wire format is chosen from the model type and the file type
 together. Three things are worth knowing:
 

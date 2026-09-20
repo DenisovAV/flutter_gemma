@@ -84,7 +84,10 @@ final chat = await model.createChat(
 
 - `ToolChoice.auto` (default) — the model decides.
 - `ToolChoice.required` — the model must respond with a function call.
-- `ToolChoice.none` — the model must not call any tool, even when tools are passed.
+- `ToolChoice.none` — the model must not call any tool. Where the SDK renders the
+  declarations this takes them out of the prompt; on a `.litertlm` Gemma 4 or
+  FunctionGemma the runtime already holds them, so the model can still emit a
+  call — and with parsing off it reaches the stream as raw text.
 
 <Info>
 `ToolChoice.required` reaches the model only where the SDK writes the
@@ -101,10 +104,16 @@ instruction written into their prompt.
 On a `.litertlm`, both Gemma 4 and FunctionGemma go through LiteRT-LM's own tool
 path: the declarations travel to the runtime as structured data, the call comes
 back parsed, and the result of a turn goes back as one role-`tool` message that
-continues the same model turn. Since **flutter_gemma 1.8.4 with flutter_gemma_litertlm 1.7.1** that is true for
-FunctionGemma too — before them, its tool results were sent as an ordinary user
-message, and the model answered them by repeating the call it had just made.
-Both halves are needed: core decides the wire format, the engine sends it.
+continues the same model turn. Since **flutter_gemma 1.8.4 with
+flutter_gemma_litertlm 1.7.1** that is true for FunctionGemma too — before them,
+its tool results were sent as an ordinary user message, and the model answered
+them by repeating the call it had just made. Both halves are needed: core decides
+the wire format, the engine sends it.
+
+Where a call comes back as text rather than structured `tool_calls` — the web
+SDK, or a `.litertlm` exported without the FunctionGemma model type, whose
+runtime opens no tool-call channel — flutter_gemma parses that text itself, so
+your code still receives a `FunctionCallResponse`.
 
 Two consequences worth knowing:
 

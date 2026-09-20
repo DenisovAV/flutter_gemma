@@ -23,8 +23,9 @@ running your Dart before you have finished reading the page. Step 4 fine-tunes
 that same 270M model on the four tools this codelab declares and produces a
 `.litertlm` you open from disk. Step 5 pays **2.59 GB** for **Gemma 4 E2B**,
 for the thing a 270M model cannot do at all: reason out loud before it chooses
-which function to call. It also declares its tools by a different route, which
-is where `toolChoice` stops behaving the way its three names suggest.
+which function to call. It reaches the runtime's tool path the same way
+FunctionGemma does, which is where `toolChoice` stops behaving the way its
+three names suggest.
 
 That is the idea worth taking away:
 
@@ -123,12 +124,24 @@ before the first frame is guarded:
 
 ```dart
   try {
-    await FlutterGemma.initialize(inferenceEngines: [LiteRtLmEngine()]);
+    await FlutterGemma.initialize(
+      inferenceEngines: [LiteRtLmEngine()],
+      // OPFS streaming: on web a `.litertlm` this size does not fit the blob
+      // the default `cacheApi` mode would have to buffer it into. Every other
+      // platform ignores this.
+      webStorageMode: WebStorageMode.streaming,
+    );
   } catch (error) {
     runApp(_StartupFailed(error: error));
     return;
   }
 ```
+
+`webStorageMode` needs two helper scripts in `web/` — `cache_api.js` and
+`opfs_helper.js`, copied verbatim from the plugin's own `web/` directory and
+loaded from `web/index.html`. Every step app in this codelab ships them; if you
+are building along by hand and skip them, the web build compiles and then fails
+to install a model.
 
 That is not ceremony. This is the earliest thing in the app that can fail —
 hot-restarting after adding a plugin throws `MissingPluginException` right here
@@ -883,7 +896,9 @@ declaration renders two ways.
         // forwards `tools` to `createSession` without consulting this — so
         // `none` cannot take them back out. What it switches off is the SDK's
         // suppression of tool-call JSON, which is why a call made under `none`
-        // can arrive as raw markup in the bubble.
+        // can arrive as raw markup in the bubble. On a `.task` model the SDK
+        // writes the declarations into the prompt itself, and there `none`
+        // really does leave them out.
         toolChoice: _toolChoice,
 ```
 
@@ -894,10 +909,11 @@ the SDK stops swallowing the call turn, and you see the raw
 Worth doing once — it is the clearest possible look at what the passthrough
 format actually puts on the wire.
 
-On a `.task` model through MediaPipe it is a different story: there the SDK
-writes the declarations into the prompt text itself, so `none` really does
+On a `.task` FunctionGemma through MediaPipe it is a different story: there the
+SDK writes the declarations into the prompt text itself, so `none` really does
 leave them out and the model never learns the tools exist. Same switch, two
-meanings, decided by the file type.
+meanings, decided by the file type — and not by the model alone, since a
+`.task` Gemma 4 stays on the runtime's path either way.
 
 Switch to `required` and **neither** model obeys it. The app says so rather
 than leaving you to wonder:
@@ -912,14 +928,12 @@ than leaving you to wonder:
           : null;
 ```
 
-That is not a bug in either model, and the two reasons are different.
-FunctionGemma's prompt format has no way to express "you must call a function",
-and honouring `required` would mean inventing tokens it was never trained on —
-so `InferenceChat` logs a warning and behaves as `auto`. Gemma 4 never reaches
-that code: the only "you must" text the SDK owns lives on the Dart-injection
-path, which passthrough models skip by design, and the `tools_json` handed to
-the runtime carries no `tool_choice` field at all. So there `required` is
-silently `auto` — not even a warning.
+That is not a bug in either model, and on a `.litertlm` the reason is the same
+one for both. The only "you must call a function" text the SDK owns lives on
+the path where it writes the declarations itself, and neither model here takes
+that path — the runtime holds their declarations, and the `tools_json` it is
+handed carries no `tool_choice` field. So `required` is silently `auto`, for
+both, with no warning to tell you.
 
 Which is why the answer is recorded per checkpoint rather than assumed from
 size. Today it is `false` for both, and the bigger model is not the exception:
@@ -928,12 +942,13 @@ size. Today it is `false` for both, and the bigger model is not the exception:
   /// Can this model be *forced* to call a tool?
   ///
   /// `ToolChoice.required` needs a way to say "you must call a function" in
-  /// the prompt the model actually reads, and neither of these has one.
-  /// FunctionGemma's format cannot express it, so the SDK logs a warning and
-  /// behaves as `auto`. Gemma 4's declarations go to the runtime as
-  /// `tools_json`, which carries no `tool_choice` — so `required` is `auto`
-  /// there too, without even the warning. Reasonable behaviour on the SDK's
-  /// part, and very confusing to watch if the app does not say so.
+  /// the prompt the model actually reads, and neither of these has one. On a
+  /// `.litertlm` both families hand their declarations to the runtime as
+  /// `tools_json`, which carries no `tool_choice`, so `required` is `auto` for
+  /// both — and the SDK's old FunctionGemma warning is not even reached, since
+  /// that lived on the path where the SDK wrote the declarations itself.
+  /// Reasonable behaviour, and very confusing to watch if the app does not
+  /// say so.
   final bool supportsRequiredToolChoice;
 ```
 
@@ -985,8 +1000,8 @@ which is why the session asks for more room when it is on:
 ### Both settings belong to the session
 
 Neither `toolChoice` nor `isThinking` can be changed on a live chat. One
-decides whether the declarations are rendered into the prompt; the other
-switches on a generation channel. Both are settled when the session is created,
+travels with the declarations the session was opened with; the other switches
+on a generation channel. Both are settled when the session is created,
 so changing either closes the chat and opens another — and the transcript goes
 with it:
 
@@ -994,9 +1009,10 @@ with it:
   /// Rebuilds the session because a session setting changed.
   ///
   /// There is no way to change `toolChoice` or `isThinking` on a live chat:
-  /// both are decided when the session is created — one renders the
-  /// declarations into the prompt, the other switches on a generation channel
-  /// — so the honest thing is to close this one and open another. The
+  /// both are decided when the session is created — one travels with the
+  /// declarations the session is opened with, the other switches on a
+  /// generation channel — so the honest thing is to close this one and open
+  /// another. The
   /// transcript goes with it, because the new session's history is empty and a
   /// transcript that survived would be describing a conversation the model can
   /// no longer remember.
@@ -1052,19 +1068,17 @@ disk records which family a `.litertlm` belongs to. Tune a different base and
 
 | | Android | iOS device | iOS Simulator | macOS | Windows | Linux | Web |
 |---|---|---|---|---|---|---|---|
-| Function calling | yes | yes | CPU only | yes | yes | yes | **no** (Gemma 4) |
+| Function calling | yes | yes | CPU only | yes | yes | yes | not verified |
 | Thinking (Gemma 4) | yes | yes | CPU only | yes | yes | yes | see below |
 | Open a file from disk | yes | yes | yes | yes | yes | yes | **no** |
 
-**The web** builds and runs, and text chat works. Function calling on **Gemma
-4** does not, and this is known from the source rather than merely untried: the
-browser `.litertlm` runtime does not override `createChat`, so it inherits the
-base implementation, whose session factory never passes `tools:` on. Gemma 4's
-declarations travel *with the session*, so on web they never arrive — the model
-is told nothing about your functions and answers 1234 × 5678 out of its own
-head. FunctionGemma's declarations are rendered into the prompt by
-`InferenceChat` instead, so they are not lost the same way, but nothing in this
-codelab was run on web against either model, so treat that half as unverified.
+**The web** builds and runs, and text chat works. Function calling is a
+**maybe**, and the honest reason is that nobody here has run it. The plumbing
+is in place: core 1.7.3 fixed `createChat` dropping `tools`, and the browser
+arm sends the declarations to the runtime as a structured preface for both
+families, the same JSON the native side sends. What is missing is a
+measurement — no browser run against either model, with either kind of tool.
+Treat the row above as "not verified", not as "known broken".
 Thinking is unverified for the same reason: the browser runtime types its
 `extra_context` as opaque JSON and its thinking channel has never been
 confirmed end to end. The 2.59 GB model is in any case not a browser download,

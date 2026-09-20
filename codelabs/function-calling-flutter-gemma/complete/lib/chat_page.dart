@@ -154,9 +154,10 @@ class _ChatPageState extends State<ChatPage> {
   /// Rebuilds the session because a session setting changed.
   ///
   /// There is no way to change `toolChoice` or `isThinking` on a live chat:
-  /// both are decided when the session is created — one renders the
-  /// declarations into the prompt, the other switches on a generation channel
-  /// — so the honest thing is to close this one and open another. The
+  /// both are decided when the session is created — one travels with the
+  /// declarations the session is opened with, the other switches on a
+  /// generation channel — so the honest thing is to close this one and open
+  /// another. The
   /// transcript goes with it, because the new session's history is empty and a
   /// transcript that survived would be describing a conversation the model can
   /// no longer remember.

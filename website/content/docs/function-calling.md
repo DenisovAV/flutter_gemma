@@ -86,8 +86,11 @@ final chat = await model.createChat(
 - `ToolChoice.none` — the model must not call any tool, even when tools are passed.
 
 <Info>
-`ToolChoice.required` is not supported by FunctionGemma — its prompt format has
-no way to express the constraint, so it degrades to `auto` and logs a warning.
+`ToolChoice.required` is honoured by neither family on a `.litertlm`. The
+declarations go to the runtime as structured data, which carries no
+`tool_choice`, so `required` behaves as `auto` — silently. Only a `.task`
+FunctionGemma, whose declarations the SDK writes into the prompt itself, gets
+the old "not supported" warning.
 </Info>
 
 ## Who renders the declarations

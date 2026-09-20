@@ -71,8 +71,11 @@ jobs:
           git lfs pull --include="prebuilt/windows_x86_64/*"
           # Same as the Linux jobs, and for the same reason: fail before the
           # hour of Bazel, not after it.
-          if (Select-String -Path runtime\components\constrained_decoding\constraint.h -Pattern 'ComputeMask' -Quiet) {
-            $prov = [System.Text.Encoding]::ASCII.GetString([System.IO.File]::ReadAllBytes("prebuilt\windows_x86_64\libGemmaModelConstraintProvider.dll"))
+          # Absolute paths on purpose: `cd` moves PowerShell's location, not the
+          # process working directory, so a .NET call with a relative path reads
+          # from the workspace root and fails there instead.
+          if (Select-String -Path C:\LiteRT-LM\runtime\components\constrained_decoding\constraint.h -Pattern 'ComputeMask' -Quiet) {
+            $prov = [System.Text.Encoding]::ASCII.GetString([System.IO.File]::ReadAllBytes("C:\LiteRT-LM\prebuilt\windows_x86_64\libGemmaModelConstraintProvider.dll"))
             if (-not $prov.Contains('LogitMask')) {
               throw "prebuilt provider predates the ComputeMask Constraint ABI - every tool call would segfault"
             }

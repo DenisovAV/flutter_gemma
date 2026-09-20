@@ -98,14 +98,13 @@ echo "Pulling LFS files..."
 # own release lane never hits this: its wheel compiles the provider in.
 PREBUILT_REF="${PREBUILT_REF:-4453b286c549d216584866ed49b6fed6d11fa3a7}"
 echo "Taking prebuilt companions from $PREBUILT_REF"
-git fetch --quiet origin main
-git cat-file -e "$PREBUILT_REF^{commit}"
-git restore --source="$PREBUILT_REF" --staged --worktree -- "prebuilt/android_arm64"
 git lfs pull --include="prebuilt/android_arm64/*"
-# Fail here, not an hour later at the end of the build: `git restore --worktree`
-# alone leaves the INDEX on the source ref, and `git lfs pull` then fetches the
-# index's pointer — putting the stale provider back. --staged keeps them in
-# step; this assert is what proves it.
+# The provider comes from a different commit than the source. git restore +
+# lfs pull will not carry it (lfs checks out what the index points at), so
+# fetch that one file from the LFS media endpoint.
+curl -fsSL -o "prebuilt/android_arm64/libGemmaModelConstraintProvider.so" \
+  "https://media.githubusercontent.com/media/google-ai-edge/LiteRT-LM/$PREBUILT_REF/prebuilt/android_arm64/libGemmaModelConstraintProvider.so"
+# Fail here, not an hour later at the end of the build.
 if grep -q 'ComputeMask' runtime/components/constrained_decoding/constraint.h; then
   strings -a "prebuilt/android_arm64/libGemmaModelConstraintProvider.so" | grep -q 'LogitMask' || {
     echo "ERROR: prebuilt provider predates the ComputeMask Constraint ABI — every tool call would segfault" >&2

@@ -54,15 +54,13 @@ jobs:
           # segfaults in CompositeLogitMask::Apply. 4453b286 is upstream's own
           # refresh of those binaries. Their wheel compiles the provider in, so
           # their release lane never sees it.
-          git fetch --quiet origin main
-          git cat-file -e "$PREBUILT_REF^{commit}" || {
-            echo "::error::prebuilt_ref $PREBUILT_REF is not in this clone (fetched main)"; exit 1; }
-          git restore --source="$PREBUILT_REF" --staged --worktree -- prebuilt/linux_x86_64
           git lfs pull --include="prebuilt/linux_x86_64/*"
-          # Fail here, not an hour later in Collect artifacts: `--worktree` alone
-          # leaves the INDEX on the source ref and `git lfs pull` fetches the
-          # index's pointer, putting the stale provider back. --staged keeps the
-          # two in step, and this assert is what proves it did.
+          # The provider comes from a different commit than the source, and git
+          # restore + lfs pull would not carry it: lfs checks out what the index
+          # points at. Fetch the one file from the LFS media endpoint instead.
+          curl -fsSL -o prebuilt/linux_x86_64/libGemmaModelConstraintProvider.so \
+            "https://media.githubusercontent.com/media/google-ai-edge/LiteRT-LM/$PREBUILT_REF/prebuilt/linux_x86_64/libGemmaModelConstraintProvider.so"
+          # Fail here, not an hour later in Collect artifacts.
           if grep -q 'ComputeMask' runtime/components/constrained_decoding/constraint.h; then
             strings -a "prebuilt/linux_x86_64/libGemmaModelConstraintProvider.so" | grep -q 'LogitMask' || {
               echo "::error::prebuilt provider predates the ComputeMask Constraint ABI - every tool call would segfault"; exit 1; }
@@ -176,15 +174,13 @@ jobs:
           # segfaults in CompositeLogitMask::Apply. 4453b286 is upstream's own
           # refresh of those binaries. Their wheel compiles the provider in, so
           # their release lane never sees it.
-          git fetch --quiet origin main
-          git cat-file -e "$PREBUILT_REF^{commit}" || {
-            echo "::error::prebuilt_ref $PREBUILT_REF is not in this clone (fetched main)"; exit 1; }
-          git restore --source="$PREBUILT_REF" --staged --worktree -- prebuilt/linux_arm64
           git lfs pull --include="prebuilt/linux_arm64/*"
-          # Fail here, not an hour later in Collect artifacts: `--worktree` alone
-          # leaves the INDEX on the source ref and `git lfs pull` fetches the
-          # index's pointer, putting the stale provider back. --staged keeps the
-          # two in step, and this assert is what proves it did.
+          # The provider comes from a different commit than the source, and git
+          # restore + lfs pull would not carry it: lfs checks out what the index
+          # points at. Fetch the one file from the LFS media endpoint instead.
+          curl -fsSL -o prebuilt/linux_arm64/libGemmaModelConstraintProvider.so \
+            "https://media.githubusercontent.com/media/google-ai-edge/LiteRT-LM/$PREBUILT_REF/prebuilt/linux_arm64/libGemmaModelConstraintProvider.so"
+          # Fail here, not an hour later in Collect artifacts.
           if grep -q 'ComputeMask' runtime/components/constrained_decoding/constraint.h; then
             strings -a "prebuilt/linux_arm64/libGemmaModelConstraintProvider.so" | grep -q 'LogitMask' || {
               echo "::error::prebuilt provider predates the ComputeMask Constraint ABI - every tool call would segfault"; exit 1; }
@@ -312,13 +308,14 @@ jobs:
           # segfaults in CompositeLogitMask::Apply. 4453b286 is upstream's own
           # refresh of those binaries. Their wheel compiles the provider in, so
           # their release lane never sees it.
-          git fetch --quiet origin main
-          git cat-file -e "$env:PREBUILT_REF^{commit}"
-          if ($LASTEXITCODE -ne 0) { throw "prebuilt_ref $env:PREBUILT_REF is not in this clone (fetched main)" }
-          git restore --source="$env:PREBUILT_REF" --staged --worktree -- prebuilt/windows_x86_64
           git lfs pull --include="prebuilt/windows_x86_64/*"
-          # Same as the Linux jobs, and for the same reason: fail before the
-          # hour of Bazel, not after it.
+          # The provider comes from a different commit than the source; git restore
+          # + lfs pull would not carry it, because lfs checks out what the index
+          # points at. Fetch the one file from the LFS media endpoint instead.
+          curl.exe -fsSL -o C:\LiteRT-LM\prebuilt\windows_x86_64\libGemmaModelConstraintProvider.dll `
+            "https://media.githubusercontent.com/media/google-ai-edge/LiteRT-LM/$env:PREBUILT_REF/prebuilt/windows_x86_64/libGemmaModelConstraintProvider.dll"
+          if ($LASTEXITCODE -ne 0) { throw "could not fetch the provider for $env:PREBUILT_REF" }
+          # Fail before the hour of Bazel, not after it.
           # Absolute paths on purpose: `cd` moves PowerShell's location, not the
           # process working directory, so a .NET call with a relative path reads
           # from the workspace root and fails there instead.

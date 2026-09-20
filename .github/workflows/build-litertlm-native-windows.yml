@@ -67,8 +67,17 @@ jobs:
           git fetch --quiet origin main
           git cat-file -e "$env:PREBUILT_REF^{commit}"
           if ($LASTEXITCODE -ne 0) { throw "prebuilt_ref $env:PREBUILT_REF is not in this clone (fetched main)" }
-          git restore --source="$env:PREBUILT_REF" --worktree -- prebuilt/windows_x86_64
+          git restore --source="$env:PREBUILT_REF" --staged --worktree -- prebuilt/windows_x86_64
           git lfs pull --include="prebuilt/windows_x86_64/*"
+          # Same as the Linux jobs, and for the same reason: fail before the
+          # hour of Bazel, not after it.
+          if (Select-String -Path runtime\components\constrained_decoding\constraint.h -Pattern 'ComputeMask' -Quiet) {
+            $prov = [System.Text.Encoding]::ASCII.GetString([System.IO.File]::ReadAllBytes("prebuilt\windows_x86_64\libGemmaModelConstraintProvider.dll"))
+            if (-not $prov.Contains('LogitMask')) {
+              throw "prebuilt provider predates the ComputeMask Constraint ABI - every tool call would segfault"
+            }
+            Write-Host "provider ABI: LogitMask present, matches this source"
+          }
 
       - name: Patch C API
         shell: bash

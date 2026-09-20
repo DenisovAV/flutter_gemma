@@ -82,8 +82,9 @@ this codelab hands you one of each.
   — plus the memory to open the larger one, roughly 6 GB of RAM. A 4 GB phone
   is killed by the OS rather than told no. On the **web**, Step 2 already
   needs Gemma 4 E2B's **2.0 GB** web build (SmolVLM2 has none), so leave about
-  3 GB free for it and the stream still arriving; Step 3 needs nothing further
-  there — same file, already installed
+  3 GB free for it — a browser close to its storage quota refuses the write
+  rather than slowing down; Step 3 needs nothing further there — same file,
+  already installed
 * Android (an **arm64** device or emulator — `flutter_gemma_litertlm` ships an
   arm64 library and nothing else, so a 32-bit or x86_64 image has no runtime to
   load), a real iPhone or iPad, macOS, Windows or Linux for the full thing.
@@ -314,8 +315,8 @@ it inherited from Getting Started. It gains a `try` in exchange:
   try {
     await FlutterGemma.initialize(
       inferenceEngines: [LiteRtLmEngine()],
-      // OPFS streaming, not the Cache API default: the web build is close
-      // enough to the ~2 GiB blob ceiling that it is not worth buffering.
+      // OPFS streaming, not the Cache API default: the web build is 2.0 GB,
+      // right on the ~2 GB blob ceiling, so it is not worth buffering.
       webStorageMode: WebStorageMode.streaming,
     );
   } catch (error) {
@@ -325,19 +326,19 @@ it inherited from Getting Started. It gains a `try` in exchange:
 ```
 
 `webStorageMode` is the web half of this step, and it earns its own sentence.
-The comment above it is the app's, and it overstates the rule: the browser
-engine takes either storage mode — `flutter_gemma_litertlm`'s web arm accepts
-a Cache API blob URL and an OPFS stream alike, and its own doc reserves
-streaming for models past 2 GB. What changed in flutter_gemma 0.16.2 was that
-web `.litertlm` inference arrived at all, not that streaming became
-compulsory. The reason to set it here is size. The default
-`WebStorageMode.cacheApi` buffers the whole download in memory as one blob,
-and a single blob tops out at 2 GiB — 2,147,483,648 bytes. The Gemma 4 E2B web
-build this step installs in the browser is 2,008,432,640 bytes, about 139 MB
-under that ceiling. Close enough that every `.litertlm` install in this codelab
-uses `WebStorageMode.streaming` from here on: streaming writes the download into
-OPFS and reads the model back from there instead of holding it whole in
-memory. It is not the only thing a web install needs — Step 4 covers the rest.
+It is not something the format demands: the browser engine takes either
+storage mode — `flutter_gemma_litertlm`'s web arm accepts a Cache API blob URL
+and an OPFS stream alike, and its own doc reserves streaming for models past
+2 GB. What changed in flutter_gemma 0.16.2 was that web `.litertlm` inference
+arrived at all, not that streaming became compulsory. The reason to set it
+here is size. The default `WebStorageMode.cacheApi` buffers the whole download
+in memory as one blob, and browsers cap a single blob at roughly 2 GB — Chrome
+refuses past it with `ERR_BLOB_OUT_OF_MEMORY`. The Gemma 4 E2B web build this
+step installs in the browser is 2.0 GB, right on that line. Close enough that
+every `.litertlm` install in this codelab uses `WebStorageMode.streaming` from
+here on: streaming writes the download into OPFS and reads the model back from
+there instead of holding it whole in memory. It is not the only thing a web
+install needs — Step 4 covers the rest.
 
 That is not ceremony. This is the earliest thing in the app that can fail —
 hot-restarting after adding a plugin throws `MissingPluginException` right here
@@ -918,12 +919,17 @@ it true, because none of it is specific to this codelab. Every step's
 `web/` directory (`grep -A1 '"name": "flutter_gemma"'
 .dart_tool/package_config.json` finds it in your own project) — because core's
 web storage reaches OPFS through `window.flutterGemmaOPFS` in `opfs_helper.js`
-and the Cache API through `window.cachePut` in `cache_api.js`, and it picks
-between them at run time: streaming mode falls back to the Cache API when the
-browser has no OPFS, so an app that ships only one of the two scripts has a
-path that fails after downloading the whole file. `FlutterGemma.initialize`
-passes `webStorageMode: WebStorageMode.streaming` from Step 2 on, which is
-what routes those bytes through OPFS rather than the Cache API default; see
+and the Cache API through `window.cacheHas` and friends in `cache_api.js`, and
+streaming mode uses both. Not as alternatives — on different paths. The
+download itself goes to OPFS and never touches the Cache API. But the
+`opfs://` mapping it registers lives in memory, so after a reload core's
+lookup for an installed model finds nothing and asks the Cache API to restore
+a URL before it gives up. Ship only `opfs_helper.js` and that restore call
+hits an undefined global, the `catch` around it swallows the error, and an app
+that still reads "installed" silently re-downloads the whole model.
+`FlutterGemma.initialize` passes `webStorageMode: WebStorageMode.streaming`
+from Step 2 on, which is what routes those bytes through OPFS rather than the
+Cache API default; see
 Step 2 for why a 2 GB model is streamed rather than buffered. And `model.dart`
 installs a different file on the web than everywhere else —
 `gemma-4-E2B-it-web.litertlm` rather than `gemma-4-E2B-it.litertlm`, a separate

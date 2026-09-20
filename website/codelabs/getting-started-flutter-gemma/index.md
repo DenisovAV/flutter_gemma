@@ -44,9 +44,10 @@ of decisions the API asks you to make, and this codelab is built around them:
   on all of them — Step 2 lists the handful of things each one asks of you, and
   which model it downloads there
 * Free space and a connection that can pull it: about 1 GB on native, where the
-  models are 0.5 GB (Gemma 3 1B) and 0.6 GB (Qwen3), and about 3 GB on the web,
-  where the app downloads a different, larger model — 2.0 GB, plus room for the
-  stream still arriving (Step 2 explains why)
+  models are 0.6 GB each (Gemma 3 1B and Qwen3), and about 3 GB on the web,
+  where the app downloads a different, larger model — 2.0 GB, and a browser
+  that is nearly out of storage refuses a write rather than slowing down, so
+  leave it headroom (Step 2 explains why the web model is a different one)
 * Optionally, a free Hugging Face account (Step 2 explains when you need one —
   not on the web)
 
@@ -302,11 +303,11 @@ webStorageMode: WebStorageMode.streaming,
 
 With `streaming`, a `.litertlm` install on the web goes through OPFS (Origin
 Private File System) and is read back as a stream. The default `cacheApi` mode
-instead holds the whole download as one in-memory `ArrayBuffer`, and a single
-`ArrayBuffer` tops out at 2 GiB — 2,147,483,648 bytes. The web model below is
-2,008,432,640 bytes, about 139 MB under that ceiling. Close enough that every
-codelab in this series uses `streaming` rather than find out, browser by
-browser, where the real limit sits.
+instead buffers the whole download in memory as one blob, and browsers cap a
+single blob at roughly 2 GB — Chrome refuses past it with
+`ERR_BLOB_OUT_OF_MEMORY`. The web model below is 2.0 GB, right on that line.
+Close enough that every codelab in this series uses `streaming` rather than
+find out, browser by browser, where the real limit sits.
 
 The web arm is an early preview: WebGPU, and text only — no images, no audio.
 The model is not a file on disk there — the browser writes it into OPFS, so
@@ -315,8 +316,8 @@ in OPFS across a reload; the app's handle on them does not. The `opfs://`
 mapping lives in memory and only the download registers it, so after a reload
 the install record still reads "installed" and the download screen is skipped,
 while the engine is handed the original download URL and fetches the whole
-model again. Keep the tab open while you work, and budget a reload as another
-2 GB.
+model again. Keep the tab open while you work: a reload costs you another 2 GB
+over the network, not another 2 GB on disk.
 
 One more thing is web-specific, and it is not a preview limitation — it is a
 different model. Verified against the published packages: install and open
@@ -356,8 +357,9 @@ Future<void> main() async {
   await FlutterGemma.initialize(
     inferenceEngines: [LiteRtLmEngine()],
     huggingFaceToken: _hfToken.isEmpty ? null : _hfToken,
-    // OPFS streaming — required for `.litertlm` installs on web; the other
-    // platforms ignore it.
+    // OPFS streaming. On web the model is 2.0 GB, right on the ~2 GB blob
+    // ceiling the default `cacheApi` mode would have to buffer it into.
+    // The other platforms ignore this option.
     webStorageMode: WebStorageMode.streaming,
   );
 
@@ -379,7 +381,7 @@ abstract final class Models {
         'Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm',
     fileName: 'Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm',
     modelType: ModelType.gemmaIt,
-    sizeLabel: '0.5 GB',
+    sizeLabel: '0.6 GB',
     requiresToken: true,
   );
 
@@ -534,8 +536,9 @@ prompt, the history and the reply all share it. Ask for 100 hoping for a short
 reply and you do not get a short reply: on Android, iOS and desktop the
 LiteRT-LM engine raises the value back to 1024 — the smallest context a
 `.litertlm` model's baked KV cache can be built for — and logs that it did.
-The web engine does not use `maxTokens` at all, so there is no correction
-and no log. Either way it is not a
+LiteRT-LM's *web* arm does not use `maxTokens` at all, so there is no
+correction and no log there. (MediaPipe's web engine does pass it on, for what
+that is worth here: this app never registers MediaPipe.) Either way it is not a
 length cap, so use `maxOutputTokens` on the chat, as above, and leave
 `maxTokens` big enough for prompt + history + reply.
 
@@ -730,7 +733,7 @@ you promise your users a resumable download.
 
 The corollary bites on Android: because a Hugging Face transfer cannot pause,
 one that runs past WorkManager's nine-minute execution cap fails outright
-instead of pausing and re-enqueuing. On a slow connection a 0.5 GB model can
+instead of pausing and re-enqueuing. On a slow connection a 0.6 GB model can
 hit that, and the fix is a faster network or a host that supports resume — not
 a retry loop.
 

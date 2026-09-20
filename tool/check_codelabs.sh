@@ -128,6 +128,9 @@ done
 # the package each app RESOLVES, not this repo's unreleased copy.
 echo ""
 echo "=== web model storage ==="
+# The guard's own tests first: they are seconds, they need no flutter, and a
+# guard nobody proves still fires is worth less than no guard at all.
+python3 tool/check_codelab_web_storage_test.py || failed=1
 python3 tool/check_codelab_web_storage.py "$PWD" || failed=1
 
 # One identity per codelab, and the two halves pull in opposite directions, so

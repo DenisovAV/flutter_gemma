@@ -413,14 +413,18 @@ window.litertLmReady = (async () => {
 
 `cache_api.js` and `opfs_helper.js` are copied byte-for-byte from the
 `flutter_gemma` package's own `web/` directory — `installModel()` and
-`installEmbedder()` call into them (via `window.cachePut` and friends) to
-persist model bytes in the browser. Without them a web model install fails.
-Copy both files into your app's `web/` directory alongside `index.html`.
+`installEmbedder()` call into them (via `window.cachePut` and friends) to put
+model bytes into browser storage. Without them a web model install fails. Copy
+both files into your app's `web/` directory alongside `index.html`. Browser
+storage is not a permanent install, though: the bytes survive a reload, the
+app's in-memory handle on them does not, so a reloaded tab still reports the
+model installed and fetches it again.
 
 The matching Dart-side change is `webStorageMode: WebStorageMode.streaming`
-on `FlutterGemma.initialize()` — OPFS-backed streaming is what lets the
-`.litertlm` model stream from OPFS into `@litert-lm/core` without hitting
-Chrome's ~2 GB blob-fetch limit; native platforms ignore the option.
+on `FlutterGemma.initialize()`, and size is the reason for it: streaming
+hands `@litert-lm/core` a ReadableStream out of OPFS instead of buffering the
+download into one blob, which browsers cap at roughly 2 GB — Chrome refuses
+past it with `ERR_BLOB_OUT_OF_MEMORY`. Native platforms ignore the option.
 
 The model itself changes on the web, and for a different reason than that
 size limit. `@litert-lm/core` only runs dedicated web builds, and Gemma 3
@@ -428,9 +432,9 @@ size limit. `@litert-lm/core` only runs dedicated web builds, and Gemma 3
 file and creating an engine from it fails with
 `Error: Streaming kTfLitePrefillDecode models is not supported yet.` So on
 the web this app installs Gemma 4 E2B's web build instead
-(`gemma-4-E2B-it-web.litertlm`, 2.0 GB — past the ~2 GB Cache-API blob limit
-that streaming mode exists to remove, which is why streaming matters even
-more here than the ~0.5 GB native file ever demanded), from the same ungated
+(`gemma-4-E2B-it-web.litertlm`, 2.0 GB — right on the ~2 GB blob limit that
+streaming mode exists to sidestep, which is why streaming earns its keep here
+and never had to on the ~0.6 GB native file), from the same ungated
 `litert-community/gemma-4-E2B-it-litert-lm` repository the
 [Multimodal](/codelabs/multimodal-flutter-gemma) codelab uses — no token
 required for it. `LocalAIService` and `AiEngine` below both switch `_hfRepo`,
@@ -480,7 +484,7 @@ import 'ai_service.dart';
 // The on-device LLM installs straight from Hugging Face by repo + file. The
 // browser engine only runs dedicated web builds — Gemma 3 1B has none — so on
 // web this installs Gemma 4 E2B's public web build instead (~2.0 GB, vs
-// ~0.5 GB for the gated native file).
+// ~0.6 GB for the gated native file).
 const String _hfRepo = kIsWeb
     ? 'litert-community/gemma-4-E2B-it-litert-lm'
     : 'litert-community/Gemma3-1B-IT';
@@ -519,9 +523,10 @@ class LocalAIService implements AIService {
     if (_isInitialized) return;
 
     // flutter_gemma 1.x registers no engine by default — opt into LiteRT-LM.
-    // `webStorageMode: streaming` (OPFS-backed) is required for `.litertlm`
-    // web models — the @litert-lm/core engine consumes a ReadableStream from
-    // OPFS, avoiding Chrome's ~2 GB blob-fetch limit. Ignored on non-web.
+    // `webStorageMode: streaming` (OPFS-backed) is what the size demands: the
+    // 2.0 GB web build sits right on the ~2 GB blob ceiling the default
+    // cacheApi mode would have to buffer it into, so the @litert-lm/core
+    // engine reads it from OPFS as a ReadableStream. Ignored on non-web.
     await FlutterGemma.initialize(
       webStorageMode: WebStorageMode.streaming,
       inferenceEngines: [LiteRtLmEngine()],
@@ -668,7 +673,7 @@ import 'package:genkit_hybrid/genkit_hybrid.dart';
 // (the plugin applies the configured token to gated huggingface.co URLs). The
 // browser engine only runs dedicated web builds — Gemma 3 1B has none — so on
 // web this installs Gemma 4 E2B's public web build instead (~2.0 GB, vs
-// ~0.5 GB for the gated native file).
+// ~0.6 GB for the gated native file).
 const _hfRepo = kIsWeb
     ? 'litert-community/gemma-4-E2B-it-litert-lm'
     : 'litert-community/Gemma3-1B-IT';
@@ -832,9 +837,10 @@ class AiEngine {
     // engine-init failure only suppresses localReady, never cloud.
     try {
       // Opt into LiteRT-LM (.litertlm inference) + its LiteRT embedding
-      // backend. `webStorageMode: streaming` (OPFS-backed) is required for
-      // `.litertlm` web models — the @litert-lm/core engine consumes a
-      // ReadableStream from OPFS, avoiding Chrome's ~2 GB blob-fetch limit.
+      // backend. `webStorageMode: streaming` (OPFS-backed) is what the size
+      // demands: the 2.0 GB web build sits right on the ~2 GB blob ceiling
+      // the default cacheApi mode would have to buffer it into, so the
+      // @litert-lm/core engine reads it from OPFS as a ReadableStream.
       // Ignored on non-web.
       await FlutterGemma.initialize(
         webStorageMode: WebStorageMode.streaming,
@@ -1390,9 +1396,12 @@ call throws. That rules out pointing a single
 need the whole directory, so copy it instead.
 
 Two files come from `flutter_gemma_embeddings`'s own `web/` directory, two
-from `flutter_gemma_litertlm`'s (it already ships `litert.js` and
-`tensorflow.js` for the LLM's own web arm). Find your resolved package
-locations with:
+from `flutter_gemma_litertlm`'s. The second pair living there is a packaging
+decision, not a hint that the LLM uses them: `flutter_gemma_litertlm` took
+over shipping `litert.js` and `tensorflow.js` in 1.3.0, when it began exposing
+the LiteRT interpreter for embeddings and speech. Its own web LLM arm loads
+`@litert-lm/core` from a CDN and touches neither file. Find your resolved
+package locations with:
 
 ```bash
 python3 -c "

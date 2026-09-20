@@ -204,11 +204,10 @@ await FlutterGemma.initialize(
 Two engines, side by side. Neither knows about the other. `webStorageMode:
 WebStorageMode.streaming` matters only on the web: it stores a downloaded
 `.litertlm` in OPFS and reads it back as a stream, rather than buffering the
-whole file in memory as one Cache API blob. A single blob tops out at 2 GiB
-(2,147,483,648 bytes) and the web model here is 2,008,432,640 bytes — about
-139 MB under the ceiling, close enough that every codelab in this series
-streams.
-Native platforms ignore the option entirely.
+whole file in memory as one Cache API blob. Browsers cap a single blob at
+roughly 2 GB — Chrome refuses past it with `ERR_BLOB_OUT_OF_MEMORY` — and the
+web model here is 2.0 GB, right on that line. Close enough that every codelab
+in this series streams. Native platforms ignore the option entirely.
 
 ### Rename these first
 

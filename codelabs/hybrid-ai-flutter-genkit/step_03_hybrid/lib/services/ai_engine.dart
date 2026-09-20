@@ -12,7 +12,7 @@ import 'package:genkit_hybrid/genkit_hybrid.dart';
 // (the plugin applies the configured token to gated huggingface.co URLs). The
 // browser engine only runs dedicated web builds — Gemma 3 1B has none — so on
 // web this installs Gemma 4 E2B's public web build instead (~2.0 GB, vs
-// ~0.5 GB for the gated native file).
+// ~0.6 GB for the gated native file).
 const _hfRepo = kIsWeb
     ? 'litert-community/gemma-4-E2B-it-litert-lm'
     : 'litert-community/Gemma3-1B-IT';
@@ -176,9 +176,10 @@ class AiEngine {
     // engine-init failure only suppresses localReady, never cloud.
     try {
       // Opt into LiteRT-LM (.litertlm inference) + its LiteRT embedding
-      // backend. `webStorageMode: streaming` (OPFS-backed) is required for
-      // `.litertlm` web models — the @litert-lm/core engine consumes a
-      // ReadableStream from OPFS, avoiding Chrome's ~2 GB blob-fetch limit.
+      // backend. `webStorageMode: streaming` (OPFS-backed) is what the size
+      // demands: the 2.0 GB web build sits right on the ~2 GB blob ceiling
+      // the default cacheApi mode would have to buffer it into, so the
+      // @litert-lm/core engine reads it from OPFS as a ReadableStream.
       // Ignored on non-web.
       await FlutterGemma.initialize(
         webStorageMode: WebStorageMode.streaming,

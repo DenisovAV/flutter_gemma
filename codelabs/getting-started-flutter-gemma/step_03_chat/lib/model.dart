@@ -44,7 +44,7 @@ abstract final class Models {
         'Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm',
     fileName: 'Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm',
     modelType: ModelType.gemmaIt,
-    sizeLabel: '0.5 GB',
+    sizeLabel: '0.6 GB',
     requiresToken: true,
   );
 

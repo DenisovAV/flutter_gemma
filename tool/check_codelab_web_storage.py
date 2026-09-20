@@ -8,24 +8,33 @@ them a web install downloads the whole model and then dies on
 `window.cachePut`. `flutter build web` cannot see that — it never opens a
 browser — so every codelab app shipped broken on web until this check existed.
 
-What is asserted per app, and why each oracle is the one it is:
+Asserted per app, and why each oracle is the one it is:
 
-- Does the app use flutter_gemma at all? Read `pubspec.yaml`, not the Dart
-  source: a starter step whose only mention of the plugin is a TODO comment
-  must not be treated as using it, and an app that calls `initialize` without
-  `await`, or across a line break, must not escape the check.
-- Are the two JS files the ones the app actually resolves? Compare against the
-  RESOLVED package (`.dart_tool/package_config.json` → pub cache), not this
-  repo's copy. The apps depend on the published release; the repo copy is the
-  next one. `web/opfs_helper.js` existed here for three releases before
-  `.pubignore` let it into the package (#505), so the two really do diverge.
-- Are the scripts loaded? Parse with the comment blocks removed: a tag commented
-  out "while debugging" loads nothing, and a plain grep cannot tell.
-- Does the app ask for OPFS streaming? Require it in the SAME file as the
-  `FlutterGemma.initialize(` call, with comments stripped, so a mention in a
-  neighbouring file's prose cannot satisfy it.
+- Does the app depend on flutter_gemma? Parsed out of `pubspec.yaml`'s
+  `dependencies:` block — not a `grep`, which also matched `dev_dependencies:`
+  and `dependency_overrides:`, and missed the equally valid 4-space and flow
+  (`{a: ^1, b: ^2}`) spellings, silently skipping every check for that app.
+- Are the JS files the ones the app actually resolves? Compared against THIS
+  app's `.dart_tool/package_config.json` resolution. `web/opfs_helper.js`
+  reached the package only in 1.8.2 (#505), so "the repo's copy" and "the
+  published copy" do diverge, and two apps may pin different versions.
+- Are the scripts loaded? Matched against live markup only: HTML comments,
+  `<template>` and `<noscript>` are removed first, since none of them loads
+  anything. `litert_embeddings.js` additionally needs `type="module"` — it is
+  an ES module, and as a classic script its first `import` is a SyntaxError.
+- Is the `@litert-lm/core` handshake published? A live `<script>` must ASSIGN
+  `window.litertLmReady`; the word in prose or in a `//`-commented line is not
+  a handshake.
+- Does every `FlutterGemma.initialize(` call ask for OPFS streaming? Checked
+  per CALL SITE, over that call's own argument list, with Dart comments and
+  string literals removed — one compliant call used to license every other
+  call in the same file.
 
-Fail closed everywhere: anything this cannot read is an error, never a pass.
+Scope, stated plainly: only `lib/` is scanned for call sites. `integration_test/`
+suites run on a device, where `webStorageMode` does not apply.
+
+Fail closed: anything this cannot read is reported against that app and the run
+continues, so one unreadable file cannot hide the other 22 apps.
 """
 
 from __future__ import annotations
@@ -38,25 +47,29 @@ from urllib.parse import urlparse
 from urllib.request import url2pathname
 
 STORAGE_JS = ("cache_api.js", "opfs_helper.js")
-# `litert_embeddings.js` is an ES module that imports the other three by
-# relative path, so all four have to sit next to each other in the app's web/.
-# The CDN one-liner the embeddings README prescribes cannot work: two of the
-# imports 404 there (measured 2026-09-20), and the module then never executes.
+# `litert_embeddings.js` imports the other three by relative path, so all four
+# have to sit together. The CDN one-liner the embeddings README prescribes
+# cannot work: two of those imports 404 there (measured 2026-09-20).
 EMBEDDINGS_JS = {
     "flutter_gemma_embeddings": ("litert_embeddings.js", "sentencepiece.js"),
     "flutter_gemma_litertlm": ("litert.js", "tensorflow.js"),
 }
-EMBEDDING_BACKEND = re.compile(r"LiteRtEmbeddingBackend\s*\(")
 
 HTML_COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
-# Whitespace-tolerant: `dart format` wraps both of these across lines, and a
-# call it wrapped must not read as "this app never initializes".
+INERT_ELEMENT = re.compile(
+    r"<(template|noscript)\b.*?</\1\s*>", re.DOTALL | re.IGNORECASE
+)
+SCRIPT_TAG = re.compile(r"<script\b[^>]*>", re.IGNORECASE)
+SCRIPT_ELEMENT = re.compile(
+    r"<script\b[^>]*>(.*?)</script\s*>", re.DOTALL | re.IGNORECASE
+)
+HANDSHAKE_ASSIGNMENT = re.compile(r"(?:window\s*\.\s*)?litertLmReady\s*=")
 INITIALIZE_CALL = re.compile(r"FlutterGemma\s*\.\s*initialize\s*\(")
 STREAMING_ARG = re.compile(r"webStorageMode:\s*WebStorageMode\s*\.\s*streaming")
-DART_BLOCK_COMMENT = re.compile(r"/\*.*?\*/", re.DOTALL)
-DART_LINE_COMMENT = re.compile(r"//[^\n]*")
+EMBEDDING_BACKEND = re.compile(r"LiteRtEmbeddingBackend\s*\(")
 
 errors: list[str] = []
+root = Path.cwd()
 
 
 def fail(message: str) -> None:
@@ -64,12 +77,62 @@ def fail(message: str) -> None:
     print(f"::error::{message}")
 
 
-def resolved_package_dir(app: Path, package: str) -> Path | None:
-    """Where `package` resolves for `app`, or None if it cannot be read.
+def rel(path: Path) -> str:
+    """Repo-relative where possible, so CI can annotate the file in the diff."""
+    try:
+        return str(path.relative_to(root))
+    except ValueError:
+        return str(path)
 
-    `flutter pub get` has already run for every app by the time this is called
-    (the analyze/test loop does it), so package_config.json is on disk.
+
+def read(path: Path, app: Path) -> str | None:
+    """Text of `path`, or None after reporting why it could not be read."""
+    try:
+        return path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as error:
+        fail(
+            f"{rel(path)} cannot be read ({type(error).__name__}) — "
+            f"{rel(app)} not fully checked"
+        )
+        return None
+
+
+def dependencies(app: Path) -> set[str] | None:
+    """The names under pubspec.yaml's top-level `dependencies:` key.
+
+    Hand-rolled rather than a YAML library: this runs on a CI image with
+    nothing installed but python3. It reads the block form at any indent and
+    the inline flow form; both are valid and pub resolves both.
     """
+    text = read(app / "pubspec.yaml", app)
+    if text is None:
+        return None
+    names: set[str] = set()
+    in_block = False
+    for line in text.splitlines():
+        if not line.strip() or line.strip().startswith("#"):
+            continue
+        head = re.match(r"^dependencies:\s*(.*)$", line)
+        if head:
+            flow = head.group(1).strip()
+            if flow.startswith("{"):  # dependencies: {a: ^1, b: ^2}
+                names.update(re.findall(r"([A-Za-z_]\w*)\s*:", flow))
+                in_block = False
+            else:
+                in_block = True
+            continue
+        if in_block:
+            if not line[:1].isspace():  # a new top-level key ends the block
+                in_block = False
+                continue
+            entry = re.match(r"^\s+([A-Za-z_]\w*)\s*:", line)
+            if entry:
+                names.add(entry.group(1))
+    return names
+
+
+def resolved_package_dir(app: Path, package: str) -> Path | None:
+    """Where `package` resolves for THIS app, or None if it cannot be read."""
     config = app / ".dart_tool" / "package_config.json"
     try:
         entries = json.loads(config.read_text())["packages"]
@@ -77,123 +140,211 @@ def resolved_package_dir(app: Path, package: str) -> Path | None:
         return None
     for entry in entries:
         if entry.get("name") == package:
-            root = entry.get("rootUri", "")
-            if root.startswith("file://"):
-                return Path(url2pathname(urlparse(root).path))
-            return (config.parent / root).resolve()
+            uri = entry.get("rootUri", "")
+            if uri.startswith("file://"):
+                return Path(url2pathname(urlparse(uri).path))
+            return (config.parent / uri).resolve()
     return None
 
 
-def declares(app: Path, package: str) -> bool:
-    """True when pubspec.yaml declares `package` as a real dependency.
+def live_markup(html: str) -> str:
+    """The markup a browser would act on: no comments, no inert elements."""
+    return INERT_ELEMENT.sub("", HTML_COMMENT.sub("", html))
 
-    Matches the two-space indent of a dependency entry, so a commented-out line
-    or a transitive mention in prose does not count.
+
+def loads_script(html: str, src: str, *, module: bool = False) -> bool:
+    for tag in SCRIPT_TAG.finditer(live_markup(html)):
+        text = tag.group(0)
+        if not re.search(
+            rf"""\bsrc\s*=\s*["']\.?/?{re.escape(src)}["']""", text, re.IGNORECASE
+        ):
+            continue
+        if module and not re.search(
+            r"""\btype\s*=\s*["']module["']""", text, re.IGNORECASE
+        ):
+            continue
+        return True
+    return False
+
+
+def strip_code_noise(text: str) -> str:
+    """`text` with comments and string literals blanked out.
+
+    Shared by the Dart and inline-JS readers. Handles NESTED block comments
+    (legal in Dart) and strings, so neither `/* off /* why */ webStorageMode:
+    … */` nor `'pass webStorageMode: …'` can satisfy a check.
     """
-    try:
-        pubspec = (app / "pubspec.yaml").read_text()
-    except OSError:
-        fail(f"{app}/pubspec.yaml is unreadable — the web storage check cannot run")
-        return False
-    return re.search(rf"^  {re.escape(package)}:", pubspec, re.MULTILINE) is not None
+    out: list[str] = []
+    i, depth, n = 0, 0, len(text)
+    while i < n:
+        two = text[i : i + 2]
+        if depth:
+            if two == "/*":
+                depth += 1
+                i += 2
+            elif two == "*/":
+                depth -= 1
+                i += 2
+            else:
+                out.append("\n" if text[i] == "\n" else " ")
+                i += 1
+            continue
+        if two == "/*":
+            depth = 1
+            i += 2
+            continue
+        if two == "//":
+            end = text.find("\n", i)
+            i = n if end == -1 else end
+            continue
+        char = text[i]
+        if char in "'\"":
+            triple = text[i : i + 3]
+            quote = triple if triple in ("'''", '"""') else char
+            i += len(quote)
+            while i < n:
+                if text[i] == "\\":
+                    i += 2
+                    continue
+                if text.startswith(quote, i):
+                    i += len(quote)
+                    break
+                if text[i] == "\n":
+                    out.append("\n")
+                i += 1
+            continue
+        out.append(char)
+        i += 1
+    return "".join(out)
 
 
-def loads_script(html: str, src: str) -> bool:
-    """True when the page loads `src`, ignoring commented-out tags."""
-    live = HTML_COMMENT.sub("", html)
-    pattern = re.compile(
-        rf"""<script\b[^>]*\bsrc\s*=\s*["']\.?/?{re.escape(src)}["']""",
-        re.IGNORECASE,
-    )
-    return pattern.search(live) is not None
+def call_arguments(code: str, open_paren: int) -> str:
+    """The argument list of the call whose `(` is at `open_paren`."""
+    depth, i, n = 0, open_paren, len(code)
+    while i < n:
+        if code[i] == "(":
+            depth += 1
+        elif code[i] == ")":
+            depth -= 1
+            if depth == 0:
+                return code[open_paren + 1 : i]
+        i += 1
+    return code[open_paren:]
 
 
-def dart_code(text: str) -> str:
-    """The file with comments removed, so prose cannot satisfy a check."""
-    return DART_LINE_COMMENT.sub("", DART_BLOCK_COMMENT.sub("", text))
+def publishes_handshake(html: str) -> bool:
+    """True when a live inline script assigns `window.litertLmReady`."""
+    for script in SCRIPT_ELEMENT.finditer(live_markup(html)):
+        if HANDSHAKE_ASSIGNMENT.search(strip_code_noise(script.group(1))):
+            return True
+    return False
 
 
-def check_app(app: Path, reference_web: Path) -> None:
-    uses_gemma = declares(app, "flutter_gemma")
+def check_app(app: Path) -> None:
+    deps = dependencies(app)
+    if deps is None:
+        return
+    uses_gemma = "flutter_gemma" in deps
 
     index = app / "web" / "index.html"
-    try:
-        html = index.read_text()
-    except OSError:
-        fail(f"{index} is missing or unreadable — the web storage check cannot run")
+    html = read(index, app) if index.is_file() else None
+    if html is None:
+        fail(
+            f"{rel(index)} is missing or unreadable — "
+            "the web storage check cannot run"
+        )
+        return
+
+    reference = resolved_package_dir(app, "flutter_gemma")
+    if uses_gemma and reference is None:
+        fail(
+            f"{rel(app)} depends on flutter_gemma but it does not resolve "
+            "(run flutter pub get) — the web storage check cannot run"
+        )
         return
 
     for js in STORAGE_JS:
-        source = reference_web / js
         copy = app / "web" / js
+        source = None if reference is None else reference / "web" / js
         if not copy.exists():
             if uses_gemma:
-                fail(f"{copy} is missing — copy it from {source}")
+                fail(f"{rel(copy)} is missing — copy it from {source}")
             continue
-        if copy.read_bytes() != source.read_bytes():
-            fail(f"{copy} differs from the resolved package's {source}")
+        if source is not None:
+            if not source.is_file():
+                fail(
+                    f"{source} is not in the resolved package — "
+                    f"cannot compare {rel(copy)}"
+                )
+            elif copy.read_bytes() != source.read_bytes():
+                fail(f"{rel(copy)} differs from the resolved package's {source}")
         if not loads_script(html, js):
-            fail(f"{index} does not load {js}")
+            fail(f"{rel(index)} does not load {js}")
 
     # The engine bootstrap is the third leg of the same tripod: without the
     # `@litert-lm/core` handshake the browser fails at engine creation, and the
     # storage scripts alone would report a clean bill of health.
-    if declares(app, "flutter_gemma_litertlm"):
-        if "litertLmReady" not in HTML_COMMENT.sub("", html):
-            fail(f"{index} does not publish window.litertLmReady (@litert-lm/core handshake)")
-
-    # The embeddings loader, for the apps that register the backend.
-    lib = app / "lib"
-    registers_embeddings = lib.is_dir() and any(
-        EMBEDDING_BACKEND.search(dart_code(path.read_text()))
-        for path in lib.rglob("*.dart")
-    )
-    if registers_embeddings:
-        for package, names in EMBEDDINGS_JS.items():
-            source_dir = resolved_package_dir(app, package)
-            if source_dir is None:
-                fail(
-                    f"{app} registers LiteRtEmbeddingBackend but {package} does not "
-                    "resolve — the web storage check cannot run"
-                )
-                continue
-            for js in names:
-                source = source_dir / "web" / js
-                copy = app / "web" / js
-                if not source.is_file():
-                    fail(f"{source} is missing — the web storage check cannot run")
-                    continue
-                if not copy.exists():
-                    fail(f"{copy} is missing — copy it from {source}")
-                    continue
-                if copy.read_bytes() != source.read_bytes():
-                    fail(f"{copy} differs from the resolved package's {source}")
-        if not loads_script(html, "litert_embeddings.js"):
-            fail(f"{index} does not load litert_embeddings.js")
+    if "flutter_gemma_litertlm" in deps and not publishes_handshake(html):
+        fail(f"{rel(index)} has no live script assigning window.litertLmReady")
 
     if not uses_gemma:
         return
 
+    lib = app / "lib"
     if not lib.is_dir():
-        fail(f"{lib} is missing — the web storage check cannot run")
+        fail(f"{rel(lib)} is missing — the web storage check cannot run")
         return
 
-    initializers = [
-        path
-        for path in sorted(lib.rglob("*.dart"))
-        if INITIALIZE_CALL.search(dart_code(path.read_text()))
-    ]
-    for path in initializers:
-        if not STREAMING_ARG.search(dart_code(path.read_text())):
+    sources: dict[Path, str] = {}
+    for path in sorted(lib.rglob("*.dart")):
+        text = read(path, app)
+        if text is not None:
+            sources[path] = strip_code_noise(text)
+
+    if any(EMBEDDING_BACKEND.search(code) for code in sources.values()):
+        for package, names in EMBEDDINGS_JS.items():
+            package_dir = resolved_package_dir(app, package)
+            if package_dir is None:
+                fail(
+                    f"{rel(app)} registers LiteRtEmbeddingBackend but {package} "
+                    "does not resolve — the web storage check cannot run"
+                )
+                continue
+            for js in names:
+                source = package_dir / "web" / js
+                copy = app / "web" / js
+                if not source.is_file():
+                    fail(f"{source} is not in the resolved package — cannot compare")
+                elif not copy.exists():
+                    fail(f"{rel(copy)} is missing — copy it from {source}")
+                elif copy.read_bytes() != source.read_bytes():
+                    fail(f"{rel(copy)} differs from the resolved package's {source}")
+        if not loads_script(html, "litert_embeddings.js", module=True):
             fail(
-                f"{path} calls FlutterGemma.initialize without "
-                "webStorageMode: WebStorageMode.streaming"
+                f"{rel(index)} does not load litert_embeddings.js as "
+                '<script type="module">'
             )
+
+    # Per CALL SITE, not per file: a "switch engines" path added next to a
+    # compliant one must not inherit its argument.
+    for path, code in sources.items():
+        for match in INITIALIZE_CALL.finditer(code):
+            if not STREAMING_ARG.search(call_arguments(code, match.end() - 1)):
+                line = code.count("\n", 0, match.start()) + 1
+                fail(
+                    f"{rel(path)}:{line} calls FlutterGemma.initialize without "
+                    "webStorageMode: WebStorageMode.streaming"
+                )
 
 
 def main(argv: list[str]) -> int:
-    root = Path(argv[1]) if len(argv) > 1 else Path.cwd()
-    apps = sorted(p.parent for p in root.glob("codelabs/*/*/pubspec.yaml"))
+    global root
+    root = Path(argv[1]).resolve() if len(argv) > 1 else Path.cwd()
+    apps = [
+        p.parent
+        for p in sorted(root.glob("codelabs/*/*/pubspec.yaml"))
+        if not p.parent.name.startswith("_")
+    ]
 
     # Fail closed, the way discovery does in check_codelabs.sh. A glob that
     # finds nothing must not read as "every app is fine".
@@ -201,30 +352,10 @@ def main(argv: list[str]) -> int:
         print("::error::no codelab apps found — the web storage check cannot run")
         return 1
 
-    reference_web = None
     for app in apps:
-        if declares(app, "flutter_gemma"):
-            package = resolved_package_dir(app, "flutter_gemma")
-            if package is not None:
-                reference_web = package / "web"
-                print(f"Comparing against the resolved package: {reference_web}")
-                break
-    if reference_web is None:
-        print(
-            "::error::could not resolve flutter_gemma from any codelab app "
-            "(run flutter pub get first) — the web storage check cannot run"
-        )
-        return 1
-    for js in STORAGE_JS:
-        if not (reference_web / js).is_file():
-            print(
-                f"::error::{reference_web / js} does not exist in the resolved "
-                "package — the web storage check cannot run"
-            )
-            return 1
-
-    for app in apps:
-        check_app(app, reference_web)
+        before = len(errors)
+        check_app(app)
+        print(f"  {rel(app)}: {'ok' if len(errors) == before else 'PROBLEM'}")
 
     print(f"Checked web model storage in {len(apps)} app(s); {len(errors)} problem(s).")
     return 1 if errors else 0

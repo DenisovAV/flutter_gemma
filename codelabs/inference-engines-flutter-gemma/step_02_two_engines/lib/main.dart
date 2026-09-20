@@ -18,9 +18,9 @@ Future<void> main() async {
   // can open; the registry picks one per model from `ModelFileType`. Nothing
   // in the chat code knows or cares which engine ends up answering.
   await FlutterGemma.initialize(
-    // OPFS-backed storage. `.litertlm` on web streams through it — the Cache
-    // API path Chrome falls back to under `cacheApi` blob-fetches the whole
-    // file, which the browser caps at ~2 GB.
+    // OPFS-backed storage. On web the model is 2.0 GB, right on the ~2 GB
+    // blob ceiling the default `cacheApi` mode would have to buffer it into,
+    // so `.litertlm` streams out of OPFS instead.
     webStorageMode: WebStorageMode.streaming,
     inferenceEngines: [LiteRtLmEngine(), const BuiltInAiEngine()],
     huggingFaceToken: _hfToken.isEmpty ? null : _hfToken,

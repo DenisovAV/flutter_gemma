@@ -45,7 +45,8 @@ By the end you will have:
   library and nothing else, so a 32-bit or x86_64 image has no runtime to load
   (an Apple-silicon Mac's emulator is arm64)
 * About 3.5 GB of free space: Gemma 4 E2B is 2.6 GB on a device and 2.0 GB on
-  the web, plus room for the download still arriving
+  the web, and neither a phone nor a browser near its storage limit takes a
+  write that only just fits, so leave headroom
 
 You do not need to have done
 [Getting Started](/codelabs/getting-started-flutter-gemma). It helps to have seen
@@ -113,7 +114,9 @@ It shows one line of text and nothing else. That is the whole app:
   entitlements and the `post_install` block in `macos/Podfile`, and
   `web/index.html`'s three script tags — the `@litert-lm/core` handshake plus
   `cache_api.js` and `opfs_helper.js`, the two scripts core's web model storage
-  reaches for.
+  reaches for. What they buy you is storage, not a lasting install: the bytes
+  survive a reload in OPFS, the app's handle on them does not, so a reloaded
+  tab reports the model installed and downloads it again anyway.
   [Getting Started](/codelabs/getting-started-flutter-gemma) explains each one.
   They are here so that when the assistant's code fails, it is the code — not a
   missing entitlement that looks the same from outside.
@@ -327,11 +330,11 @@ The core registers no engine of its own. Leave `inferenceEngines` out and the
 app builds, the download works, and the first `getActiveModel()` throws a
 `StateError` asking for an engine package. On web, leave `webStorageMode` out
 and the default `cacheApi` mode buffers the whole download in memory as one
-blob — and a single blob tops out at 2 GiB (2,147,483,648 bytes). Gemma 4
-E2B's web build is 2,008,432,640 bytes, about 139 MB under that ceiling: close
-enough that this codelab streams. `streaming` writes the download into OPFS
-and reads the model back from there instead; native platforms ignore the
-option.
+blob — and browsers cap a single blob at roughly 2 GB, Chrome refusing past it
+with `ERR_BLOB_OUT_OF_MEMORY`. Gemma 4 E2B's web build is 2.0 GB, right on
+that line: close enough that this codelab streams. `streaming` writes the
+download into OPFS and reads the model back from there instead; native
+platforms ignore the option.
 
 **3. The file type is declared.**
 

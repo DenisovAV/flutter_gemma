@@ -137,6 +137,24 @@ from a SHA256-verified GitHub release — no manual setup on native platforms.
 
 ## Troubleshooting
 
+### Any tool call kills the app (fixed in 1.7.1)
+
+Symptom: in 1.7.0, a chat or session created with `tools` dies on the first
+decoded token — `EXC_BAD_ACCESS` / `SIGSEGV` inside the runtime, on every
+platform, CPU and GPU alike. Dart sees no exception; `flutter test` reports only
+that the test did not complete. Generation without tools is unaffected.
+
+Cause: constrained decoding is implemented by a prebuilt companion,
+`libGemmaModelConstraintProvider`, that ships with the LiteRT-LM release.
+Upstream replaced the `Constraint` interface, and the companion published at tag
+v0.17.0 still implements the old one, so the runtime we build calls into the
+wrong vtable slot.
+
+Fix: upgrade to 1.7.1, which pins the native bundle `native-v0.17.0-a` — the same
+runtime with the companion rebuilt from upstream main. FunctionGemma also needs
+`flutter_gemma` 1.8.4: 1.7.1 sends the tool result as a role-`tool` message, and
+core decides that it should.
+
 ### Windows: embeddings or speech fail with `status=3` (fixed in 1.7.0)
 
 Symptom: on Windows only, `LiteRtEmbeddingBackend` and `flutter_gemma_speech`

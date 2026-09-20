@@ -167,7 +167,7 @@ When installing models, you need to specify the correct `ModelType`. Use this ta
 | **Phi** | `ModelType.phi` | Phi-4 Mini |
 | **General** | `ModelType.general` | FastVLM 0.5B, SmolLM 135M, LFM2.5 230M, SmolLM3 3B, Phi-4 Mini Reasoning, Qwen2-VL 2B, SmolVLM2 500M, LLaVA-OneVision 0.5B |
 
-> **Note**: Gemma 4 uses `ModelType.gemma4` so its native `<\|tool_call>...<tool_call\|>` tokens are routed through the LiteRT-LM SDK's chat-template path. For Gemma 3 and earlier, keep `ModelType.gemmaIt`.
+> **Note**: Gemma 4 (`ModelType.gemma4`) and FunctionGemma on a `.litertlm` route their native tool-call tokens through the LiteRT-LM SDK's chat-template path. For Gemma 3 and earlier, keep `ModelType.gemmaIt`; a `.task` FunctionGemma keeps the text format flutter_gemma renders itself.
 
 **Usage Example:**
 ```dart
@@ -1659,6 +1659,26 @@ chat.generateChatResponseAsync().listen((response) {
 - **`TextResponse`**: Contains a text token (`response.token`) for regular model output
 - **`FunctionCallResponse`**: Contains function name (`response.name`) and arguments (`response.args`) when the model wants to call a function
 - **`ThinkingResponse`**: Contains the model's reasoning process (`response.content`) for DeepSeek models with thinking mode enabled
+
+### What happens after you send a tool result
+
+On a `.litertlm`, both Gemma 4 and FunctionGemma go through LiteRT-LM's own tool path: the
+declarations travel to the runtime as structured data, the call comes back parsed, and your
+`Message.toolResponse(...)` goes back as one role-`tool` message that continues the same model
+turn. Since **1.8.4** (with `flutter_gemma_litertlm` 1.7.1) that holds for FunctionGemma too —
+before it, its tool results were sent as an ordinary user message, and the model answered them by
+repeating the call it had just made.
+
+Nothing in your own code changes: the wire format is chosen from the model type and the file type
+together. Three things are worth knowing:
+
+- `ToolChoice.none` cannot take the declarations back out on a `.litertlm`, because the runtime
+  holds them.
+- FunctionGemma is an action model — it often ends its turn at the call rather than narrating the
+  result. Render the tool's own result in your UI, and reach for Gemma 4 when you want the model to
+  talk about what came back.
+- `.task` models through MediaPipe have no native tool path, so they keep the text wire format
+  flutter_gemma renders itself.
 
 
 ## 🎯 Supported Models

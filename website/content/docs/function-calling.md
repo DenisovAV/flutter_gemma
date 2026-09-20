@@ -118,6 +118,13 @@ Two consequences worth knowing:
 On `.task` models through MediaPipe there is no native tool path, so
 FunctionGemma keeps the text wire format the SDK renders itself.
 
+FunctionGemma is also an action model, and that shows in the turn after the
+result: `google/mobile-actions`, the corpus it is tuned on, does not contain a
+single row where the assistant writes a sentence after a tool result, so it
+often ends its turn at the call. Render the tool's own result in your UI rather
+than waiting for prose, and reach for Gemma 4 when you want the model to talk
+about what came back.
+
 ## Handling function calls
 
 When the model wants to call a function, the response stream emits a

@@ -174,7 +174,7 @@ class _NativeBundle {
 /// Android: `-Wl,-z,max-page-size=16384` (Google Play 16KB).
 const _litertlmBundle = _NativeBundle(
   namespace: 'litertlm',
-  version: '0.17.0',
+  version: '0.17.1',
   releaseTagPrefix: 'native-v',
   archivePrefix: 'litertlm',
   mainLibName: 'LiteRtLm',
@@ -185,7 +185,14 @@ const _litertlmBundle = _NativeBundle(
   // in a dedicated PR (tracked: roadmap entry in CHANGELOG for 0.16.0).
   useFlatLayout: true,
   markerFileName: '.flutter_gemma_native_version',
-  // All 7 rebuilt for 0.17.0. These sums must equal both the bytes GitHub
+  // 0.17.1 replaces libGemmaModelConstraintProvider on all 7 platforms with
+  // upstream's own refresh (main 4453b286): the v0.17.x tags ship one built
+  // against the Constraint interface before ComputeMask, and against a runtime
+  // built from that same source every tool call segfaults in
+  // CompositeLogitMask::Apply. Linux and Windows were rebuilt from source
+  // (Windows also for the static C++ runtime, #456); macOS, iOS and Android
+  // carry the 0.17.0 binaries with only that one library swapped.
+  // These sums must equal both the bytes GitHub
   // serves and the `checksums_litertlm.txt` published on the release — a stale
   // txt sent a user down the wrong path while debugging a mismatch (#316).
   checksums: {

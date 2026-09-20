@@ -43,6 +43,11 @@ window.litertLmReady = (async () => {
   return m.Engine;
 })();
 </script>
+  <!-- flutter_gemma's web storage helpers: the OPFS writer and the Cache API
+       shim. webStorageMode: WebStorageMode.streaming needs both to install
+       .litertlm models on web. Copied verbatim from flutter_gemma's own web/. -->
+  <script src="cache_api.js"></script>
+  <script src="opfs_helper.js"></script>
 </head>
 <body>
   <!--

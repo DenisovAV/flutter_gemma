@@ -1,8 +1,6 @@
 ## 1.9.0
 - Embedding seam, worker and tokenizer registry move into core so engines need no sibling package.
-
-## 1.8.5
-- Drop `web/rag/`: the bundle build moved to `flutter_gemma_embeddings`.
+- Drop the dead `web/rag/` build from the published archive.
 
 ## 1.8.4
 - FunctionGemma on `.litertlm` answers a tool result instead of repeating the call.

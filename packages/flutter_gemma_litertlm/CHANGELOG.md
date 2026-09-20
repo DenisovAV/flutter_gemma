@@ -1,5 +1,5 @@
 ## 1.7.1
-- Native runtime `native-v0.17.1`: tool calls no longer crash the app.
+- Native runtime `native-v0.17.0-a`: tool calls no longer crash the app.
 - Windows needs no Visual C++ runtime beyond what a Flutter app ships (#456).
 
 ## 1.7.0

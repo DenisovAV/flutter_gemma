@@ -76,6 +76,8 @@ silently do the other thing.
 [ ] 8   dart pub publish --dry-run → 0 warnings, every package
 [ ] 8b  native bundle moved? → litertlm_native_tools_test.dart green on every
         platform in the release (the smoke suite never passes a tool), else N/A
+[ ] 10b  after publishing: pub.dev actually SERVES the new versions (its API
+        lags minutes behind the upload), then re-run the Codelabs workflow
 [ ] 12a website + README version pins bumped to the just-published versions
 [ ] 12b new/changed public API + behavior documented (README + website)  ← SAME PR
 [ ] 12d skills/: `skills_review.sh <last-tag>` run, every flagged skill READ,
@@ -636,6 +638,39 @@ cd packages/<name>
 dart pub publish --dry-run    # verify once more (expect 0 warnings on a clean main)
 dart pub publish --force      # only after user approval; --force is non-interactive
 ```
+
+## Step 10b: Re-run the Codelabs workflow — after the publish, not before
+
+The codelab step apps depend on **published** packages (`flutter_gemma: ^1.8.4`),
+not on `path:` siblings, so their check validates the world users install from
+rather than this repo's tree. Two things follow, and both bit this release:
+
+1. **It is legitimately red between the release merge and the publish.** The
+   floors on the branch name versions that do not exist on pub.dev yet, so
+   `pub get` fails with `… which doesn't match any versions, version solving
+   failed`. That is a correct report, not a defect — do not "fix" it, and do not
+   merge a lower floor to make it green.
+2. **Nothing re-runs it for you.** Its `push` trigger is path-filtered to
+   `codelabs/**`, `tool/**` and its own workflow file, and a release rarely
+   touches any of them — the merge that publishes new versions produces no
+   Codelabs run at all. The nightly `cron: '0 3 * * *'` is what would eventually
+   catch it, which is too late to be part of the release.
+
+So re-run it by hand once the new versions are actually being served. `dart pub
+publish` warns that a version takes up to 10 minutes to become available, and a
+re-run started a minute after the upload fails again on the same constraint —
+the resolver has not seen it yet:
+
+```bash
+# 1. is the version actually served, not merely uploaded?
+curl -s https://pub.dev/api/packages/<pkg> | grep -c '"version":"<X.Y.Z>"'
+# 2. only then re-run the last Codelabs run
+gh run list --workflow codelabs.yml --limit 1 --json databaseId --jq '.[0].databaseId'
+gh run rerun <id> --failed
+```
+
+Its concurrency group keys on the event, so a manual re-run of the `push` run
+cannot cancel the nightly `schedule` one.
 
 ## Step 11: Optional — GitHub plugin release
 

@@ -30,7 +30,7 @@ jobs:
         shell: pwsh
     env:
       LITERTLM_VERSION: ${{ inputs.litertlm_version }}
-      PREBUILT_REF: ${{ inputs.prebuilt_ref || '4453b2861f6f8d2e10ba7cbbf0b4aae5b2cbed7a' }}
+      PREBUILT_REF: ${{ inputs.prebuilt_ref || '4453b286c549d216584866ed49b6fed6d11fa3a7' }}
       ANDROID_NDK_HOME: ''
       BAZEL_OUTPUT_BASE: 'D:\b'
     steps:
@@ -64,8 +64,10 @@ jobs:
           # segfaults in CompositeLogitMask::Apply. 4453b286 is upstream's own
           # refresh of those binaries. Their wheel compiles the provider in, so
           # their release lane never sees it.
-          git fetch --quiet origin "$env:PREBUILT_REF"
-          git restore --source=FETCH_HEAD --worktree -- prebuilt/windows_x86_64
+          git fetch --quiet origin main
+          git cat-file -e "$env:PREBUILT_REF^{commit}"
+          if ($LASTEXITCODE -ne 0) { throw "prebuilt_ref $env:PREBUILT_REF is not in this clone (fetched main)" }
+          git restore --source="$PREBUILT_REF" --worktree -- prebuilt/windows_x86_64
           git lfs pull --include="prebuilt/windows_x86_64/*"
 
       - name: Patch C API

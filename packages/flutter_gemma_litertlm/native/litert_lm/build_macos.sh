@@ -76,10 +76,11 @@ echo "Pulling LFS files..."
 # segfaults in CompositeLogitMask::Apply. Upstream refreshed the prebuilts on
 # main in 4453b286, and that provider carries the LogitMask types. Upstream's
 # own release lane never hits this: its wheel compiles the provider in.
-PREBUILT_REF="${PREBUILT_REF:-4453b2861f6f8d2e10ba7cbbf0b4aae5b2cbed7a}"
+PREBUILT_REF="${PREBUILT_REF:-4453b286c549d216584866ed49b6fed6d11fa3a7}"
 echo "Taking prebuilt companions from $PREBUILT_REF"
-git fetch --quiet origin "$PREBUILT_REF"
-git restore --source=FETCH_HEAD --worktree -- "prebuilt/macos_arm64"
+git fetch --quiet origin main
+git cat-file -e "$PREBUILT_REF^{commit}"
+git restore --source="$PREBUILT_REF" --worktree -- "prebuilt/macos_arm64"
 git lfs pull --include="prebuilt/macos_arm64/*"
 
 # 5. Build

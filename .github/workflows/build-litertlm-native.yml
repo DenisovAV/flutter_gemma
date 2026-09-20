@@ -425,16 +425,6 @@ jobs:
             throw "LiteRtLm.dll imports the VC++ runtime: $(($crt | ForEach-Object Trim) -join ', ')"
           }
           Copy-Item StreamProxy.dll artifacts\
-          # Same ABI assert as the Linux jobs: a provider from before upstream's
-          # ComputeMask change segfaults on the first tool call and nothing else
-          # in this build would notice.
-          if (Select-String -Path C:\LiteRT-LM\runtime\components\constrained_decoding\constraint.h -Pattern 'ComputeMask' -Quiet) {
-            $bytes = [System.IO.File]::ReadAllBytes("artifacts\libGemmaModelConstraintProvider.dll")
-            if (-not [System.Text.Encoding]::ASCII.GetString($bytes).Contains('LogitMask')) {
-              throw "libGemmaModelConstraintProvider.dll predates the ComputeMask Constraint ABI - every tool call would segfault. Point prebuilt_ref at an upstream commit whose prebuilts carry it."
-            }
-            Write-Host "provider ABI: LogitMask present, matches this source"
-          }
           $prebuilt = 'C:\LiteRT-LM\prebuilt\windows_x86_64'
           # No `else` used to mean a missing companion shipped silently. With
           # litert_runtime_link_mode=dynamic these are PE imports of LiteRtLm.dll,
@@ -453,6 +443,16 @@ jobs:
             Copy-Item $src "artifacts\$base.dll"
             $stripped = $base -replace '^lib',''
             Copy-Item $src "artifacts\$stripped.dll"
+          }
+          # Same ABI assert as the Linux jobs: a provider from before upstream's
+          # ComputeMask change segfaults on the first tool call and nothing else
+          # in this build would notice.
+          if (Select-String -Path C:\LiteRT-LM\runtime\components\constrained_decoding\constraint.h -Pattern 'ComputeMask' -Quiet) {
+            $bytes = [System.IO.File]::ReadAllBytes("artifacts\libGemmaModelConstraintProvider.dll")
+            if (-not [System.Text.Encoding]::ASCII.GetString($bytes).Contains('LogitMask')) {
+              throw "libGemmaModelConstraintProvider.dll predates the ComputeMask Constraint ABI - every tool call would segfault. Point prebuilt_ref at an upstream commit whose prebuilts carry it."
+            }
+            Write-Host "provider ABI: LogitMask present, matches this source"
           }
           # DXC runtime — search recursively because the zip layout puts the
           # x64 binaries in bin\x64\ inside the archive root.

@@ -43,6 +43,39 @@ void main() {
   // `properties`, though — the runtime prints that and FunctionGemma's own chat
   // template omits it, so the same declaration renders two ways and a model
   // tuned on one is served the other.
+  test('every declared tool has a runner, and nothing extra is declared', () {
+    expect(toolbox.map((t) => t.name).toSet(), toolRunners.keys.toSet());
+  });
+
+  group('change_background_color', () {
+    test('a colour in the list repaints and names itself back', () {
+      final result = runChangeBackground({'color': 'blue'});
+      expect(result['color'], 'blue');
+      expect(backgroundFrom(result), backgroundColors['blue']);
+    });
+
+    // The model writes prose, not enum values. "Blue" and " blue " are the
+    // same request, and a tool that rejects them teaches the model nothing.
+    test('case and spacing are the model writing English', () {
+      expect(runChangeBackground({'color': ' Blue '})['color'], 'blue');
+    });
+
+    // The one the base model actually produces: ask for teal and it calls with
+    // teal. The answer has to say which colours exist, or the model apologises
+    // for a failure it cannot explain.
+    test('an unavailable colour comes back with the list', () {
+      final result = runChangeBackground({'color': 'teal'});
+      expect(result['error'], contains('teal'));
+      expect(result['error'], contains('purple'));
+      expect(backgroundFrom(result), isNull);
+    });
+
+    test('a result from another tool paints nothing', () {
+      expect(backgroundFrom(runClock({})), isNull);
+      expect(backgroundFrom(runMultiply({'a': 2, 'b': 3})), isNull);
+    });
+  });
+
   test('the no-argument tools declare a type and no properties', () {
     for (final tool in [clockTool, deviceTool]) {
       expect(tool.parameters['type'], 'object', reason: tool.name);

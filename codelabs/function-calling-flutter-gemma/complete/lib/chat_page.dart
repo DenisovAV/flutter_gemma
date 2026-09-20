@@ -54,6 +54,11 @@ class _ChatPageState extends State<ChatPage> {
   Object? _loadError;
   String? _notice;
 
+  /// Set by a tool, not by the UI. This is the whole visible half of
+  /// `change_background_color`: the model picks a name, the runner answers with
+  /// it, and the page reads that same answer.
+  Color? _background;
+
   /// Both of these are SESSION settings, fixed for a chat's lifetime — which
   /// is why changing either one closes the chat and opens a new one, and why
   /// the transcript goes with it.
@@ -314,8 +319,12 @@ class _ChatPageState extends State<ChatPage> {
   /// why the second and third tool cost this file nothing.
   Future<Map<String, dynamic>> _onToolCall(FunctionCallResponse call) async {
     final result = runTool(call);
+    // The app reacts to the answer it just produced, rather than to the call:
+    // one map is the model's knowledge and the screen's, so they cannot drift.
+    final painted = backgroundFrom(result);
     if (mounted) {
       setState(() {
+        if (painted != null) _background = painted;
         _dropEmptyReply();
         _turns
           ..add(_Turn(_describeCall(call), kind: _TurnKind.toolCall))
@@ -391,6 +400,7 @@ class _ChatPageState extends State<ChatPage> {
     final settable = ready && !_busy;
 
     return Scaffold(
+      backgroundColor: _background,
       appBar: AppBar(
         title: Text(widget.model.label),
         bottom: PreferredSize(

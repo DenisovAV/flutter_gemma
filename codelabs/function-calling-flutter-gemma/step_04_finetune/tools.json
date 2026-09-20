@@ -42,5 +42,24 @@
         "type": "object"
       }
     }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "change_background_color",
+      "description": "Repaint the chat background. Use this whenever the user asks for a different colour, a new background, or a change of theme.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "color": {
+            "type": "string",
+            "description": "One of: red, green, blue, yellow, purple, orange."
+          }
+        },
+        "required": [
+          "color"
+        ]
+      }
+    }
   }
 ]

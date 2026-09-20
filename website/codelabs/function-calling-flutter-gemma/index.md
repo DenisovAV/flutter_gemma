@@ -20,7 +20,7 @@ reply — but on the model this one is about. Three models, in fact, and the
 order is the argument. The starter chats with **FunctionGemma 270M**: 284 MB,
 ungated, and a model whose entire job is calling functions, so Step 2 has it
 running your Dart before you have finished reading the page. Step 4 fine-tunes
-that same 270M model on the three tools this codelab declares and produces a
+that same 270M model on the four tools this codelab declares and produces a
 `.litertlm` you open from disk. Step 5 pays **2.59 GB** for **Gemma 4 E2B**,
 for the thing a 270M model cannot do at all: reason out loud before it chooses
 which function to call. It also declares its tools by a different route, which
@@ -99,7 +99,7 @@ step_01_starter/     a plain chat on FunctionGemma — no tools yet
 step_02_one_tool/    after Step 2 — one tool, the loop written out
 step_03_the_loop/    after Step 3 — the same tools, the SDK's loop
 step_04_finetune/    NOT an app: the data and commands for a litetune run
-complete/            after Step 5 — three tools, toolChoice, thinking
+complete/            after Step 5 — four tools, toolChoice, thinking
 ```
 
 `step_04_finetune` has no `pubspec.yaml` on purpose. Its output is a model, not
@@ -618,19 +618,24 @@ function calling. Two shapes rather than a target plus a `--target-kind`,
 because those two could disagree and a shape cannot disagree with itself. You
 match it with `--scorer tool-call` at `verify`.
 
-`step_04_finetune/raw.jsonl` is 72 rows in that shape, for `multiply`,
-`get_current_time` and `get_device_info` — the three tools `complete/`
-declares:
+`step_04_finetune/raw.jsonl` is 90 rows in that shape, for `multiply`,
+`get_current_time`, `get_device_info` and `change_background_color` — the four
+tools `complete/` declares:
 
 ```json
-{"prompt": "how much is 1234 * 5678?", "target": {"name": "multiply", "args": {"a": "1234", "b": "5678"}}}
+{"prompt": "how much is 1234 * 5678?", "target": {"name": "multiply", "args": {"a": 1234, "b": 5678}}}
+{"prompt": "make the background blue", "target": {"name": "change_background_color", "args": {"color": "blue"}}}
 ```
 
-Seventy-two rows are enough to run all five commands end to end and get a file
-out. They are not enough to move a quality number: litetune's own published
-figures come from thousands of examples, and `prepare` holds half of any file
-back for scoring. Treat this run as a rehearsal of the pipeline and bring your
-own data when you want a result.
+The arguments are numbers where the declaration says `number`: `prepare`
+refuses a row whose call contradicts the declaration the prompt shows, and it
+is right to — training that teaches the model to argue with its own schema.
+
+Ninety rows are enough to run all five commands end to end and get a file out,
+and on this task they do move the number: 18 of 18 held-out calls against the
+stock model's 13. They are not enough to resolve much — the interval on 18 rows
+is wider than most differences worth having — and they cost something that the
+score cannot see. `step_04_finetune/README.md` has both halves, measured.
 
 ### The five commands
 
@@ -639,11 +644,17 @@ Run them from `step_04_finetune/`.
 ```bash
 # 1. Split, and reject rows that cannot be scored. Seconds.
 litetune prepare --data raw.jsonl --output-dir data --context-length 1024 \
-                 --tokenizer google/functiongemma-270m-it
+                 --tokenizer google/functiongemma-270m-it \
+                 --base-model google/functiongemma-270m-it \
+                 --declarations tools.json
 
-# 2. Fine-tune. CPU is fine at this size.
+# 2. Fine-tune. One epoch at a twentieth of the default rate, and on a CPU
+#    --dtype float32: bfloat16 has no hardware behind it there and ran 165x
+#    slower for the same loss.
 litetune tune --model google/functiongemma-270m-it --data data/train.jsonl \
-              --output-dir tuned --prompt-mode prerendered --method lora
+              --output-dir tuned --method lora --epochs 1 \
+              --learning-rate 1e-5 --dtype float32 \
+              --prompt-mode runtime_rendered --declarations tools.json
 
 # 3. Convert, sweeping recipes rather than trusting a default.
 litetune convert --model tuned/model --output-dir artifacts \
@@ -653,12 +664,12 @@ litetune convert --model tuned/model --output-dir artifacts \
 #    `convert` names the artifact; look the filename up rather than build it.
 litetune verify --model artifacts/weight_only_wi8_afp32/<name>.litertlm \
                 --reference tuned/model --data data/heldout.jsonl \
-                --json > manifest.json
+                --declarations tools.json --json > manifest.json
 
 # 5. Package the artifact with what was measured about it.
 litetune bundle --output-dir bundle \
                 --model artifacts/weight_only_wi8_afp32/<name>.litertlm \
-                --declarations tools.json --prompt-mode prerendered \
+                --declarations tools.json --prompt-mode runtime_rendered \
                 --base-model google/functiongemma-270m-it \
                 --base-model-revision <commit-sha> \
                 --adapter tuned/adapter \
@@ -668,12 +679,19 @@ litetune bundle --output-dir bundle \
 
 Four of those flags decide something, and it is worth knowing which.
 
-**`--prompt-mode prerendered`** because that is what this app does. For
-`ModelType.functionGemma`, `InferenceChat` renders the declarations into the
-prompt itself — you read the code that does it in Step 2 — so the runtime must
-not template them again. The value has to be the **same** in `tune` and
-`bundle`, and the wrong one produces a fluent wrong answer rather than an
+**`--prompt-mode runtime_rendered`, and `tools.json` at every stage**, because
+that is how this app calls the model: the declarations go to LiteRT-LM, which
+renders them and reads the call back. The other mode is for an application that
+writes the declarations into the prompt text itself; train that one and the
+model is served a prompt it never saw. The value has to be the **same**
+everywhere, and the wrong one produces a fluent wrong answer rather than an
 error.
+
+**`--learning-rate 1e-5`, one epoch**, because the default is twenty times that
+and these rows are all tool calls. At the default the held-out score is exactly
+the same and the model stops answering in prose at all — it has learned that a
+turn *is* a call. The score cannot see that; only asking it something that is
+not a tool call can.
 
 **`prepare` splits by content hash**, into `train.jsonl` and `heldout.jsonl`,
 and rejects rows it cannot score. The held-out half is never trained on:
@@ -734,15 +752,57 @@ models it can download and works on either.
 ## Step 5: Three tools, toolChoice, and thinking
 Duration: 12
 
-`complete/` is the finished app: a model list, three tools, and two session
+`complete/` is the finished app: a model list, four tools, and two session
 settings you can change while it runs.
 
-### Three tools cost the loop nothing
+### Four tools cost the loop nothing
 
 ```dart
 /// Everything the model is told it can call.
-const toolbox = <Tool>[multiplyTool, clockTool, deviceTool];
+const toolbox = <Tool>[multiplyTool, clockTool, deviceTool, backgroundTool];
 ```
+
+The fourth one is the only one you do not have to read:
+
+```dart
+const backgroundTool = Tool(
+  name: 'change_background_color',
+  description:
+      'Repaint the chat background. Use this whenever the user asks for a '
+      'different colour, a new background, or a change of theme.',
+  parameters: {
+    'type': 'object',
+    'properties': {
+      'color': {
+        'type': 'string',
+        'description': 'One of: red, green, blue, yellow, purple, orange.',
+      },
+    },
+    'required': ['color'],
+  },
+);
+```
+
+Ask for a blue background and the screen turns blue. Nothing else in the app
+knows that a model was involved — the page reads the same result map the model
+is shown:
+
+```dart
+final result = runTool(call);
+final painted = backgroundFrom(result);   // null unless this call set a colour
+if (painted != null) _background = painted;
+```
+
+One answer, two readers. The model writes its sentence from that map and the
+page repaints from it, so there is no second place where "which colour is it
+now" could be decided differently.
+
+Two things about that declaration are worth copying. The colour list is **in
+the description**, because the model reads it and nothing else tells it which
+names exist; ask the stock 270M for *teal* and it calls with `teal`, which the
+runner answers with the six names it does have — a turn the model can recover
+from. And the colours the app does know, it got right on the first try, before
+any fine-tuning: all six, in six different phrasings.
 
 The loop did not change to accept them, because it dispatches by name:
 
@@ -1008,7 +1068,7 @@ the answer.
 ### Try it end to end
 
 `complete/` ships an integration test that downloads Gemma 4, opens one chat
-with all three declarations, and asks a question the model cannot answer on its
+with all four declarations, and asks a question the model cannot answer on its
 own. It needs a device and a 2.59 GB download, so it is not part of CI:
 
 ```bash

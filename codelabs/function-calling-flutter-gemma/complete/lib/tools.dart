@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart' show Color;
 import 'package:flutter_gemma/flutter_gemma.dart';
 
 /// What a tool actually is, on the app's side: a Dart function from the
@@ -63,8 +64,47 @@ const deviceTool = Tool(
   parameters: {'type': 'object'},
 );
 
+/// The six colours this app will paint itself.
+///
+/// A closed set, and the declaration below lists it: an open string invites
+/// "chartreuse", which the app cannot paint and the model cannot guess is
+/// unavailable until it has already promised it to the user.
+const backgroundColors = <String, Color>{
+  'red': Color(0xFFFFEBEE),
+  'green': Color(0xFFE8F5E9),
+  'blue': Color(0xFFE3F2FD),
+  'yellow': Color(0xFFFFFDE7),
+  'purple': Color(0xFFF3E5F5),
+  'orange': Color(0xFFFFF3E0),
+};
+
+/// Repaint the app.
+///
+/// The one tool here whose result you do not have to read. Arithmetic is
+/// checkable, a clock is checkable, and both still arrive as text in a bubble;
+/// this one you watch happen. It is the same mechanism either way — a name, a
+/// schema, a Dart function — which is the point worth seeing twice.
+const backgroundTool = Tool(
+  name: 'change_background_color',
+  description:
+      'Repaint the chat background. Use this whenever the user asks for a '
+      'different colour, a new background, or a change of theme.',
+  parameters: {
+    'type': 'object',
+    'properties': {
+      // The model reads the list. Leaving it out is how you get a call for a
+      // colour this app has never heard of.
+      'color': {
+        'type': 'string',
+        'description': 'One of: red, green, blue, yellow, purple, orange.',
+      },
+    },
+    'required': ['color'],
+  },
+);
+
 /// Everything the model is told it can call.
-const toolbox = <Tool>[multiplyTool, clockTool, deviceTool];
+const toolbox = <Tool>[multiplyTool, clockTool, deviceTool, backgroundTool];
 
 /// Everything the app can actually run, keyed by the name in the declaration.
 ///
@@ -76,6 +116,7 @@ const toolRunners = <String, ToolRunner>{
   'multiply': runMultiply,
   'get_current_time': runClock,
   'get_device_info': runDeviceInfo,
+  'change_background_color': runChangeBackground,
 };
 
 /// Runs a call, or says it cannot.
@@ -151,3 +192,30 @@ num? asNumber(Object? value) => switch (value) {
   final String s => num.tryParse(s.trim()),
   _ => null,
 };
+
+/// Repaints, or says which colours exist.
+///
+/// The error branch is the whole reason the colour list is closed: a model that
+/// asks for "teal" gets the six names back and picks again on the next turn,
+/// where a silent no-op would leave it telling the user the screen is now teal.
+Map<String, dynamic> runChangeBackground(Map<String, dynamic> args) {
+  final asked = args['color']?.toString().trim().toLowerCase();
+  if (asked == null || !backgroundColors.containsKey(asked)) {
+    return {
+      'error':
+          'This app has no colour named "${args['color']}". '
+          'Available: ${backgroundColors.keys.join(', ')}.',
+    };
+  }
+  // The colour travels back as its NAME, not as an int: the model reads this
+  // to write its sentence, and the page reads the same map to repaint. One
+  // answer, two readers, no second source of truth.
+  return {'result': 'background is now $asked', 'color': asked};
+}
+
+/// The colour a tool result asks for, or null when it asked for none.
+///
+/// Lives here rather than in the page so the mapping from an answer to a
+/// repaint is testable without a widget.
+Color? backgroundFrom(Map<String, dynamic> result) =>
+    backgroundColors[result['color']?.toString()];

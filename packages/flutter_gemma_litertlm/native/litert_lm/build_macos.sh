@@ -69,6 +69,17 @@ bash "$SCRIPT_DIR/patch_c_api.sh" "$LITERT_LM_DIR"
 
 # 4. Pull LFS files (prebuilt companion libs)
 echo "Pulling LFS files..."
+# The companion prebuilts come from a LATER upstream commit than the source.
+# Upstream changed Constraint on 2026-08-21 (a8a8c445, a41b7c5c): ComputeMask
+# took the vtable slot ComputeBitmap had, and the prebuilt provider at the
+# v0.17.0 and v0.17.1 tags still implements the old one — so a tool call
+# segfaults in CompositeLogitMask::Apply. Upstream refreshed the prebuilts on
+# main in 4453b286, and that provider carries the LogitMask types. Upstream's
+# own release lane never hits this: its wheel compiles the provider in.
+PREBUILT_REF="${PREBUILT_REF:-4453b2861f6f8d2e10ba7cbbf0b4aae5b2cbed7a}"
+echo "Taking prebuilt companions from $PREBUILT_REF"
+git fetch --quiet origin "$PREBUILT_REF"
+git restore --source=FETCH_HEAD --worktree -- "prebuilt/macos_arm64"
 git lfs pull --include="prebuilt/macos_arm64/*"
 
 # 5. Build

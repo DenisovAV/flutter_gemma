@@ -197,19 +197,19 @@ const _litertlmBundle = _NativeBundle(
   // txt sent a user down the wrong path while debugging a mismatch (#316).
   checksums: {
     'litertlm-linux_x86_64.tar.gz':
-        'e192a6c8e2ea91861ce7dcde3ddce879d78cf4d830ca1eae6793a71d280818e1',
+        '7fc2bdb7ba35c22e3c1996230157264f940ec3f9efde174703d308e32eb38164',
     'litertlm-linux_arm64.tar.gz':
-        '8e5943d72c121f22f3c37e02da182ca5f2fab3fc2cb5081f6789863bf3c40696',
+        'ae551f0fa588b6bc27c9df676984bceda68d67697dad126b5fd1b5f06f3eef62',
     'litertlm-windows_x86_64.tar.gz':
-        '1eaa70688b606f76905905c4fc24c839303716e7797babc19b781044127e440f',
+        'deaf5801a9a56fc096d82a7ef178c6dab1b4919f005b811b8afbfadd4aab7f4c',
     'litertlm-macos_arm64.tar.gz':
-        '4221b199ee2b7f659168acef3ed053a9943a45d0875a1126b41ba8dbd061c617',
+        'df97712705294cdd83927c10d8e375a14466e2ab397079801bfe96435e841b71',
     'litertlm-ios_arm64.tar.gz':
-        'b36308fa14f83ad223e523412e2631e92511bffde59fa88b99393acc5b33b582',
+        '9bea99af6871c2ab87615a40f8596195d3c0a56f419993c31fcd283e193160ff',
     'litertlm-ios_sim_arm64.tar.gz':
-        '9a9aedf47246358daac50d3617a587a6250da0b553a617e2a5323b7d55b5dc2a',
+        '3fab899ad1175c0cc1736e4bbc62fffebfe2e7d940fbf8504cce92ec45ec4bff',
     'litertlm-android_arm64.tar.gz':
-        '93b944acbc701f519643dac261083c0e996bb259d0f70c28d5f083d16a85d30b',
+        '11b088c422de47def2082e0a7b84d8e8d8fcf53cb9b9b03f68e0555e85c50c54',
   },
   companions: [
     'GemmaModelConstraintProvider',

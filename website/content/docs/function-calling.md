@@ -90,6 +90,27 @@ final chat = await model.createChat(
 no way to express the constraint, so it degrades to `auto` and logs a warning.
 </Info>
 
+## Who renders the declarations
+
+On a `.litertlm`, both Gemma 4 and FunctionGemma go through LiteRT-LM's own tool
+path: the declarations travel to the runtime as structured data, the call comes
+back parsed, and the result of a turn goes back as one role-`tool` message that
+continues the same model turn. Since **flutter_gemma 1.8.4** that is true for
+FunctionGemma too — before it, its tool results were sent as an ordinary user
+message, and the model answered them by repeating the call it had just made.
+
+Two consequences worth knowing:
+
+- Nothing in your code changes. `createChat(tools: ..., supportsFunctionCalls: true)`
+  and the loop stay the same; the wire format is chosen from `modelType` and the
+  file type together.
+- `ToolChoice.none` cannot take the declarations back out, because the runtime
+  holds them. It stops the SDK from suppressing tool-call text, which is why a
+  call made under `none` can reach the bubble as raw markup.
+
+On `.task` models through MediaPipe there is no native tool path, so
+FunctionGemma keeps the text wire format the SDK renders itself.
+
 ## Handling function calls
 
 When the model wants to call a function, the response stream emits a

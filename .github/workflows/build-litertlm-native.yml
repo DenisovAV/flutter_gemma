@@ -315,12 +315,15 @@ jobs:
           curl.exe -fsSL -o C:\LiteRT-LM\prebuilt\windows_x86_64\libGemmaModelConstraintProvider.dll `
             "https://media.githubusercontent.com/media/google-ai-edge/LiteRT-LM/$env:PREBUILT_REF/prebuilt/windows_x86_64/libGemmaModelConstraintProvider.dll"
           if ($LASTEXITCODE -ne 0) { throw "could not fetch the provider for $env:PREBUILT_REF" }
+          $provPath = "C:\LiteRT-LM\prebuilt\windows_x86_64\libGemmaModelConstraintProvider.dll"
+          Write-Host "provider: $((Get-Item $provPath).Length) bytes from $env:PREBUILT_REF"
           # Fail before the hour of Bazel, not after it.
           # Absolute paths on purpose: `cd` moves PowerShell's location, not the
           # process working directory, so a .NET call with a relative path reads
           # from the workspace root and fails there instead.
           if (Select-String -Path C:\LiteRT-LM\runtime\components\constrained_decoding\constraint.h -Pattern 'ComputeMask' -Quiet) {
-            $prov = [System.Text.Encoding]::ASCII.GetString([System.IO.File]::ReadAllBytes("C:\LiteRT-LM\prebuilt\windows_x86_64\libGemmaModelConstraintProvider.dll"))
+            $prov = [System.Text.Encoding]::ASCII.GetString([System.IO.File]::ReadAllBytes($provPath))
+            Write-Host "provider scan: $($prov.Length) chars, LogitMask at $($prov.IndexOf('LogitMask'))"
             if (-not $prov.Contains('LogitMask')) {
               throw "prebuilt provider predates the ComputeMask Constraint ABI - every tool call would segfault"
             }

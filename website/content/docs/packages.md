@@ -94,6 +94,7 @@ import 'package:flutter_gemma_onnx/flutter_gemma_onnx.dart';
 await FlutterGemma.initialize(
   inferenceEngines: [OnnxEngine()],
   embeddingBackends: [OnnxEmbeddingBackend()],
+  embeddingTokenizers: [GemmaEmbeddingTokenizers()],
 );
 ```
 

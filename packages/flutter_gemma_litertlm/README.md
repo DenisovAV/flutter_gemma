@@ -113,7 +113,7 @@ litert_embeddings.js  sentencepiece.js  litert.js  tensorflow.js
 They are four pieces of one bundle (the entry plus three vendor chunks), built
 together by `tool/web_build`, so never mix them across package versions. Find
 this package's directory with
-`grep -A1 '"name": "flutter_gemma_embeddings"' .dart_tool/package_config.json`,
+`grep -A1 '"name": "flutter_gemma_litertlm"' .dart_tool/package_config.json`,
 then load the entry module from `web/index.html`:
 
 ```html
@@ -121,24 +121,23 @@ then load the entry module from `web/index.html`:
 ```
 
 Upgrading from an earlier version: delete the copies in your app's `web/` and
-re-copy all four from this version. Before 2.2.0 two of them came from
-`flutter_gemma_litertlm/web/`, which no longer has them, and the copies you
-have are built against a different `@litertjs/core` than the runtime this
-version loads. If you built your own `web/wasm/`, either delete it and take the
-CDN default or rebuild it from the version in `LiteRtWebRuntime.pinnedVersion`.
+re-copy all four from this package. Before 1.8.0 they came from
+`flutter_gemma_embeddings`, and the copies you have are built against an older
+`@litertjs/core` than the runtime this version loads. If you built your own
+`web/wasm/`, either delete it and take the CDN default or rebuild it from the
+version in `LiteRtWebRuntime.pinnedVersion`.
 
-> Earlier versions of this README told you to load `litert_embeddings.js`
-> straight from a CDN with a Subresource-Integrity hash. That cannot work: the
-> module's three imports are resolved against the CDN path, where two of them
-> do not exist (this package ships only two of the four files), so the module
-> never executes and every embedding call fails on an undefined global. SRI
-> would not have covered the imports either.
+> Loading `litert_embeddings.js` straight from a CDN with a
+> Subresource-Integrity hash — which an older README suggested — cannot work:
+> the module's three imports resolve against the CDN path, where they do not
+> exist, so the module never executes and every embedding call fails on an
+> undefined global. SRI would not have covered the imports either.
 
 ### The WASM runtime
 
 LiteRT.js loads a WASM runtime at the first embedding call —
 `litert_wasm_internal.js`, or `litert_wasm_compat_internal.js` on a browser
-without relaxed SIMD, each with a ~9 MB `.wasm` beside it. Since 2.2.0 they come
+without relaxed SIMD, each with a ~9 MB `.wasm` beside it. Since 1.8.0 they come
 from the pinned `@litertjs/core` build on jsDelivr by default — nothing to
 install, and nothing this package has to carry into every native-only app.
 
@@ -147,7 +146,7 @@ third-party script), copy `node_modules/@litertjs/core/wasm/` into your app's
 `web/wasm/` and point the package at it before the first embedding:
 
 ```dart
-import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
+import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 
 LiteRtWebRuntime.wasmPath = '/wasm/';
 ```

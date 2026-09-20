@@ -1,5 +1,5 @@
 name: flutter_gemma_embeddings
-description: "Runtime-agnostic on-device text embedding pipeline for flutter_gemma: tokenization, isolate worker, pooling and normalization. Pair with an engine package for a backend."
+description: "Embedding tokenizers for flutter_gemma: Gemma SentencePiece and BERT WordPiece, as a registrable provider. The pipeline they feed lives in flutter_gemma."
 version: 2.2.0
 homepage: https://fluttergemma.dev
 repository: https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_gemma_embeddings

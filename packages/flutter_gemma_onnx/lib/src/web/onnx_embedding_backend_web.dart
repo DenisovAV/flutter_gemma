@@ -13,7 +13,8 @@ import 'package:flutter_gemma/core/model_management/model_specs.dart'
 import 'onnx_web_embedding_model.dart';
 
 /// ONNX Runtime embedding backend — web arm (`onnxruntime-web`, WordPiece
-/// `.onnx`/`.ort` exports only in v1 — see `onnx_web_tokenizer_loader.dart`).
+/// `.onnx`/`.ort` exports only in v1 — the tokenizer arrives as a registered
+/// [EmbeddingTokenizerProvider] factory, whose web arm is WordPiece-only).
 ///
 /// Priority 10 (above LiteRT's web catch-all 0) — same rationale as the
 /// native arm: an app that registers both backends and installs an `.onnx`

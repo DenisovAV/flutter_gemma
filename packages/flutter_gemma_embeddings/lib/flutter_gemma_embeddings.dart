@@ -15,6 +15,7 @@
 ///
 /// await FlutterGemma.initialize(
 ///   embeddingBackends: [LiteRtEmbeddingBackend()],
+///   embeddingTokenizers: [GemmaEmbeddingTokenizers()],
 /// );
 /// ```
 ///

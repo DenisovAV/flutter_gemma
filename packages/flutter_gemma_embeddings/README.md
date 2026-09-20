@@ -1,17 +1,25 @@
 # flutter_gemma_embeddings
 
-Runtime-agnostic on-device text embedding **pipeline** for
-[flutter_gemma](https://pub.dev/packages/flutter_gemma): tokenization,
-task-type prefixing, a background-isolate worker, and pooling/normalization,
-over the `EmbeddingForwardPass` seam. Android, iOS, macOS, Linux, Windows, Web.
+The **embedding tokenizers** for
+[flutter_gemma](https://pub.dev/packages/flutter_gemma): Gemma SentencePiece
+and BERT-family WordPiece, plus the task-type prefixing and the routing that
+picks between them. Android, iOS, macOS, Linux, Windows, Web.
 
-Since 2.0.0 this package ships **no concrete embedding backend** — it depends
-only on `flutter_gemma`. Pair it with an engine package that implements
-`EmbeddingForwardPass` and registers an `EmbeddingBackendProvider`, e.g.
-[`flutter_gemma_litertlm`](https://pub.dev/packages/flutter_gemma_litertlm)'s
-`LiteRtEmbeddingBackend` (Gecko / EmbeddingGemma `.tflite` via the LiteRT C
-API + `dart:ffi`). Most apps only ever interact with `flutter_gemma_litertlm`
-directly — it re-exports the pieces you register.
+Since 2.2.0 this is all it is. The seam an engine implements, the
+background-isolate worker and the pooling moved into `flutter_gemma` itself, so
+an engine package can implement embeddings without depending on this one — and
+no engine does. What lives here is the part that cannot move: the tokenizer
+implementations, which pull `dart_sentencepiece_tokenizer` and must stay out of
+core's dart2wasm-clean graph.
+
+Your app registers them, beside the backend that consumes them:
+
+```dart
+await FlutterGemma.initialize(
+  embeddingBackends: [LiteRtEmbeddingBackend()],   // from an engine package
+  embeddingTokenizers: [GemmaEmbeddingTokenizers()],
+);
+```
 
 ## Teach your AI assistant this package
 
@@ -52,7 +60,7 @@ it with a vector store from `flutter_gemma_rag_sqlite` or
 
 ## Web setup
 
-The web embedding bundle moved to `flutter_gemma_litertlm` in 3.0.0 — it is
+The web embedding bundle moved to `flutter_gemma_litertlm` in its 1.8.0 — it is
 LiteRT.js, and it belongs with the package named after it. See
 [flutter_gemma_litertlm's web setup](https://pub.dev/packages/flutter_gemma_litertlm#embeddings-on-web).
 
@@ -96,7 +104,7 @@ and use `fromJsonString`.
 
 ### Known limitation: the SigLIP2 profile is not selected automatically
 
-`flutter_gemma_onnx`'s tokenizer loader has two branches — WordPiece, or Gemma.
+The tokenizer router here has three outcomes — WordPiece, a SigLIP2 refusal, or Gemma.
 A SigLIP2 `tokenizer.json` is BPE, so it would fall through to the **Gemma**
 adapter, which injects BOS, skips the lowercasing and does not pad to 64: every
 id in range, nothing thrown, and a vector that is quietly the wrong point in the

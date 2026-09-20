@@ -1,8 +1,7 @@
-// Web LiteRT embedding backend — verbatim move of what used to be
-// `flutter_gemma_embeddings/lib/src/litert_embedding_backend_stub.dart`
-// (embedder decoupling plan Task 4, D9: zero code movement out of
-// `flutter_gemma_embeddings/lib/src/web/` + `web/litert_embeddings.js` —
-// only the class that constructs [WebEmbeddingModel] relocates here).
+// Web LiteRT embedding backend. It builds [WebEmbeddingModel], which runs on
+// the LiteRT.js bundle in this package's `web/` — so unlike the native arm it
+// never asks core's tokenizer registry: tokenization happens inside
+// `sentencepiece.js`, not in Dart.
 
 import 'package:flutter_gemma/core/registry/embedding_backend_provider.dart';
 import 'package:flutter_gemma/core/registry/runtime_config.dart';

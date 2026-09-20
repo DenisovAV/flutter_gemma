@@ -26,11 +26,10 @@ import 'dart:ffi';
 import 'package:flutter_gemma/core/utils/gemma_log.dart';
 
 import 'package:ffi/ffi.dart';
-// `forward_pass.dart` is exported UNCONDITIONALLY from the embeddings
-// barrel (no `if (dart.library.ffi)` split — it's plain, platform-agnostic
-// Dart), so importing the public barrel here hits none of the
-// conditional-export analyzer quirk `litert_bindings.dart` below works
-// around; only that package's `CommonEmbeddingModel` export is conditional.
+// Imported by file rather than through core's barrel: the seam is plain,
+// platform-agnostic Dart with no conditional split, while the barrel also
+// carries `CommonEmbeddingModel` behind an `if (dart.library.js_interop)` —
+// the same analyzer quirk `litert_bindings.dart` below works around.
 import 'package:flutter_gemma/core/embedding/forward_pass.dart'
     show EmbeddingForwardPass, EmbeddingOutputContract, ForwardResult;
 // Public, native-only bindings library (not the package barrel): this file

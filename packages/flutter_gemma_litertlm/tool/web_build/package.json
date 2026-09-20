@@ -1,8 +1,8 @@
 {
-  "name": "flutter-gemma-embeddings-web",
+  "name": "flutter-gemma-litertlm-web",
   "private": true,
   "version": "1.0.0",
-  "description": "Build for flutter_gemma_embeddings' web/ bundle (LiteRT.js + SentencePiece).",
+  "description": "Build for flutter_gemma_litertlm's web/ bundle (LiteRT.js + SentencePiece).",
   "type": "module",
   "scripts": {
     "build": "vite build"

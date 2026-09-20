@@ -23,7 +23,8 @@ void main() {
   test('the pin matches the @litertjs/core the bundle was built from', () {
     final lock = File('tool/web_build/package-lock.json');
     if (!lock.existsSync()) {
-      // Published copies of this package ship the source but not the lockfile.
+      // The lockfile ships with the package, so this only fires when the test
+      // runs from somewhere without the repo layout.
       markTestSkipped('no lockfile — running outside the repo');
       return;
     }

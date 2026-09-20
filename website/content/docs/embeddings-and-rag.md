@@ -26,6 +26,7 @@ them in `await FlutterGemma.initialize(...)`:
 await FlutterGemma.initialize(
   inferenceEngines: const [LiteRtLmEngine()],
   embeddingBackends: const [LiteRtEmbeddingBackend()], // flutter_gemma_litertlm
+  embeddingTokenizers: const [GemmaEmbeddingTokenizers()],
   vectorStore: QdrantVectorStore(),                    // or WebSqliteVectorStore() on web
 );
 ```

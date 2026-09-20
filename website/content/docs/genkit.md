@@ -22,12 +22,12 @@ with the on-device model exactly as it would with any cloud provider.
 dependencies:
   genkit: ^0.16.0                  # the framework itself — every snippet below uses it
   genkit_flutter_gemma: ^0.6.1
-  flutter_gemma: ^1.8.4
+  flutter_gemma: ^1.9.0
   # Add the inference engine(s) you need:
-  flutter_gemma_litertlm: ^1.7.1   # .litertlm models (mobile + desktop + web) + LiteRtEmbeddingBackend
+  flutter_gemma_litertlm: ^1.8.0   # .litertlm models (mobile + desktop + web) + LiteRtEmbeddingBackend
   flutter_gemma_mediapipe: ^1.0.6  # .task / .bin models (mobile + web)
   # Optional — for embeddings (needs a backend, e.g. flutter_gemma_litertlm above):
-  flutter_gemma_embeddings: ^2.1.1
+  flutter_gemma_embeddings: ^2.2.0
 ```
 
 ### Setup
@@ -46,6 +46,7 @@ import 'package:genkit_flutter_gemma/genkit_flutter_gemma.dart';
 await FlutterGemma.initialize(
   inferenceEngines: const [LiteRtLmEngine(), MediaPipeEngine()],
   embeddingBackends: const [LiteRtEmbeddingBackend()], // flutter_gemma_litertlm
+  embeddingTokenizers: const [GemmaEmbeddingTokenizers()],
 );
 
 // 2. Install the model (host app responsibility).

@@ -304,6 +304,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         maxDownloadRetries: 3,
         inferenceEngines: kExampleInferenceEngines,
         embeddingBackends: kExampleEmbeddingBackends,
+        embeddingTokenizers: kExampleEmbeddingTokenizers,
       );
 
       // Modern API saves file with name from URL
@@ -389,6 +390,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         maxDownloadRetries: 3,
         inferenceEngines: kExampleInferenceEngines,
         embeddingBackends: kExampleEmbeddingBackends,
+        embeddingTokenizers: kExampleEmbeddingTokenizers,
       );
 
       final documentsDir = testDir.replaceAll('/integration_tests', '');
@@ -529,6 +531,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         maxDownloadRetries: 3,
         inferenceEngines: kExampleInferenceEngines,
         embeddingBackends: kExampleEmbeddingBackends,
+        embeddingTokenizers: kExampleEmbeddingTokenizers,
       );
 
       final documentsDir = testDir.replaceAll('/integration_tests', '');
@@ -598,6 +601,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         maxDownloadRetries: 3,
         inferenceEngines: kExampleInferenceEngines,
         embeddingBackends: kExampleEmbeddingBackends,
+        embeddingTokenizers: kExampleEmbeddingTokenizers,
       );
 
       try {
@@ -660,6 +664,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         maxDownloadRetries: 3,
         inferenceEngines: kExampleInferenceEngines,
         embeddingBackends: kExampleEmbeddingBackends,
+        embeddingTokenizers: kExampleEmbeddingTokenizers,
       );
 
       try {
@@ -1111,6 +1116,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         maxDownloadRetries: 3,
         inferenceEngines: kExampleInferenceEngines,
         embeddingBackends: kExampleEmbeddingBackends,
+        embeddingTokenizers: kExampleEmbeddingTokenizers,
       );
 
       final documentsDir = testDir.replaceAll('/integration_tests', '');

@@ -270,7 +270,7 @@ flutter analyze && dart format . && tool/test_all.sh
 | File | Purpose |
 |------|---------|
 | `lib/src/litert_lm_engine*.dart` | `LiteRtLmEngine` (InferenceEngineProvider; native + web arms via conditional export) |
-| `lib/src/embedding/web/`, `web/*.js`, `tool/web_build/` | The LiteRT.js embedding bundle — `WebEmbeddingModel`, `LiteRtWebRuntime` (WASM runtime URL, pinned `@litertjs/core`) and the vite build that emits all four JS files. Moved here in 2.0.0: it is LiteRT, and keeping it beside the engine is what removes the sibling dependency |
+| `lib/src/embedding/web/`, `web/*.js`, `tool/web_build/` | The LiteRT.js embedding bundle — `WebEmbeddingModel`, `LiteRtWebRuntime` (WASM runtime URL, pinned `@litertjs/core`) and the vite build that emits all four JS files. Moved here in 1.8.0: it is LiteRT, and keeping it beside the engine is what removes the sibling dependency |
 | `lib/src/ffi/litert_lm_client.dart` | Per-platform FFI client (loading, preload, log capture) |
 | `lib/src/ffi/litert_lm_bindings.dart` | Generated dart:ffi bindings to LiteRT-LM C API (inference) |
 | `lib/src/ffi/ffi_inference_model.dart` | FFI inference model (mixes CloseNotifier) |
@@ -336,7 +336,7 @@ flutter analyze && dart format . && tool/test_all.sh
 | `lib/src/ffi/gen_ai_client.dart` | `GenAiFfiClient` — worker-isolate ORT-GenAI FFI client (mutex-serialized generate/countTokens; `ORT_LIB_PATH` co-location fix) |
 | `lib/src/ffi/gen_ai_protocol.dart` | Isolate message protocol (src-only, not barrel-exported) — the injection seam for a scripted fake worker in tests |
 | `lib/src/embedding/onnx_embedding_backend.dart` | `OnnxEmbeddingBackend` (EmbeddingBackendProvider; priority 10 over LiteRT's catch-all 0) |
-| `lib/src/embedding/{ort_client,ort_ffi_client,onnx_embedding_forward_pass,onnx_tokenizer_loader}.dart` | Plain ORT C API FFI client + forward pass (WordPiece/SentencePiece, `pooledFinal`/`tokenLevel` contracts) |
+| `lib/src/embedding/{ort_client,ort_ffi_client,onnx_embedding_forward_pass}.dart` | Plain ORT C API FFI client + forward pass (WordPiece/SentencePiece, `pooledFinal`/`tokenLevel` contracts) |
 | `hook/build.dart` | Native Assets hook — owns the ORT + ORT-GenAI CodeAssets, sourced from Microsoft's own GitHub releases (not a `native-vX` repo tag); `_archivesFor` covers macOS arm64/linux_x64/windows_x64 (Android AAR + iOS pending) |
 
 ## Project Structure

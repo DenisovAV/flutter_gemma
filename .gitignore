@@ -43,7 +43,7 @@ devtools_options.yaml
 **/local.properties
 
 # NPM files in the repo root — the web bundle build lives in
-# packages/flutter_gemma_embeddings/tool/web_build, never here.
+# packages/flutter_gemma_litertlm/tool/web_build, never here.
 /package.json
 /package-lock.json
 /vite.config.js

@@ -966,6 +966,11 @@ void main() async {
     embeddingBackends: const [
       LiteRtEmbeddingBackend(), // flutter_gemma_litertlm
     ],
+    // The tokenizer is registered separately — which family a model needs is a
+    // property of the model, not of the engine that runs it.
+    embeddingTokenizers: const [
+      GemmaEmbeddingTokenizers(), // flutter_gemma_embeddings
+    ],
     // Optional — RAG vector store (pick one; native here):
     vectorStore: QdrantVectorStore(), // flutter_gemma_rag_qdrant
 
@@ -992,6 +997,7 @@ void main() async {
 | `inferenceEngines: [OnnxEngine()]` | `flutter_gemma_onnx` | ONNX models — ORT-GenAI (FFI; macOS/Linux/Windows/Android/iOS arm64) or Transformers.js (Web) |
 | `embeddingBackends: [LiteRtEmbeddingBackend()]` | `flutter_gemma_litertlm` | text embeddings |
 | `embeddingBackends: [OnnxEmbeddingBackend()]` | `flutter_gemma_onnx` | text embeddings from ONNX/ORT models (FFI native; onnxruntime-web on Web) |
+| `embeddingTokenizers: [GemmaEmbeddingTokenizers()]` | `flutter_gemma_embeddings` | required by BOTH embedding backends above |
 | `sttBackends: [LiteRtSttBackend()]` | `flutter_gemma_speech` | speech-to-text (native only) |
 | `ttsBackends: [LiteRtTtsBackend()]` | `flutter_gemma_speech` | text-to-speech (native only) |
 | `vectorStore: QdrantVectorStore()` | `flutter_gemma_rag_qdrant` | native RAG |

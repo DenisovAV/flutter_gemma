@@ -35,6 +35,7 @@
 /// await FlutterGemma.initialize(
 ///   inferenceEngines: [OnnxEngine()],
 ///   embeddingBackends: [OnnxEmbeddingBackend()],
+///   embeddingTokenizers: [GemmaEmbeddingTokenizers()],
 /// );
 ///
 /// await FlutterGemma.installEmbedder()

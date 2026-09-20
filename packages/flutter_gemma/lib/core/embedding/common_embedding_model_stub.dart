@@ -1,9 +1,8 @@
-// Web stub for `CommonEmbeddingModel`. Web has no dart:ffi support so the
-// real (isolate + native forward-pass) implementation can't be compiled to
-// JS/Wasm. The web plugin (FlutterGemmaWeb) registers its own web embedding
-// backend before flutter_gemma_mobile.dart runs, so this stub is never
-// called at runtime; it only exists to satisfy the compiler when dart2js/
-// dart2wasm builds the mobile entry point.
+// Web stub for `CommonEmbeddingModel`. The real implementation spawns a
+// worker isolate, which dart2js/dart2wasm cannot compile, so the barrel
+// selects this file under `if (dart.library.js_interop)`. Web engine arms
+// build their own `EmbeddingModel` and never reach it at runtime; it exists
+// only to keep the web compile honest.
 
 import 'package:flutter_gemma/flutter_gemma_interface.dart'
     show EmbeddingModel, TaskType;

@@ -34,8 +34,8 @@ import 'package:flutter_gemma/core/embedding/tokenizer_adapter.dart' show Embedd
 import 'tokenizer_convention.dart' show isSiglip2TokenizerJson;
 import 'wordpiece_embedding_tokenizer.dart' show WordPieceEmbeddingTokenizer;
 
-/// [EmbeddingTokenizerFactory] tear-off (production path for the ONNX
-/// backend). Routes:
+/// [EmbeddingTokenizerFactory] tear-off — the production path for every
+/// backend that tokenizes in Dart, LiteRT and ONNX alike. Routes:
 ///  - [tokenizerPath] parses as JSON AND `WordPieceEmbeddingTokenizer.isWordPieceJson`
 ///    matches -> WordPiece (MiniLM and BERT-family models).
 ///  - otherwise (not JSON at all — a raw SentencePiece `.model` binary — or
@@ -71,10 +71,10 @@ Future<EmbeddingTokenizer> resolveEmbeddingTokenizer(
       if (isSiglip2TokenizerJson(json)) {
         throw UnsupportedError(
           'This tokenizer.json declares the SigLIP 2 convention (fixed-width '
-          'padding, an EOS-only post-processor and no BOS), which the ONNX '
-          'embedding backend cannot select yet — it would be tokenized with '
-          "Gemma's convention and produce wrong vectors silently. Build the "
-          'ForwardPassDescriptor yourself with '
+          'padding, an EOS-only post-processor and no BOS), which this '
+          'router cannot select yet — it would be tokenized with '
+          "Gemma's convention and produce wrong vectors silently. Register a "
+          'higher-priority EmbeddingTokenizerProvider whose factory calls '
           'loadSiglipSentencePieceEmbeddingTokenizer from '
           'flutter_gemma_embeddings. Path: $tokenizerPath',
         );

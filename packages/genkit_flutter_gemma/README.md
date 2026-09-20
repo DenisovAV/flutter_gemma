@@ -48,8 +48,9 @@ register their providers in `await FlutterGemma.initialize()`.
 # pubspec.yaml (your app)
 dependencies:
   genkit_flutter_gemma: ^0.6.1
-  flutter_gemma: ^1.8.4
-  flutter_gemma_litertlm: ^1.7.1   # only the engines/backends you actually use
+  flutter_gemma: ^1.9.0
+  flutter_gemma_litertlm: ^1.8.0   # only the engines/backends you actually use
+  flutter_gemma_embeddings: ^2.2.0  # the tokenizers an embedding backend needs
   flutter_gemma_mediapipe: ^1.0.6
 ```
 
@@ -58,6 +59,7 @@ dependencies:
 await FlutterGemma.initialize(
   inferenceEngines: const [LiteRtLmEngine(), MediaPipeEngine()],
   embeddingBackends: const [LiteRtEmbeddingBackend()],
+  embeddingTokenizers: const [GemmaEmbeddingTokenizers()],
 );
 ```
 
@@ -78,6 +80,7 @@ import 'package:genkit_flutter_gemma/genkit_flutter_gemma.dart';
 await FlutterGemma.initialize(
   inferenceEngines: const [LiteRtLmEngine(), MediaPipeEngine()],
   embeddingBackends: const [LiteRtEmbeddingBackend()],
+  embeddingTokenizers: const [GemmaEmbeddingTokenizers()],
 );
 await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
     .fromAsset('assets/gemma-3-1b-it-int4.task')

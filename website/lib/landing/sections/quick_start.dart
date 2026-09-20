@@ -6,6 +6,7 @@ import '../../theme/brand.dart';
 const _code = '''await FlutterGemma.initialize(
   inferenceEngines: [LiteRtLmEngine(), MediaPipeEngine()],
   embeddingBackends: [LiteRtEmbeddingBackend()],
+  embeddingTokenizers: [GemmaEmbeddingTokenizers()],
   vectorStore: QdrantVectorStore(),
 );
 

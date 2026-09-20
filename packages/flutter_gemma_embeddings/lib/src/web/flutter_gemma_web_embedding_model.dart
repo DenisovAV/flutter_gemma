@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/core/lifecycle/close_notifier.dart';
 import 'package:flutter_gemma/flutter_gemma_interface.dart';
 
+import '../web_runtime.dart';
 import 'litert_web_embeddings.dart';
 
 class WebEmbeddingModel extends EmbeddingModel with CloseNotifier {
@@ -13,6 +14,10 @@ class WebEmbeddingModel extends EmbeddingModel with CloseNotifier {
     this._modelPath,
     this._tokenizerPath,
   });
+
+  /// Where the page's LiteRT.js runtime was actually loaded from, if at all.
+  /// Static because the runtime is one per page, not one per model.
+  static String? _loadedWasmPath;
 
   final VoidCallback onClose;
   final String? _modelPath;
@@ -43,11 +48,25 @@ class WebEmbeddingModel extends EmbeddingModel with CloseNotifier {
     }
 
     try {
+      // Configurable since 2.2.0; the old hardcoded '/wasm/' was served by
+      // nothing, so this call always failed. See [LiteRtWebRuntime].
+      final wasmPath = LiteRtWebRuntime.wasmPath;
+      // The runtime is a page-level singleton behind a flag in
+      // litert_embeddings.js: once it has loaded, a different prefix is
+      // discarded there without a word. Say so here instead.
+      if (_loadedWasmPath != null && _loadedWasmPath != wasmPath) {
+        gemmaLog(
+          'LiteRtWebRuntime.wasmPath changed to $wasmPath after the runtime '
+          'was loaded from $_loadedWasmPath — the new value is ignored. Set it '
+          'before the first embedding.',
+        );
+      }
       await LiteRTWebEmbeddings.initialize(
         _modelPath,
         _tokenizerPath,
-        wasmPath: '/wasm/', // WASM files in example/web/wasm/
+        wasmPath: wasmPath,
       );
+      _loadedWasmPath ??= wasmPath;
       _isInitialized = true;
       if (kDebugMode) {
         gemmaLog('✅ LiteRT embeddings initialized successfully');

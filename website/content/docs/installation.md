@@ -382,17 +382,21 @@ Only add the shim(s) for the arm(s) you use — `transformersReady` for
 `OnnxEngine`, `ortReady` for `OnnxEmbeddingBackend`.
 
 **`LiteRtEmbeddingBackend`** (web embeddings, `flutter_gemma_litertlm`): runs on
-LiteRT.js through `flutter_gemma_embeddings`' `web/litert_embeddings.js`. Load it
-pinned to a release tag with a Subresource-Integrity hash — the
-[`flutter_gemma_embeddings` README](https://pub.dev/packages/flutter_gemma_embeddings)
-has the tag and how to compute the hash:
+LiteRT.js, which needs the four files in `flutter_gemma_embeddings`' `web/`
+copied into your app's `web/`: `litert_embeddings.js`, `sentencepiece.js`,
+`litert.js` and `tensorflow.js`. The first imports the other three by relative
+path — they are one bundle in four pieces — so they sit together and the entry
+module is loaded locally:
 
 ```
-<script type="module"
-        src="https://cdn.jsdelivr.net/gh/DenisovAV/flutter_gemma@<tag>/packages/flutter_gemma_embeddings/web/litert_embeddings.js"
-        integrity="sha384-<hash>"
-        crossorigin="anonymous"></script>
+<script type="module" src="litert_embeddings.js"></script>
 ```
+
+The WASM runtime underneath comes from a pinned CDN copy by default
+(`flutter_gemma_embeddings` 2.2.0+) — nothing else to install. To serve it
+yourself, copy `node_modules/@litertjs/core/wasm/` into `web/wasm/` and set
+`LiteRtWebRuntime.wasmPath = '/wasm/';` before the first embedding. See the
+[`flutter_gemma_embeddings` web setup](https://pub.dev/packages/flutter_gemma_embeddings#web-setup).
 
 **`flutter_gemma_rag_sqlite`** (web RAG): no `<script>`. Copy the package's
 `web/rag/sqlite3.wasm` (a `sqlite3.wasm` with `sqlite-vec` statically linked)

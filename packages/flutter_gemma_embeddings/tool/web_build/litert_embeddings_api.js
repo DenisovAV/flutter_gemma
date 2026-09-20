@@ -202,15 +202,19 @@ async function generateEmbeddingInternal(text) {
   const inputArray = new Int32Array(tokens);
   const inputTensor = new Tensor(inputArray, [1, MAX_SEQUENCE_LENGTH]);
 
-  // Step 3: Move to GPU if using WebGPU
-  let gpuTensor = inputTensor;
-  if (tfliteModel.accelerator === 'webgpu') {
-    gpuTensor = await inputTensor.moveTo('webgpu');
-  }
+  // Input placement. 0.2.x exposed CompiledModel.accelerator and this
+  // moved the tensor to the GPU by hand; 2.x has no such field (only
+  // options.accelerator) and run() places inputs itself, so the branch
+  // read undefined and never fired. Dropped rather than repaired: the
+  // measured behaviour — identical vectors, WebGPU still selected — IS
+  // the no-move path.
+  const gpuTensor = inputTensor;
 
   try {
     // Step 4: Run inference
-    const outputTensors = tfliteModel.run(gpuTensor);
+    // @litertjs/core 2.x returns a promise here; 0.2.x returned the tensors
+    // directly. Awaiting is the whole migration on our side.
+    const outputTensors = await tfliteModel.run(gpuTensor);
 
     // Step 5: Extract embeddings
     const outputTensor = outputTensors[0];
@@ -258,13 +262,13 @@ async function generateDocumentEmbeddingInternal(text) {
   const inputArray = new Int32Array(tokens);
   const inputTensor = new Tensor(inputArray, [1, MAX_SEQUENCE_LENGTH]);
 
-  let gpuTensor = inputTensor;
-  if (tfliteModel.accelerator === 'webgpu') {
-    gpuTensor = await inputTensor.moveTo('webgpu');
-  }
+  // See generateEmbeddingInternal: 2.x run() places inputs itself.
+  const gpuTensor = inputTensor;
 
   try {
-    const outputTensors = tfliteModel.run(gpuTensor);
+    // @litertjs/core 2.x returns a promise here; 0.2.x returned the tensors
+    // directly. Awaiting is the whole migration on our side.
+    const outputTensors = await tfliteModel.run(gpuTensor);
     const outputTensor = outputTensors[0];
 
     let cpuTensor = outputTensor;

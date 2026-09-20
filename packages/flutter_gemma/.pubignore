@@ -19,19 +19,16 @@ devtools_options.yaml
 node_modules/
 package-lock.json
 # Top-level package.json / vite.config.js (none in current repo, but
-# protect against future accidental add). web/rag/ ones ARE shipped —
-# consumers re-build the web bundle from source.
+# protect against future accidental add). The web bundle is no longer built
+# here: its source moved to flutter_gemma_embeddings/tool/web_build, next to
+# the web/ directory that ships its output.
 /package.json
 /vite.config.js
-web/rag/node_modules/
-web/rag/dist/
 
 # Vite build artifacts (generated files with hashes)
 web/*.js
 web/*.js.map
-# But keep source files in web/rag/
-!web/rag/
-# And keep cache_api.js (hand-written, runtime needs window.cacheHas/Put/Get)
+# But keep cache_api.js (hand-written, runtime needs window.cacheHas/Put/Get)
 !web/cache_api.js
 # And opfs_helper.js — defines window.flutterGemmaOPFS, which web streaming
 # storage (WebStorageMode.streaming) binds to. Without this line it never

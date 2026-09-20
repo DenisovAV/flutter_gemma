@@ -1,3 +1,6 @@
+## 1.8.0
+- `web/litert.js` and `web/tensorflow.js` moved to `flutter_gemma_embeddings`, whose bundle they belong to.
+
 ## 1.7.1
 - Native runtime `native-v0.17.0-a`: tool calls no longer crash the app.
 - FunctionGemma on `.litertlm` takes the runtime's tool path — needs core 1.8.4.

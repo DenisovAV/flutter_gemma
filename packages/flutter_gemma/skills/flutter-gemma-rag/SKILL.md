@@ -122,8 +122,8 @@ LiteRT embeddings always run on CPU. `LiteRtEmbeddingBackend` hardcodes it and i
 ## Web
 
 - Copy `web/rag/sqlite3.wasm` from the `flutter_gemma_rag_sqlite` package into the app as `web/rag/sqlite3.wasm`.
-- Web embeddings need four module files side by side in the app's `web/`: `litert_embeddings.js` and `sentencepiece.js` from `flutter_gemma_embeddings/web/`, plus `litert.js` and `tensorflow.js` from `flutter_gemma_litertlm/web/` — the first one imports the other three by relative path, so three files alone give a 404 and an embedder that never initialises.
-- They also need the LiteRT WASM runtime at `web/wasm/`, which no package ships: build it once from the core package (`cd <flutter_gemma>/web/rag && npm install && npm run build`) and copy `dist/wasm` into the app's `web/`. The Dart side loads it from `/wasm/` and nowhere else.
+- Web embeddings need four module files side by side in the app's `web/`, all four from `flutter_gemma_embeddings/web/`: `litert_embeddings.js`, `sentencepiece.js`, `litert.js`, `tensorflow.js` — the first imports the other three by relative path, so three files alone give a 404 and an embedder that never initialises. They are one bundle in four pieces; never mix them across package versions.
+- The LiteRT WASM runtime underneath comes from a pinned CDN copy by default (`flutter_gemma_embeddings` 2.2.0+ — `LiteRtWebRuntime.wasmPath`). To self-host, copy `node_modules/@litertjs/core/wasm/` into the app's `web/wasm/` and set `LiteRtWebRuntime.wasmPath = '/wasm/';` before the first embedding. Pin `@litertjs/core` to `LiteRtWebRuntime.pinnedVersion`: the runtime and `web/litert.js` are two halves of one release, and a mismatch fails at the first embedding with an error that never mentions versions.
 - In `web/index.html`, before Flutter boots: `<script src="cache_api.js"></script>` first — it is not a module, and the embedding runtime calls its cache helpers during init — then `<script type="module" src="litert_embeddings.js"></script>`.
 
 Find a package's directory with `grep -A1 '"name": "flutter_gemma_rag_sqlite"' .dart_tool/package_config.json`.

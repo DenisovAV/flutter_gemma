@@ -30,6 +30,7 @@ library;
 // flutter_gemma_onnx) implement `EmbeddingForwardPass` and build a
 // `ForwardPassDescriptor` from a top-level factory tear-off to plug into the
 // common embedder below.
+export 'src/web_runtime.dart';
 export 'src/forward_pass.dart';
 export 'src/pooling.dart';
 // The tokenizer seam (design D-T1): pure Dart, no engine dependency, no

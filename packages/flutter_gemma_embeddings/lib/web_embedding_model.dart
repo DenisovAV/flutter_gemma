@@ -10,3 +10,4 @@
 library;
 
 export 'src/web/flutter_gemma_web_embedding_model.dart';
+export 'src/web_runtime.dart';

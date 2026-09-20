@@ -39,21 +39,68 @@ it with a vector store from `flutter_gemma_rag_sqlite` or
 
 ## Web setup
 
-On web, `flutter_gemma_litertlm`'s embedding backend runs via LiteRT.js, using
-this package's `web/litert_embeddings.js`. Add the loader script to your app's
-`web/index.html` `<head>`. Pin a release tag and include a Subresource Integrity
-hash so a CDN compromise cannot inject code:
+On web, `flutter_gemma_litertlm`'s embedding backend runs via LiteRT.js. Copy
+all four files from this package's `web/` into your app's `web/`, next to
+`index.html` — `litert_embeddings.js` imports the other three by relative path,
+so they have to sit together:
 
-```html
-<script type="module"
-        src="https://cdn.jsdelivr.net/gh/DenisovAV/flutter_gemma@<tag>/packages/flutter_gemma_embeddings/web/litert_embeddings.js"
-        integrity="sha384-<hash>"
-        crossorigin="anonymous"></script>
+```
+litert_embeddings.js  sentencepiece.js  litert.js  tensorflow.js
 ```
 
-> Compute the hash for the tag you pin (the browser rejects the script if
-> `integrity` doesn't match, so don't ship a placeholder):
-> `openssl dgst -sha384 -binary web/litert_embeddings.js | openssl base64 -A`
+They are four pieces of one bundle (the entry plus three vendor chunks), built
+together by `tool/web_build`, so never mix them across package versions. Find
+this package's directory with
+`grep -A1 '"name": "flutter_gemma_embeddings"' .dart_tool/package_config.json`,
+then load the entry module from `web/index.html`:
+
+```html
+<script type="module" src="litert_embeddings.js"></script>
+```
+
+> Earlier versions of this README told you to load `litert_embeddings.js`
+> straight from a CDN with a Subresource-Integrity hash. That cannot work: the
+> module's three imports are resolved against the CDN path, where two of them
+> do not exist (this package ships only two of the four files), so the module
+> never executes and every embedding call fails on an undefined global. SRI
+> would not have covered the imports either.
+
+### The WASM runtime
+
+LiteRT.js loads a WASM runtime (`litert_wasm_internal.js` plus a ~9 MB `.wasm`)
+at the first embedding call. No pub package can ship those bytes, so since
+2.2.0 they come from the pinned `@litertjs/core` build on jsDelivr by default —
+nothing to install.
+
+To serve them yourself (offline, an air-gapped deploy, or a CSP that forbids
+third-party script), copy `node_modules/@litertjs/core/wasm/` into your app's
+`web/wasm/` and point the package at it before the first embedding:
+
+```dart
+import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
+
+LiteRtWebRuntime.wasmPath = '/wasm/'; // trailing slash required
+```
+
+Set it before the first embedding — the runtime is loaded once and cached, so a
+later assignment is ignored. The prefix is root-absolute: an app served under a
+base href other than `/` needs `/my-app/wasm/` or a full URL.
+
+Pin `@litertjs/core` to `LiteRtWebRuntime.pinnedVersion` if you vendor it. The
+runtime and this package's `web/litert.js` are two halves of one release —
+`litert.js` calls that release's WASM entry points by name — and a mismatch
+fails at the first embedding with something that does not mention versions at
+all (`Cannot read properties of undefined (reading 'create')` with a runtime
+older than the glue; `loadAndCompileWebGpu is not defined` the other way
+round).
+
+Serving it yourself is also the answer if a third-party script in your app's
+runtime path is not acceptable to you: LiteRT.js injects the `<script>` itself,
+so the CDN copy carries no Subresource-Integrity hash.
+
+Whatever host you use must send `Access-Control-Allow-Origin` (LiteRT.js sets
+`crossOrigin="anonymous"` on the script it injects) and serve `.wasm` as
+`application/wasm`.
 
 Native platforms need no setup — the LiteRT native library is bundled at build
 time by `flutter_gemma_litertlm`'s Native-Assets hook.

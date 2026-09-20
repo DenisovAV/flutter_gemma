@@ -1,0 +1,6 @@
+# The web bundle is BUILT here and its output is committed to web/, so the
+# build itself does not need to ship — but it must stay in the repo, because
+# web/litert.js and the WASM runtime it loads are two halves of one
+# @litertjs/core release and have to be rebuilt together.
+tool/web_build/node_modules/
+tool/web_build/package-lock.json

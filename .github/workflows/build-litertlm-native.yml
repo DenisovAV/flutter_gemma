@@ -297,7 +297,7 @@ jobs:
           git fetch --quiet origin main
           git cat-file -e "$env:PREBUILT_REF^{commit}"
           if ($LASTEXITCODE -ne 0) { throw "prebuilt_ref $env:PREBUILT_REF is not in this clone (fetched main)" }
-          git restore --source="$PREBUILT_REF" --worktree -- prebuilt/windows_x86_64
+          git restore --source="$env:PREBUILT_REF" --worktree -- prebuilt/windows_x86_64
           git lfs pull --include="prebuilt/windows_x86_64/*"
 
       - name: Patch C API

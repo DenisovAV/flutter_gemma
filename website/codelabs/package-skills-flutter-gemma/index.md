@@ -40,8 +40,12 @@ By the end you will have:
 * One coding assistant that reads Agent Skills: Antigravity, Claude Code, Codex,
   Cursor, GitHub Copilot, Cline or OpenCode. Step 2 covers each of them, and
   Antigravity and Claude Code in detail
-* Any one of Flutter's six platforms to run the result on
-* About 3 GB of free space: Gemma 4 E2B is 2.6 GB on a device, 2.0 GB on the web
+* Any one of Flutter's six platforms to run the result on. On **Android** it has
+  to be an arm64 device or emulator: `flutter_gemma_litertlm` ships an arm64
+  library and nothing else, so a 32-bit or x86_64 image has no runtime to load
+  (an Apple-silicon Mac's emulator is arm64)
+* About 3.5 GB of free space: Gemma 4 E2B is 2.6 GB on a device and 2.0 GB on
+  the web, plus room for the download still arriving
 
 You do not need to have done
 [Getting Started](/codelabs/getting-started-flutter-gemma). It helps to have seen
@@ -108,7 +112,8 @@ It shows one line of text and nothing else. That is the whole app:
   `minSdk 30`, iOS 15 and its three memory entitlements, the two macOS
   entitlements and the `post_install` block in `macos/Podfile`, and
   `web/index.html`'s three script tags — the `@litert-lm/core` handshake plus
-  `cache_api.js` and `opfs_helper.js` for persistent web model storage.
+  `cache_api.js` and `opfs_helper.js`, the two scripts core's web model storage
+  reaches for.
   [Getting Started](/codelabs/getting-started-flutter-gemma) explains each one.
   They are here so that when the assistant's code fails, it is the code — not a
   missing entitlement that looks the same from outside.
@@ -321,9 +326,12 @@ await FlutterGemma.initialize(
 The core registers no engine of its own. Leave `inferenceEngines` out and the
 app builds, the download works, and the first `getActiveModel()` throws a
 `StateError` asking for an engine package. On web, leave `webStorageMode` out
-and the default `cacheApi` mode fails to install Gemma 4 E2B's ~2 GB web
-build — Chromium's blob-fetch limit sits at about 2 GB. `streaming` reads the
-model from OPFS instead; native platforms ignore the option.
+and the default `cacheApi` mode buffers the whole download in memory as one
+blob — and a single blob tops out at 2 GiB (2,147,483,648 bytes). Gemma 4
+E2B's web build is 2,008,432,640 bytes, about 139 MB under that ceiling: close
+enough that this codelab streams. `streaming` writes the download into OPFS
+and reads the model back from there instead; native platforms ignore the
+option.
 
 **3. The file type is declared.**
 

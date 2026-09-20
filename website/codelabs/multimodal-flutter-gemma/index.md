@@ -81,9 +81,12 @@ this codelab hands you one of each.
 * Room for **0.36 GB** in Step 2 on native, and for **2.59 GB** from Step 3 on
   — plus the memory to open the larger one, roughly 6 GB of RAM. A 4 GB phone
   is killed by the OS rather than told no. On the **web**, Step 2 already
-  needs Gemma 4 E2B's **2.0 GB** web build (SmolVLM2 has none), and Step 3
-  needs nothing further there — same file, already installed
-* Android, a real iPhone or iPad, macOS, Windows or Linux for the full thing.
+  needs Gemma 4 E2B's **2.0 GB** web build (SmolVLM2 has none), so leave about
+  3 GB free for it and the stream still arriving; Step 3 needs nothing further
+  there — same file, already installed
+* Android (an **arm64** device or emulator — `flutter_gemma_litertlm` ships an
+  arm64 library and nothing else, so a 32-bit or x86_64 image has no runtime to
+  load), a real iPhone or iPad, macOS, Windows or Linux for the full thing.
   The web and the iOS Simulator both run this app; Step 4 covers what they do
   instead
 
@@ -269,9 +272,17 @@ fields could.
 Run this step in Chrome and you get a real chat: the Gemma 4 E2B web build
 talks, it just cannot see — vision is a native feature in this codelab, not
 because of anything Step 2 does differently on the web, but because the
-browser runtime has no vision executor for *any* checkpoint. Step 4 covers
-that in full; for now, the point is narrower: SmolVLM2 never installs in a
-browser, and it fails loudly rather than quietly when you try.
+browser runtime has no vision executor for *any* checkpoint. The picture
+button stays live all the same, here and in Step 3 — and so does Step 3's
+microphone: press either in a browser and the attachment is dropped, and the
+model answers as though you had sent text alone. The only warning is a single
+line at `createChat`, printed once per session and only in a debug build,
+saying vision and audio are being forced off; after that every turn drops the
+pixels or the samples with nothing logged at all. In a release build even that
+one line is gone — `gemmaLog` compiles out of release entirely. That silent
+drop is exactly what Step 4 closes, by asking the platform what it supports
+instead of assuming. For now the point is narrower: SmolVLM2 never installs in
+a browser, and it fails loudly rather than quietly when you try.
 
 `ModelType.general` and not `gemmaIt` is still the right call for the native
 build, but not for the reason it would be on an older format. On `.litertlm`
@@ -303,8 +314,8 @@ it inherited from Getting Started. It gains a `try` in exchange:
   try {
     await FlutterGemma.initialize(
       inferenceEngines: [LiteRtLmEngine()],
-      // OPFS streaming, not the Cache API default — required for a
-      // `.litertlm` model install on the web since flutter_gemma 0.16.2.
+      // OPFS streaming, not the Cache API default: the web build is close
+      // enough to the ~2 GiB blob ceiling that it is not worth buffering.
       webStorageMode: WebStorageMode.streaming,
     );
   } catch (error) {
@@ -313,14 +324,20 @@ it inherited from Getting Started. It gains a `try` in exchange:
   }
 ```
 
-`webStorageMode` is the web half of this step, and it earns its own sentence:
-the default is `WebStorageMode.cacheApi`, and the browser Cache API it is
-built on has no reliable way to hold a blob past roughly 2 GB — a ceiling the
-Gemma 4 E2B web build this step installs in the browser (2.0 GB) sits close
-enough to that every `.litertlm` install in this codelab uses
-`WebStorageMode.streaming` from here on. Streaming routes the install through
-OPFS instead, which does not have that ceiling. It is not the only thing a web
-install needs — Step 4 covers the rest.
+`webStorageMode` is the web half of this step, and it earns its own sentence.
+The comment above it is the app's, and it overstates the rule: the browser
+engine takes either storage mode — `flutter_gemma_litertlm`'s web arm accepts
+a Cache API blob URL and an OPFS stream alike, and its own doc reserves
+streaming for models past 2 GB. What changed in flutter_gemma 0.16.2 was that
+web `.litertlm` inference arrived at all, not that streaming became
+compulsory. The reason to set it here is size. The default
+`WebStorageMode.cacheApi` buffers the whole download in memory as one blob,
+and a single blob tops out at 2 GiB — 2,147,483,648 bytes. The Gemma 4 E2B web
+build this step installs in the browser is 2,008,432,640 bytes, about 139 MB
+under that ceiling. Close enough that every `.litertlm` install in this codelab
+uses `WebStorageMode.streaming` from here on: streaming writes the download into
+OPFS and reads the model back from there instead of holding it whole in
+memory. It is not the only thing a web install needs — Step 4 covers the rest.
 
 That is not ceremony. This is the earliest thing in the app that can fail —
 hot-restarting after adding a plugin throws `MissingPluginException` right here
@@ -900,16 +917,20 @@ it true, because none of it is specific to this codelab. Every step's
 `litertLmReady` handshake — copied byte-for-byte from `flutter_gemma`'s own
 `web/` directory (`grep -A1 '"name": "flutter_gemma"'
 .dart_tool/package_config.json` finds it in your own project) — because core's
-web storage path calls `window.cachePut` from `cache_api.js`, and without it a
-web install fails after downloading the whole file. `FlutterGemma.initialize`
+web storage reaches OPFS through `window.flutterGemmaOPFS` in `opfs_helper.js`
+and the Cache API through `window.cachePut` in `cache_api.js`, and it picks
+between them at run time: streaming mode falls back to the Cache API when the
+browser has no OPFS, so an app that ships only one of the two scripts has a
+path that fails after downloading the whole file. `FlutterGemma.initialize`
 passes `webStorageMode: WebStorageMode.streaming` from Step 2 on, which is
 what routes those bytes through OPFS rather than the Cache API default; see
-Step 2 for why a `.litertlm` install needs that. And `model.dart` installs a
-different file on the web than everywhere else — `gemma-4-E2B-it-web.litertlm`
-rather than `gemma-4-E2B-it.litertlm`, a separate build of the same checkpoint
-built for `@litert-lm/core` (see Step 3). Skip any one of the three and the web
-build still compiles and still runs `flutter analyze` clean; it just fails the
-moment a learner opens it in a browser.
+Step 2 for why a 2 GB model is streamed rather than buffered. And `model.dart`
+installs a different file on the web than everywhere else —
+`gemma-4-E2B-it-web.litertlm` rather than `gemma-4-E2B-it.litertlm`, a separate
+build of the same checkpoint built for `@litert-lm/core` (see Step 3). All
+three are invisible to the compiler: the web build still compiles and still
+runs `flutter analyze` clean without them. Drop the scripts or the web model
+file and a learner finds out in the browser, at install or at engine creation.
 
 **The iOS Simulator** is the case the two questions do not cover, and the
 reason is not that Dart cannot see it — `device_info_plus` exposes

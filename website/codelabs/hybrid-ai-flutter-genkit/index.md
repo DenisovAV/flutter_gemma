@@ -81,8 +81,9 @@ Six increments, each a directory you can open and run:
   iOS device or simulator, an Apple-silicon Mac, a Windows or Linux desktop, or
   Chrome. The same code runs on all of them — Step 3 lists the handful of
   things each one asks of you
-- ~1 GB free disk space for the AI model (~2.3 GB on web — Step 3 explains
-  why the web build is a different, larger model)
+- ~1 GB free disk space for the on-device LLM plus EmbeddingGemma (~2.3 GB on
+  web, where the LLM alone is a 2.0 GB build — Step 3 explains why the web
+  build is a different, larger model)
 
 ### Architecture
 
@@ -338,11 +339,12 @@ defaultConfig {
 	<true/>
 ```
 
-Point the Runner target at that file in Xcode's **Signing & Capabilities**
-editor. The keys lift the per-process memory ceiling iOS imposes: half a
-gigabyte of weights plus a KV cache is comfortably over the default jetsam
-limit on an older iPhone, and the kill that follows has no Dart-visible error —
-the app simply disappears.
+Every step app already ships that file with the Runner target pointed at it, so
+there is nothing to wire up here — in your own project you select it in Xcode's
+**Signing & Capabilities** editor. The keys lift the per-process memory ceiling
+iOS imposes: half a gigabyte of weights plus a KV cache is comfortably over the
+default jetsam limit on an older iPhone, and the kill that follows has no
+Dart-visible error — the app simply disappears.
 
 **macOS** — two entitlements and one build phase. The entitlements go in
 **both** `macos/Runner/DebugProfile.entitlements` and
@@ -417,8 +419,8 @@ Copy both files into your app's `web/` directory alongside `index.html`.
 
 The matching Dart-side change is `webStorageMode: WebStorageMode.streaming`
 on `FlutterGemma.initialize()` — OPFS-backed streaming is what lets the
-`.litertlm` model stream in from `@litert-lm/core` without hitting Chrome's
-~2 GB blob-fetch limit; native platforms ignore the option.
+`.litertlm` model stream from OPFS into `@litert-lm/core` without hitting
+Chrome's ~2 GB blob-fetch limit; native platforms ignore the option.
 
 The model itself changes on the web, and for a different reason than that
 size limit. `@litert-lm/core` only runs dedicated web builds, and Gemma 3
@@ -426,9 +428,9 @@ size limit. `@litert-lm/core` only runs dedicated web builds, and Gemma 3
 file and creating an engine from it fails with
 `Error: Streaming kTfLitePrefillDecode models is not supported yet.` So on
 the web this app installs Gemma 4 E2B's web build instead
-(`gemma-4-E2B-it-web.litertlm`, 2.0 GB — right at the streaming ceiling
-above, which is why streaming mode matters even more here than the ~0.5 GB
-native file ever demanded), from the same ungated
+(`gemma-4-E2B-it-web.litertlm`, 2.0 GB — past the ~2 GB Cache-API blob limit
+that streaming mode exists to remove, which is why streaming matters even
+more here than the ~0.5 GB native file ever demanded), from the same ungated
 `litert-community/gemma-4-E2B-it-litert-lm` repository the
 [Multimodal](/codelabs/multimodal-flutter-gemma) codelab uses — no token
 required for it. `LocalAIService` and `AiEngine` below both switch `_hfRepo`,
@@ -1370,21 +1372,51 @@ Similar texts have similar vectors. EmbeddingGemma 300M runs entirely on-device.
 
 ### Web setup for embeddings
 
-**Web** needs one more script tag. `LiteRtEmbeddingBackend`'s forward pass
-runs via LiteRT.js on web, using `flutter_gemma_embeddings`'s
-`web/litert_embeddings.js`. Add it to `web/index.html` `<head>`, pinned to a
-release tag with a Subresource Integrity hash so a CDN compromise can't
-inject code:
+**Web** needs four more files, all served locally — not a CDN one-liner.
+`LiteRtEmbeddingBackend`'s forward pass runs via LiteRT.js on web, and its
+entry point, `litert_embeddings.js`, opens with three relative imports:
 
-```html
-<script type="module"
-        src="https://cdn.jsdelivr.net/gh/DenisovAV/flutter_gemma@v1.8.3/packages/flutter_gemma_embeddings/web/litert_embeddings.js"
-        integrity="sha384-YM+zieh9rAKhApnCw2JmJn5v6YHoqgCurx6m246E74d0Ow0S5zmJHKTPXLvXV/df"
-        crossorigin="anonymous"></script>
+```js
+import { … } from "./tensorflow.js";
+import { … } from "./litert.js";
+import { … } from "./sentencepiece.js";
 ```
 
-Compute the hash yourself for the tag you pin — don't ship a placeholder —
-with `openssl dgst -sha384 -binary web/litert_embeddings.js | openssl base64 -A`.
+Those three siblings have to sit right next to it in `web/`, or the browser
+404s resolving them and the module never finishes evaluating —
+`window.loadLiteRtEmbeddings` and friends stay undefined and every embedding
+call throws. That rules out pointing a single
+`<script type="module" src="...">` at a CDN copy of just the entry file: you
+need the whole directory, so copy it instead.
+
+Two files come from `flutter_gemma_embeddings`'s own `web/` directory, two
+from `flutter_gemma_litertlm`'s (it already ships `litert.js` and
+`tensorflow.js` for the LLM's own web arm). Find your resolved package
+locations with:
+
+```bash
+python3 -c "
+import json
+d = json.load(open('.dart_tool/package_config.json'))
+for p in d['packages']:
+    if p['name'] in ('flutter_gemma_embeddings', 'flutter_gemma_litertlm'):
+        print(p['name'], p['rootUri'])
+"
+```
+
+Then copy, from each package's `web/` directory into your app's `web/`:
+
+- `flutter_gemma_embeddings/web/litert_embeddings.js`
+- `flutter_gemma_embeddings/web/sentencepiece.js`
+- `flutter_gemma_litertlm/web/litert.js`
+- `flutter_gemma_litertlm/web/tensorflow.js`
+
+Load only the entry module from `web/index.html` `<head>` — the other three
+are resolved by its own relative imports, not by a `<script>` tag:
+
+```html
+<script type="module" src="litert_embeddings.js"></script>
+```
 
 ### Install the embedding model
 

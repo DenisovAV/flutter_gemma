@@ -37,7 +37,8 @@ class _DownloadPageState extends State<DownloadPage> {
 
     try {
       await FlutterGemma.installModel(
-        // What the model IS — used to pick the right chat template.
+        // What the model IS — the engine bakes in the chat template;
+        // modelType instead drives thinking-tag stripping & tool parsing.
         modelType: widget.model.modelType,
         // Which runtime reads it. `.litertlm` routes to LiteRtLmEngine;
         // the default is `task` (MediaPipe), so this line is load-bearing.

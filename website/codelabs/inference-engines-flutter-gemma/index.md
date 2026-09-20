@@ -53,6 +53,9 @@ point.
   `chrome://flags/#prompt-api-for-gemini-nano` for local development, an
   [origin trial](https://developer.chrome.com/origintrials) token for a real
   site). One of those lets you watch both engines answer
+* On **Android**, an arm64 device or emulator: `flutter_gemma_litertlm` ships an
+  arm64 library and nothing else, so a 32-bit or x86_64 image has no runtime to
+  load. An Apple-silicon Mac's emulator is arm64
 * Chrome has a hardware floor for its copy of Nano that the flag does not lift.
   `flutter_gemma_builtin_ai` states it as **~22 GB of free disk and a GPU with
   more than 4 GB of VRAM**, or a CPU-only path on a machine with 16 GB of RAM.
@@ -200,9 +203,12 @@ await FlutterGemma.initialize(
 
 Two engines, side by side. Neither knows about the other. `webStorageMode:
 WebStorageMode.streaming` matters only on the web: it stores a downloaded
-`.litertlm` in OPFS and streams it in, rather than fetching the whole file as
-one Cache API blob — a fetch Chrome caps at roughly 2 GB. Native platforms
-ignore the option entirely.
+`.litertlm` in OPFS and reads it back as a stream, rather than buffering the
+whole file in memory as one Cache API blob. A single blob tops out at 2 GiB
+(2,147,483,648 bytes) and the web model here is 2,008,432,640 bytes — about
+139 MB under the ceiling, close enough that every codelab in this series
+streams.
+Native platforms ignore the option entirely.
 
 ### Rename these first
 

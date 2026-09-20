@@ -27,7 +27,8 @@ class ModelChoice {
   /// because there is no file and no install record.
   final String id;
 
-  /// What the model IS — decides the chat template.
+  /// What the model IS — the engine bakes in the chat template;
+  /// modelType instead drives thinking-tag stripping & tool parsing.
   final ModelType modelType;
 
   /// Which engine opens it. `.litertlm` → LiteRtLmEngine, `.builtIn` →

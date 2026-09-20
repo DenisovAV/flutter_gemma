@@ -43,8 +43,10 @@ of decisions the API asks you to make, and this codelab is built around them:
   Apple-silicon Mac, a Windows or Linux desktop, or Chrome. The same code runs
   on all of them — Step 2 lists the handful of things each one asks of you, and
   which model it downloads there
-* About 1 GB of free space and a connection that can pull it — 2 GB on the web,
-  where the app downloads a different, larger model (Step 2 explains why)
+* Free space and a connection that can pull it: about 1 GB on native, where the
+  models are 0.5 GB (Gemma 3 1B) and 0.6 GB (Qwen3), and about 3 GB on the web,
+  where the app downloads a different, larger model — 2.0 GB, plus room for the
+  stream still arriving (Step 2 explains why)
 * Optionally, a free Hugging Face account (Step 2 explains when you need one —
   not on the web)
 
@@ -298,16 +300,23 @@ The last piece is one argument on `FlutterGemma.initialize`, back in
 webStorageMode: WebStorageMode.streaming,
 ```
 
-`.litertlm` model installs on web go through OPFS (Origin Private File
-System), streamed rather than buffered whole — the default `cacheApi` mode
-holds the download as one in-memory `ArrayBuffer`, which browsers cap around
-2 GB. Skip this and a large model install fails there; a small one may not,
-which is its own trap.
+With `streaming`, a `.litertlm` install on the web goes through OPFS (Origin
+Private File System) and is read back as a stream. The default `cacheApi` mode
+instead holds the whole download as one in-memory `ArrayBuffer`, and a single
+`ArrayBuffer` tops out at 2 GiB — 2,147,483,648 bytes. The web model below is
+2,008,432,640 bytes, about 139 MB under that ceiling. Close enough that every
+codelab in this series uses `streaming` rather than find out, browser by
+browser, where the real limit sits.
 
 The web arm is an early preview: WebGPU, and text only — no images, no audio.
-The model is not a file on disk there — the browser streams it into OPFS
-storage, which survives a reload and a browser restart, so "installed" means
-"in this browser's storage, on this machine".
+The model is not a file on disk there — the browser writes it into OPFS, so
+"installed" means "in this browser's storage, on this machine". The bytes stay
+in OPFS across a reload; the app's handle on them does not. The `opfs://`
+mapping lives in memory and only the download registers it, so after a reload
+the install record still reads "installed" and the download screen is skipped,
+while the engine is handed the original download URL and fetches the whole
+model again. Keep the tab open while you work, and budget a reload as another
+2 GB.
 
 One more thing is web-specific, and it is not a preview limitation — it is a
 different model. Verified against the published packages: install and open

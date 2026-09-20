@@ -120,44 +120,15 @@ for pair in "${MIRRORS[@]}"; do
   done
 done
 
-# Web model storage. Core binds with `@JS` to globals that only exist once the
-# page loads flutter_gemma's `cache_api.js` (and `opfs_helper.js` for OPFS
-# streaming), which an app has to copy from the package's `web/`. Without them a
-# web install downloads the whole model and then fails on `window.cachePut`.
-# `flutter build web` above cannot see this — it never opens a browser — so
-# every app shipped without the files until this check existed.
-#
-# Asserted per app: both files present and byte-identical to the package's (a
-# stale copy is the same bug a release later), both loaded from web/index.html,
-# and an app that initializes flutter_gemma picks OPFS streaming, which web
-# `.litertlm` needs.
-STORAGE_JS=(cache_api.js opfs_helper.js)
-for pubspec in "${APPS[@]}"; do
-  app="$(dirname "$pubspec")"
-  echo ""
-  echo "=== $app: web model storage ==="
-  # Fail closed: an app with no web/index.html must not read as "nothing to check".
-  if [ ! -f "$app/web/index.html" ]; then
-    echo "::error::$app/web/index.html is missing — the web storage check cannot run"
-    failed=1
-    continue
-  fi
-  for js in "${STORAGE_JS[@]}"; do
-    if ! cmp -s "packages/flutter_gemma/web/$js" "$app/web/$js"; then
-      echo "::error::$app/web/$js is missing or differs from packages/flutter_gemma/web/$js"
-      failed=1
-    fi
-    if ! grep -q "<script src=\"$js\"></script>" "$app/web/index.html"; then
-      echo "::error::$app/web/index.html does not load $js"
-      failed=1
-    fi
-  done
-  if grep -rq "await FlutterGemma.initialize(" "$app/lib" \
-     && ! grep -rq "webStorageMode: WebStorageMode.streaming" "$app/lib"; then
-    echo "::error::$app initializes flutter_gemma without webStorageMode: WebStorageMode.streaming"
-    failed=1
-  fi
-done
+# Web model storage, engine bootstrap and the embeddings loader — delegated to
+# tool/check_codelab_web_storage.py, which needs a parser rather than a grep
+# (a commented-out <script> loads nothing, and a TODO mentioning
+# `FlutterGemma.initialize(` is not a call). It runs after the loop above so
+# every app's .dart_tool/package_config.json exists: the JS is compared against
+# the package each app RESOLVES, not this repo's unreleased copy.
+echo ""
+echo "=== web model storage ==="
+python3 tool/check_codelab_web_storage.py "$PWD" || failed=1
 
 # One identity per codelab, and the two halves pull in opposite directions, so
 # both are asserted:

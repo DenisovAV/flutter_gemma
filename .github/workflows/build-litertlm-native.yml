@@ -136,13 +136,17 @@ jobs:
           # first tool call, inside CompositeLogitMask::Apply — with every other
           # check green, because nothing else in this build calls a tool. Assert
           # on the binaries, not on the ref: the v0.17.x tags carry a stale one.
-          if grep -q 'ComputeMask' /tmp/LiteRT-LM/runtime/components/constrained_decoding/constraint.h; then
-            if ! strings -a artifacts/libGemmaModelConstraintProvider.so | grep -q 'LogitMask'; then
-              echo "::error::libGemmaModelConstraintProvider.so predates the ComputeMask Constraint ABI - every tool call would segfault. Point prebuilt_ref at an upstream commit whose prebuilts carry it."
-              exit 1
-            fi
-            echo "provider ABI: LogitMask present, matches this source"
-          fi
+          # Same two-sided assert as the clone step, on the bytes that actually
+          # ship. One-sided here would miss a provider NEWER than the runtime,
+          # and a `grep -q` on a missing header would skip the check entirely.
+          H=/tmp/LiteRT-LM/runtime/components/constrained_decoding/constraint.h
+          [ -f "$H" ] || { echo "::error::$H is missing, so the provider ABI cannot be checked"; exit 1; }
+          P=artifacts/libGemmaModelConstraintProvider.so
+          [ -s "$P" ] || { echo "::error::$P is missing or empty"; exit 1; }
+          if grep -q 'ComputeMask' "$H"; then want=1; else want=0; fi
+          if strings -a "$P" | grep -q 'LogitMask'; then have=1; else have=0; fi
+          [ "$want" = "$have" ] || { echo "::error::provider/runtime Constraint ABI mismatch in the shipped artifact (source ComputeMask=$want, provider LogitMask=$have)"; exit 1; }
+          echo "provider ABI: shipped artifact agrees with this source (ComputeMask=$want)"
           for f in artifacts/*.so; do patchelf --set-rpath '$ORIGIN' "$f"; done
           ls -lh artifacts/
 
@@ -259,13 +263,17 @@ jobs:
           # first tool call, inside CompositeLogitMask::Apply — with every other
           # check green, because nothing else in this build calls a tool. Assert
           # on the binaries, not on the ref: the v0.17.x tags carry a stale one.
-          if grep -q 'ComputeMask' /tmp/LiteRT-LM/runtime/components/constrained_decoding/constraint.h; then
-            if ! strings -a artifacts/libGemmaModelConstraintProvider.so | grep -q 'LogitMask'; then
-              echo "::error::libGemmaModelConstraintProvider.so predates the ComputeMask Constraint ABI - every tool call would segfault. Point prebuilt_ref at an upstream commit whose prebuilts carry it."
-              exit 1
-            fi
-            echo "provider ABI: LogitMask present, matches this source"
-          fi
+          # Same two-sided assert as the clone step, on the bytes that actually
+          # ship. One-sided here would miss a provider NEWER than the runtime,
+          # and a `grep -q` on a missing header would skip the check entirely.
+          H=/tmp/LiteRT-LM/runtime/components/constrained_decoding/constraint.h
+          [ -f "$H" ] || { echo "::error::$H is missing, so the provider ABI cannot be checked"; exit 1; }
+          P=artifacts/libGemmaModelConstraintProvider.so
+          [ -s "$P" ] || { echo "::error::$P is missing or empty"; exit 1; }
+          if grep -q 'ComputeMask' "$H"; then want=1; else want=0; fi
+          if strings -a "$P" | grep -q 'LogitMask'; then have=1; else have=0; fi
+          [ "$want" = "$have" ] || { echo "::error::provider/runtime Constraint ABI mismatch in the shipped artifact (source ComputeMask=$want, provider LogitMask=$have)"; exit 1; }
+          echo "provider ABI: shipped artifact agrees with this source (ComputeMask=$want)"
           for f in artifacts/*.so; do patchelf --set-rpath '$ORIGIN' "$f"; done
           ls -lh artifacts/
 
@@ -457,29 +465,6 @@ jobs:
           # not the flag: Bazel ignores an unknown --features name. KERNEL32 is
           # the positive control - without it dumpbin read nothing, and "no
           # runtime import" would pass vacuously.
-          # Every DLL we build ourselves, not just LiteRtLm: the NPU dispatch is
-          # also ours, and it links OpenVINO's C++ API, so it must keep the
-          # dynamic CRT — but only the three DLLs a Flutter Windows app already
-          # ships. vcruntime140_threads is never allowed: it arrives only with
-          # the 14.38+ redistributable, which a clean Windows does not have (#456).
-          $allowed = @('msvcp140.dll', 'vcruntime140.dll', 'vcruntime140_1.dll')
-          foreach ($ours in @('LiteRtLm.dll', 'LiteRtDispatch.dll', 'StreamProxy.dll')) {
-            $path = "artifacts\$ours"
-            if (-not (Test-Path $path)) { continue }
-            $deps = dumpbin /dependents $path
-            if (-not ($deps -match '^\s+KERNEL32\.dll')) {
-              throw "dumpbin listed no imports for ${ours}:`n$($deps -join "`n")"
-            }
-            $crt = @($deps -match '^\s+(msvcp|vcruntime|concrt)\d' | ForEach-Object { $_.Trim().ToLower() })
-            $bad = @($crt | Where-Object { $allowed -notcontains $_ })
-            if ($ours -eq 'LiteRtLm.dll' -and $crt.Count -gt 0) {
-              throw "LiteRtLm.dll imports the VC++ runtime: $($crt -join ', ') - static_link_msvcrt did not apply"
-            }
-            if ($bad.Count -gt 0) {
-              throw "$ours imports a VC++ runtime a Flutter app does not ship: $($bad -join ', ')"
-            }
-            Write-Host "$ours CRT imports: $(if ($crt.Count) { $crt -join ', ' } else { 'none' })"
-          }
           Copy-Item StreamProxy.dll artifacts\
           $prebuilt = 'C:\LiteRT-LM\prebuilt\windows_x86_64'
           # No `else` used to mean a missing companion shipped silently. With
@@ -650,6 +635,33 @@ jobs:
           Write-Host "OpenVino build verified: $sdkBuild"
           Write-Host "NPU stack: LiteRtDispatch + $($ovDlls.Count) OpenVino/TBB DLLs"
           Get-ChildItem artifacts\
+          # Every DLL we build ourselves, at the END of this step so that all
+          # three are actually in artifacts\ — the first version of this loop
+          # ran before StreamProxy and the dispatch were copied and skipped
+          # them with a silent `continue`, which is the same vacuity it was
+          # written to remove. Missing now means the build is broken: throw.
+          # LiteRtDispatch links OpenVINO's C++ API and must keep the dynamic
+          # CRT, but only the three DLLs the VC++ 2015-2022 redistributable
+          # installs; vcruntime140_threads needs 14.38+, which a clean Windows
+          # does not have (#456).
+          $allowed = @('msvcp140.dll', 'vcruntime140.dll', 'vcruntime140_1.dll')
+          foreach ($ours in @('LiteRtLm.dll', 'LiteRtDispatch.dll', 'StreamProxy.dll')) {
+            $path = "artifacts\$ours"
+            if (-not (Test-Path $path)) { throw "$ours is not in artifacts - this step should have copied it" }
+            $deps = dumpbin /dependents $path
+            if (-not ($deps -match '^\s+KERNEL32\.dll')) {
+              throw "dumpbin listed no imports for ${ours}:`n$($deps -join "`n")"
+            }
+            $crt = @($deps -match '^\s+(msvcp|vcruntime|concrt)\d' | ForEach-Object { $_.Trim().ToLower() })
+            $bad = @($crt | Where-Object { $allowed -notcontains $_ })
+            if ($ours -eq 'LiteRtLm.dll' -and $crt.Count -gt 0) {
+              throw "LiteRtLm.dll imports the VC++ runtime: $($crt -join ', ') - static_link_msvcrt did not apply"
+            }
+            if ($bad.Count -gt 0) {
+              throw "$ours imports a VC++ runtime the redistributable does not install: $($bad -join ', ')"
+            }
+            Write-Host "$ours CRT imports: $(if ($crt.Count) { $crt -join ', ' } else { 'none' })"
+          }
 
       - uses: actions/upload-artifact@v4
         with:

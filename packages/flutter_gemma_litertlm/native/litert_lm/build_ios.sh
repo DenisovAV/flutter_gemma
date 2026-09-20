@@ -114,7 +114,9 @@ CONSTRAINT_H=runtime/components/constrained_decoding/constraint.h
 # pointed at a ref from before upstream's 2026-08-21 Constraint change while
 # PREBUILT_REF still names a post-change commit.
 if grep -q 'ComputeMask' "$CONSTRAINT_H"; then want=1; else want=0; fi
-if strings -a "prebuilt/ios_arm64/libGemmaModelConstraintProvider.dylib" | grep -q 'LogitMask'; then have=1; else have=0; fi
+PROVIDER="prebuilt/ios_arm64/libGemmaModelConstraintProvider.dylib"
+[ -s "$PROVIDER" ] || { echo "ERROR: $PROVIDER is missing or empty — a guard that cannot read its input must not pass." >&2; exit 1; }
+if strings -a "$PROVIDER" | grep -q 'LogitMask'; then have=1; else have=0; fi
 [ "$want" = "$have" ] || {
   echo "ERROR: provider/runtime Constraint ABI mismatch (source wants ComputeMask=$want, provider has LogitMask=$have) — every tool call would segfault. Point PREBUILT_REF at a commit whose prebuilts match this source." >&2
   exit 1
@@ -133,7 +135,9 @@ CONSTRAINT_H=runtime/components/constrained_decoding/constraint.h
 # pointed at a ref from before upstream's 2026-08-21 Constraint change while
 # PREBUILT_REF still names a post-change commit.
 if grep -q 'ComputeMask' "$CONSTRAINT_H"; then want=1; else want=0; fi
-if strings -a "prebuilt/ios_sim_arm64/libGemmaModelConstraintProvider.dylib" | grep -q 'LogitMask'; then have=1; else have=0; fi
+PROVIDER="prebuilt/ios_sim_arm64/libGemmaModelConstraintProvider.dylib"
+[ -s "$PROVIDER" ] || { echo "ERROR: $PROVIDER is missing or empty — a guard that cannot read its input must not pass." >&2; exit 1; }
+if strings -a "$PROVIDER" | grep -q 'LogitMask'; then have=1; else have=0; fi
 [ "$want" = "$have" ] || {
   echo "ERROR: provider/runtime Constraint ABI mismatch (source wants ComputeMask=$want, provider has LogitMask=$have) — every tool call would segfault. Point PREBUILT_REF at a commit whose prebuilts match this source." >&2
   exit 1

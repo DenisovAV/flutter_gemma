@@ -43,7 +43,7 @@ Detailed setup and reference for running Flutter Gemma on **macOS, Windows, and 
 ```
 
 **Native libraries** are fetched at build time by `hook/build.dart` from the
-GitHub release `native-v0.17.0`, SHA256-verified, and bundled by Flutter
+GitHub release `native-v0.17.0-a`, SHA256-verified, and bundled by Flutter
 [Native Assets](https://docs.flutter.dev/development/platform-integration/c-interop)
 into the application bundle. End-users only need to add a small
 `post_install` snippet to their **macOS** `Podfile` so the upstream companion
@@ -99,8 +99,8 @@ No Java/JVM/JRE required.
 ```yaml
 # pubspec.yaml
 dependencies:
-  flutter_gemma: ^1.8.3            # core
-  flutter_gemma_litertlm: ^1.7.0   # .litertlm engine — required on desktop
+  flutter_gemma: ^1.8.4            # core
+  flutter_gemma_litertlm: ^1.7.1   # .litertlm engine — required on desktop
 ```
 
 ```dart
@@ -318,7 +318,7 @@ decode) runs on the GPU accelerator (Metal, DX12, Vulkan). Where the
 CPU it costs roughly 1–5 ms per token, small next to the forward pass.
 
 - **Windows** — GPU. The plugin preloads `libLiteRtTopKWebGpuSampler.dll`,
-  which in `native-v0.17.0` exports its full C ABI (7 of 7 functions; the
+  which in `native-v0.17.0-a` exports its full C ABI (7 of 7 functions; the
   3-of-7 prebuilt of [#2073](https://github.com/google-ai-edge/LiteRT-LM/issues/2073)
   is gone).
 - **macOS** — CPU. The bundle does not ship `libLiteRtTopKMetalSampler`:

@@ -91,6 +91,11 @@ abstract class ConversationHandle {
     bool enableThinking,
   });
 
+  /// Streams raw SDK JSON for a prebuilt message. This is how tool results go
+  /// back: [chatRaw] always sends role `user`, and a tool result has to be role
+  /// `tool` for the model to read it as the answer to its call.
+  Stream<String> chatRawMessage(String messageJson, {bool enableThinking});
+
   void cancelGeneration();
 
   SessionMetrics getSessionMetrics();
@@ -160,6 +165,19 @@ class LiteRtLmConversationHandle implements ConversationHandle {
       imageBytes: imageBytes,
       audioBytes: audioBytes,
       enableThinking: enableThinking,
+    );
+  }
+
+  @override
+  Stream<String> chatRawMessage(
+    String messageJson, {
+    bool enableThinking = false,
+  }) {
+    _assertOpen();
+    return _client._sendMessageStreamRawOn(
+      _conversation!,
+      messageJson,
+      extraContext: enableThinking ? '{"enable_thinking": true}' : null,
     );
   }
 
@@ -1132,7 +1150,18 @@ class LiteRtLmFfiClient {
 
     if (conv == nullptr) {
       _dumpNativeLog();
-      throw Exception('Failed to create conversation');
+      // With tools the runtime also builds a constraint for tool calls, and
+      // that is the usual culprit here: FunctionGemma's constraint provider
+      // accepts only a SentencePiece tokenizer, so a bundle exported with a
+      // Hugging Face tokenizer cannot open a conversation with tools at all.
+      throw Exception(
+        toolsJson == null
+            ? 'Failed to create conversation'
+            : 'Failed to create conversation with tools. Tool calls run with '
+                  'constrained decoding; for FunctionGemma that needs the '
+                  '.litertlm to carry a SentencePiece tokenizer, and a bundle '
+                  'exported with a Hugging Face tokenizer cannot provide one.',
+      );
     }
 
     _liveConvs.add(conv); // #379: track liveness so late cancels can't UAF
@@ -1191,25 +1220,17 @@ class LiteRtLmFfiClient {
     return jsonEncode({'role': 'user', 'content': content});
   }
 
-  /// Serialize a turn history into the `messages_json` array the
-  /// conversation config accepts as a preface. Each turn is
-  /// `{role, content: [{type: 'text', text}]}`. Used by the virtual-session
-  /// multiplexer to rebuild a session's full context (user + assistant
-  /// turns) in one prefill when switching the single live conversation.
+  /// Serialize a message history into the `messages_json` array the
+  /// conversation config accepts as a preface. Each entry is a whole
+  /// Conversation API message — user and assistant text, an assistant turn
+  /// with `tool_calls`, a role-`tool` result. Used by the virtual-session
+  /// multiplexer to rebuild a session's full context in one prefill when
+  /// switching the single live conversation.
   ///
   /// Verified honored by the patched native (a `messages_json` preface with
   /// a prior user+assistant turn lets the model recall it).
-  static String buildHistoryJson(List<({String role, String text})> turns) {
-    return jsonEncode([
-      for (final turn in turns)
-        {
-          'role': turn.role,
-          'content': [
-            {'type': 'text', 'text': turn.text},
-          ],
-        },
-    ]);
-  }
+  static String buildHistoryJson(List<Map<String, Object?>> messages) =>
+      jsonEncode(messages);
 
   /// Extract text from a LiteRT-LM JSON response chunk. Delegates to
   /// [SdkTextExtractor] — single source of truth shared with the web
@@ -1351,7 +1372,7 @@ class LiteRtLmFfiClient {
   Stream<String> startVirtualTurn({
     required Object conversationToken,
     required String messageJson,
-    required List<({String role, String text})> history,
+    required List<Map<String, Object?>> history,
     String? systemMessage,
     String? toolsJson,
     double temperature = 0.8,

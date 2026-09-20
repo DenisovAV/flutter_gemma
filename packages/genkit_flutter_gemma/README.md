@@ -48,7 +48,7 @@ register their providers in `await FlutterGemma.initialize()`.
 # pubspec.yaml (your app)
 dependencies:
   genkit_flutter_gemma: ^0.6.1
-  flutter_gemma: ^1.8.3
+  flutter_gemma: ^1.8.4
   flutter_gemma_litertlm: ^1.6.4   # only the engines/backends you actually use
   flutter_gemma_mediapipe: ^1.0.6
 ```

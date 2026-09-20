@@ -13,21 +13,29 @@ class FunctionCallParser {
   /// (`RawSdkResponseSession.lastRawResponse`) rather than in the text stream,
   /// and the text stream itself carries the raw
   /// `{"role":"assistant","tool_calls":...}` JSON that must be suppressed. Keyed
-  /// off the format (not a hardcoded model) so any SDK-passthrough model — today
-  /// only Gemma 4 — is handled the same way.
-  static bool usesSdkPassthrough(ModelType? modelType) =>
-      FunctionCallFormatFactory.create(modelType)
+  /// off the format (not a hardcoded model) so every SDK-passthrough model —
+  /// Gemma 4, and FunctionGemma on `.litertlm` — is handled the same way.
+  /// [fileType] picks between a model family's runtimes; see
+  /// [FunctionCallFormatFactory.create].
+  static bool usesSdkPassthrough(
+    ModelType? modelType, {
+    ModelFileType? fileType,
+  }) =>
+      FunctionCallFormatFactory.create(modelType, fileType: fileType)
           is SdkPassthroughFunctionCallFormat;
 
-  /// Whether [modelType]'s format has its tool declarations injected by the
+  /// Whether this model's format has its tool declarations injected by the
   /// runtime/SDK, so [InferenceChat] must not weave its own tools prompt. The
   /// model-derived default for `InferenceChat.runtimeInjectsToolDeclarations`;
   /// an engine that injects tools natively (e.g. the web Prompt API) overrides
   /// it per-chat. Keyed off the format, not a hardcoded model.
-  static bool runtimeInjectsToolDeclarations(ModelType? modelType) =>
-      FunctionCallFormatFactory.create(
-        modelType,
-      ).runtimeInjectsToolDeclarations;
+  static bool runtimeInjectsToolDeclarations(
+    ModelType? modelType, {
+    ModelFileType? fileType,
+  }) => FunctionCallFormatFactory.create(
+    modelType,
+    fileType: fileType,
+  ).runtimeInjectsToolDeclarations;
 
   /// Check if buffer starts with function call indicators
   static bool isFunctionCallStart(String buffer, {ModelType? modelType}) {

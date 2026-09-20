@@ -493,7 +493,59 @@ If anything other than `.framework/` is in there, App Store will reject with ITM
 
 **Count the contents first — an empty `Frameworks/` passes every "must be empty" test.** `flutter build ios` can leave a half-assembled `Runner.app` behind: the Xcode phase reports `Xcode build done`, then flutter_tools dies cleaning up its own temp dir (`PathNotFoundException: Deletion failed … flutter_ios_build_temp_dir…`), and the frameworks are never embedded. The bundle exists, the two negative checks come back perfectly clean, and nothing distinguishes "compliant" from "nothing was built". Re-running the build fixes it; a healthy debug build of the example carries ~10 frameworks, four of them ours. Same failure shape as `nm` on a missing file — assert the positive before trusting the negative.
 
-### 9. NPU on real silicon — the only check that covers the dispatch libraries
+### 9. A tool call, on every platform you shipped
+
+The litertlm smoke suite never passes a tool to a session, so nothing in checks
+1–8 loads `libGemmaModelConstraintProvider`. That library is a Google prebuilt
+you did not build, against a `Constraint` interface that lives in the runtime
+you did — and when the two disagree, the first tool call segfaults in
+`CompositeLogitMask::Apply`, with no Dart-side error and every other check
+green. native-v0.17.0 shipped exactly that.
+
+```bash
+cd packages/flutter_gemma/example
+flutter test integration_test/litertlm_native_tools_test.dart -d <device>
+```
+
+Six cases: FunctionGemma and Gemma 4, a manual round and the SDK loop, plus a
+session switch. Each asserts the **text after the tool result**, not merely that
+a call was parsed — a suite that stops at "a call was detected" stayed green for
+months while the model was answering its own tool result by calling again.
+
+Stage the four models first (`functiongemma-270M-it`, `mobile_actions_q8_ekv1024`,
+`tiny_garden`, `gemma-4-E2B-it`) in the app documents dir, or in
+`/data/local/tmp/flutter_gemma_test/` on Android.
+
+The static pre-check, before any device is involved — the provider must carry
+the type the runtime asks it for:
+
+```bash
+H=/tmp/LiteRT-LM/runtime/components/constrained_decoding/constraint.h
+P=<prebuilt>/libGemmaModelConstraintProvider.dylib   # or .so / .dll — ONE file
+if [ ! -f "$H" ] || [ ! -s "$P" ]; then
+  echo "cannot check: need both $H and a non-empty $P"
+elif [ "$(grep -q ComputeMask "$H" && echo 1 || echo 0)" \
+     = "$(grep -q LogitMask "$P" && echo 1 || echo 0)" ]; then
+  echo "provider ABI: source and provider agree"
+else
+  echo "MISMATCH — every tool call on that platform would segfault"
+fi
+```
+
+Three things this shape is deliberate about: `grep` reads the binary directly
+(`strings … | grep -q` exits at the first match and, under `set -o pipefail`,
+the SIGPIPE makes the whole pipeline report failure — the guard then says "no
+LogitMask" for every provider that has one); it names ONE file rather than a
+glob, because a glob over a directory holding both a `.so` and a `.dylib`
+answers for the union; and it prints rather than `exit`s, because you paste it
+into your own shell.
+
+Two-sided, and `-f` first, for the same reason the CI guard is: a provider
+OLDER than the runtime segfaults, a NEWER one segfaults the same way from the
+other side (which is what happens if you build an older ref while `PREBUILT_REF`
+still points at main), and a `grep` on a missing header silently answers "no".
+
+### 10. NPU on real silicon — the only check that covers the dispatch libraries
 
 Nothing in checks 1–8 touches NPU. Both dispatch libraries load only when `PreferredBackend.npu` is requested on matching hardware, so they need real devices:
 
@@ -634,7 +686,7 @@ We import some dylibs as-is from upstream LiteRT-LM (`libGemmaModelConstraintPro
 
 ## After successful build
 
-1. **Run the verification checklist 1-9 above. All checks must pass.**
+1. **Run the verification checklist 1-10 above. All checks must pass.**
 2. Do NOT try to commit the dylibs — `prebuilt/` is gitignored (`.gitignore` `**/packages/flutter_gemma_litertlm/native/litert_lm/prebuilt/`) and `git ls-files` returns nothing under it. The bundles reach users through the GitHub Release only; the working copy is yours alone. (This step used to say `git add prebuilt/<dir>/*.dylib`, which cannot succeed.)
 3. Pack tarballs + update `hook/build.dart` `checksums` + re-upload to GitHub Release `native-v<version>` (see `release` skill).
 4. Run `dart pub publish --dry-run` — must show 0 warnings.

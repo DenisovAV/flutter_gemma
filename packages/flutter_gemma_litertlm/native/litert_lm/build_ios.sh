@@ -79,7 +79,76 @@ bash "$SCRIPT_DIR/patch_c_api.sh" "$LITERT_LM_DIR"
 
 # 4. Pull LFS files
 echo "Pulling LFS files..."
+# The companion prebuilts come from a LATER upstream commit than the source.
+# Upstream changed Constraint on 2026-08-21 (a8a8c445, a41b7c5c): ComputeMask
+# took the vtable slot ComputeBitmap had, and the prebuilt provider at the
+# v0.17.0 and v0.17.1 tags still implements the old one — so a tool call
+# segfaults in CompositeLogitMask::Apply. Upstream refreshed the prebuilts on
+# main in 4453b286, and that provider carries the LogitMask types. Upstream's
+# own release lane never hits this: its wheel compiles the provider in.
+PREBUILT_REF="${PREBUILT_REF:-4453b286c549d216584866ed49b6fed6d11fa3a7}"
+echo "Taking prebuilt companions from $PREBUILT_REF"
 git lfs pull --include="prebuilt/ios_arm64/*,prebuilt/ios_sim_arm64/*"
+# One file, from a different commit than the source: fetch it straight from the
+# LFS media endpoint. `git restore --source=<ref>` does the same job, but then
+# the ref lives in two places — the restore and this build's assumptions — and a
+# stale one is invisible. A URL carries the ref where you can read it.
+curl -fsSL -o "prebuilt/ios_arm64/libGemmaModelConstraintProvider.dylib" \
+  "https://media.githubusercontent.com/media/google-ai-edge/LiteRT-LM/$PREBUILT_REF/prebuilt/ios_arm64/libGemmaModelConstraintProvider.dylib"
+# One file, from a different commit than the source: fetch it straight from the
+# LFS media endpoint. `git restore --source=<ref>` does the same job, but then
+# the ref lives in two places — the restore and this build's assumptions — and a
+# stale one is invisible. A URL carries the ref where you can read it.
+curl -fsSL -o "prebuilt/ios_sim_arm64/libGemmaModelConstraintProvider.dylib" \
+  "https://media.githubusercontent.com/media/google-ai-edge/LiteRT-LM/$PREBUILT_REF/prebuilt/ios_sim_arm64/libGemmaModelConstraintProvider.dylib"
+# Fail here, not an hour later at the end of the build: a wrong PREBUILT_REF
+# looks exactly like a correct one until something reads the binary.
+CONSTRAINT_H=runtime/components/constrained_decoding/constraint.h
+[ -f "$CONSTRAINT_H" ] || {
+  echo "ERROR: $CONSTRAINT_H is missing, so the provider ABI cannot be checked. A guard that cannot read its input must not pass." >&2
+  exit 1
+}
+# Two-sided on purpose. A provider OLDER than the runtime segfaults in
+# CompositeLogitMask::Apply; a provider NEWER than the runtime does the same
+# thing from the other side, and that is reachable whenever this script is
+# pointed at a ref from before upstream's 2026-08-21 Constraint change while
+# PREBUILT_REF still names a post-change commit.
+if grep -q 'ComputeMask' "$CONSTRAINT_H"; then want=1; else want=0; fi
+PROVIDER="prebuilt/ios_arm64/libGemmaModelConstraintProvider.dylib"
+[ -s "$PROVIDER" ] || { echo "ERROR: $PROVIDER is missing or empty — a guard that cannot read its input must not pass." >&2; exit 1; }
+# grep reads the binary directly: `strings … | grep -q` exits at the first
+# match, SIGPIPEs strings, and under `set -o pipefail` the pipeline status is
+# 141 — so the guard reported "no LogitMask" for every provider that has it.
+if grep -q 'LogitMask' "$PROVIDER"; then have=1; else have=0; fi
+[ "$want" = "$have" ] || {
+  echo "ERROR: provider/runtime Constraint ABI mismatch (source wants ComputeMask=$want, provider has LogitMask=$have) — every tool call would segfault. Point PREBUILT_REF at a commit whose prebuilts match this source." >&2
+  exit 1
+}
+echo "provider ABI: source and provider agree (ComputeMask=$want)"
+# Fail here, not an hour later at the end of the build: a wrong PREBUILT_REF
+# looks exactly like a correct one until something reads the binary.
+CONSTRAINT_H=runtime/components/constrained_decoding/constraint.h
+[ -f "$CONSTRAINT_H" ] || {
+  echo "ERROR: $CONSTRAINT_H is missing, so the provider ABI cannot be checked. A guard that cannot read its input must not pass." >&2
+  exit 1
+}
+# Two-sided on purpose. A provider OLDER than the runtime segfaults in
+# CompositeLogitMask::Apply; a provider NEWER than the runtime does the same
+# thing from the other side, and that is reachable whenever this script is
+# pointed at a ref from before upstream's 2026-08-21 Constraint change while
+# PREBUILT_REF still names a post-change commit.
+if grep -q 'ComputeMask' "$CONSTRAINT_H"; then want=1; else want=0; fi
+PROVIDER="prebuilt/ios_sim_arm64/libGemmaModelConstraintProvider.dylib"
+[ -s "$PROVIDER" ] || { echo "ERROR: $PROVIDER is missing or empty — a guard that cannot read its input must not pass." >&2; exit 1; }
+# grep reads the binary directly: `strings … | grep -q` exits at the first
+# match, SIGPIPEs strings, and under `set -o pipefail` the pipeline status is
+# 141 — so the guard reported "no LogitMask" for every provider that has it.
+if grep -q 'LogitMask' "$PROVIDER"; then have=1; else have=0; fi
+[ "$want" = "$have" ] || {
+  echo "ERROR: provider/runtime Constraint ABI mismatch (source wants ComputeMask=$want, provider has LogitMask=$have) — every tool call would segfault. Point PREBUILT_REF at a commit whose prebuilts match this source." >&2
+  exit 1
+}
+echo "provider ABI: source and provider agree (ComputeMask=$want)"
 
 verify_flutter_ios_strip() {
   local dylib="$1"

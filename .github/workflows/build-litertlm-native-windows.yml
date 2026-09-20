@@ -16,6 +16,9 @@ on:
         description: 'LiteRT-LM ref (tag, branch, or commit SHA)'
         required: true
         default: 'e9fd8c53ff968071774206163027dd84bedfe925'
+      prebuilt_ref:
+        description: 'Upstream ref to take prebuilt companion libs from (blank = 4453b286, the first refresh with the new Constraint ABI)'
+        required: false
 
 jobs:
   build-windows-x86_64:
@@ -27,6 +30,7 @@ jobs:
         shell: pwsh
     env:
       LITERTLM_VERSION: ${{ inputs.litertlm_version }}
+      PREBUILT_REF: ${{ inputs.prebuilt_ref || '4453b286c549d216584866ed49b6fed6d11fa3a7' }}
       ANDROID_NDK_HOME: ''
       BAZEL_OUTPUT_BASE: 'D:\b'
     steps:
@@ -53,13 +57,43 @@ jobs:
           git clone https://github.com/google-ai-edge/LiteRT-LM C:\LiteRT-LM
           cd C:\LiteRT-LM
           git checkout "$env:LITERTLM_VERSION"
+          # Companions from a LATER upstream commit than the source: upstream's
+          # 2026-08-21 Constraint change (a8a8c445, a41b7c5c) put ComputeMask in
+          # the vtable slot ComputeBitmap had, and the prebuilt provider at the
+          # v0.17.0/v0.17.1 tags still implements the old one — a tool call
+          # segfaults in CompositeLogitMask::Apply. 4453b286 is upstream's own
+          # refresh of those binaries. Their wheel compiles the provider in, so
+          # their release lane never sees it.
           git lfs pull --include="prebuilt/windows_x86_64/*"
+          # One file, from a different commit than the source: fetch it straight
+          # from the LFS media endpoint, where the ref is visible in the URL.
+          curl.exe -fsSL -o C:\LiteRT-LM\prebuilt\windows_x86_64\libGemmaModelConstraintProvider.dll `
+            "https://media.githubusercontent.com/media/google-ai-edge/LiteRT-LM/$env:PREBUILT_REF/prebuilt/windows_x86_64/libGemmaModelConstraintProvider.dll"
+          if ($LASTEXITCODE -ne 0) { throw "could not fetch the provider for $env:PREBUILT_REF" }
+          $provPath = "C:\LiteRT-LM\prebuilt\windows_x86_64\libGemmaModelConstraintProvider.dll"
+          Write-Host "provider: $((Get-Item $provPath).Length) bytes from $env:PREBUILT_REF"
+          # Fail before the hour of Bazel, not after it.
+          # Absolute paths on purpose: `cd` moves PowerShell's location, not the
+          # process working directory, so a .NET call with a relative path reads
+          # from the workspace root and fails there instead.
+          # Two-sided: a provider older than the runtime segfaults in
+          # CompositeLogitMask::Apply, and a newer one against an older runtime
+          # does the same — reachable whenever this builds a ref from before
+          # upstream's 2026-08-21 Constraint change.
+          $want = [bool](Select-String -Path C:\LiteRT-LM\runtime\components\constrained_decoding\constraint.h -Pattern 'ComputeMask' -Quiet)
+          $prov = [System.Text.Encoding]::ASCII.GetString([System.IO.File]::ReadAllBytes($provPath))
+          $have = $prov.Contains('LogitMask')
+          if ($want -ne $have) {
+            throw "provider/runtime Constraint ABI mismatch (source ComputeMask=$want, provider LogitMask=$have) - every tool call would segfault"
+          }
+          Write-Host "provider ABI: source and provider agree (ComputeMask=$want)"
 
       - name: Patch C API
         shell: bash
         run: bash packages/flutter_gemma_litertlm/native/litert_lm/patch_c_api.sh C:/LiteRT-LM
 
       - name: Build LiteRtLm.dll
+        # static_link_msvcrt: see build-litertlm-native.yml (#456).
         run: |
           cd C:\LiteRT-LM
           bazel --output_base="$env:BAZEL_OUTPUT_BASE" `
@@ -68,6 +102,7 @@ jobs:
             --build_tag_filters='-nowindows' `
             --features=compiler_param_file `
             --features=archive_param_file `
+            --features=static_link_msvcrt `
             --spawn_strategy=local `
             --define=litert_runtime_link_mode=dynamic `
             --define=resolve_symbols_in_exec=false `
@@ -130,6 +165,9 @@ jobs:
         run: |
           New-Item -ItemType Directory -Path artifacts -Force
           Copy-Item C:\LiteRT-LM\bazel-bin\c\libLiteRtLm.dylib artifacts\LiteRtLm.dll
+          # The CRT check for #456 runs at the END of this step, once every DLL
+          # is in artifacts\ — see "the allow-list is what a Flutter Windows
+          # app already ships" below.
           Copy-Item StreamProxy.dll artifacts\
           $prebuilt = 'C:\LiteRT-LM\prebuilt\windows_x86_64'
           # No `else` used to mean a missing companion shipped silently. With
@@ -151,6 +189,15 @@ jobs:
             $stripped = $base -replace '^lib',''
             Copy-Item $src "artifacts\$stripped.dll"
           }
+          # Same ABI assert as the Linux jobs: a provider from before upstream's
+          # ComputeMask change segfaults on the first tool call and nothing else
+          # in this build would notice.
+          $want = [bool](Select-String -Path C:\LiteRT-LM\runtime\components\constrained_decoding\constraint.h -Pattern 'ComputeMask' -Quiet)
+          $have = [System.Text.Encoding]::ASCII.GetString([System.IO.File]::ReadAllBytes("artifacts\libGemmaModelConstraintProvider.dll")).Contains('LogitMask')
+          if ($want -ne $have) {
+            throw "provider/runtime Constraint ABI mismatch in the shipped artifact (source ComputeMask=$want, provider LogitMask=$have)"
+          }
+          Write-Host "provider ABI: shipped artifact agrees with this source (ComputeMask=$want)"
           foreach ($dxc in 'dxil.dll', 'dxcompiler.dll') {
             $src = Get-ChildItem -Recurse -Filter $dxc -Path dxc | Where-Object { $_.FullName -match 'x64' } | Select-Object -First 1
             if (-not $src) {
@@ -286,6 +333,39 @@ jobs:
           Write-Host "OpenVino build verified: $sdkBuild"
           Write-Host "NPU stack: LiteRtDispatch + $($ovDlls.Count) OpenVino/TBB DLLs"
           Get-ChildItem artifacts\
+          # Every DLL we build ourselves, at the END of this step so that all
+          # three are actually in artifacts\ — the first version of this loop
+          # ran before StreamProxy and the dispatch were copied and skipped
+          # them with a silent `continue`, which is the same vacuity it was
+          # written to remove. Missing now means the build is broken: throw.
+          # The allow-list is what a Flutter Windows app already ships beside its
+          # exe, NOT what the redistributable installs — the redist also carries
+          # vcruntime140_threads.dll, and needing that is exactly #456. Checked
+          # over every DLL in the bundle, not only ours: openvino/tbb come from
+          # Intel's SDK and an SDK bump is precisely how a new CRT import would
+          # arrive unnoticed. LiteRtLm must import none at all; LiteRtDispatch
+          # links OpenVINO's C++ API and keeps the dynamic CRT.
+          $allowed = @('msvcp140.dll', 'vcruntime140.dll', 'vcruntime140_1.dll')
+          $shipped = @(Get-ChildItem artifacts\*.dll | ForEach-Object { $_.Name })
+          foreach ($must in @('LiteRtLm.dll', 'LiteRtDispatch.dll', 'StreamProxy.dll')) {
+            if ($shipped -notcontains $must) { throw "$must is not in artifacts - this step should have copied it" }
+          }
+          foreach ($ours in $shipped) {
+            $path = "artifacts\$ours"
+            $deps = dumpbin /dependents $path
+            if (-not ($deps -match '^\s+KERNEL32\.dll')) {
+              throw "dumpbin listed no imports for ${ours}:`n$($deps -join "`n")"
+            }
+            $crt = @($deps -match '^\s+(msvcp|vcruntime|concrt)\d' | ForEach-Object { $_.Trim().ToLower() })
+            $bad = @($crt | Where-Object { $allowed -notcontains $_ })
+            if ($ours -eq 'LiteRtLm.dll' -and $crt.Count -gt 0) {
+              throw "LiteRtLm.dll imports the VC++ runtime: $($crt -join ', ') - static_link_msvcrt did not apply"
+            }
+            if ($bad.Count -gt 0) {
+              throw "$ours imports a VC++ runtime a Flutter Windows app does not ship: $($bad -join ', ')"
+            }
+            Write-Host "$ours CRT imports: $(if ($crt.Count) { $crt -join ', ' } else { 'none' })"
+          }
 
       - uses: actions/upload-artifact@v4
         with:

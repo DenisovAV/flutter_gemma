@@ -53,9 +53,10 @@ agent chaining is **not** supported on Web.
 Describe each function as a `Tool` — a `name`, a `description`, and a
 JSON-Schema `parameters` map — then pass the list to `createChat` (or
 `openChat`) together with `supportsFunctionCalls: true`. `createSession` also
-takes `tools:`, but only Gemma 4 on `.litertlm` reads them there (through the
-SDK's native tool path); for every other model it is the chat that puts the
-tools into the prompt and parses the calls back out, so use the chat API:
+takes `tools:`, and the two passthrough families read them there, through the
+runtime's own tool path: Gemma 4, and FunctionGemma on a `.litertlm`. For every
+other model it is the chat that puts the tools into the prompt and parses the
+calls back out, so use the chat API:
 
 ```dart
 final tools = [
@@ -86,9 +87,36 @@ final chat = await model.createChat(
 - `ToolChoice.none` — the model must not call any tool, even when tools are passed.
 
 <Info>
-`ToolChoice.required` is not supported by FunctionGemma — its prompt format has
-no way to express the constraint, so it degrades to `auto` and logs a warning.
+`ToolChoice.required` reaches the model only where the SDK writes the
+declarations itself. Gemma 4, and FunctionGemma on a `.litertlm`, hand them to
+the runtime instead, and the runtime's tool payload carries no `tool_choice` —
+so for those two `required` behaves as `auto`, silently. A `.task`
+FunctionGemma gets the old "not supported" warning, and the JSON-format
+families (Qwen, DeepSeek, Phi-4 Mini) do get a "you must call a function"
+instruction written into their prompt.
 </Info>
+
+## Who renders the declarations
+
+On a `.litertlm`, both Gemma 4 and FunctionGemma go through LiteRT-LM's own tool
+path: the declarations travel to the runtime as structured data, the call comes
+back parsed, and the result of a turn goes back as one role-`tool` message that
+continues the same model turn. Since **flutter_gemma 1.8.4 with flutter_gemma_litertlm 1.7.1** that is true for
+FunctionGemma too — before them, its tool results were sent as an ordinary user
+message, and the model answered them by repeating the call it had just made.
+Both halves are needed: core decides the wire format, the engine sends it.
+
+Two consequences worth knowing:
+
+- Nothing in your code changes. `createChat(tools: ..., supportsFunctionCalls: true)`
+  and the loop stay the same; the wire format is chosen from `modelType` and the
+  file type together.
+- `ToolChoice.none` cannot take the declarations back out, because the runtime
+  holds them. It stops the SDK from suppressing tool-call text, which is why a
+  call made under `none` can reach the bubble as raw markup.
+
+On `.task` models through MediaPipe there is no native tool path, so
+FunctionGemma keeps the text wire format the SDK renders itself.
 
 ## Handling function calls
 

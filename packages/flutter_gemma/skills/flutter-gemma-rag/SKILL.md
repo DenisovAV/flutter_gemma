@@ -18,12 +18,13 @@ description: Use when adding RAG, semantic search or text embeddings to a flutte
 ## Setup
 
 ```sh
-flutter pub add flutter_gemma flutter_gemma_litertlm flutter_gemma_rag_sqlite path_provider
+flutter pub add flutter_gemma flutter_gemma_litertlm flutter_gemma_embeddings flutter_gemma_rag_sqlite path_provider
 ```
 
 ```dart
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
 import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 import 'package:flutter_gemma_rag_sqlite/flutter_gemma_rag_sqlite.dart';
 import 'package:path_provider/path_provider.dart';

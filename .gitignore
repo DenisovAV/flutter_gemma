@@ -34,6 +34,14 @@ coverage/
 build/
 devtools_options.yaml
 
+# Gradle's per-project state: file-hash caches, .lock files, last-build.bin.
+# Only packages/flutter_gemma/android/ carried a .gitignore for this, so a
+# local Gradle run in any OTHER package's android/ dir left 8 tracked binaries
+# behind — which is exactly how they reached a PR, and they would have shipped
+# in the next flutter_gemma_mediapipe archive (that package has no .pubignore).
+**/.gradle/
+**/local.properties
+
 # NPM files in root (should only be in web/rag/)
 /package.json
 /package-lock.json

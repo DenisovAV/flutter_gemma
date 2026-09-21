@@ -181,11 +181,13 @@ for new in "$DIST_DIR"/litertlm-*.tar.gz; do
   dest="$align_tmp/${name%.tar.gz}"
   mkdir -p "$dest"
   tar -xzf "$new" -C "$dest"
-  if ! python3 - "$dest" "$name" <<'PYALIGN'
+  enforce=0
+  case "$name" in litertlm-android_*) enforce=1 ;; esac
+  if ! python3 - "$dest" "$name" "$enforce" <<'PYALIGN'
 import glob, os, struct, sys
 
 ALIGN = 0x4000
-root, name = sys.argv[1], sys.argv[2]
+root, name, enforce = sys.argv[1], sys.argv[2], sys.argv[3] == "1"
 bad, checked = [], 0
 for path in sorted(glob.glob(os.path.join(root, "**", "*.so"), recursive=True)
                    + glob.glob(os.path.join(root, "**", "*.dylib"), recursive=True)):
@@ -208,12 +210,27 @@ for path in sorted(glob.glob(os.path.join(root, "**", "*.so"), recursive=True)
     checked += 1
     if min(aligns) < ALIGN:
         bad.append((os.path.basename(path), hex(min(aligns))))
-if bad:
+if bad and enforce:
     print(f"  [FAIL] {name} — {len(bad)} of {checked} ELF object(s) below 16 KB:")
     for n, a in bad:
         print(f"         {n}  p_align={a}")
     sys.exit(1)
-print(f"  [ok]   {name} — {checked} ELF object(s), all 16 KB-aligned")
+if bad:
+    # Not Android, so Play never sees it: an x86_64 linker defaults p_align to
+    # the 4 KB page it targets, and that is correct there. Printed, not failed.
+    print(f"  [info] {name} — {len(bad)} of {checked} ELF object(s) below 16 KB "
+          f"(not an APK payload, so not gated)")
+elif checked == 0 and enforce:
+    # The one bundle this gate exists for, with nothing in it to gate. That is a
+    # broken archive or a wrong path, never a pass — "inspected nothing" and
+    # "found nothing wrong" must not share an exit code.
+    print(f"  [FAIL] {name} — no ELF objects found at all; the archive or the "
+          f"path is wrong, so nothing was verified")
+    sys.exit(1)
+elif checked == 0:
+    print(f"  [info] {name} — no ELF objects (Mach-O or PE bundle), nothing to check")
+else:
+    print(f"  [ok]   {name} — {checked} ELF object(s), all 16 KB-aligned")
 PYALIGN
   then
     align_fail=1

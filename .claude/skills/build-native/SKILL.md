@@ -545,6 +545,32 @@ OLDER than the runtime segfaults, a NEWER one segfaults the same way from the
 other side (which is what happens if you build an older ref while `PREBUILT_REF`
 still points at main), and a `grep` on a missing header silently answers "no".
 
+### 9b. 16 KB page alignment (Android) — Google finds this, not you
+
+Google Play rejects an app when **any** `.so` in its APK has a `PT_LOAD`
+`p_align` below 16 KB: *"Your app does not support 16 KB memory page sizes"*.
+Play scans `lib/**/*.so` and does not care that a Hexagon blob is parsed by the
+DSP rather than mapped by the kernel.
+
+This is not hypothetical and it is not caught by anything else. `native-v0.17.0-a`
+shipped four Qualcomm Skel blobs at `p_align=0x1000` — straight from the QAIRT
+SDK, unchanged by us — and because `androidExtraLibs` puts them in every
+consumer APK, every app shipping `flutter_gemma_litertlm` was rejected. The
+build was green, every test passed, the manifest gate passed, and the report
+came from a downstream app's store submission (#529).
+
+`build_qualcomm_dispatch.sh` now raises `p_align` on the staged blobs (and
+refuses when `p_vaddr` and `p_offset` are not congruent mod 16 KB, because a
+bump there would produce a binary that does not load). `verify_tarball_manifest.sh`
+asserts it for every ELF object inside every tarball. Read its output:
+
+```
+  [ok]   litertlm-android_arm64.tar.gz — 19 ELF object(s), all 16 KB-aligned
+```
+
+A run that reports 0 objects inspected has found nothing, not proven anything.
+Google's own `check_elf_alignment.sh` is the second opinion if you want one.
+
 ### 10. NPU on real silicon — the only check that covers the dispatch libraries
 
 Nothing in checks 1–8 touches NPU. Both dispatch libraries load only when `PreferredBackend.npu` is requested on matching hardware, so they need real devices:

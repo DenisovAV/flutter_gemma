@@ -212,7 +212,70 @@ for v in 73 75 79 81; do
   printf "  %-26s %s bytes\n" "libQnnHtpV${v}Skel.so" "$(wc -c < "$STAGE/libQnnHtpV${v}Skel.so" | tr -d ' ')"
 done
 
-# 5. Verify the staged dispatch before it can reach the bundle. This is the one
+# 5. Raise p_align to 16 KB where Qualcomm shipped 4 KB.
+#
+# Google Play rejects an APK in which any .so has a PT_LOAD p_align below
+# 16 KB ("Your app does not support 16 KB memory page sizes"). The Skel blobs
+# arrive from the QAIRT SDK at 0x1000, and since androidExtraLibs puts them in
+# every consumer APK, that rejection reaches every app shipping this package —
+# not only the ones that use the NPU. The blobs are Hexagon DSP images parsed
+# by the DSP's own loader through FastRPC and never mapped by the kernel, so
+# the bump is metadata and nothing else moves.
+#
+# It is sound exactly when every PT_LOAD keeps p_vaddr == p_offset (mod 16K):
+# the loader derives the mapping from that congruence, and a blob that breaks
+# it would stop loading rather than fail the check. So refuse loudly there —
+# a future SDK must not be able to turn this into an unloadable binary quietly.
+echo ""
+echo "=== Checking 16 KB page alignment ==="
+python3 - "$STAGE" <<'PYALIGN'
+import glob, os, struct, sys
+
+ALIGN = 0x4000
+raised, checked = [], 0
+for path in sorted(glob.glob(os.path.join(sys.argv[1], "*.so"))):
+    data = bytearray(open(path, "rb").read())
+    if data[:4] != b"\x7fELF":
+        sys.exit(f"ERROR: not an ELF: {path}")
+    if data[4] == 2:  # ELF64
+        phoff = struct.unpack_from("<Q", data, 0x20)[0]
+        phentsize, phnum = struct.unpack_from("<HH", data, 0x36)
+        o_off, o_va, o_al, word = 0x08, 0x10, 0x30, "<Q"
+    else:             # ELF32 — the Hexagon Skel blobs
+        phoff = struct.unpack_from("<I", data, 0x1C)[0]
+        phentsize, phnum = struct.unpack_from("<HH", data, 0x2A)
+        o_off, o_va, o_al, word = 0x04, 0x08, 0x1C, "<I"
+    loads = []
+    for i in range(phnum):
+        o = phoff + i * phentsize
+        if struct.unpack_from("<I", data, o)[0] != 1:  # PT_LOAD
+            continue
+        loads.append((o,
+                      struct.unpack_from(word, data, o + o_off)[0],
+                      struct.unpack_from(word, data, o + o_va)[0],
+                      struct.unpack_from(word, data, o + o_al)[0]))
+    if not loads:
+        sys.exit(f"ERROR: no PT_LOAD segment in {os.path.basename(path)}")
+    checked += 1
+    if all(al >= ALIGN for _, _, _, al in loads):
+        continue
+    broken = [(hex(off), hex(va)) for _, off, va, _ in loads if (va - off) % ALIGN]
+    if broken:
+        sys.exit(
+            f"ERROR: {os.path.basename(path)} cannot be 16 KB-aligned in place: "
+            f"p_vaddr and p_offset are not congruent mod 16K for {broken}. "
+            f"Take an aligned build from the SDK instead of patching."
+        )
+    for o, _, _, al in loads:
+        if al < ALIGN:
+            struct.pack_into(word, data, o + o_al, ALIGN)
+    open(path, "wb").write(data)
+    raised.append(os.path.basename(path))
+print(f"  {checked} .so checked, {len(raised)} raised to 16 KB"
+      + (": " + ", ".join(raised) if raised else ""))
+PYALIGN
+
+# 6. Verify the staged dispatch before it can reach the bundle. This is the one
 # symbol the library exists to export; without it the NPU path is dead.
 if ! nm -D "$STAGE/libLiteRtDispatch_Qualcomm.so" 2>/dev/null \
      | grep -q 'LiteRtDispatchGetApi'; then
@@ -220,7 +283,7 @@ if ! nm -D "$STAGE/libLiteRtDispatch_Qualcomm.so" 2>/dev/null \
   exit 1
 fi
 
-# 6. Promote. All 11 files are present and the dispatch is sane, so the bundle
+# 7. Promote. All 11 files are present and the dispatch is sane, so the bundle
 # moves from one consistent state to another.
 staged=$(find "$STAGE" -maxdepth 1 -type f -name '*.so' | wc -l | tr -d ' ')
 if [ "$staged" -ne 11 ]; then

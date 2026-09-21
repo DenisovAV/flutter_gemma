@@ -164,6 +164,69 @@ while IFS= read -r asset; do
 done <<< "$prev_assets"
 [[ $missing_plat -eq 1 ]] && fail=1
 
+# Page alignment. The manifest check above answers "is every file still here";
+# it cannot see that a file arrived misaligned. Google Play rejects an APK in
+# which any .so has a PT_LOAD p_align below 16 KB, and the Qualcomm Skel blobs
+# ship from the QAIRT SDK at 0x1000 — so this slipped through every build,
+# every test and the manifest gate, and surfaced as a store rejection in a
+# consumer's app (#529). Look inside the archives, not just at their listings.
+echo
+echo "==> Checking 16 KB page alignment inside each tarball"
+align_tmp="$(mktemp -d)"
+trap 'rm -rf "$align_tmp"' EXIT
+align_fail=0
+for new in "$DIST_DIR"/litertlm-*.tar.gz; do
+  [[ -e "$new" ]] || continue
+  name="$(basename "$new")"
+  dest="$align_tmp/${name%.tar.gz}"
+  mkdir -p "$dest"
+  tar -xzf "$new" -C "$dest"
+  if ! python3 - "$dest" "$name" <<'PYALIGN'
+import glob, os, struct, sys
+
+ALIGN = 0x4000
+root, name = sys.argv[1], sys.argv[2]
+bad, checked = [], 0
+for path in sorted(glob.glob(os.path.join(root, "**", "*.so"), recursive=True)
+                   + glob.glob(os.path.join(root, "**", "*.dylib"), recursive=True)):
+    data = open(path, "rb").read()
+    if data[:4] != b"\x7fELF":
+        continue                      # Mach-O / PE are not page-gated by Play
+    if data[4] == 2:
+        phoff = struct.unpack_from("<Q", data, 0x20)[0]
+        phentsize, phnum = struct.unpack_from("<HH", data, 0x36)
+        o_al, word = 0x30, "<Q"
+    else:
+        phoff = struct.unpack_from("<I", data, 0x1C)[0]
+        phentsize, phnum = struct.unpack_from("<HH", data, 0x2A)
+        o_al, word = 0x1C, "<I"
+    aligns = [struct.unpack_from(word, data, phoff + i * phentsize + o_al)[0]
+              for i in range(phnum)
+              if struct.unpack_from("<I", data, phoff + i * phentsize)[0] == 1]
+    if not aligns:
+        continue
+    checked += 1
+    if min(aligns) < ALIGN:
+        bad.append((os.path.basename(path), hex(min(aligns))))
+if bad:
+    print(f"  [FAIL] {name} — {len(bad)} of {checked} ELF object(s) below 16 KB:")
+    for n, a in bad:
+        print(f"         {n}  p_align={a}")
+    sys.exit(1)
+print(f"  [ok]   {name} — {checked} ELF object(s), all 16 KB-aligned")
+PYALIGN
+  then
+    align_fail=1
+  fi
+done
+if [[ $align_fail -eq 1 ]]; then
+  echo
+  echo "❌ ALIGNMENT CHECK FAILED — Google Play will reject any app shipping this."
+  echo "   Rebuild with build_qualcomm_dispatch.sh, which raises p_align on the"
+  echo "   Qualcomm blobs, or take an aligned build from the SDK."
+  exit 1
+fi
+
 echo
 if [[ $checked -eq 0 ]]; then
   echo "❌ MANIFEST CHECK DID NOT RUN — zero platforms compared."

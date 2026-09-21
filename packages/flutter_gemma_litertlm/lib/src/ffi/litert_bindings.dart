@@ -32,6 +32,7 @@ typedef LiteRtEnvironment = Pointer<_Opaque>;
 typedef LiteRtModel = Pointer<_Opaque>;
 typedef LiteRtOptions = Pointer<_Opaque>;
 typedef LiteRtCompiledModel = Pointer<_Opaque>;
+typedef LiteRtSignature = Pointer<_Opaque>;
 typedef LiteRtTensorBuffer = Pointer<_Opaque>;
 typedef LiteRtTensorBufferRequirements = Pointer<_Opaque>;
 
@@ -322,6 +323,30 @@ class LiteRtBindings {
         Int32 Function(LiteRtEnvironment, Pointer<Utf8>, Pointer<LiteRtModel>),
         int Function(LiteRtEnvironment, Pointer<Utf8>, Pointer<LiteRtModel>)
       >('LiteRtCreateModelFromFile');
+
+  // Signature introspection. Used by the embedding forward pass to refuse a
+  // graph it cannot feed: it supplies exactly one input tensor (the token
+  // ids), so a multi-input BERT-style export has to be rejected at load
+  // rather than dying inside LiteRtRunCompiledModel with a bare status code.
+  // Exported by libLiteRtLm on all five platforms (verified with nm/objdump
+  // against the native-v0.17.0-a archives).
+  late final getModelSignature = _lib
+      .lookupFunction<
+        Int32 Function(LiteRtModel, Size, Pointer<LiteRtSignature>),
+        int Function(LiteRtModel, int, Pointer<LiteRtSignature>)
+      >('LiteRtGetModelSignature');
+
+  late final getNumSignatureInputs = _lib
+      .lookupFunction<
+        Int32 Function(LiteRtSignature, Pointer<Size>),
+        int Function(LiteRtSignature, Pointer<Size>)
+      >('LiteRtGetNumSignatureInputs');
+
+  late final getSignatureInputName = _lib
+      .lookupFunction<
+        Int32 Function(LiteRtSignature, Size, Pointer<Pointer<Utf8>>),
+        int Function(LiteRtSignature, int, Pointer<Pointer<Utf8>>)
+      >('LiteRtGetSignatureInputName');
 
   late final destroyModel = _lib
       .lookupFunction<Void Function(LiteRtModel), void Function(LiteRtModel)>(

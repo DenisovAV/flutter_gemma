@@ -1,6 +1,7 @@
 ## 1.8.0
 - Web embeddings work at all now: bundle rebuilt on `@litertjs/core` 2.5.3, WASM runtime from a CDN.
 - No longer depends on `flutter_gemma_embeddings`; asks core for a tokenizer, so register `embeddingTokenizers:`.
+- Refuse a multi-input .tflite at load with a named error instead of a bare native status.
 
 ## 1.8.0
 - Google Play no longer rejects apps over 16 KB page sizes (#529).

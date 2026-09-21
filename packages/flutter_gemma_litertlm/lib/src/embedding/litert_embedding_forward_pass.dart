@@ -145,6 +145,8 @@ class LiteRtEmbeddingForwardPass implements EmbeddingForwardPass {
       model = modelPtr.value;
       calloc.free(modelPtr);
 
+      _refuseMultiInputGraph(bindings, model);
+
       // Compilation options.
       final optsPtr = calloc<LiteRtOptions>();
       bindings.createOptions(optsPtr).check('LiteRtCreateOptions');
@@ -244,6 +246,62 @@ class LiteRtEmbeddingForwardPass implements EmbeddingForwardPass {
     }
     final values = _runForward(tokenIds);
     return ForwardResult(values: values, shape: [1, outputDimension]);
+  }
+
+  /// Rejects a graph this backend cannot feed, before paying the compile.
+  ///
+  /// [_runForward] builds exactly one input tensor — the token ids — and calls
+  /// `LiteRtRunCompiledModel` with `numInput: 1`. A BERT-style export that
+  /// declares `attention_mask` and `token_type_ids` as separate inputs would
+  /// otherwise fail inside the native runtime with a bare status code that
+  /// names neither the model nor the reason.
+  ///
+  /// A supported LiteRT embedder is a single-input export with masking and
+  /// pooling baked into the graph, which is what `litert-community` publishes
+  /// for EmbeddingGemma and Gecko. The tokenizer is not consulted here: a
+  /// multi-input graph is wrong for this backend whichever tokenizer produced
+  /// the ids.
+  void _refuseMultiInputGraph(LiteRtBindings bindings, LiteRtModel model) {
+    final sigPtr = calloc<LiteRtSignature>();
+    final countPtr = calloc<Size>();
+    try {
+      bindings
+          .getModelSignature(model, 0, sigPtr)
+          .check('LiteRtGetModelSignature');
+      bindings
+          .getNumSignatureInputs(sigPtr.value, countPtr)
+          .check('LiteRtGetNumSignatureInputs');
+      final count = countPtr.value;
+      if (count == 1) return;
+
+      final names = <String>[];
+      final namePtr = calloc<Pointer<Utf8>>();
+      try {
+        for (var i = 0; i < count; i++) {
+          if (bindings.getSignatureInputName(sigPtr.value, i, namePtr) == 0 &&
+              namePtr.value != nullptr) {
+            names.add(namePtr.value.toDartString());
+          }
+        }
+      } finally {
+        calloc.free(namePtr);
+      }
+
+      throw StateError(
+        'LiteRT embedding model "$_modelPath" declares $count inputs'
+        '${names.isEmpty ? '' : ' (${names.join(', ')})'} but this backend '
+        'feeds exactly one: the token ids. It cannot supply attention_mask or '
+        'token_type_ids to a compiled .tflite graph. Supported LiteRT '
+        'embedders are single-input exports with masking and pooling baked '
+        'into the graph (EmbeddingGemma / Gecko from litert-community). A '
+        'multi-input BERT / MiniLM export belongs on the ONNX backend: add '
+        'flutter_gemma_onnx, register OnnxEmbeddingBackend, and install the '
+        '.onnx export of the same model.',
+      );
+    } finally {
+      calloc.free(sigPtr);
+      calloc.free(countPtr);
+    }
   }
 
   List<double> _runForward(List<int> tokens) {

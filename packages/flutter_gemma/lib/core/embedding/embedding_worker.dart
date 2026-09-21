@@ -1,7 +1,7 @@
 // Long-lived background isolate that drives a runtime-agnostic
 // [EmbeddingForwardPass] (built from a [ForwardPassDescriptor]'s top-level
-// factory tear-off — see `forward_pass.dart`) plus tokenization
-// (`embedding_tokenizer.dart`). Generalization of what used to be
+// factory tear-off — see `forward_pass.dart`) plus tokenization, which comes
+// from a registered `EmbeddingTokenizerProvider` (`flutter_gemma_embeddings`). Generalization of what used to be
 // `litert/litert_embedding_worker.dart`; the isolate machinery below
 // (message classes, id-correlated pending map, onExit-null death handling,
 // timeout-guarded close, log-level seeding, debugName) is preserved

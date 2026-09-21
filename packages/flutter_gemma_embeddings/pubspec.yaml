@@ -5,7 +5,7 @@ homepage: https://fluttergemma.dev
 repository: https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_gemma_embeddings
 topics: [embeddings, gemma, litert, rag, on-device]
 
-# All six platforms: 5 native via dart:ffi (LiteRT C API) + web via LiteRT.js.
+# All six platforms: pure Dart, no native handle and no web asset of its own.
 # Declared explicitly so the supported set is the package's own contract, not
 # inferred from the transitive import graph.
 platforms:
@@ -60,8 +60,7 @@ dev_dependencies:
 # No flutter: plugin/asset block, no hook/build.dart of its own, and — since
 # the embedder decoupling refactor (2.0.0) — NO dependency on
 # flutter_gemma_litertlm: this package no longer touches dart:ffi or any
-# native handle at all. It owns tokenization, the background-isolate worker,
-# and pooling/normalization over the `EmbeddingForwardPass` seam; the
-# concrete native forward pass (and the native bundle it needs) now lives in
-# whichever engine package supplies it (e.g. flutter_gemma_litertlm's
-# LiteRtEmbeddingBackend).
+# native handle at all. It owns the tokenizers and their routing; the seam,
+# the isolate worker and the pooling live in flutter_gemma, and the concrete
+# forward pass in whichever engine package supplies it (e.g.
+# flutter_gemma_litertlm's LiteRtEmbeddingBackend).

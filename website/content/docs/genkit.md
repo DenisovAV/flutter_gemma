@@ -37,6 +37,7 @@ model, then create a `Genkit` instance with the plugin:
 
 ```dart
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
 import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
 import 'package:genkit/genkit.dart';
@@ -46,7 +47,7 @@ import 'package:genkit_flutter_gemma/genkit_flutter_gemma.dart';
 await FlutterGemma.initialize(
   inferenceEngines: const [LiteRtLmEngine(), MediaPipeEngine()],
   embeddingBackends: const [LiteRtEmbeddingBackend()], // flutter_gemma_litertlm
-  embeddingTokenizers: const [GemmaEmbeddingTokenizers()],
+  embeddingTokenizers: const [GemmaEmbeddingTokenizers()], // flutter_gemma_embeddings
 );
 
 // 2. Install the model (host app responsibility).

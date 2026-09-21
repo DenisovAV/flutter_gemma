@@ -19,9 +19,10 @@ import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Opt into the LiteRT embedding backend (flutter_gemma_litertlm).
+  // The backend comes from an engine package; the tokenizers from this one.
   await FlutterGemma.initialize(
-    embeddingBackends: [LiteRtEmbeddingBackend()],
+    embeddingBackends: [LiteRtEmbeddingBackend()],   // flutter_gemma_litertlm
+    embeddingTokenizers: [GemmaEmbeddingTokenizers()],
   );
 
   // Install an embedding model (downloads + sets it active). The model and its

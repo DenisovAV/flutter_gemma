@@ -19,8 +19,16 @@ Installs the agent skills `flutter_gemma` bundles — this package depends on it
 
 ## Register
 
+Embeddings also need `flutter_gemma_embeddings`, which supplies the tokenizers
+this package asks core for:
+
+```bash
+flutter pub add flutter_gemma_embeddings
+```
+
 ```dart
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
 import 'package:flutter_gemma_onnx/flutter_gemma_onnx.dart';
 
 await FlutterGemma.initialize(

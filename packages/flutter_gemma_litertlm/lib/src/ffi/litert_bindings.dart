@@ -170,8 +170,8 @@ class LiteRtRankedTensorTypeView {
 /// This used to be a single path built as
 /// `${Directory.current.path}/native/litert_lm/prebuilt/...`, which is only
 /// right when the current directory happens to BE flutter_gemma_litertlm.
-/// `flutter_gemma_speech` and `flutter_gemma_embeddings` bind these same
-/// symbols, and running their suites from their own package directory pointed
+/// `flutter_gemma_speech` binds these same
+/// symbols, and running its suite from its own package directory pointed
 /// the lookup at a `native/` tree that does not exist there. The resulting
 /// error named a path and said "not found", so it read as "the native library
 /// was never built" rather than "I looked in the wrong place" — and 9 speech

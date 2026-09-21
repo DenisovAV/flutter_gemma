@@ -38,7 +38,7 @@ await FlutterGemma.initialize(
   // The tokenizer is registered separately from the backend: which family a
   // model needs is a property of the MODEL, not the engine. Omit it and the
   // first embedding throws a StateError naming the package to add.
-  embeddingTokenizers: [GemmaEmbeddingTokenizers()],
+  embeddingTokenizers: [GemmaEmbeddingTokenizers()], // flutter_gemma_embeddings
   vectorStore: kIsWeb ? WebSqliteVectorStore() : SqliteVectorStore(),
   filterSchema: const FilterSchema(fields: [
     FilterField(name: 'lang', type: FilterFieldType.string),

@@ -39,9 +39,9 @@ it, and your app wires the two together in `FlutterGemma.initialize(...)`.
   `MediaPipeEngine()`, and the registry routes each model to the engine that
   handles its declared `ModelFileType` — not its file extension.
 - **Shared native library.** `flutter_gemma_litertlm` owns the native LiteRT
-  library (fetched at build time via its Native-Assets hook); `flutter_gemma_embeddings`
-  and `flutter_gemma_speech` have no hook of their own and consume that bundle
-  transitively. `flutter_gemma_onnx` owns its own separate ORT / ORT-GenAI
+  library (fetched at build time via its Native-Assets hook), and
+  `flutter_gemma_speech` has no hook of its own and consumes that bundle
+  transitively. `flutter_gemma_embeddings` touches no native library at all. `flutter_gemma_onnx` owns its own separate ORT / ORT-GenAI
   native archives.
 
 ## Choosing packages
@@ -89,12 +89,13 @@ can be registered on its own:
 
 ```dart
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
 import 'package:flutter_gemma_onnx/flutter_gemma_onnx.dart';
 
 await FlutterGemma.initialize(
   inferenceEngines: [OnnxEngine()],
   embeddingBackends: [OnnxEmbeddingBackend()],
-  embeddingTokenizers: [GemmaEmbeddingTokenizers()],
+  embeddingTokenizers: [GemmaEmbeddingTokenizers()], // flutter_gemma_embeddings
 );
 ```
 

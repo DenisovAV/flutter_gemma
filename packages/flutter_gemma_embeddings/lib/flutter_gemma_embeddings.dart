@@ -1,9 +1,9 @@
-/// Runtime-agnostic on-device text embedding pipeline for flutter_gemma.
+/// The embedding tokenizers for flutter_gemma.
 ///
-/// This package no longer ships a concrete embedding backend — it owns
-/// tokenization, task-type prefixing, the background-isolate worker, and
-/// pooling/normalization, over the [EmbeddingForwardPass] seam that engine
-/// packages implement.
+/// Gemma SentencePiece and BERT-family WordPiece, task-type prefixing, and the
+/// routing that picks between them — registered as a [GemmaEmbeddingTokenizers]
+/// provider. The seam engine packages implement, the isolate worker and the
+/// pooling live in `flutter_gemma` itself, so no engine depends on this.
 ///
 /// To actually run embeddings, add an engine package that provides an
 /// `EmbeddingBackendProvider` — e.g. `flutter_gemma_litertlm`'s

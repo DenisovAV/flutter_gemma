@@ -91,8 +91,11 @@ dependencies:
   flutter_gemma_litertlm: ^1.8.0     # now provides LiteRtEmbeddingBackend
 ```
 
-`FlutterGemma.initialize(embeddingBackends: [LiteRtEmbeddingBackend()])` itself
-is unchanged — only where the class is imported from. You still depend on
+`LiteRtEmbeddingBackend()` itself is unchanged — only where the class is
+imported from. Since litertlm 1.8.0 it also needs a tokenizer registered
+beside it: add `flutter_gemma_embeddings` to your pubspec and pass
+`embeddingTokenizers: [GemmaEmbeddingTokenizers()]`, or the first embedding
+throws a `StateError` naming that step. You still depend on
 `flutter_gemma_embeddings` (it owns the tokenizer/pooling/worker); you just no
 longer import a backend class from it. If you'd rather run embeddings over an
 ONNX/ORT model instead, `flutter_gemma_onnx`'s `OnnxEmbeddingBackend` is a
@@ -236,7 +239,7 @@ void main() async {
   await FlutterGemma.initialize(
     inferenceEngines: const [LiteRtLmEngine(), MediaPipeEngine()],
     embeddingBackends: const [LiteRtEmbeddingBackend()], // flutter_gemma_litertlm
-    embeddingTokenizers: const [GemmaEmbeddingTokenizers()],
+    embeddingTokenizers: const [GemmaEmbeddingTokenizers()], // flutter_gemma_embeddings
     vectorStore: QdrantVectorStore(),          // or WebSqliteVectorStore() on web
     // '' when the define is absent — an empty token still sends a bare
     // `Authorization: Bearer` header, so pass null instead.

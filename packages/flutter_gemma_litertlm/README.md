@@ -85,10 +85,18 @@ on every install, because the variant's filename is only known after the fetch.
 ## Embeddings
 
 ```dart
+import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
+import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
+
 await FlutterGemma.initialize(
   embeddingBackends: [LiteRtEmbeddingBackend()],
+  embeddingTokenizers: [GemmaEmbeddingTokenizers()],
 );
 ```
+
+Both lists, and both packages: this one brings the backend, and
+`flutter_gemma_embeddings` brings the tokenizers it asks core for. On web the
+tokenizer list is unused — the LiteRT.js bundle tokenizes in JS.
 
 `LiteRtEmbeddingBackend` runs Gecko / EmbeddingGemma `.tflite` models via the
 LiteRT C API. The pipeline it plugs into — the forward-pass seam, the worker

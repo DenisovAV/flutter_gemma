@@ -2,8 +2,9 @@
 // (design: docs/superpowers/specs/2026-08-17-flutter-gemma-onnx-engine-design.md
 // §2, §11 D3/D4).
 //
-// `flutter_gemma_embeddings` owns tokenization, TaskType prefixing, and
-// pooling/normalization (see `pooling.dart`); the ONLY thing an inference
+// `flutter_gemma_embeddings` owns tokenization and TaskType prefixing;
+// pooling/normalization is `pooling.dart` beside this file. The ONLY thing an
+// inference
 // engine (LiteRT-LM, ONNX, ...) supplies is the raw forward pass over
 // already-tokenized input. This file defines that seam.
 //

@@ -146,6 +146,7 @@ class FlutterGemma {
     // NONE by default. Pass the providers from the packages you use, e.g.
     // `LiteRtLmEngine()` (flutter_gemma_litertlm), `MediaPipeEngine()`
     // (flutter_gemma_mediapipe), `LiteRtEmbeddingBackend()`
+    // (flutter_gemma_litertlm), `GemmaEmbeddingTokenizers()`
     // (flutter_gemma_embeddings). If the lists are empty, the first
     // createModel / createEmbeddingModel throws a clear "add the engine
     // package" StateError. vectorStore null → ServiceRegistry's

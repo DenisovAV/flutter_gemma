@@ -18,10 +18,16 @@ dependencies:
 
   # On-device AI via genkit_flutter_gemma
   genkit_flutter_gemma: ^0.6.1
-  flutter_gemma: ^1.8.3
+  # Pinned below flutter_gemma 1.9.0 / flutter_gemma_litertlm 1.8.0 on purpose.
+  # Those versions move the embedding tokenizer to a registered provider: an app
+  # must add flutter_gemma_embeddings and pass
+  # `embeddingTokenizers: [GemmaEmbeddingTokenizers()]` to initialize(), or the
+  # first embedding throws. This codelab gets that in its own change; until then
+  # a caret would silently upgrade it into a runtime failure on the RAG step.
+  flutter_gemma: ">=1.8.3 <1.9.0"
   # LiteRT-LM engine (.litertlm inference) + LiteRT embedding backend —
   # flutter_gemma 1.x registers no engines by default; opt in here.
-  flutter_gemma_litertlm: ^1.7.0
+  flutter_gemma_litertlm: ">=1.7.0 <1.8.0"
 
   # Hybrid on-device ↔ cloud routing
   genkit_hybrid: ^0.2.1

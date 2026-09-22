@@ -64,6 +64,10 @@ silently do the other thing.
         its table (device, date, pass count), #10 matrix (LLM + embeddings +
         speech on every platform) pasted into the PR body
 [ ] 5b  manifest gate RUN and printed "N platform(s) compared" — N == number of tarballs
+[ ] 1d-bis  any packages/*/README.md changed since its published version? → that
+        package needs a version bump EVEN IF its lib/ did not change; the README
+        ships in the archive and is the pub.dev page (`git diff <pkg-last-published>
+        HEAD -- 'packages/*/README.md'`)
 [ ] 1e  core public API changed? → upgrade-genkit (realign + version), else N/A
 [ ] 1f  shared code duplicated across satellites patched everywhere (grep the pattern)
 [ ] 1f-bis  tool/check_macos_podfile_snippet.sh passes (every copy of the macOS

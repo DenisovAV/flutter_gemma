@@ -69,7 +69,7 @@ jobs:
           # a newer one against an older runtime — reachable whenever this runs
           # on a ref from before upstream's 2026-08-21 Constraint change.
           if grep -q 'ComputeMask' "$H"; then want=1; else want=0; fi
-          if grep -q \'LogitMask\' "prebuilt/linux_x86_64/libGemmaModelConstraintProvider.so"; then have=1; else have=0; fi
+          if grep -qa 'LogitMask' "prebuilt/linux_x86_64/libGemmaModelConstraintProvider.so"; then have=1; else have=0; fi
           [ "$want" = "$have" ] || { echo "::error::provider/runtime Constraint ABI mismatch (source ComputeMask=$want, provider LogitMask=$have)"; exit 1; }
           echo "provider ABI: source and provider agree (ComputeMask=$want)"
 
@@ -196,7 +196,7 @@ jobs:
           # a newer one against an older runtime — reachable whenever this runs
           # on a ref from before upstream's 2026-08-21 Constraint change.
           if grep -q 'ComputeMask' "$H"; then want=1; else want=0; fi
-          if grep -q \'LogitMask\' "prebuilt/linux_arm64/libGemmaModelConstraintProvider.so"; then have=1; else have=0; fi
+          if grep -qa 'LogitMask' "prebuilt/linux_arm64/libGemmaModelConstraintProvider.so"; then have=1; else have=0; fi
           [ "$want" = "$have" ] || { echo "::error::provider/runtime Constraint ABI mismatch (source ComputeMask=$want, provider LogitMask=$have)"; exit 1; }
           echo "provider ABI: source and provider agree (ComputeMask=$want)"
 

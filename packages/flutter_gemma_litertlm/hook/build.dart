@@ -174,7 +174,7 @@ class _NativeBundle {
 /// Android: `-Wl,-z,max-page-size=16384` (Google Play 16KB).
 const _litertlmBundle = _NativeBundle(
   namespace: 'litertlm',
-  version: '0.17.0-a',
+  version: '0.17.1',
   releaseTagPrefix: 'native-v',
   archivePrefix: 'litertlm',
   mainLibName: 'LiteRtLm',
@@ -185,34 +185,41 @@ const _litertlmBundle = _NativeBundle(
   // in a dedicated PR (tracked: roadmap entry in CHANGELOG for 0.16.0).
   useFlatLayout: true,
   markerFileName: '.flutter_gemma_native_version',
-  // 0.17.0-a replaces libGemmaModelConstraintProvider on all 7 platforms with
-  // upstream's own refresh (main 4453b286): the v0.17.x tags ship one built
-  // against the Constraint interface before ComputeMask, and against a runtime
-  // built from that same source every tool call segfaults in
-  // CompositeLogitMask::Apply. Linux and Windows were rebuilt from source
-  // (Windows also for the static C++ runtime, #456); macOS, iOS and Android
-  // carry the 0.17.0 binaries with only that one library swapped. The suffix
-  // rather than 0.17.1: the number names the upstream release these bytes are
-  // built from, and that is still v0.17.0 — upstream's own v0.17.1 is a
-  // different tree, and a bundle claiming it would be lying about its source.
+  // 0.17.1 is upstream v0.17.1 (5e58e9a0), one commit over v0.17.0: tool-call
+  // arguments declared `"type": "integer"` reach the app as integers instead
+  // of 1000.0. Every platform is rebuilt from that source — Apple and Android
+  // locally, both Linux and Windows in CI — and the LiteRT pin is unchanged
+  // (9fe5be45), so the C API embeddings and speech bind to did not move.
+  //
+  // libGemmaModelConstraintProvider still comes from upstream MAIN (4453b286),
+  // not from the tag: v0.17.1 ships the same pre-ComputeMask provider v0.17.0
+  // did, and against a runtime built from its own source every tool call
+  // segfaults in CompositeLogitMask::Apply. Both build scripts and both CI
+  // workflows assert the two sides agree before compiling anything.
+  //
+  // The Android bundle also carries the Qualcomm Skel blobs with p_align
+  // raised to 16 KB: the QAIRT SDK ships them at 0x1000, androidExtraLibs puts
+  // them in every consumer APK, and Google Play rejects the app for it (#529).
+  // build_qualcomm_dispatch.sh does the bump; verify_tarball_manifest.sh
+  // refuses to publish an Android archive that still has one below 16 KB.
   // These sums must equal both the bytes GitHub
   // serves and the `checksums_litertlm.txt` published on the release — a stale
   // txt sent a user down the wrong path while debugging a mismatch (#316).
   checksums: {
     'litertlm-linux_x86_64.tar.gz':
-        '7fc2bdb7ba35c22e3c1996230157264f940ec3f9efde174703d308e32eb38164',
+        '3f7854efdd73c893d48bc43df66102fda5c1de63179295275a37acb9427a949e',
     'litertlm-linux_arm64.tar.gz':
-        'ae551f0fa588b6bc27c9df676984bceda68d67697dad126b5fd1b5f06f3eef62',
+        'c2e784185840534aeb10e78b19b3771e1eab699e193ce72a6ec6dc67fc0eb47e',
     'litertlm-windows_x86_64.tar.gz':
-        'deaf5801a9a56fc096d82a7ef178c6dab1b4919f005b811b8afbfadd4aab7f4c',
+        'e505e247b07313c05bbc957b7c33c82f6adb6c6c78eecae03a590319c7d049e2',
     'litertlm-macos_arm64.tar.gz':
-        'df97712705294cdd83927c10d8e375a14466e2ab397079801bfe96435e841b71',
+        '37c64a2e7cd4d5c06ad150b866ee71f39cc84ccd159cf9e2db30792ef0e71d49',
     'litertlm-ios_arm64.tar.gz':
-        '9bea99af6871c2ab87615a40f8596195d3c0a56f419993c31fcd283e193160ff',
+        '8aaf35425790d527728dde4736579c660af08f9baddfd0161a868cfb302626de',
     'litertlm-ios_sim_arm64.tar.gz':
-        '3fab899ad1175c0cc1736e4bbc62fffebfe2e7d940fbf8504cce92ec45ec4bff',
+        'a95766deae012c8441ef1e1d2e2501d3db3bbbde6b014cceccc5cde98bb94836',
     'litertlm-android_arm64.tar.gz':
-        '11b088c422de47def2082e0a7b84d8e8d8fcf53cb9b9b03f68e0555e85c50c54',
+        '13fb9fa4ffca63cc60d09d204053ed86468b049b858c9bc9cd34a4c1e0bd382b',
   },
   companions: [
     'GemmaModelConstraintProvider',

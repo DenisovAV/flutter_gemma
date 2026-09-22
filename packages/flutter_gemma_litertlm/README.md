@@ -137,6 +137,21 @@ from a SHA256-verified GitHub release — no manual setup on native platforms.
 
 ## Troubleshooting
 
+### Google Play rejects the app over 16 KB page sizes (fixed in 1.8.0)
+
+Symptom: Play Console refuses the release with *"Your app does not support
+16 KB memory page sizes"*, on any app that depends on this package. Nothing
+fails at build or run time — the rejection happens at submission.
+
+Cause: the Qualcomm Hexagon DSP blobs this package bundles for the NPU path
+(`libQnnHtpV{73,75,79,81}Skel.so`) arrive from the QAIRT SDK with a 4 KB
+`p_align`, and they ship in every APK because the NPU libraries are bundled
+unconditionally. Play scans `lib/**/*.so` and does not care that a Hexagon
+image is loaded by the DSP rather than mapped by the kernel.
+
+Fix: upgrade to 1.8.0. Check your own build with Google's
+`check_elf_alignment.sh` against the APK, not against this package.
+
 ### Any tool call kills the app (fixed in 1.7.1)
 
 Symptom: in 1.7.0, a chat or session created with `tools` dies on the first

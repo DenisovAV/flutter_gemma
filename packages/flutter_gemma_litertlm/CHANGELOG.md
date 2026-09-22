@@ -1,4 +1,6 @@
 ## 1.8.0
+- Google Play no longer rejects apps over 16 KB page sizes (#529).
+- Native runtime LiteRT-LM v0.17.1: integer tool-call arguments stay integers.
 - `web/litert.js` and `web/tensorflow.js` moved to `flutter_gemma_embeddings`, whose bundle they belong to.
 
 ## 1.7.1

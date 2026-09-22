@@ -461,7 +461,7 @@ Add `genkit_flutter_gemma` and `flutter_gemma`:
   flutter_gemma: ^1.8.4
   # flutter_gemma 1.x registers no engine by default — opt into LiteRT-LM
   # (.litertlm inference) here.
-  flutter_gemma_litertlm: ^1.7.2
+  flutter_gemma_litertlm: ^1.7.1
 ```
 
 Run `flutter pub get`.

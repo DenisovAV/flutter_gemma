@@ -25,7 +25,7 @@ dependencies:
   flutter_gemma: ">=1.8.4 <1.9.0"
   # flutter_gemma 1.x registers no engine by default — opt into LiteRT-LM
   # (.litertlm inference) here.
-  flutter_gemma_litertlm: ">=1.7.0 <1.8.0"
+  flutter_gemma_litertlm: ">=1.7.1 <1.8.0"
 
 dev_dependencies:
   flutter_test:

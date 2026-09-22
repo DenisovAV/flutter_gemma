@@ -67,9 +67,10 @@ silently do the other thing.
 [ ] 1e  core public API changed? → upgrade-genkit (realign + version), else N/A
 [ ] 1f  shared code duplicated across satellites patched everywhere (grep the pattern)
 [ ] 1f-bis  tool/check_macos_podfile_snippet.sh passes (every copy of the macOS
-        post_install snippet byte-identical — 23 today: three example Podfiles,
-        the codelab step apps, README, desktop.md and the inference skill's
-        references/platform-setup.md) — RUN it, do not eyeball
+        post_install snippet byte-identical — example Podfiles, the codelab step
+        apps, README, desktop.md and the inference skill's
+        references/platform-setup.md; the script prints the count, do not hardcode
+        one here) — RUN it, do not eyeball
 [ ] 1g  each changed satellite's flutter_gemma: floor >= the core version it now needs
 [ ] 2   versions bumped: pubspec + podspec (if any) + CLAUDE.md Current-Version line
 [ ] 7   CHANGELOG: one short line per package, every published package
@@ -101,8 +102,10 @@ Whether to bump `native-v<NATIVE_VERSION>` or re-publish the existing tag is the
 ```bash
 git status                  # all desired changes staged or already committed
 git log --oneline -5
-flutter analyze             # 0 errors
-flutter test                # all pass
+flutter analyze packages/   # 0 errors — NOT the repo root: website/ is outside
+                            # the workspace and fails on unresolved deps
+tool/test_all.sh            # all pass — NOT `flutter test` at the root, which
+                            # has no test/ and silently tests NOTHING
 
 # Cross-platform compile sanity — analyze/test run on host VM and skip
 # conditional imports (e.g. `lib/core/ffi/*_stub.dart`). The only thing
@@ -223,7 +226,8 @@ Shared-code hotspots to sweep, per fix type:
   `kotlin { compilerOptions { jvmTarget } }` block — which must stay
   byte-identical across all three (#360, #440).
 - **Native hook** — `packages/flutter_gemma_litertlm/hook/build.dart` (the only
-  hook that owns a bundle): the `_litertlmBundle` `version:` and `checksums:`
+  hook that owns the LiteRT-LM bundle — `flutter_gemma_onnx` owns the ORT one and
+  `flutter_gemma_rag_sqlite` the sqlite-vec one): the `_litertlmBundle` `version:` and `checksums:`
   fields, `_cacheBaseDir()` cache-busting, `stage()` Apple-only guard.
 - **Apple manifests** — `find packages -name '*.podspec' -not -path '*/example/*'`
   finds all FOUR (core ios, core macos, mediapipe ios, builtin_ai darwin); the
@@ -231,10 +235,11 @@ Shared-code hotspots to sweep, per fix type:
   `s.version`, min-iOS/osx, dep pins, `vtool` minos on any bundled dylib — and the
   three `Package.swift` (core ios, core macos, builtin_ai darwin), whose platform
   floors must match their podspec.
-- **macOS `post_install` snippet** — the SAME block lives in FIVE places: the
-  three `packages/*/example/macos/Podfile`, the core `README.md` (the pub.dev
-  page users copy from) and `website/content/docs/desktop.md`. Do not diff them
-  by eye:
+- **macOS `post_install` snippet** — the SAME block lives in every
+  `packages/*/example/macos/Podfile` and every codelab step app's, plus the core
+  `README.md` (the pub.dev page users copy from), `website/content/docs/desktop.md`
+  and the inference skill's `references/platform-setup.md`. The script counts
+  them; do not diff them by eye:
   ```bash
   tool/check_macos_podfile_snippet.sh   # exits 1 and names the odd copy
   ```
@@ -260,7 +265,7 @@ for each one.
 
 ### 1g. Did a satellite start CALLING a newer core API than its `flutter_gemma:` floor allows? → bump the floor
 
-Each satellite (agent / speech / litertlm / mediapipe / embeddings / rag)
+Each satellite (agent / speech / litertlm / mediapipe / embeddings / rag / onnx / builtin_ai)
 declares a `flutter_gemma: ^X.Y.Z` constraint. In the pub **workspace** the local
 core is always used, so `flutter analyze` / `flutter test` **and
 `dart pub publish --dry-run` all pass with a too-low floor** — everything builds
@@ -556,8 +561,8 @@ or moved to a separate doc.
 ## Step 8: Verify
 
 ```bash
-flutter analyze
-flutter test
+flutter analyze packages/   # not the repo root — see Pre-flight
+tool/test_all.sh            # not `flutter test` at the root — it tests nothing
 # Cross-platform compile sanity (also in Pre-flight — rerun here after
 # version bumps in case a setter/getter signature shifted):
 (cd packages/flutter_gemma/example && flutter build web --no-tree-shake-icons)
@@ -721,7 +726,7 @@ The site hardcodes `^X.Y.Z` in pubspec snippets across the docs — these MUST m
 cd website
 grep -rnE "flutter_gemma[a-z_]*: *\^?[0-9]+\.[0-9]+\.[0-9]+" content/
 ```
-Update each `^X.Y.Z` for the core packages (`flutter_gemma`, `flutter_gemma_litertlm`, `flutter_gemma_mediapipe`, `flutter_gemma_embeddings`, `flutter_gemma_rag_qdrant`, `flutter_gemma_rag_sqlite`) AND the Genkit integration packages (`genkit_flutter_gemma`, `genkit_hybrid`) to the just-published versions. Common spots: `installation.md`, `getting-started.md`, `migration.md`, `packages.md`, `genkit.md`. Cross-check against pub.dev so the site never lags the published packages.
+Update each `^X.Y.Z` for EVERY package the site pins — `flutter_gemma`, `flutter_gemma_litertlm`, `flutter_gemma_mediapipe`, `flutter_gemma_embeddings`, `flutter_gemma_rag_qdrant`, `flutter_gemma_rag_sqlite`, `flutter_gemma_speech`, `flutter_gemma_agent`, `flutter_gemma_onnx`, `flutter_gemma_builtin_ai` — AND the Genkit integration packages (`genkit_flutter_gemma`, `genkit_hybrid`) to the just-published versions. Common spots: `installation.md`, `getting-started.md`, `migration.md`, `packages.md`, `genkit.md`. Cross-check against pub.dev so the site never lags the published packages.
 
 ### 12b. Update docs for any behavior/API change
 - **New / changed public API** → the topic doc that covers it (e.g. a new `createSession` param → `getting-started.md`; multimodal → `multimodal.md`; models → `models.md`).
@@ -730,7 +735,7 @@ Update each `^X.Y.Z` for the core packages (`flutter_gemma`, `flutter_gemma_lite
 
 ### 12d. Update the shipped agent skills — they are read by a MACHINE
 
-`packages/flutter_gemma/skills/` holds eight `SKILL.md` files that ship inside
+`packages/flutter_gemma/skills/` holds seven `SKILL.md` files that ship inside
 the core archive and are installed into users' coding agents by
 `dart run skills@ get --all`. They are not a nice-to-have copy of the docs: an agent
 follows them literally when writing code against this package.

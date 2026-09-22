@@ -151,9 +151,13 @@ Call `FlutterGemma.rag.flush()` after indexing. What it does depends on the stor
   ends — an Android app killed in the background is the ordinary case. `close()`
   persists too, but only logs a failed save; `flush()` throws it.
 - **sqlite-vec, native** — a no-op: every statement is on disk when it returns.
-- **sqlite-vec, web** — drains the IndexedDB storage. On `sqlite3` >= 3.4.0 it
-  does not wait for a write batch already in flight (an upstream regression);
-  `close()` is the stronger drain there.
+- **sqlite-vec, web** — drains the IndexedDB storage and waits for it. `sqlite3`
+  3.4.0 through 3.5.2 returned early over a write batch already in flight
+  ([upstream #408](https://github.com/simolus3/sqlite3.dart/issues/408)), which
+  is why `flutter_gemma_rag_sqlite` 1.4.0 requires sqlite3 3.6.0 and, with it,
+  **Flutter 3.47** — a higher floor than every other package here. An app on
+  Flutter 3.44 resolves to rag_sqlite 1.3.2 instead and keeps the partial drain;
+  `close()` is the full drain on every version.
 
 A store that cannot persist at all (the web in-memory fallback) throws
 `VectorStoreException` rather than returning. A custom store that `implements`

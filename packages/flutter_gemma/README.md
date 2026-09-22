@@ -68,6 +68,13 @@ That scans your dependencies and installs every skill they bundle where your age
 
 What they cover: registering an engine (core ships none), routing by the declared `ModelFileType` rather than the filename, and the two defaults that fail quietly — `maxTokens` is the context window and not the reply length, and `Message.isUser` defaults to `false`.
 
+## What's new in 1.9.0
+
+- 🔤 **Embedding tokenizers are registered, not bundled.** Which tokenizer an embedding model needs is a property of the model, not of the engine that runs it — EmbeddingGemma wants SentencePiece under LiteRT and under ONNX alike. So the backends stopped carrying one: add `flutter_gemma_embeddings`, import it, and pass `embeddingTokenizers: [GemmaEmbeddingTokenizers()]` beside `embeddingBackends:`. Miss it and the first embedding throws a `StateError` naming the package to add — it will not quietly tokenize with the wrong convention and hand you vectors from the wrong point in the embedding space. See [MIGRATION.md](MIGRATION.md).
+- 🧩 **No package depends on a sibling any more.** That registry is what let `flutter_gemma_litertlm` and `flutter_gemma_onnx` drop their dependency on `flutter_gemma_embeddings`; the contracts live in core, the implementations stay opt-in.
+- 🌐 **Web embeddings actually run** (`flutter_gemma_litertlm` 1.8.0) — the LiteRT.js bundle was rebuilt on `@litertjs/core` 2.5.3 and now lives, all four files together, in `flutter_gemma_litertlm/web/`. Copy them from there.
+- 💾 **`flutter_gemma_rag_sqlite` 1.4.0 makes web `flush()` a real fence** by requiring sqlite3 3.6.0, and with it Flutter 3.47. An app on Flutter 3.44 resolves to 1.3.2 instead.
+
 ## What's new in 1.8.2
 
 - 🤖 **Agent skills ship with the package** — `dart run skills@ get --all` installs seven skills that teach your coding assistant this API: inference (with platform setup), function calling, RAG, speech, MediaPipe, ONNX and built-in AI. Every code block in them is compiled against these packages before each release.

@@ -55,6 +55,11 @@ window.litertLmReady = (async () => {
        which on web needs a WASM bundle (litert_wasm_internal.js + a
        9.4 MB .wasm) that no published package ships. RAG is native-only
        for now — see the codelab's "Web setup for embeddings" section. -->
+
+  <!-- LiteRT.js embeddings bundle (RAG). The four files beside this one are
+       copied from flutter_gemma_litertlm/web/ — that package owns them since
+       1.8.0. The WASM runtime they need comes from a CDN. -->
+  <script type="module" src="litert_embeddings.js"></script>
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>

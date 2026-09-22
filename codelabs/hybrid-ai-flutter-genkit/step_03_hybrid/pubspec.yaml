@@ -25,15 +25,15 @@ dependencies:
   # first embedding throws. This codelab gets that in its own change; until then
   # a caret would silently upgrade it into a runtime failure on the RAG step.
 # Lift all three back to carets in the same change that adds the registration.
-  flutter_gemma: ">=1.8.4 <1.9.0"
+  flutter_gemma: ^1.9.0
   # LiteRT-LM engine (.litertlm inference) + LiteRT embedding backend —
   # flutter_gemma 1.x registers no engines by default; opt in here.
-  flutter_gemma_litertlm: ">=1.7.1 <1.8.0"
+  flutter_gemma_litertlm: ^1.8.0
   # Bounded for the same reason, and it must be lifted with the two above: this
   # arrives transitively through flutter_gemma_litertlm, and 2.2.0 belongs to
   # the release that needs the tokenizer registration. Declared here so the
   # guarantee is local instead of resting on a constraint in another package.
-  flutter_gemma_embeddings: ">=2.1.1 <2.2.0"
+  flutter_gemma_embeddings: ^2.2.0
 
   # Hybrid on-device ↔ cloud routing
   genkit_hybrid: ^0.2.1

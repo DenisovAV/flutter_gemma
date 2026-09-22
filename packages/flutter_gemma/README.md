@@ -458,12 +458,12 @@ Then add the CDN script(s) for the **engine package(s) you use**.
 ```
 
 * **`LiteRtEmbeddingBackend`** (web embeddings, `flutter_gemma_litertlm`) — copy
-  the four files in `flutter_gemma_embeddings`' `web/` into your own `web/`
+  the four files in `flutter_gemma_litertlm`' `web/` into your own `web/`
   (`litert_embeddings.js`, `sentencepiece.js`, `litert.js`, `tensorflow.js` —
   one bundle in four pieces) and load the entry module locally:
   `<script type="module" src="litert_embeddings.js"></script>`. The WASM runtime
   comes from a pinned CDN by default; see the
-  [`flutter_gemma_embeddings` web setup](https://pub.dev/packages/flutter_gemma_embeddings#web-setup).
+  [`flutter_gemma_litertlm` embeddings on web](https://pub.dev/packages/flutter_gemma_litertlm#embeddings-on-web).
 
 * **`flutter_gemma_rag_sqlite`** (web RAG) — copy the package's custom
   `sqlite3.wasm` (with `sqlite-vec`/`vec0` statically linked) into your app's web
@@ -948,6 +948,7 @@ without this step `getActiveModel()` / `createEmbeddingModel()` throw a clear
 ```dart
 import 'package:flutter/widgets.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
 import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
 import 'package:flutter_gemma_rag_qdrant/flutter_gemma_rag_qdrant.dart';
@@ -965,6 +966,11 @@ void main() async {
     // Optional — embeddings (needed for RAG / generateEmbedding):
     embeddingBackends: const [
       LiteRtEmbeddingBackend(), // flutter_gemma_litertlm
+    ],
+    // The tokenizer is registered separately — which family a model needs is a
+    // property of the model, not of the engine that runs it.
+    embeddingTokenizers: const [
+      GemmaEmbeddingTokenizers(), // flutter_gemma_embeddings
     ],
     // Optional — RAG vector store (pick one; native here):
     vectorStore: QdrantVectorStore(), // flutter_gemma_rag_qdrant
@@ -992,6 +998,7 @@ void main() async {
 | `inferenceEngines: [OnnxEngine()]` | `flutter_gemma_onnx` | ONNX models — ORT-GenAI (FFI; macOS/Linux/Windows/Android/iOS arm64) or Transformers.js (Web) |
 | `embeddingBackends: [LiteRtEmbeddingBackend()]` | `flutter_gemma_litertlm` | text embeddings |
 | `embeddingBackends: [OnnxEmbeddingBackend()]` | `flutter_gemma_onnx` | text embeddings from ONNX/ORT models (FFI native; onnxruntime-web on Web) |
+| `embeddingTokenizers: [GemmaEmbeddingTokenizers()]` | `flutter_gemma_embeddings` | required by BOTH embedding backends above |
 | `sttBackends: [LiteRtSttBackend()]` | `flutter_gemma_speech` | speech-to-text (native only) |
 | `ttsBackends: [LiteRtTtsBackend()]` | `flutter_gemma_speech` | text-to-speech (native only) |
 | `vectorStore: QdrantVectorStore()` | `flutter_gemma_rag_qdrant` | native RAG |

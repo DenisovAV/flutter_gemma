@@ -1,9 +1,9 @@
-/// Runtime-agnostic on-device text embedding pipeline for flutter_gemma.
+/// The embedding tokenizers for flutter_gemma.
 ///
-/// This package no longer ships a concrete embedding backend — it owns
-/// tokenization, task-type prefixing, the background-isolate worker, and
-/// pooling/normalization, over the [EmbeddingForwardPass] seam that engine
-/// packages implement.
+/// Gemma SentencePiece and BERT-family WordPiece, task-type prefixing, and the
+/// routing that picks between them — registered as a [GemmaEmbeddingTokenizers]
+/// provider. The seam engine packages implement, the isolate worker and the
+/// pooling live in `flutter_gemma` itself, so no engine depends on this.
 ///
 /// To actually run embeddings, add an engine package that provides an
 /// `EmbeddingBackendProvider` — e.g. `flutter_gemma_litertlm`'s
@@ -15,6 +15,7 @@
 ///
 /// await FlutterGemma.initialize(
 ///   embeddingBackends: [LiteRtEmbeddingBackend()],
+///   embeddingTokenizers: [GemmaEmbeddingTokenizers()],
 /// );
 /// ```
 ///
@@ -30,14 +31,20 @@ library;
 // flutter_gemma_onnx) implement `EmbeddingForwardPass` and build a
 // `ForwardPassDescriptor` from a top-level factory tear-off to plug into the
 // common embedder below.
-export 'src/web_runtime.dart';
-export 'src/forward_pass.dart';
-export 'src/pooling.dart';
+// Moved to core so an engine package can implement the seam without depending
+// on this one. Re-exported here so a single import still covers the whole
+// embedding surface for app and test code.
+export 'package:flutter_gemma/core/embedding/forward_pass.dart';
+export 'package:flutter_gemma/core/embedding/pooling.dart';
 // The tokenizer seam (design D-T1): pure Dart, no engine dependency, no
 // native library at all — engine packages implement `EmbeddingTokenizer` and
 // build a `ForwardPassDescriptor.tokenizerFactory` from a top-level factory
 // tear-off, same shape as `EmbeddingForwardPassFactory` above.
-export 'src/tokenizer_adapter.dart';
+export 'package:flutter_gemma/core/embedding/tokenizer_adapter.dart';
+// The tokenizer families this package implements, as a registrable
+// provider. This is what lets an engine ask for a tokenizer instead of
+// naming one — and therefore what lets it stop depending on this package.
+export 'src/tokenizer_provider.dart';
 
 // NOTE: `src/embedding_tokenizer.dart` and `src/wordpiece_embedding_tokenizer.dart`
 // are native-only leaves (`dart:io`, and for the former
@@ -55,5 +62,6 @@ export 'src/tokenizer_adapter.dart';
 // needs `dart:isolate` semantics that only make sense on native platforms;
 // web engine packages build their own `EmbeddingModel` directly (see
 // `flutter_gemma_litertlm`'s web arm) and never reach this file.
-export 'src/common_embedding_model_stub.dart'
-    if (dart.library.ffi) 'src/common_embedding_model.dart';
+export 'package:flutter_gemma/core/embedding/common_embedding_model.dart'
+    if (dart.library.js_interop)
+        'package:flutter_gemma/core/embedding/common_embedding_model_stub.dart';

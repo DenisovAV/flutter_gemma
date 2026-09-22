@@ -77,6 +77,7 @@ void main() async {
   await FlutterGemma.initialize(
     inferenceEngines: const [LiteRtLmEngine(), MediaPipeEngine()],
     embeddingBackends: const [LiteRtEmbeddingBackend()],
+    embeddingTokenizers: const [GemmaEmbeddingTokenizers()],
     vectorStore: QdrantVectorStore(),          // or WebSqliteVectorStore() on web
     // '' when the define is absent, and an empty token still sends a
     // bare `Authorization: Bearer` header — pass null instead.
@@ -156,11 +157,38 @@ import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
 import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 ```
 
-`FlutterGemma.initialize(embeddingBackends: [LiteRtEmbeddingBackend()])` is
-otherwise unchanged — only the import path moved. `flutter_gemma_embeddings`
-itself is now a runtime-agnostic pipeline (tokenization, isolate worker,
-pooling) with no concrete backend of its own; there is no re-export shim, so
-the import must be updated.
+`LiteRtEmbeddingBackend()` itself is unchanged — only the import path moved,
+and there is no re-export shim, so it must be updated.
+
+### Register a tokenizer (litertlm 1.8.0 / onnx 0.4.0)
+
+An embedding backend no longer names a tokenizer. Which family a model needs
+is a property of the MODEL, not of the engine that runs it — EmbeddingGemma is
+SentencePiece whether LiteRT or ONNX Runtime executes its weights — so the app
+supplies it, and the engine packages stopped depending on
+`flutter_gemma_embeddings` because of it.
+
+**Add the dependency** (it no longer arrives through the engine):
+```yaml
+dependencies:
+  flutter_gemma_embeddings: ^2.2.0
+```
+
+**Add one line to `initialize`:**
+```dart
+await FlutterGemma.initialize(
+  embeddingBackends: [LiteRtEmbeddingBackend()],
+  embeddingTokenizers: [GemmaEmbeddingTokenizers()],   // new
+);
+```
+
+Omit it and the first embedding throws a `StateError` naming this step. It
+never falls back to a tokenizer of its own choosing: the wrong family produces
+vectors that are quietly the wrong point in the embedding space, which no test
+downstream can tell from a working model.
+
+An app that never embeds anything passes neither list and can drop
+`flutter_gemma_embeddings` entirely.
 
 If your app used embeddings **without** also using `.litertlm` inference, add
 `flutter_gemma_litertlm` to your `pubspec.yaml` — this also delivers the

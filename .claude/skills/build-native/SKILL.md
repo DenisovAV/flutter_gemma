@@ -48,7 +48,7 @@ gh api "repos/google-ai-edge/LiteRT-LM/contents/prebuilt/ios_arm64?ref=<tag>" --
 A LiteRT-LM bump silently moves `LITERT_REF` in `WORKSPACE` (line ~6), and that is a **different upstream repo** with its own C API. This matters because three separate things bind to it:
 
 - `flutter_gemma_litertlm` → LiteRT-LM C API (`c/engine.h`)
-- `flutter_gemma_embeddings`, `flutter_gemma_speech` → **LiteRT** C API directly, via hand-written bindings in `lib/src/litert/`
+- `flutter_gemma_speech` → **LiteRT** C API directly, via litertlm's `lib/src/ffi/litert_bindings.dart`
 - **both NPU dispatch libraries** → the `LiteRtDispatchApi` struct and the LiteRT runtime they are loaded into
 
 So a green litertlm smoke run proves nothing about embeddings, and nothing at all about NPU. In the v0.14.0 migration the pin moved, `LiteRtCreateModelFromFile` gained a third parameter (`LiteRtEnvironment` first), and embeddings silently returned `status=500` — a full day lost before the cause was found.
@@ -65,7 +65,6 @@ old embeddings-only grep now misses more than half of them (23 vs 52 symbols):
 ```bash
 grep -rohE "LiteRt[A-Za-z_]+" \
   packages/flutter_gemma_litertlm/lib/src/ffi/litert_bindings.dart \
-  packages/flutter_gemma_embeddings/lib/src/litert/ \
   packages/flutter_gemma_speech/lib/src/litert/ | sort -u
 ```
 
@@ -437,7 +436,7 @@ cd test_flutter_gemma_native
 # dylibs.
 flutter pub add flutter_gemma --path="$REPO/packages/flutter_gemma"
 flutter pub add flutter_gemma_litertlm --path="$REPO/packages/flutter_gemma_litertlm"
-# add flutter_gemma_embeddings too if embeddings changed — it shares the bundle
+# flutter_gemma_embeddings is pure Dart and shares no bundle — never in this list
 rm -rf .dart_tool build
 flutter pub get
 # → must complete without "Failed to set install names" or any other error

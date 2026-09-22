@@ -1,10 +1,10 @@
-// Unit tests for `parseOnnxEmbeddingTokenizerWeb` — pure Dart, no
+// Unit tests for `parseWordPieceTokenizerJson` — pure Dart, no
 // `dart:js_interop`, runs under plain `flutter test` (VM).
 
 import 'dart:convert';
 
 import 'package:flutter_gemma_embeddings/wordpiece_embedding_tokenizer.dart';
-import 'package:flutter_gemma_onnx/src/web/onnx_web_tokenizer_loader.dart';
+import 'package:flutter_gemma_embeddings/src/wordpiece_tokenizer_json.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 String _wordPieceJson() {
@@ -26,17 +26,17 @@ String _bpeJson() {
 }
 
 void main() {
-  group('parseOnnxEmbeddingTokenizerWeb', () {
+  group('parseWordPieceTokenizerJson', () {
     test(
       'routes a WordPiece tokenizer.json to WordPieceEmbeddingTokenizer',
       () {
-        final tokenizer = parseOnnxEmbeddingTokenizerWeb(_wordPieceJson());
+        final tokenizer = parseWordPieceTokenizerJson(_wordPieceJson());
         expect(tokenizer, isA<WordPieceEmbeddingTokenizer>());
       },
     );
 
     test('a WordPiece tokenizer tokenizes correctly through the seam', () {
-      final tokenizer = parseOnnxEmbeddingTokenizerWeb(_wordPieceJson());
+      final tokenizer = parseWordPieceTokenizerJson(_wordPieceJson());
       final result = tokenizer.encode('', 'hello');
       expect(result.ids, [101, 7592, 102]);
     });
@@ -44,14 +44,14 @@ void main() {
     test('throws UnsupportedError for a non-WordPiece tokenizer.json (BPE — '
         'SentencePiece/EmbeddingGemma-family is not supported on web)', () {
       expect(
-        () => parseOnnxEmbeddingTokenizerWeb(_bpeJson()),
+        () => parseWordPieceTokenizerJson(_bpeJson()),
         throwsA(isA<UnsupportedError>()),
       );
     });
 
     test('throws FormatException for invalid JSON', () {
       expect(
-        () => parseOnnxEmbeddingTokenizerWeb('not json'),
+        () => parseWordPieceTokenizerJson('not json'),
         throwsFormatException,
       );
     });

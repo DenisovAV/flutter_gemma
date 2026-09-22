@@ -48,16 +48,19 @@ Add the package and register whichever arm(s) you use at startup:
 ```
 dependencies:
   flutter_gemma: latest_version
-  flutter_gemma_onnx: latest_version   # ONNX Runtime engines
+  flutter_gemma_onnx: latest_version         # ONNX Runtime engines
+  flutter_gemma_embeddings: latest_version   # tokenizers, for embeddings
 ```
 
 ```dart
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
 import 'package:flutter_gemma_onnx/flutter_gemma_onnx.dart';
 
 await FlutterGemma.initialize(
   inferenceEngines: [OnnxEngine()],            // text generation
   embeddingBackends: [OnnxEmbeddingBackend()], // embeddings
+  embeddingTokenizers: [GemmaEmbeddingTokenizers()], // flutter_gemma_embeddings
 );
 ```
 

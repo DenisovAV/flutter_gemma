@@ -37,9 +37,9 @@ used below).
 
 ```
 dependencies:
-  flutter_gemma: ^1.8.4
+  flutter_gemma: ^1.9.0
   flutter_gemma_agent: ^0.2.5
-  flutter_gemma_litertlm: ^1.7.1   # an inference engine (LiteRtLmEngine)
+  flutter_gemma_litertlm: ^1.8.0   # an inference engine (LiteRtLmEngine)
 ```
 
 The agent is **unverified on Web** — nothing disables it, but it has never been driven in a browser. See the note below.

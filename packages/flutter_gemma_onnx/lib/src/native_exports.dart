@@ -8,7 +8,7 @@
 // This is the `dart:ffi`-only half of what the barrel used to export
 // unconditionally — direct construction of [GenAiClient]/[GenAiFfiClient]
 // (advanced FFI client access) and the plain-ORT embedding forward-pass
-// pieces ([OnnxEmbeddingForwardPass], [loadOnnxEmbeddingTokenizer],
+// pieces ([OnnxEmbeddingForwardPass],
 // [OrtClient]) used by tests/advanced callers that build a custom client.
 // Mirrors `flutter_gemma_litertlm`'s `litert_bindings_stub.dart` pattern: the
 // web arm (`native_exports_stub.dart`) exports NO symbols at all — web
@@ -21,5 +21,4 @@ export 'ffi/gen_ai_client.dart'
 export 'onnx_inference_model.dart';
 export 'onnx_session.dart';
 export 'embedding/onnx_embedding_forward_pass.dart';
-export 'embedding/onnx_tokenizer_loader.dart';
 export 'embedding/ort_client.dart';

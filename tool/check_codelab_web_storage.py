@@ -53,11 +53,15 @@ from urllib.request import url2pathname
 
 STORAGE_JS = ("cache_api.js", "opfs_helper.js")
 # `litert_embeddings.js` imports the other three by relative path, so all four
-# have to sit together. The CDN one-liner the embeddings README prescribes
-# cannot work: two of those imports 404 there (measured 2026-09-20).
+# have to sit together. They all ship from one package as of litertlm 1.8.0 —
+# the split that made a CDN one-liner 404 on two of them is gone.
 EMBEDDINGS_JS = {
-    "flutter_gemma_embeddings": ("litert_embeddings.js", "sentencepiece.js"),
-    "flutter_gemma_litertlm": ("litert.js", "tensorflow.js"),
+    "flutter_gemma_litertlm": (
+        "litert_embeddings.js",
+        "sentencepiece.js",
+        "litert.js",
+        "tensorflow.js",
+    ),
 }
 
 HTML_COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)

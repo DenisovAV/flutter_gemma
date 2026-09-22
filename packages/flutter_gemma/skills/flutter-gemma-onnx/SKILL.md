@@ -17,16 +17,18 @@ description: Use when running ONNX models with flutter_gemma_onnx (ModelFileType
 ## Setup
 
 ```sh
-flutter pub add flutter_gemma flutter_gemma_onnx
+flutter pub add flutter_gemma flutter_gemma_onnx flutter_gemma_embeddings
 ```
 
 ```dart
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
 import 'package:flutter_gemma_onnx/flutter_gemma_onnx.dart';
 
 await FlutterGemma.initialize(
   inferenceEngines: [OnnxEngine()],
   embeddingBackends: [OnnxEmbeddingBackend()],
+  embeddingTokenizers: [GemmaEmbeddingTokenizers()],
 );
 
 await FlutterGemma.installModel(

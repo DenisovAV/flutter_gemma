@@ -8,9 +8,10 @@ This package **owns** the shared LiteRT-LM native library (`libLiteRtLm`) and
 exposes the LiteRt interpreter FFI (`LiteRtBindings`); both are shared by
 [flutter_gemma_speech](https://pub.dev/packages/flutter_gemma_speech). As of
 1.5.0 this package also ships the LiteRT C API embedding backend
-(`LiteRtEmbeddingBackend`) — see [Embeddings](#embeddings) below — built over
-[flutter_gemma_embeddings](https://pub.dev/packages/flutter_gemma_embeddings)'s
-runtime-agnostic embedding pipeline.
+(`LiteRtEmbeddingBackend`) — see [Embeddings](#embeddings) below — over the
+runtime-agnostic embedding pipeline in `flutter_gemma`. Tokenizers come from
+[flutter_gemma_embeddings](https://pub.dev/packages/flutter_gemma_embeddings),
+which the app registers; this package does not depend on it.
 
 ## Teach your AI assistant this package
 
@@ -84,17 +85,106 @@ on every install, because the variant's filename is only known after the fetch.
 ## Embeddings
 
 ```dart
+import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
+import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
+
 await FlutterGemma.initialize(
   embeddingBackends: [LiteRtEmbeddingBackend()],
+  embeddingTokenizers: [GemmaEmbeddingTokenizers()],
 );
 ```
 
+Both lists, and both packages: this one brings the backend, and
+`flutter_gemma_embeddings` brings the tokenizers it asks core for. On web the
+tokenizer list is unused — the LiteRT.js bundle tokenizes in JS.
+
 `LiteRtEmbeddingBackend` runs Gecko / EmbeddingGemma `.tflite` models via the
-LiteRT C API (moved here from `flutter_gemma_embeddings` in 1.5.0 — see that
-package for the runtime-agnostic tokenization/pooling pipeline it's built on).
+LiteRT C API. The pipeline it plugs into — the forward-pass seam, the worker
+isolate and the pooling — lives in `flutter_gemma`; the tokenizers come from
+`flutter_gemma_embeddings`, which your app registers via
+`embeddingTokenizers:`. This package depends on neither beyond core.
 On web it runs via LiteRT.js instead; see
-[flutter_gemma_embeddings' web setup](https://pub.dev/packages/flutter_gemma_embeddings#web-setup)
-for the `<script>` tag your app needs.
+[Embeddings on web](#embeddings-on-web) below for the four files and the
+`<script>` tag your app needs.
+
+## Embeddings on web
+
+On web, `flutter_gemma_litertlm`'s embedding backend runs via LiteRT.js. Copy
+all four files from this package's `web/` into your app's `web/`, next to
+`index.html` — `litert_embeddings.js` imports the other three by relative path,
+so they have to sit together:
+
+```
+litert_embeddings.js  sentencepiece.js  litert.js  tensorflow.js
+```
+
+They are four pieces of one bundle (the entry plus three vendor chunks), built
+together by `tool/web_build`, so never mix them across package versions. Find
+this package's directory with
+`grep -A1 '"name": "flutter_gemma_litertlm"' .dart_tool/package_config.json`,
+then load the entry module from `web/index.html`:
+
+```html
+<script type="module" src="litert_embeddings.js"></script>
+```
+
+Upgrading from an earlier version: delete the copies in your app's `web/` and
+re-copy all four from this package. Before 1.8.0 they came from
+`flutter_gemma_embeddings`, and the copies you have are built against an older
+`@litertjs/core` than the runtime this version loads. If you built your own
+`web/wasm/`, either delete it and take the CDN default or rebuild it from the
+version in `LiteRtWebRuntime.pinnedVersion`.
+
+> Loading `litert_embeddings.js` straight from a CDN with a
+> Subresource-Integrity hash — which an older README suggested — cannot work:
+> the module's three imports resolve against the CDN path, where they do not
+> exist, so the module never executes and every embedding call fails on an
+> undefined global. SRI would not have covered the imports either.
+
+### The WASM runtime
+
+LiteRT.js loads a WASM runtime at the first embedding call —
+`litert_wasm_internal.js`, or `litert_wasm_compat_internal.js` on a browser
+without relaxed SIMD, each with a ~9 MB `.wasm` beside it. Since 1.8.0 they come
+from the pinned `@litertjs/core` build on jsDelivr by default — nothing to
+install, and nothing this package has to carry into every native-only app.
+
+To serve them yourself (offline, an air-gapped deploy, or a CSP that forbids
+third-party script), copy `node_modules/@litertjs/core/wasm/` into your app's
+`web/wasm/` and point the package at it before the first embedding:
+
+```dart
+import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
+
+LiteRtWebRuntime.wasmPath = '/wasm/';
+```
+
+Those files come from `@litertjs/core` — `npm i @litertjs/core@2.5.3` in a
+scratch directory, then copy its `wasm/`.
+
+Set the prefix before the first embedding — the runtime is loaded once and
+cached, so a later assignment is ignored. LiteRT.js inserts the separator when
+it joins the prefix with the file name, so the trailing slash above is
+convention, not a requirement; the value is root-absolute, and an app served
+under a base href other than `/` needs `/my-app/wasm/` or a full URL.
+
+Pin `@litertjs/core` to `LiteRtWebRuntime.pinnedVersion` if you vendor it. The
+runtime and this package's `web/litert.js` are two halves of one release —
+`litert.js` calls that release's WASM entry points by name — and a mismatch
+fails at the first embedding with something that does not mention versions at
+all: a runtime older than the glue gives
+`Cannot read properties of undefined (reading 'create')`.
+
+Serving it yourself is also the answer if a third-party script in your app's
+runtime path is not acceptable to you: LiteRT.js injects the `<script>` itself,
+so the CDN copy carries no Subresource-Integrity hash.
+
+Whatever host you use must send `Access-Control-Allow-Origin` (LiteRT.js sets
+`crossOrigin="anonymous"` on the script it injects) and serve `.wasm` as
+`application/wasm`.
+
+Native platforms need no setup — the LiteRT native library is bundled at build
+time by `flutter_gemma_litertlm`'s Native-Assets hook.
 
 ## Web setup (early preview)
 

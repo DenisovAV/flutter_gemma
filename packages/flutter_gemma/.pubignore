@@ -20,7 +20,7 @@ node_modules/
 package-lock.json
 # Top-level package.json / vite.config.js (none in current repo, but
 # protect against future accidental add). The web bundle is no longer built
-# here: its source moved to flutter_gemma_embeddings/tool/web_build, next to
+# here: its source moved to flutter_gemma_litertlm/tool/web_build, next to
 # the web/ directory that ships its output.
 /package.json
 /vite.config.js

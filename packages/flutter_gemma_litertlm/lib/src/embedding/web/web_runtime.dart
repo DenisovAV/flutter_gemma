@@ -4,7 +4,7 @@
 /// first embedding call — `litert_wasm_internal.js` or, without relaxed SIMD,
 /// `litert_wasm_compat_internal.js`, each with a ~9 MB `.wasm` beside it.
 /// Shipping both variants in this package would put ~5.7 MB compressed into
-/// every install of it, native-only apps included, so until 2.2.0 this pointed
+/// every install of it, native-only apps included, so until 1.8.0 this pointed
 /// at `/wasm/` — a path nothing served, which made web embeddings fail for
 /// every consumer with `Failed to load LiteRT model: undefined`.
 ///

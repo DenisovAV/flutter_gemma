@@ -1,6 +1,6 @@
 // Host smoke test — REAL ONNX Runtime sessions over REAL embedding models,
 // through the real `dart:ffi` `OrtFfiClient` + the production tokenizer
-// router `loadOnnxEmbeddingTokenizer` (Phase 2 exit-gate evidence, Task 5).
+// router `resolveEmbeddingTokenizer` (Phase 2 exit-gate evidence, Task 5).
 // Not fakes: this is the one file in this package that actually dlopens
 // `libonnxruntime` and runs real forward passes end-to-end.
 //
@@ -27,7 +27,7 @@ import 'dart:math' as math;
 
 import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
 import 'package:flutter_gemma_onnx/src/embedding/onnx_embedding_forward_pass.dart';
-import 'package:flutter_gemma_onnx/src/embedding/onnx_tokenizer_loader.dart';
+import 'package:flutter_gemma_embeddings/src/tokenizer_router.dart';
 import 'package:flutter_gemma_onnx/src/embedding/ort_ffi_client.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -95,7 +95,7 @@ void main() {
       return;
     }
 
-    final tokenizer = await loadOnnxEmbeddingTokenizer(
+    final tokenizer = await resolveEmbeddingTokenizer(
       '$modelDir/tokenizer.json',
     );
     final pass = OnnxEmbeddingForwardPass(
@@ -153,7 +153,7 @@ void main() {
         return;
       }
 
-      final tokenizer = await loadOnnxEmbeddingTokenizer(
+      final tokenizer = await resolveEmbeddingTokenizer(
         '$modelDir/tokenizer.model',
       );
       final pass = OnnxEmbeddingForwardPass(

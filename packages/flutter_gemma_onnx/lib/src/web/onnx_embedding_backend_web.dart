@@ -5,6 +5,7 @@
 
 import 'package:flutter_gemma/core/registry/embedding_backend_provider.dart';
 import 'package:flutter_gemma/core/registry/runtime_config.dart';
+import 'package:flutter_gemma/core/registry/embedding_tokenizer_registry.dart';
 import 'package:flutter_gemma/flutter_gemma_interface.dart' show EmbeddingModel;
 import 'package:flutter_gemma/core/model_management/model_specs.dart'
     show EmbeddingModelSpec;
@@ -12,7 +13,8 @@ import 'package:flutter_gemma/core/model_management/model_specs.dart'
 import 'onnx_web_embedding_model.dart';
 
 /// ONNX Runtime embedding backend — web arm (`onnxruntime-web`, WordPiece
-/// `.onnx`/`.ort` exports only in v1 — see `onnx_web_tokenizer_loader.dart`).
+/// `.onnx`/`.ort` exports only in v1 — the tokenizer arrives as a registered
+/// [EmbeddingTokenizerProvider] factory, whose web arm is WordPiece-only).
 ///
 /// Priority 10 (above LiteRT's web catch-all 0) — same rationale as the
 /// native arm: an app that registers both backends and installs an `.onnx`
@@ -49,6 +51,7 @@ class OnnxEmbeddingBackend implements EmbeddingBackendProvider {
     return OnnxWebEmbeddingModel(
       modelPath: config.modelPath,
       tokenizerPath: tokenizerPath,
+      tokenizerFactory: EmbeddingTokenizerRegistry.instance.resolveFor(spec),
       onClose: () {}, // core resets its state via addCloseListener
     );
   }

@@ -25,16 +25,12 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  # ^1.8.4: FunctionGemma on .litertlm takes core's runtime tool path, added
-  # there. It also still needs 1.7.3's `createChat` fix, which passes `tools`
-  # into `createSession` — without it web function calling resolves, compiles,
-  # and the tools silently never reach the model.
-  flutter_gemma: ^1.8.4
-  # ^2.2.0, not ^2.0.0: 1.8.0 drops web/litert.js and web/tensorflow.js, and
-  # 2.2.0 is the first embeddings whose web/ carries all four files of that
-  # bundle. Paired with 2.1.1 the two vendor chunks exist in NO package in the
-  # graph — it resolves, it compiles, and the embedder 404s at first use.
-  flutter_gemma_embeddings: ^2.2.0
+  # ^1.9.0: this version needs core's embedding seam and the tokenizer registry
+  # (`EmbeddingTokenizerRegistry`), which land in 1.9.0. That also covers the
+  # two older floors it still depends on — 1.8.4's runtime tool path for
+  # FunctionGemma, and 1.7.3's `createChat` fix, without which web function
+  # calling resolves, compiles, and the tools silently never reach the model.
+  flutter_gemma: ^1.9.0
   ffi: ^2.1.0
   mutex: ^3.1.0
   hooks: ^2.0.0

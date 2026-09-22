@@ -21,6 +21,8 @@ import 'package:flutter_gemma/core/registry/hugging_face_resolver_registry.dart'
 import 'package:flutter_gemma/core/registry/hugging_face_resolver_source.dart';
 import 'package:flutter_gemma/core/registry/inference_engine_provider.dart';
 import 'package:flutter_gemma/core/registry/embedding_backend_provider.dart';
+import 'package:flutter_gemma/core/registry/embedding_tokenizer_provider.dart';
+import 'package:flutter_gemma/core/registry/embedding_tokenizer_registry.dart';
 import 'package:flutter_gemma/core/registry/stt_backend_provider.dart';
 import 'package:flutter_gemma/core/registry/tts_backend_provider.dart';
 import 'package:flutter_gemma/core/registry/skill_executor_provider.dart';
@@ -144,6 +146,7 @@ class FlutterGemma {
     // NONE by default. Pass the providers from the packages you use, e.g.
     // `LiteRtLmEngine()` (flutter_gemma_litertlm), `MediaPipeEngine()`
     // (flutter_gemma_mediapipe), `LiteRtEmbeddingBackend()`
+    // (flutter_gemma_litertlm), `GemmaEmbeddingTokenizers()`
     // (flutter_gemma_embeddings). If the lists are empty, the first
     // createModel / createEmbeddingModel throws a clear "add the engine
     // package" StateError. vectorStore null → ServiceRegistry's
@@ -151,6 +154,12 @@ class FlutterGemma {
     // RAG package" error on first use).
     List<InferenceEngineProvider> inferenceEngines = const [],
     List<EmbeddingBackendProvider> embeddingBackends = const [],
+    // Which tokenizer a model needs is a property of the MODEL, not of the
+    // engine running it, so the engine asks for one instead of naming one.
+    // Implementations live in flutter_gemma_embeddings (they pull
+    // dart_sentencepiece_tokenizer); core holds only the contract. Empty
+    // default: an app that never embeds passes nothing and pays nothing.
+    List<EmbeddingTokenizerProvider> embeddingTokenizers = const [],
     List<SttBackendProvider> sttBackends = const [],
     List<TtsBackendProvider> ttsBackends = const [],
     // Opt-in agentic "skills" runtime, provided by the `flutter_gemma_agent`
@@ -217,6 +226,9 @@ class FlutterGemma {
     }
     if (embeddingBackends.isNotEmpty) {
       EmbeddingRegistry.instance.registerAll(embeddingBackends);
+    }
+    if (embeddingTokenizers.isNotEmpty) {
+      EmbeddingTokenizerRegistry.instance.registerAll(embeddingTokenizers);
     }
     if (sttBackends.isNotEmpty) {
       SttRegistry.instance.registerAll(sttBackends);

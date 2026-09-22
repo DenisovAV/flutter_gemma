@@ -465,6 +465,9 @@ Add `genkit_flutter_gemma` and `flutter_gemma`:
   # flutter_gemma 1.x registers no engine by default — opt into LiteRT-LM
   # (.litertlm inference) here.
   flutter_gemma_litertlm: ">=1.7.1 <1.8.0"
+
+  # Step 5 adds embeddings; the same upper bound applies for the same reason.
+  # flutter_gemma_embeddings: ">=2.1.1 <2.2.0"
 ```
 
 Run `flutter pub get`.

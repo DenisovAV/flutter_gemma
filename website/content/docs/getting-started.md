@@ -35,6 +35,13 @@ SmolLM and more — see [Models](/docs/models) for the full list.
 - **Text Embeddings & RAG:** Generate vector embeddings (EmbeddingGemma, Gecko) and run on-device RAG. See [Embeddings & RAG](/docs/embeddings-and-rag).
 - **Web Persistent Caching:** Models persist across browser restarts using the Cache API (Web only).
 
+## What's new in 1.9
+
+- **`embeddingTokenizers:`** — embedding backends no longer bring a tokenizer. Add `flutter_gemma_embeddings` and pass `embeddingTokenizers: [GemmaEmbeddingTokenizers()]` beside `embeddingBackends:`, or the first embedding throws a `StateError`. Breaking for every app that computes embeddings. See [Migration](/docs/migration).
+- **No package depends on a sibling** — `flutter_gemma_litertlm` and `flutter_gemma_onnx` no longer pull `flutter_gemma_embeddings`. See [Packages](/docs/packages).
+- **Web embeddings run** — the LiteRT.js bundle was rebuilt on `@litertjs/core` 2.5.3 and all four JS files now ship together in `flutter_gemma_litertlm/web/`. See [Embeddings & RAG](/docs/embeddings-and-rag).
+- **SQLite RAG on web drains for real** — `flutter_gemma_rag_sqlite` 1.4.0 requires sqlite3 3.6.0 and Flutter 3.47; a Flutter 3.44 app stays on 1.3.2. See [Embeddings & RAG](/docs/embeddings-and-rag).
+
 ## What's new in 1.8
 
 - **Package Skills** — flutter_gemma ships agent skills for coding assistants; `dart run skills@ get --all` installs them. See [Package Skills](/docs/package-skills).

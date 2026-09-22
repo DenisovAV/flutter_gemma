@@ -43,6 +43,7 @@ register their providers in `await FlutterGemma.initialize()`.
 |---|---|---|
 | `flutter_gemma_litertlm` | `LiteRtLmEngine()`, `LiteRtEmbeddingBackend()` | `.litertlm` models (Gemma 4, desktop) and/or text embeddings (EmbeddingGemma) |
 | `flutter_gemma_mediapipe` | `MediaPipeEngine()` | `.task` / `.bin` models (Gemma 3, mobile/web) |
+| `flutter_gemma_embeddings` | `GemmaEmbeddingTokenizers()` | text embeddings — required beside any embedding backend |
 
 ```yaml
 # pubspec.yaml (your app)
@@ -70,6 +71,7 @@ await FlutterGemma.initialize(
 
 ```dart
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
 // Engines/backends are opt-in (see Setup) — register the ones you need.
 import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';

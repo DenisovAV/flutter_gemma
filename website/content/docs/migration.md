@@ -34,7 +34,7 @@ dependencies:
   flutter_gemma_mediapipe: ^1.0.6       # add if you run .task / .bin models
   flutter_gemma_embeddings: ^2.2.0      # add if you compute embeddings (needs a backend, see above)
   flutter_gemma_rag_qdrant: ^1.3.1      # add for native on-device RAG (qdrant)
-  flutter_gemma_rag_sqlite: ^1.3.2      # add for on-device RAG (sqlite-vec; all platforms incl. web)
+  flutter_gemma_rag_sqlite: ^1.4.0      # add for on-device RAG (sqlite-vec; all platforms incl. web) — needs Flutter 3.47
 ```
 
 Pick by what you actually used in 0.16.x:
@@ -229,6 +229,7 @@ void main() {
 
 ```dart
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
 import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
 import 'package:flutter_gemma_rag_qdrant/flutter_gemma_rag_qdrant.dart';

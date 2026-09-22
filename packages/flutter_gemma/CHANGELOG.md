@@ -1,5 +1,5 @@
 ## 1.9.0
-- Embedding seam, worker and tokenizer registry move into core so engines need no sibling package.
+- New `initialize(embeddingTokenizers:)` — register one or embeddings throw; engines no longer bundle a tokenizer.
 - Drop the dead `web/rag/` build from the published archive.
 
 ## 1.8.4

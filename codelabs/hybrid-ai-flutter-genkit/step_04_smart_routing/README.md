@@ -47,6 +47,7 @@ genkit_flutter_gemma: ^0.6.1
 # see the comment in the app's pubspec.yaml.
 flutter_gemma: ">=1.8.4 <1.9.0"
 flutter_gemma_litertlm: ">=1.7.1 <1.8.0"   # LiteRT-LM engine (flutter_gemma 1.x ships none by default)
+flutter_gemma_embeddings: ">=2.1.1 <2.2.0" # EmbeddingGemma; same bound, same reason
 genkit_hybrid: ^0.2.1
 ```
 

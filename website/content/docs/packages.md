@@ -29,7 +29,8 @@ it, and your app wires the two together in `FlutterGemma.initialize(...)`.
 ## How it works
 
 - **Core registers no engine by itself.** You wire the packages you added through
-  `FlutterGemma.initialize(inferenceEngines:, embeddingBackends:, vectorStore:)`.
+  `FlutterGemma.initialize(inferenceEngines:, embeddingBackends:, embeddingTokenizers:,
+  vectorStore:)`.
   See [Installation](/docs/installation).
 - **Probe-chain registry.** Engines and backends are pure factories that declare
   `canHandle(spec)` + a priority. The registry selects a provider per model by

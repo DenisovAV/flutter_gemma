@@ -92,8 +92,19 @@ for new in "$DIST_DIR"/litertlm-*.tar.gz; do
     continue
   fi
 
-  if ! gh release download "$PREV_TAG" --repo "$REPO" --pattern "$base" \
-        --dir "$PREV_DL" --clobber >/dev/null 2>&1; then
+  # One shot used to be enough until a 98 MB windows_x86_64 timed out and
+  # failed the whole gate on native-v0.17.1. Retry, then fail closed — a
+  # platform we could not diff must never read as a pass.
+  dl_ok=0
+  for attempt in 1 2 3; do
+    if gh release download "$PREV_TAG" --repo "$REPO" --pattern "$base" \
+          --dir "$PREV_DL" --clobber >/dev/null 2>&1; then
+      dl_ok=1
+      break
+    fi
+    sleep $((attempt * 5))
+  done
+  if [ "$dl_ok" -eq 0 ]; then
     echo "  [FAIL] $plat — '$base' IS an asset of $PREV_TAG but would not download."
     echo "         Cannot diff it, so this run proves nothing about $plat."
     fail=1

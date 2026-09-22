@@ -143,7 +143,12 @@ Core has NO pigeon (dropped at the 1.0 cut; its value types are hand-written in 
 
 ## Versions & Dependencies
 
-- **Flutter**: `>=3.44.0` (raised at the 1.0 cut: `large_file_handler` 0.5.0 + dart2wasm need it)
+- **Flutter**: `>=3.44.0` (raised at the 1.0 cut: `large_file_handler` 0.5.0 + dart2wasm need it).
+  **Exception: `flutter_gemma_rag_sqlite` declares `>=3.47.0`** — sqlite3 3.6.0, the first
+  release whose web `flush()` awaits an in-flight write batch, requires `hooks ^2.2.0` →
+  `record_use` → `meta ^1.19.0`, and every Flutter 3.44.x pins `meta` to 1.18.0 exactly.
+  Consumers on 3.44 resolve to rag_sqlite 1.3.2 instead. The **workspace dev floor is
+  therefore 3.47** (`.fvmrc`, and the two `flutter-version`-pinned website workflows)
 - **Dart SDK**: `>=3.12.0 <4.0.0`
 - **iOS**: Minimum 15.0; **16.0 only with `flutter_gemma_mediapipe`** (MediaPipe GenAI). Core, litertlm, built-in AI and embeddings build from 15 (#441)
 - **MediaPipe Web**: v0.10.27, Android/iOS: v0.10.33

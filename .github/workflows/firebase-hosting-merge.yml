@@ -23,7 +23,9 @@ jobs:
       - name: Set up Flutter (bundles Dart)
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.44.0'
+          # The workspace floor: flutter_gemma_rag_sqlite needs 3.47 for
+          # sqlite3 3.6.0, and this job builds the example that depends on it.
+          flutter-version: '3.47.0'
           channel: stable
           cache: true
 

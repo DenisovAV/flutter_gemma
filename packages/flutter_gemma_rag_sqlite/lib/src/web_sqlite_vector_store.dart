@@ -533,20 +533,19 @@ class WebSqliteVectorStore implements VectorStoreRepository {
     // asynchronous "without any durability guarantees. You can invoke flush".
     // That `flush` is this call.
     //
-    // HOW COMPLETE the drain is depends on the sqlite3 version, and this
-    // package allows both sides of a regression:
-    //   * < 3.4.0 — `flush()` queues a marker behind the running batch and
-    //     awaits it. A true fence.
-    //   * >= 3.4.0 — `flush()` returns immediately whenever a write batch is
-    //     already in flight, which is the ordinary state right after indexing.
-    //     Upstream commit 11be8acb ("Optimize indexeddb flush on idle") took
-    //     the marker out; its own doc still promises to await. Measured: zero
-    //     event-loop turns on 3.5.2 against seven on 3.3.3.
+    // HOW COMPLETE the drain is depended on the sqlite3 version, which is why
+    // this package floors it at 3.6.0. Between 3.4.0 and 3.5.2 `flush()`
+    // returned immediately whenever a write batch was already in flight — the
+    // ordinary state right after indexing — because upstream commit 11be8acb
+    // ("Optimize indexeddb flush on idle") took out the marker it used to
+    // queue behind, while its own doc still promised to await. Measured: zero
+    // event-loop turns on 3.5.2 against seven on 3.3.3. Reported as
+    // simolus3/sqlite3.dart#408 and fixed in 3.6.0. That constraint, and the
+    // Flutter 3.47 floor it drags in through hooks -> record_use -> meta, is
+    // what keeps this a real fence rather than a comment; relax either and a
+    // quiet success comes back.
     //
-    // The exposure is bounded, which is why this is documented rather than
-    // worked around here: the VFS streams every write into IndexedDB as it
-    // happens, so what an early return misses is the batch in flight, not the
-    // index. `close()` is the strong drain on web — it queues behind the
+    // `close()` is the strong drain on web either way — it queues behind the
     // running batch on every version.
     //
     // Not gated on `_isInitialized` alone: a re-initialize that threw leaves

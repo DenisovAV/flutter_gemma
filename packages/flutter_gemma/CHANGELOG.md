@@ -1,3 +1,6 @@
+## 1.8.5
+- Drop `web/rag/`: the bundle build moved to `flutter_gemma_embeddings`.
+
 ## 1.8.4
 - FunctionGemma on `.litertlm` answers a tool result instead of repeating the call.
 - Drop the example's 800 KB sqlite-vec wasm from the published archive.

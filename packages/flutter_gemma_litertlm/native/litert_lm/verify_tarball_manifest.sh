@@ -50,7 +50,12 @@ _is_intentional() {
 }
 
 PREV_DL="$(mktemp -d)"
-trap 'rm -rf "$PREV_DL"' EXIT
+# ONE trap for every temp dir. bash REPLACES an EXIT trap rather than adding to
+# it, so the later `trap ... EXIT` for the alignment scan used to silently
+# disinherit this one — every successful run left the previous tag's archives
+# behind, ~250 MB a time, forever.
+align_tmp=""
+trap 'rm -rf "$PREV_DL" ${align_tmp:+"$align_tmp"}' EXIT
 
 echo "==> Verifying new tarballs in $DIST_DIR against previous tag $PREV_TAG"
 echo "    repo: $REPO"
@@ -73,6 +78,39 @@ _prev_has() {
   printf '%s\n' "$prev_assets" | grep -qxF "$1"
 }
 
+# One shot used to be enough until a 98 MB windows_x86_64 timed out and failed
+# the whole gate on native-v0.17.1. Retry, then let the caller fail closed — a
+# platform we could not diff must never read as a pass.
+_download_prev() {
+  local name="$1" attempt
+  for attempt in 1 2 3; do
+    if gh release download "$PREV_TAG" --repo "$REPO" --pattern "$name" \
+          --dir "$PREV_DL" --clobber >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep $((attempt * 5))
+  done
+  return 1
+}
+
+# The diff below is only as good as the archive it compares against, and a zero
+# exit from `gh` says nothing about WHICH bytes arrived — `--clobber` only means
+# "overwrite". Hand this script the NEW archive under the OLD name and the list
+# diff compares a file with itself, prints "no files dropped", and green-lights
+# a release that dropped everything. So verify against the tag's own sums.
+PREV_SUMS="checksums_litertlm.txt"
+if ! _prev_has "$PREV_SUMS"; then
+  echo "❌ $PREV_TAG publishes no $PREV_SUMS, so nothing downloaded from it" >&2
+  echo "   can be verified, and an unverified archive cannot prove anything" >&2
+  echo "   about a dropped native library. Re-release the tag with sums." >&2
+  exit 2
+fi
+if ! _download_prev "$PREV_SUMS"; then
+  echo "❌ Cannot download $PREV_SUMS from $PREV_TAG after three attempts." >&2
+  echo "   Do NOT publish on the strength of a check that did not execute." >&2
+  exit 2
+fi
+
 fail=0
 checked=0
 skipped=0
@@ -92,10 +130,24 @@ for new in "$DIST_DIR"/litertlm-*.tar.gz; do
     continue
   fi
 
-  if ! gh release download "$PREV_TAG" --repo "$REPO" --pattern "$base" \
-        --dir "$PREV_DL" --clobber >/dev/null 2>&1; then
+  if ! _download_prev "$base"; then
     echo "  [FAIL] $plat — '$base' IS an asset of $PREV_TAG but would not download."
     echo "         Cannot diff it, so this run proves nothing about $plat."
+    fail=1
+    continue
+  fi
+
+  want_sum="$(awk -v f="$base" '$2 == f { print $1 }' "$PREV_DL/$PREV_SUMS")"
+  got_sum="$(shasum -a 256 "$PREV_DL/$base" | awk '{ print $1 }')"
+  if [[ -z "$want_sum" || "$want_sum" != "$got_sum" ]]; then
+    echo "  [FAIL] $plat — what we downloaded is not what $PREV_TAG published."
+    if [[ -z "$want_sum" ]]; then
+      echo "         $PREV_SUMS of $PREV_TAG has no line for '$base'."
+    else
+      echo "         expected $want_sum"
+      echo "         got      $got_sum"
+    fi
+    echo "         Diffing against it would prove nothing about $plat."
     fail=1
     continue
   fi
@@ -172,8 +224,7 @@ done <<< "$prev_assets"
 # consumer's app (#529). Look inside the archives, not just at their listings.
 echo
 echo "==> Checking 16 KB page alignment inside each tarball"
-align_tmp="$(mktemp -d)"
-trap 'rm -rf "$align_tmp"' EXIT
+align_tmp="$(mktemp -d)"   # cleaned by the single EXIT trap above
 align_fail=0
 for new in "$DIST_DIR"/litertlm-*.tar.gz; do
   [[ -e "$new" ]] || continue

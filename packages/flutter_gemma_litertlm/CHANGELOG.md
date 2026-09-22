@@ -1,3 +1,7 @@
+## 1.7.2
+- Google Play no longer rejects apps over 16 KB page sizes (#529).
+- Native runtime LiteRT-LM v0.17.1: integer tool-call arguments stay integers.
+
 ## 1.7.1
 - Native runtime `native-v0.17.0-a`: tool calls no longer crash the app.
 - FunctionGemma on `.litertlm` takes the runtime's tool path — needs core 1.8.4.

@@ -24,12 +24,12 @@ dependencies:
 **After (1.0):**
 ```yaml
 dependencies:
-  flutter_gemma: ^1.8.4                 # core — always required
-  flutter_gemma_litertlm: ^1.7.1        # add if you run .litertlm models (also provides LiteRtEmbeddingBackend)
+  flutter_gemma: ^1.9.0                 # core — always required
+  flutter_gemma_litertlm: ^1.8.0        # add if you run .litertlm models (also provides LiteRtEmbeddingBackend)
   flutter_gemma_mediapipe: ^1.0.6       # add if you run .task / .bin models
-  flutter_gemma_embeddings: ^2.1.1      # add if you compute embeddings (needs a backend, see above)
+  flutter_gemma_embeddings: ^2.2.0      # add if you compute embeddings (needs a backend, see above)
   flutter_gemma_rag_qdrant: ^1.3.1      # add for native on-device RAG (qdrant)
-  flutter_gemma_rag_sqlite: ^1.3.2      # add for on-device RAG (sqlite-vec; all platforms incl. web)
+  flutter_gemma_rag_sqlite: ^1.4.0      # add for on-device RAG (sqlite-vec; all platforms incl. web) — needs Flutter 3.47
 ```
 
 Pick by what you actually used in 0.16.x:
@@ -67,6 +67,7 @@ void main() {
 **After (1.0):** register the packages you added.
 ```dart
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
 import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
 import 'package:flutter_gemma_rag_qdrant/flutter_gemma_rag_qdrant.dart';
@@ -77,6 +78,7 @@ void main() async {
   await FlutterGemma.initialize(
     inferenceEngines: const [LiteRtLmEngine(), MediaPipeEngine()],
     embeddingBackends: const [LiteRtEmbeddingBackend()],
+    embeddingTokenizers: const [GemmaEmbeddingTokenizers()],
     vectorStore: QdrantVectorStore(),          // or WebSqliteVectorStore() on web
     // '' when the define is absent, and an empty token still sends a
     // bare `Authorization: Bearer` header — pass null instead.
@@ -156,11 +158,38 @@ import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
 import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 ```
 
-`FlutterGemma.initialize(embeddingBackends: [LiteRtEmbeddingBackend()])` is
-otherwise unchanged — only the import path moved. `flutter_gemma_embeddings`
-itself is now a runtime-agnostic pipeline (tokenization, isolate worker,
-pooling) with no concrete backend of its own; there is no re-export shim, so
-the import must be updated.
+`LiteRtEmbeddingBackend()` itself is unchanged — only the import path moved,
+and there is no re-export shim, so it must be updated.
+
+### Register a tokenizer (litertlm 1.8.0 / onnx 0.4.0)
+
+An embedding backend no longer names a tokenizer. Which family a model needs
+is a property of the MODEL, not of the engine that runs it — EmbeddingGemma is
+SentencePiece whether LiteRT or ONNX Runtime executes its weights — so the app
+supplies it, and the engine packages stopped depending on
+`flutter_gemma_embeddings` because of it.
+
+**Add the dependency** (it no longer arrives through the engine):
+```yaml
+dependencies:
+  flutter_gemma_embeddings: ^2.2.0
+```
+
+**Add one line to `initialize`:**
+```dart
+await FlutterGemma.initialize(
+  embeddingBackends: [LiteRtEmbeddingBackend()],
+  embeddingTokenizers: [GemmaEmbeddingTokenizers()],   // new
+);
+```
+
+Omit it and the first embedding throws a `StateError` naming this step. It
+never falls back to a tokenizer of its own choosing: the wrong family produces
+vectors that are quietly the wrong point in the embedding space, which no test
+downstream can tell from a working model.
+
+An app that never embeds anything passes neither list and can drop
+`flutter_gemma_embeddings` entirely.
 
 If your app used embeddings **without** also using `.litertlm` inference, add
 `flutter_gemma_litertlm` to your `pubspec.yaml` — this also delivers the

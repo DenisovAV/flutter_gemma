@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_agent/flutter_gemma_agent.dart';
 import 'package:flutter_gemma_builtin_ai/flutter_gemma_builtin_ai.dart';
+import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
 import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
 import 'package:flutter_gemma_onnx/flutter_gemma_onnx.dart';
@@ -32,6 +33,14 @@ const kExampleEmbeddingBackends = [
   LiteRtEmbeddingBackend(),
   OnnxEmbeddingBackend(),
 ];
+
+/// The tokenizer families the example registers. Separate from the backends
+/// above because the choice belongs to the MODEL, not the engine: the same
+/// EmbeddingGemma needs SentencePiece whether LiteRT or ONNX Runtime runs it.
+/// Supplying it here is also what lets both engine packages stay off
+/// `flutter_gemma_embeddings` — an app that never embeds registers nothing and
+/// does not resolve the package at all.
+const kExampleEmbeddingTokenizers = [GemmaEmbeddingTokenizers()];
 
 /// The opt-in STT backends the example registers. Single source of truth.
 const kExampleSttBackends = [LiteRtSttBackend()];
@@ -109,6 +118,7 @@ Future<void> bootstrapGemma({required RagBackend ragBackend}) {
     webStorageMode: WebStorageMode.streaming,
     inferenceEngines: kExampleInferenceEngines,
     embeddingBackends: kExampleEmbeddingBackends,
+    embeddingTokenizers: kExampleEmbeddingTokenizers,
     sttBackends: kExampleSttBackends,
     ttsBackends: kExampleTtsBackends,
     // huggingFaceResolvers: omitted — resolvers auto-register from the engines

@@ -1,5 +1,6 @@
-## 1.8.5
-- Drop `web/rag/`: the bundle build moved to `flutter_gemma_embeddings`.
+## 1.9.0
+- New `initialize(embeddingTokenizers:)` — register one or embeddings throw; engines no longer bundle a tokenizer.
+- Drop the dead `web/rag/` build from the published archive.
 
 ## 1.8.4
 - FunctionGemma on `.litertlm` answers a tool result instead of repeating the call.

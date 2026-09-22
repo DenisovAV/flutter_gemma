@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/core/lifecycle/close_notifier.dart';
 import 'package:flutter_gemma/flutter_gemma_interface.dart';
 
-import '../web_runtime.dart';
+import 'web_runtime.dart';
 import 'litert_web_embeddings.dart';
 
 class WebEmbeddingModel extends EmbeddingModel with CloseNotifier {

@@ -10,6 +10,22 @@ export 'core/services/file_system_service.dart'
 // Vector store filter DSL — passed to searchSimilar to constrain results
 // by payload. Honored on every native platform (qdrant-edge); silently
 // ignored on Web.
+// The embedding seam: contracts an engine implements, the worker that runs
+// them off the UI isolate, and the facade it produces. Contracts only — the
+// tokenizer IMPLEMENTATIONS stay in flutter_gemma_embeddings, which core never
+// depends on (see "Packages -> core, never to each other" in CLAUDE.md).
+export 'core/registry/embedding_tokenizer_provider.dart';
+export 'core/registry/embedding_tokenizer_registry.dart';
+export 'core/embedding/forward_pass.dart';
+export 'core/embedding/tokenizer_adapter.dart';
+export 'core/embedding/pooling.dart';
+// Real arm by default, web overrides -- core's own convention everywhere else
+// (flutter_gemma_interface.dart, service_registry.dart). The worker needs
+// dart:isolate; web engine arms build their own EmbeddingModel and never
+// reach it.
+export 'core/embedding/common_embedding_model.dart'
+    if (dart.library.js_interop) 'core/embedding/common_embedding_model_stub.dart';
+
 export 'core/services/vector_store_filter.dart';
 export 'core/services/vector_store_repository.dart'; // VectorStoreRepository + VectorStoreException for opt-in RAG packages
 // Agentic skill-executor seam — the opt-in flutter_gemma_agent package's

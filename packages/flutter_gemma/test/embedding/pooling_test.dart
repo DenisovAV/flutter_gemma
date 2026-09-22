@@ -5,8 +5,8 @@
 
 import 'dart:math' as math;
 
-import 'package:flutter_gemma_embeddings/src/forward_pass.dart';
-import 'package:flutter_gemma_embeddings/src/pooling.dart';
+import 'package:flutter_gemma/core/embedding/forward_pass.dart';
+import 'package:flutter_gemma/core/embedding/pooling.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Fake forward-pass returning a pre-baked [ForwardResult], for pipeline

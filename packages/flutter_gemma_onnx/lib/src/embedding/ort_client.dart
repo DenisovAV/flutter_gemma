@@ -1,6 +1,6 @@
 // Injectable ONNX Runtime session seam (Phase 2 — plain-ORT embedding
 // forward pass, hardened plan Task 2). Mirrors the shape of
-// `flutter_gemma_embeddings`'s `LiteRtBindings`/`EmbeddingCore` split: an
+// `flutter_gemma_litertlm`'s `LiteRtBindings` / forward-pass split: an
 // abstract interface unit tests fake with ZERO dlopen, and a concrete
 // `dart:ffi` implementation (`OrtFfiClient`) built only inside the
 // background worker isolate — never on the isolate that constructs the

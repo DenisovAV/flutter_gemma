@@ -67,6 +67,7 @@ without this step `getActiveModel()` / `createEmbeddingModel()` throw a clear
 ```dart
 import 'package:flutter/widgets.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
 import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
 import 'package:flutter_gemma_builtin_ai/flutter_gemma_builtin_ai.dart';
@@ -85,7 +86,12 @@ void main() async {
     ],
     // Optional — embeddings (needed for RAG / generateEmbedding):
     embeddingBackends: const [
-      LiteRtEmbeddingBackend(), // flutter_gemma_litertlm (needs flutter_gemma_embeddings too)
+      LiteRtEmbeddingBackend(), // flutter_gemma_litertlm
+    ],
+    // The tokenizer is registered separately — which family a model needs is a
+    // property of the model, not of the engine that runs it.
+    embeddingTokenizers: const [
+      GemmaEmbeddingTokenizers(), // flutter_gemma_embeddings
     ],
     // Optional — on-device speech-to-text:
     sttBackends: const [
@@ -119,8 +125,9 @@ void main() async {
 | `inferenceEngines: [LiteRtLmEngine()]` | `flutter_gemma_litertlm` | `.litertlm` (mobile + desktop + web) |
 | `inferenceEngines: [MediaPipeEngine()]` | `flutter_gemma_mediapipe` | `.task` / `.bin` (mobile + web) |
 | `inferenceEngines: [OnnxEngine()]` | `flutter_gemma_onnx` | ONNX models — ORT-GenAI (FFI, macOS/Linux/Windows/Android/iOS arm64) or Transformers.js (Web) |
-| `embeddingBackends: [LiteRtEmbeddingBackend()]` | `flutter_gemma_litertlm` | text embeddings (needs `flutter_gemma_embeddings` too) |
-| `embeddingBackends: [OnnxEmbeddingBackend()]` | `flutter_gemma_onnx` | text embeddings from ONNX/ORT models (needs `flutter_gemma_embeddings` too) |
+| `embeddingBackends: [LiteRtEmbeddingBackend()]` | `flutter_gemma_litertlm` | text embeddings |
+| `embeddingBackends: [OnnxEmbeddingBackend()]` | `flutter_gemma_onnx` | text embeddings from ONNX/ORT models |
+| `embeddingTokenizers: [GemmaEmbeddingTokenizers()]` | `flutter_gemma_embeddings` | required by BOTH embedding backends above |
 | `sttBackends: [LiteRtSttBackend()]` | `flutter_gemma_speech` | speech-to-text (native only) |
 | `ttsBackends: [LiteRtTtsBackend()]` | `flutter_gemma_speech` | text-to-speech (native only) |
 | `vectorStore: QdrantVectorStore()` | `flutter_gemma_rag_qdrant` | native RAG |
@@ -382,7 +389,7 @@ Only add the shim(s) for the arm(s) you use — `transformersReady` for
 `OnnxEngine`, `ortReady` for `OnnxEmbeddingBackend`.
 
 **`LiteRtEmbeddingBackend`** (web embeddings, `flutter_gemma_litertlm`): runs on
-LiteRT.js, which needs the four files in `flutter_gemma_embeddings`' `web/`
+LiteRT.js, which needs the four files in `flutter_gemma_litertlm`'s `web/`
 copied into your app's `web/`: `litert_embeddings.js`, `sentencepiece.js`,
 `litert.js` and `tensorflow.js`. The first imports the other three by relative
 path — they are one bundle in four pieces — so they sit together and the entry
@@ -393,10 +400,10 @@ module is loaded locally:
 ```
 
 The WASM runtime underneath comes from a pinned CDN copy by default
-(`flutter_gemma_embeddings` 2.2.0+) — nothing else to install. To serve it
+(`flutter_gemma_litertlm` 1.8.0+) — nothing else to install. To serve it
 yourself, copy `node_modules/@litertjs/core/wasm/` into `web/wasm/` and set
-`LiteRtWebRuntime.wasmPath = '/wasm/';` before the first embedding. See the
-[`flutter_gemma_embeddings` web setup](https://pub.dev/packages/flutter_gemma_embeddings#web-setup).
+`LiteRtWebRuntime.wasmPath = '/wasm/';` before the first embedding. See
+[`flutter_gemma_litertlm`'s embeddings on web](https://pub.dev/packages/flutter_gemma_litertlm#embeddings-on-web).
 
 **`flutter_gemma_rag_sqlite`** (web RAG): no `<script>`. Copy the package's
 `web/rag/sqlite3.wasm` (a `sqlite3.wasm` with `sqlite-vec` statically linked)

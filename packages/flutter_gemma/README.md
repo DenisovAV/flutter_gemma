@@ -68,6 +68,13 @@ That scans your dependencies and installs every skill they bundle where your age
 
 What they cover: registering an engine (core ships none), routing by the declared `ModelFileType` rather than the filename, and the two defaults that fail quietly — `maxTokens` is the context window and not the reply length, and `Message.isUser` defaults to `false`.
 
+## What's new in 1.9.0
+
+- 🔤 **Embedding tokenizers are registered, not bundled.** Which tokenizer an embedding model needs is a property of the model, not of the engine that runs it — EmbeddingGemma wants SentencePiece under LiteRT and under ONNX alike. So the backends stopped carrying one: add `flutter_gemma_embeddings`, import it, and pass `embeddingTokenizers: [GemmaEmbeddingTokenizers()]` beside `embeddingBackends:`. Miss it and the first embedding throws a `StateError` naming the package to add — it will not quietly tokenize with the wrong convention and hand you vectors from the wrong point in the embedding space. See [MIGRATION.md](MIGRATION.md).
+- 🧩 **No package depends on a sibling any more.** That registry is what let `flutter_gemma_litertlm` and `flutter_gemma_onnx` drop their dependency on `flutter_gemma_embeddings`; the contracts live in core, the implementations stay opt-in.
+- 🌐 **Web embeddings actually run** (`flutter_gemma_litertlm` 1.8.0) — the LiteRT.js bundle was rebuilt on `@litertjs/core` 2.5.3 and now lives, all four files together, in `flutter_gemma_litertlm/web/`. Copy them from there.
+- 💾 **`flutter_gemma_rag_sqlite` 1.4.0 makes web `flush()` a real fence** by requiring sqlite3 3.6.0, and with it Flutter 3.47. An app on Flutter 3.44 resolves to 1.3.2 instead.
+
 ## What's new in 1.8.2
 
 - 🤖 **Agent skills ship with the package** — `dart run skills@ get --all` installs seven skills that teach your coding assistant this API: inference (with platform setup), function calling, RAG, speech, MediaPipe, ONNX and built-in AI. Every code block in them is compiled against these packages before each release.
@@ -458,12 +465,12 @@ Then add the CDN script(s) for the **engine package(s) you use**.
 ```
 
 * **`LiteRtEmbeddingBackend`** (web embeddings, `flutter_gemma_litertlm`) — copy
-  the four files in `flutter_gemma_embeddings`' `web/` into your own `web/`
+  the four files in `flutter_gemma_litertlm`' `web/` into your own `web/`
   (`litert_embeddings.js`, `sentencepiece.js`, `litert.js`, `tensorflow.js` —
   one bundle in four pieces) and load the entry module locally:
   `<script type="module" src="litert_embeddings.js"></script>`. The WASM runtime
   comes from a pinned CDN by default; see the
-  [`flutter_gemma_embeddings` web setup](https://pub.dev/packages/flutter_gemma_embeddings#web-setup).
+  [`flutter_gemma_litertlm` embeddings on web](https://pub.dev/packages/flutter_gemma_litertlm#embeddings-on-web).
 
 * **`flutter_gemma_rag_sqlite`** (web RAG) — copy the package's custom
   `sqlite3.wasm` (with `sqlite-vec`/`vec0` statically linked) into your app's web
@@ -948,6 +955,7 @@ without this step `getActiveModel()` / `createEmbeddingModel()` throw a clear
 ```dart
 import 'package:flutter/widgets.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
 import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
 import 'package:flutter_gemma_rag_qdrant/flutter_gemma_rag_qdrant.dart';
@@ -965,6 +973,11 @@ void main() async {
     // Optional — embeddings (needed for RAG / generateEmbedding):
     embeddingBackends: const [
       LiteRtEmbeddingBackend(), // flutter_gemma_litertlm
+    ],
+    // The tokenizer is registered separately — which family a model needs is a
+    // property of the model, not of the engine that runs it.
+    embeddingTokenizers: const [
+      GemmaEmbeddingTokenizers(), // flutter_gemma_embeddings
     ],
     // Optional — RAG vector store (pick one; native here):
     vectorStore: QdrantVectorStore(), // flutter_gemma_rag_qdrant
@@ -992,6 +1005,7 @@ void main() async {
 | `inferenceEngines: [OnnxEngine()]` | `flutter_gemma_onnx` | ONNX models — ORT-GenAI (FFI; macOS/Linux/Windows/Android/iOS arm64) or Transformers.js (Web) |
 | `embeddingBackends: [LiteRtEmbeddingBackend()]` | `flutter_gemma_litertlm` | text embeddings |
 | `embeddingBackends: [OnnxEmbeddingBackend()]` | `flutter_gemma_onnx` | text embeddings from ONNX/ORT models (FFI native; onnxruntime-web on Web) |
+| `embeddingTokenizers: [GemmaEmbeddingTokenizers()]` | `flutter_gemma_embeddings` | required by BOTH embedding backends above |
 | `sttBackends: [LiteRtSttBackend()]` | `flutter_gemma_speech` | speech-to-text (native only) |
 | `ttsBackends: [LiteRtTtsBackend()]` | `flutter_gemma_speech` | text-to-speech (native only) |
 | `vectorStore: QdrantVectorStore()` | `flutter_gemma_rag_qdrant` | native RAG |

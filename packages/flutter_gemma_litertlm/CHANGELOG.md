@@ -1,7 +1,9 @@
 ## 1.8.0
 - Google Play no longer rejects apps over 16 KB page sizes (#529).
 - Native runtime LiteRT-LM v0.17.1: integer tool-call arguments stay integers.
-- `web/litert.js` and `web/tensorflow.js` moved to `flutter_gemma_embeddings`, whose bundle they belong to.
+- Web embeddings work: the four JS files ship here now, rebuilt on `@litertjs/core` 2.5.3.
+- No longer depends on `flutter_gemma_embeddings`; asks core for a tokenizer, so register `embeddingTokenizers:`.
+- Refuse a multi-input .tflite at load with a named error instead of a bare native status.
 
 ## 1.7.1
 - Native runtime `native-v0.17.0-a`: tool calls no longer crash the app.

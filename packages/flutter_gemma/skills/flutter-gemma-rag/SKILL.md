@@ -35,6 +35,10 @@ const embeddingGemma =
 
 await FlutterGemma.initialize(
   embeddingBackends: [LiteRtEmbeddingBackend()],
+  // The tokenizer is registered separately from the backend: which family a
+  // model needs is a property of the MODEL, not the engine. Omit it and the
+  // first embedding throws a StateError naming the package to add.
+  embeddingTokenizers: [GemmaEmbeddingTokenizers()], // flutter_gemma_embeddings
   vectorStore: kIsWeb ? WebSqliteVectorStore() : SqliteVectorStore(),
   filterSchema: const FilterSchema(fields: [
     FilterField(name: 'lang', type: FilterFieldType.string),
@@ -123,8 +127,8 @@ LiteRT embeddings always run on CPU. `LiteRtEmbeddingBackend` hardcodes it and i
 ## Web
 
 - Copy `web/rag/sqlite3.wasm` from the `flutter_gemma_rag_sqlite` package into the app as `web/rag/sqlite3.wasm`.
-- Web embeddings need four module files side by side in the app's `web/`, all four from `flutter_gemma_embeddings/web/`: `litert_embeddings.js`, `sentencepiece.js`, `litert.js`, `tensorflow.js` — the first imports the other three by relative path, so three files alone give a 404 and an embedder that never initialises. They are one bundle in four pieces; never mix them across package versions.
-- The LiteRT WASM runtime underneath comes from a pinned CDN copy by default (`flutter_gemma_embeddings` 2.2.0+ — `LiteRtWebRuntime.wasmPath`). To self-host, copy `node_modules/@litertjs/core/wasm/` into the app's `web/wasm/` and set `LiteRtWebRuntime.wasmPath = '/wasm/';` before the first embedding. Pin `@litertjs/core` to `LiteRtWebRuntime.pinnedVersion`: the runtime and `web/litert.js` are two halves of one release, and a mismatch fails at the first embedding with an error that never mentions versions.
+- Web embeddings need four module files side by side in the app's `web/`, all four from `flutter_gemma_litertlm/web/`: `litert_embeddings.js`, `sentencepiece.js`, `litert.js`, `tensorflow.js` — the first imports the other three by relative path, so three files alone give a 404 and an embedder that never initialises. They are one bundle in four pieces; never mix them across package versions.
+- The LiteRT WASM runtime underneath comes from a pinned CDN copy by default (`flutter_gemma_litertlm` — `LiteRtWebRuntime.wasmPath`). To self-host, copy `node_modules/@litertjs/core/wasm/` into the app's `web/wasm/` and set `LiteRtWebRuntime.wasmPath = '/wasm/';` before the first embedding. Pin `@litertjs/core` to `LiteRtWebRuntime.pinnedVersion`: the runtime and `web/litert.js` are two halves of one release, and a mismatch fails at the first embedding with an error that never mentions versions.
 - In `web/index.html`, before Flutter boots: `<script src="cache_api.js"></script>` first — it is not a module, and the embedding runtime calls its cache helpers during init — then `<script type="module" src="litert_embeddings.js"></script>`.
 
 Find a package's directory with `grep -A1 '"name": "flutter_gemma_rag_sqlite"' .dart_tool/package_config.json`.

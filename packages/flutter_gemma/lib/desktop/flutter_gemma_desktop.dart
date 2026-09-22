@@ -479,7 +479,7 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
         );
       }
 
-      // The LiteRT embedding runtime moved to flutter_gemma_embeddings; core
+      // The LiteRT embedding runtime lives in flutter_gemma_litertlm; core
       // resolves paths (preamble above) + owns the singleton lifecycle, then
       // dispatches construction through the EmbeddingRegistry. The backend
       // reads ONLY config.modelPath/config.tokenizerPath — it ignores the spec

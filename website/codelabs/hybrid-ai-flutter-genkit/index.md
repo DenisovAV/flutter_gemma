@@ -458,10 +458,16 @@ Add `genkit_flutter_gemma` and `flutter_gemma`:
 ```yaml
   # Step 3: On-device AI (LiteRT-LM engine)
   genkit_flutter_gemma: ^0.6.1
-  flutter_gemma: ^1.8.4
+  # Upper-bounded, not a caret: flutter_gemma 1.9.0 and
+  # flutter_gemma_litertlm 1.8.0 move the embedding tokenizer to a provider
+  # the app registers, which Step 5 of this codelab does not yet do.
+  flutter_gemma: ">=1.8.4 <1.9.0"
   # flutter_gemma 1.x registers no engine by default — opt into LiteRT-LM
   # (.litertlm inference) here.
-  flutter_gemma_litertlm: ^1.7.1
+  flutter_gemma_litertlm: ">=1.7.1 <1.8.0"
+
+  # Step 5 adds embeddings; the same upper bound applies for the same reason.
+  # flutter_gemma_embeddings: ">=2.1.1 <2.2.0"
 ```
 
 Run `flutter pub get`.

@@ -13,8 +13,8 @@
 
 import 'dart:isolate';
 
-import 'package:flutter_gemma_embeddings/src/forward_pass.dart';
-import 'package:flutter_gemma_embeddings/src/tokenizer_adapter.dart';
+import 'package:flutter_gemma/core/embedding/forward_pass.dart';
+import 'package:flutter_gemma/core/embedding/tokenizer_adapter.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// A minimal forward-pass fake, built exclusively via the top-level

@@ -430,6 +430,25 @@ The query is embedded for you, with `retrievalQuery` — the other half of Step
 Negative
 : `threshold` is not optional in spirit. Cosine similarity runs 0.0 to 1.0, and without a threshold a search always returns `topK` rows however bad they are — which reads as "found something" to every caller downstream, including the model in Step 5.
 
+### The page
+
+`lib/embed_page.dart` changes shape with the store under it, and the full file
+is in `step_03_store`. Step 2's screen embedded and showed you a vector; this
+one opens the store on `initState`, reports what is already in it, and adds a
+search field:
+
+```dart
+@override
+void initState() {
+  super.initState();
+  _open();          // RagStore.open() — the row count comes from a past run
+}
+```
+
+The header now reads **12 rows · 768 dimensions** rather than counting ticks,
+which is the whole difference: those numbers come from disk, not from this
+session.
+
 ### Run it
 
 Index once, then search for **something warm with beans**. Ribollita comes
@@ -515,6 +534,25 @@ FlutterGemma.rag.searchSimilar(
 
 Positive
 : The filter is applied **inside** the store, as part of the same query that ranks by distance. That is what makes it different from filtering the results afterwards: `topK` still means three, and all three cleared the predicates.
+
+### The controls
+
+One control per declared field, above the results — the full widget is in
+`step_04_filters`:
+
+```dart
+for (final c in const ['italian', 'greek', 'indian', 'japanese'])
+  FilterChip(
+    label: Text(c),
+    selected: _cuisines.contains(c),
+    onSelected: (on) =>
+        setState(() => on ? _cuisines.add(c) : _cuisines.remove(c)),
+  ),
+```
+
+plus one for **under 30 min** and one for **vegetarian**, which set
+`_maxMinutes` and `_vegetarianOnly`. Those three pieces of state are exactly
+what `buildFilter` above takes.
 
 ### Run it
 

@@ -50,27 +50,24 @@ jobs:
         # mutable, and this job holds the Firebase deploy secret, so the bytes
         # are verified before the binary is made executable or run.
         working-directory: website
-        env:
-          CLAAT_URL: https://github.com/googlecodelabs/tools/releases/download/v2.2.6/claat-linux-amd64
-          CLAAT_SHA256: b7415471bd823562ebd9e6015e267a12fbf9340dfe839f8e2a175b6c7c0f397a
         run: |
-          curl -fL --retry 3 -o "$RUNNER_TEMP/claat" "$CLAAT_URL"
-          echo "$CLAAT_SHA256  $RUNNER_TEMP/claat" | sha256sum -c -
+          # Version and hashes come from tool/claat_pin.env, the one place all
+          # three callers read them from; the verify stays here, inline, in the
+          # file a reviewer of a secret-bearing job actually opens.
+          . tool/claat_pin.env
+          curl -fL --retry 3 -o "$RUNNER_TEMP/claat" \
+            "$CLAAT_BASE_URL/$CLAAT_VERSION/claat-linux-amd64"
+          echo "$CLAAT_SHA256_linux_amd64  $RUNNER_TEMP/claat" | sha256sum -c -
           chmod +x "$RUNNER_TEMP/claat"
-          mkdir -p build/jaspr/codelabs
-          for src in codelabs/*/index.md; do
-            [ -e "$src" ] || continue
-            "$RUNNER_TEMP/claat" export -o build/jaspr/codelabs "$src"
-          done
-          # Guard against an empty glob / wrong cwd / claat emitting nothing —
-          # a green build that shipped zero codelabs would 404 the live page.
-          # `-mindepth 2` is load-bearing: the catalogue route writes
-          # build/jaspr/codelabs/index.html itself, which would match at depth 1
-          # and pass this guard on zero codelabs. Only claat writes <id>/.
-          if [ -z "$(find build/jaspr/codelabs -mindepth 2 -name index.html -print -quit)" ]; then
-            echo "ERROR: no codelab HTML produced under build/jaspr/codelabs" >&2
-            exit 1
-          fi
+          # The export loop used to be duplicated here and in website/deploy.sh.
+          # This job is the one that deploys the live site, so a fix applied to
+          # deploy.sh alone was undone by the next merge. One script now, shared:
+          # it exports, repoints the element library at our vendored copy (the
+          # claat-public bucket returns 403), blanks claat's default Google
+          # Analytics id, adds the codelabs to sitemap.xml, and keeps the
+          # empty-output guard that stops a green build from 404-ing /codelabs.
+          CLAAT="$RUNNER_TEMP/claat" DOMAIN="https://fluttergemma.dev" \
+            tool/export_codelabs.sh
 
       - name: Build Flutter web example (live demo at /try)
         working-directory: packages/flutter_gemma/example
@@ -93,3 +90,55 @@ jobs:
           projectId: aichat-c0c27
           entryPoint: website
           target: fluttergemma
+
+      - name: Smoke-test the deployed codelabs
+        # Every other check in this pipeline reads files on the runner. None of
+        # them can tell whether the thing being served actually works — which is
+        # precisely how the codelabs shipped for weeks pointing at a Google
+        # Cloud Storage bucket that answered 403 to every request, with a green
+        # build every time. This step fetches the live site instead.
+        #
+        # It runs AFTER the deploy on purpose: a failure here does not roll
+        # anything back, it tells a human within minutes rather than whenever
+        # someone next opens the page.
+        working-directory: website
+        run: |
+          set -euo pipefail
+          base="https://fluttergemma.dev"
+          fail=0
+
+          # cleanUrls + trailingSlash:false — a slashed URL 301s, so ask for the
+          # canonical one and do NOT follow redirects: one here would mean the
+          # sitemap and the hosting config disagree about the same page.
+          for src in codelabs/*/index.md; do
+            [ -e "$src" ] || continue
+            slug="$(basename "$(dirname "$src")")"
+            code="$(curl -sS -o /tmp/page.html -w '%{http_code}' "$base/codelabs/$slug")"
+            size="$(wc -c < /tmp/page.html | tr -d ' ')"
+            if [ "$code" != "200" ] || [ "$size" -lt 5000 ]; then
+              echo "ERROR: /codelabs/$slug -> HTTP $code, $size bytes" >&2
+              fail=1
+            else
+              echo "  ok  /codelabs/$slug ($size bytes)"
+            fi
+          done
+
+          # Walking the HTML would only find what the page links directly, and
+          # the fonts are a level down inside codelab-fonts.css. The manifest
+          # already lists exactly what we vendored, so check every entry — and
+          # check its sha256, not its size: "200 and non-empty" would accept a
+          # truncated or substituted file, which breaks a page the same way the
+          # dead bucket did.
+          while read -r want name; do
+            [ -n "$name" ] || continue
+            code="$(curl -sS -o /tmp/asset -w '%{http_code}' "$base/codelab-assets/$name")"
+            got="$(sha256sum /tmp/asset | cut -d' ' -f1)"
+            if [ "$code" != "200" ] || [ "$got" != "$want" ]; then
+              echo "ERROR: /codelab-assets/$name -> HTTP $code, sha256 $got" >&2
+              echo "       expected $want" >&2
+              fail=1
+            fi
+          done < web/codelab-assets/SHA256SUMS
+          echo "  ok  $(wc -l < web/codelab-assets/SHA256SUMS | tr -d ' ') vendored asset(s) served byte-for-byte"
+
+          [ "$fail" -eq 0 ] || exit 1

@@ -394,10 +394,10 @@ packages:
     dependency: transitive
     description:
       name: flutter_local_ai
-      sha256: fae4ed3d888bea77e6dc7f542aabe47a8e7b01a4994634fba4e7ce6814efe775
+      sha256: "6acff1c2fa77e19e48e23719b26e80aee6cc9dce8a356169fa65456de37f9c61"
       url: "https://pub.dev"
     source: hosted
-    version: "0.1.0"
+    version: "0.1.1"
   flutter_local_notifications:
     dependency: transitive
     description:

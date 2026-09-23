@@ -1,5 +1,6 @@
 ## 0.3.0
 - **Breaking:** now a thin adapter over `flutter_local_ai`, which supplies every OS backend.
+- Require `flutter_local_ai` 0.1.1 so native tool declarations retain their full JSON Schema and tool calls can be exercised through `FakeLocalAiHost` (#19).
 - **Breaking:** no longer a Flutter plugin — registrants and `Podfile.lock` regenerate; re-lock frozen CI.
 - **Breaking:** macOS deployment floor raised from 10.15 to 12.0.
 - **Breaking:** `lib/pigeon.g.dart` removed along with the native channel it wrapped.

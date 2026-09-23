@@ -32,7 +32,7 @@ dependencies:
   # adds one. `openSession` landed in 0.16.2.
   flutter_gemma: ^1.7.0
   # Supplies the whole native/web layer this package used to ship itself.
-  flutter_local_ai: ^0.1.0
+  flutter_local_ai: ^0.1.1
 
 dev_dependencies:
   flutter_test:

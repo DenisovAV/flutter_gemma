@@ -189,7 +189,7 @@ void main() {
       },
     );
 
-    test('native tools stay reachable through localAiModel', () async {
+    test('native tools preserve their schema through localAiModel', () async {
       final model = await newModel();
       // The capability flutter_gemma's interface has no slot for: Apple's
       // native tool calling, driven through flutter_local_ai's own API while
@@ -199,14 +199,42 @@ void main() {
           LocalAiTool(
             name: 'lookup',
             description: 'Local lookup',
-            parameters: const [],
-            onCall: (_) async => 'found',
+            parameterSchema: const {
+              'type': 'object',
+              'properties': {
+                'query': {'type': 'string'},
+                'kind': {
+                  'type': 'string',
+                  'enum': ['city', 'country'],
+                },
+              },
+              'required': ['query', 'kind'],
+            },
+            onCall: (arguments) async => {'found': arguments['query']},
           ),
         ],
       );
       addTearDown(native.close);
 
       expect(host.session(native.sessionId)!.toolNames, ['lookup']);
+      expect(host.session(native.sessionId)!.toolSchemas['lookup'], {
+        'type': 'object',
+        'properties': {
+          'query': {'type': 'string'},
+          'kind': {
+            'type': 'string',
+            'enum': ['city', 'country'],
+          },
+        },
+        'required': ['query', 'kind'],
+      });
+      expect(
+        await host.invokeTool(native.sessionId, 'lookup', {
+          'query': 'Rome',
+          'kind': 'city',
+        }),
+        '{"found":"Rome"}',
+      );
     });
   });
 

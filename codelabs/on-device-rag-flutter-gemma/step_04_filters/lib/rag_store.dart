@@ -95,7 +95,23 @@ class RagStore {
     int topK = 3,
     double threshold = 0.3,
     Filter? filter,
-  }) {
+  }) async {
+    // Nothing indexed means nothing to ground with — and searching an empty
+    // store would still need the embedding runtime below. Answer early.
+    final stats = await FlutterGemma.rag.stats();
+    if (stats.documentCount == 0) return const [];
+
+    // `searchSimilar(query:)` embeds the query for you, and embedding needs a
+    // live embedding model. A fresh launch has none: open() restores the
+    // DATABASE, not the runtime — the index survives the process, the model
+    // does not. Without this line the first question after a restart throws a
+    // StateError instead of being answered, which is exactly the case the
+    // persisted index exists for.
+    //
+    // getActiveEmbedder() is idempotent: after the first call it hands back
+    // the model it already built.
+    await FlutterGemma.getActiveEmbedder();
+
     return FlutterGemma.rag.searchSimilar(
       query: query,
       topK: topK,

@@ -44,7 +44,10 @@ to make, and each step here is built around one of them:
 
 ### What you'll need
 
-* Flutter 3.44 or newer
+* Flutter **3.47** or newer — higher than the rest of flutter_gemma asks for.
+  `flutter_gemma_rag_sqlite` 1.4.0 requires sqlite3 3.6.0, whose build
+  toolchain wants `meta ^1.19.0`, and every Flutter 3.44.x pins `meta` to
+  1.18.0 exactly. On 3.44 the Step 3 app will not resolve
 * Any one of Flutter's six platforms: an arm64 Android device or emulator, an
   iOS device or simulator, an Apple-silicon Mac, a Windows or Linux desktop, or
   Chrome. Everything in this codelab runs on all six — including the web, which

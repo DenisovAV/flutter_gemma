@@ -20,6 +20,11 @@ version: 1.0.0+1
 
 environment:
   sdk: ^3.12.0
+  # 3.47, not the 3.44 the other packages allow: flutter_gemma_rag_sqlite 1.4.0
+  # requires sqlite3 3.6.0, whose toolchain needs meta ^1.19.0 — and every
+  # Flutter 3.44.x pins meta to 1.18.0 exactly. Declared here so the failure is
+  # a solver message naming this app, not a confusing transitive one.
+  flutter: '>=3.47.0'
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions

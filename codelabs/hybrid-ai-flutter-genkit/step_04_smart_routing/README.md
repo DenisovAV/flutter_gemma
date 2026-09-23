@@ -43,11 +43,9 @@ flutter run \
 genkit: ^0.16.0
 genkit_google_genai: ^0.3.1
 genkit_flutter_gemma: ^0.6.1
-# Upper-bounded until this codelab registers an embedding tokenizer provider —
-# see the comment in the app's pubspec.yaml.
-flutter_gemma: ">=1.8.4 <1.9.0"
-flutter_gemma_litertlm: ">=1.7.1 <1.8.0"   # LiteRT-LM engine (flutter_gemma 1.x ships none by default)
-flutter_gemma_embeddings: ">=2.1.1 <2.2.0" # EmbeddingGemma; same bound, same reason
+flutter_gemma: ^1.9.0
+flutter_gemma_litertlm: ^1.8.0   # LiteRT-LM engine (flutter_gemma 1.x ships none by default)
+flutter_gemma_embeddings: ^2.2.0
 genkit_hybrid: ^0.2.1
 ```
 

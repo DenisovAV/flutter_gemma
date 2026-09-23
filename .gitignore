@@ -118,3 +118,7 @@ ai-edge-gallery/
 # Python bytecode from .claude/hooks (would keep the publish guard's dirty-tree check permanently non-empty)
 __pycache__/
 *.pyc
+
+# Flutter crash reports — one got committed into a package and shipped to
+# pub.dev inside flutter_gemma_litertlm 1.8.0.
+flutter_*.log

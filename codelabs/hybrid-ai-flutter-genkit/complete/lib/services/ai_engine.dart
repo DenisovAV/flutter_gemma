@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart'
     show debugPrint, kIsWeb, visibleForTesting;
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
 import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 import 'package:genkit/genkit.dart';
 import 'package:genkit/plugin.dart' show GenkitPlugin;
@@ -128,14 +129,12 @@ class AiEngine {
     // Test seam: skip the embedder download when RAG isn't exercised.
     bool downloadEmbedder = true,
   }) async {
-    // On-device embeddings need LiteRT.js's WASM runtime
-    // (litert_wasm_internal.js + a 9.4 MB .wasm) — no published package
-    // ships it, and the path it loads from (/wasm/) is hardcoded, so
-    // there's nothing an app can point at today. RAG stays native-only:
-    // don't declare the embedder, don't register its backend, don't
-    // download it. ChatScreen surfaces the reason instead of leaving RAG
-    // silently off.
-    final embeddingsSupported = downloadEmbedder && !kIsWeb;
+    // RAG runs on every platform, web included. The four LiteRT.js files in
+    // web/ come from flutter_gemma_litertlm 1.8.0, which is where that bundle
+    // lives; the WASM runtime behind them is fetched from a CDN, so there is
+    // nothing else to host. The only thing left that can turn embeddings off
+    // here is the test seam.
+    final embeddingsSupported = downloadEmbedder;
 
     // Declarative plugin config — always includes the on-device plugin (its
     // models/embedders are looked up by name later, independent of whether
@@ -181,8 +180,8 @@ class AiEngine {
     // now lives inside this try/catch (not before Genkit is built) so an
     // engine-init failure only suppresses localReady, never cloud.
     try {
-      // Opt into LiteRT-LM (.litertlm inference) +, off web, its LiteRT
-      // embedding backend (see embeddingsSupported above). `webStorageMode:
+      // Opt into LiteRT-LM (.litertlm inference) and its LiteRT embedding
+      // backend, on every platform (see embeddingsSupported above). `webStorageMode:
       // streaming` (OPFS-backed) is what the size demands: the 2.0 GB web
       // build sits right on the ~2 GB blob ceiling the default cacheApi
       // mode would have to buffer it into, so the @litert-lm/core engine
@@ -193,6 +192,10 @@ class AiEngine {
         embeddingBackends: embeddingsSupported
             ? [LiteRtEmbeddingBackend()]
             : const [],
+        // Since flutter_gemma 1.9.0 a backend no longer carries a tokenizer:
+        // which one a model needs is a property of the model, so the app
+        // registers it. Without this the first embedding throws a StateError.
+        embeddingTokenizers: const [GemmaEmbeddingTokenizers()],
       );
 
       // fileType MUST be litertlm to match the LiteRT-LM engine registered
@@ -222,7 +225,7 @@ class AiEngine {
       localReady = false;
     }
 
-    // EMBEDDER (OPTIONAL, native-only): RAG-only, never blocks chat — a
+    // EMBEDDER (OPTIONAL): RAG-only, never blocks chat — a
     // failure here must not flip localReady or rethrow.
     if (embeddingsSupported && localReady) {
       try {

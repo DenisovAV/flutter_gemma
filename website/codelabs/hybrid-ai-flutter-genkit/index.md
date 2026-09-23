@@ -460,9 +460,9 @@ Add `genkit_flutter_gemma` and `flutter_gemma`:
   # flutter_gemma 1.x registers no engine by default — opt into LiteRT-LM
   # (.litertlm inference) here.
   flutter_gemma_litertlm: ^1.8.0
-
-  # Step 5 adds embeddings; the same upper bound applies for the same reason.
-  # flutter_gemma_embeddings: ^2.2.0
+  # Step 5 embeds your documents. The engine above runs the forward pass;
+  # this package supplies the tokenizers it needs.
+  flutter_gemma_embeddings: ^2.2.0
 ```
 
 Run `flutter pub get`.
@@ -664,6 +664,7 @@ Create `lib/services/ai_engine.dart`:
 import 'package:flutter/foundation.dart'
     show debugPrint, kIsWeb, visibleForTesting;
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
 import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 import 'package:genkit/genkit.dart';
 import 'package:genkit/plugin.dart' show GenkitPlugin;
@@ -857,6 +858,10 @@ class AiEngine {
         embeddingBackends: embeddingsSupported
             ? [LiteRtEmbeddingBackend()]
             : const [],
+        // Since flutter_gemma 1.9.0 a backend no longer carries a tokenizer:
+        // which one a model needs is a property of the model, so the app
+        // registers it. Without this the first embedding throws a StateError.
+        embeddingTokenizers: const [GemmaEmbeddingTokenizers()],
       );
 
       // fileType MUST be litertlm to match the LiteRT-LM engine registered

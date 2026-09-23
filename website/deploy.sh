@@ -42,30 +42,20 @@ rm -rf build/jaspr/try
 mkdir -p build/jaspr/try
 cp -R "$EXAMPLE_DIR/build/web/." build/jaspr/try/
 
-echo "==> Exporting codelabs (claat static export)…"
 # Codelab sources live under website/codelabs/<id>/index.md. Each is claat-exported
 # to self-contained HTML under /codelabs/<id>/ and served as STATIC — not rendered
 # through Jaspr, so the bash/yaml/xml code fences that break Jaspr's CodeBlock
 # grammar are fine here. Runs after the `rm -rf build/jaspr` wipe above, and
 # after `jaspr build` wrote the catalogue at codelabs/index.html — claat only
 # ever writes into codelabs/<id>/, so the two never collide.
+#
+# The export itself lives in tool/export_codelabs.sh, shared with
+# .github/workflows/firebase-hosting-merge.yml. It also repoints the element
+# library at our vendored copy, blanks claat's default Google Analytics id and
+# adds the codelabs to sitemap.xml — see that file for why each is needed.
 CLAAT="$(command -v claat || echo "$HOME/.local/bin/claat")"
 if [[ -x "$CLAAT" ]]; then
-  mkdir -p build/jaspr/codelabs
-  for src in codelabs/*/index.md; do
-    [[ -e "$src" ]] || continue
-    "$CLAAT" export -o build/jaspr/codelabs "$src"
-  done
-  # A Firebase deploy is a full-site REPLACE (public=build/jaspr, no /codelabs
-  # rewrite) — so "no HTML produced" (empty glob, wrong cwd, or claat emitted
-  # nothing) would silently 404 the live codelab. Fail instead.
-  # `-mindepth 2` is load-bearing: the catalogue route writes
-  # build/jaspr/codelabs/index.html itself, which would match at depth 1 and
-  # make this guard pass on zero codelabs. Only claat writes <id>/index.html.
-  if [[ -z "$(find build/jaspr/codelabs -mindepth 2 -name index.html -print -quit)" ]]; then
-    echo "ERROR: no codelab HTML produced under build/jaspr/codelabs." >&2
-    exit 1
-  fi
+  CLAAT="$CLAAT" DOMAIN="$DOMAIN" tool/export_codelabs.sh
 elif [[ "${SKIP_CODELABS:-}" == "1" ]]; then
   echo "    WARNING: claat missing and SKIP_CODELABS=1 — this deploy REMOVES the live /codelabs (404)."
 else

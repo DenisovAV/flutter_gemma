@@ -57,20 +57,15 @@ jobs:
           curl -fL --retry 3 -o "$RUNNER_TEMP/claat" "$CLAAT_URL"
           echo "$CLAAT_SHA256  $RUNNER_TEMP/claat" | sha256sum -c -
           chmod +x "$RUNNER_TEMP/claat"
-          mkdir -p build/jaspr/codelabs
-          for src in codelabs/*/index.md; do
-            [ -e "$src" ] || continue
-            "$RUNNER_TEMP/claat" export -o build/jaspr/codelabs "$src"
-          done
-          # Guard against an empty glob / wrong cwd / claat emitting nothing —
-          # a green build that shipped zero codelabs would 404 the live page.
-          # `-mindepth 2` is load-bearing: the catalogue route writes
-          # build/jaspr/codelabs/index.html itself, which would match at depth 1
-          # and pass this guard on zero codelabs. Only claat writes <id>/.
-          if [ -z "$(find build/jaspr/codelabs -mindepth 2 -name index.html -print -quit)" ]; then
-            echo "ERROR: no codelab HTML produced under build/jaspr/codelabs" >&2
-            exit 1
-          fi
+          # The export loop used to be duplicated here and in website/deploy.sh.
+          # This job is the one that deploys the live site, so a fix applied to
+          # deploy.sh alone was undone by the next merge. One script now, shared:
+          # it exports, repoints the element library at our vendored copy (the
+          # claat-public bucket returns 403), blanks claat's default Google
+          # Analytics id, adds the codelabs to sitemap.xml, and keeps the
+          # empty-output guard that stops a green build from 404-ing /codelabs.
+          CLAAT="$RUNNER_TEMP/claat" DOMAIN="https://fluttergemma.dev" \
+            tool/export_codelabs.sh
 
       - name: Build Flutter web example (live demo at /try)
         working-directory: packages/flutter_gemma/example

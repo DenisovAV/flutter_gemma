@@ -49,6 +49,12 @@ window.litertLmReady = (async () => {
        .litertlm models on web. Copied verbatim from flutter_gemma's own web/. -->
   <script src="cache_api.js"></script>
   <script src="opfs_helper.js"></script>
+
+  <!-- LiteRT.js embeddings bundle. The four files beside this one are copied
+       from flutter_gemma_litertlm/web/ — that package owns them since 1.8.0.
+       The WASM runtime they need is fetched from a CDN, so nothing else to
+       host. Without this the Embed button fails in the browser console. -->
+  <script type="module" src="litert_embeddings.js"></script>
 </head>
 <body>
   <!--

@@ -259,6 +259,28 @@ IconButton(
 ),
 ```
 
+### Web setup
+
+Skip this unless you are running in Chrome — but do not skip it *and* then run
+in Chrome, because the Embed button is the first thing that fails.
+
+Embedding in a browser runs through LiteRT.js, which ships as four files in
+`flutter_gemma_litertlm/web/`. Copy them into your own `web/`, the same way
+`cache_api.js` was copied in Getting Started:
+
+```text
+litert.js   litert_embeddings.js   sentencepiece.js   tensorflow.js
+```
+
+Then load the entry point from `web/index.html`:
+
+```html
+<script type="module" src="litert_embeddings.js"></script>
+```
+
+That is all of it — the WASM runtime underneath is fetched from a CDN, so
+there is nothing else to host.
+
 ### Run it
 
 Tap the recipes icon in the app bar, then **Embed the corpus**. After the
@@ -344,30 +366,17 @@ platform-independent.
 
 ### Web setup
 
-Two sets of files, both copied the way `cache_api.js` was in Getting Started.
-
-The LiteRT.js bundle, which is what runs the embedding forward pass in a
-browser — four files from `flutter_gemma_litertlm/web/`:
-
-```text
-litert.js   litert_embeddings.js   sentencepiece.js   tensorflow.js
-```
-
-loaded from `web/index.html`:
-
-```html
-<script type="module" src="litert_embeddings.js"></script>
-```
-
-And the store's SQLite build, from `flutter_gemma_rag_sqlite/web/rag/`:
+One more file, and it needs no `<script>` tag. Copy the store's SQLite build
+from `flutter_gemma_rag_sqlite/web/rag/`:
 
 ```text
 web/rag/sqlite3.wasm
 ```
 
-That one needs no `<script>` tag — `WebSqliteVectorStore` fetches it by that
-exact relative path. It is a SQLite compiled with sqlite-vec linked in, which
-is why it comes from the package rather than a CDN.
+`WebSqliteVectorStore` fetches it by that exact relative path. It is a SQLite
+compiled with sqlite-vec linked in — which is why it comes from the package
+rather than a CDN, and why the store is a package rather than a few lines of
+SQL.
 
 ### Open, index, search
 

@@ -100,6 +100,7 @@ fi
 MIRRORS=(
   "codelabs/getting-started-flutter-gemma/complete|codelabs/inference-engines-flutter-gemma/step_01_starter"
   "codelabs/getting-started-flutter-gemma/complete|codelabs/multimodal-flutter-gemma/step_01_starter"
+  "codelabs/getting-started-flutter-gemma/complete|codelabs/on-device-rag-flutter-gemma/step_01_starter"
 )
 
 # Fail closed, the way discovery does above. An emptied or mistyped table must

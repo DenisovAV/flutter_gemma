@@ -126,6 +126,7 @@ class CodelabsPage extends StatelessComponent {
       level: 'Advanced',
       tags: ['embeddings', 'sqlite-vec', 'RAG'],
       accent: Brand.green,
+      href: '/codelabs/on-device-rag-flutter-gemma',
     ),
     _Codelab(
       title: 'Building an Offline Voice Assistant in Flutter: STT, LLM, and TTS',

@@ -46,12 +46,14 @@ jobs:
         # broken. Binary pinned by SHA-256 (the tag is mutable) to match the
         # deploy workflow.
         working-directory: website
-        env:
-          CLAAT_URL: https://github.com/googlecodelabs/tools/releases/download/v2.2.6/claat-linux-amd64
-          CLAAT_SHA256: b7415471bd823562ebd9e6015e267a12fbf9340dfe839f8e2a175b6c7c0f397a
         run: |
-          curl -fL --retry 3 -o "$RUNNER_TEMP/claat" "$CLAAT_URL"
-          echo "$CLAAT_SHA256  $RUNNER_TEMP/claat" | sha256sum -c -
+          # Version and hashes come from tool/claat_pin.env, the one place all
+          # three callers read them from; the verify stays here, inline, in the
+          # file a reviewer of a secret-bearing job actually opens.
+          . tool/claat_pin.env
+          curl -fL --retry 3 -o "$RUNNER_TEMP/claat" \
+            "$CLAAT_BASE_URL/$CLAAT_VERSION/claat-linux-amd64"
+          echo "$CLAAT_SHA256_linux_amd64  $RUNNER_TEMP/claat" | sha256sum -c -
           chmod +x "$RUNNER_TEMP/claat"
           CLAAT="$RUNNER_TEMP/claat" DOMAIN="https://fluttergemma.dev" \
             tool/export_codelabs.sh

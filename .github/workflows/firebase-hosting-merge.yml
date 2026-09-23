@@ -50,12 +50,14 @@ jobs:
         # mutable, and this job holds the Firebase deploy secret, so the bytes
         # are verified before the binary is made executable or run.
         working-directory: website
-        env:
-          CLAAT_URL: https://github.com/googlecodelabs/tools/releases/download/v2.2.6/claat-linux-amd64
-          CLAAT_SHA256: b7415471bd823562ebd9e6015e267a12fbf9340dfe839f8e2a175b6c7c0f397a
         run: |
-          curl -fL --retry 3 -o "$RUNNER_TEMP/claat" "$CLAAT_URL"
-          echo "$CLAAT_SHA256  $RUNNER_TEMP/claat" | sha256sum -c -
+          # Version and hashes come from tool/claat_pin.env, the one place all
+          # three callers read them from; the verify stays here, inline, in the
+          # file a reviewer of a secret-bearing job actually opens.
+          . tool/claat_pin.env
+          curl -fL --retry 3 -o "$RUNNER_TEMP/claat" \
+            "$CLAAT_BASE_URL/$CLAAT_VERSION/claat-linux-amd64"
+          echo "$CLAAT_SHA256_linux_amd64  $RUNNER_TEMP/claat" | sha256sum -c -
           chmod +x "$RUNNER_TEMP/claat"
           # The export loop used to be duplicated here and in website/deploy.sh.
           # This job is the one that deploys the live site, so a fix applied to
@@ -104,9 +106,10 @@ jobs:
           set -euo pipefail
           base="https://fluttergemma.dev"
           fail=0
+
           # cleanUrls + trailingSlash:false — a slashed URL 301s, so ask for the
-          # canonical one and refuse to follow redirects: a redirect here would
-          # mean the sitemap and the hosting config disagree.
+          # canonical one and do NOT follow redirects: one here would mean the
+          # sitemap and the hosting config disagree about the same page.
           for src in codelabs/*/index.md; do
             [ -e "$src" ] || continue
             slug="$(basename "$(dirname "$src")")"
@@ -115,18 +118,27 @@ jobs:
             if [ "$code" != "200" ] || [ "$size" -lt 5000 ]; then
               echo "ERROR: /codelabs/$slug -> HTTP $code, $size bytes" >&2
               fail=1
-              continue
+            else
+              echo "  ok  /codelabs/$slug ($size bytes)"
             fi
-            # The page is only as good as what it loads. Follow each vendored
-            # asset it references and require a non-trivial body.
-            for asset in $(grep -oE '/codelab-assets/[A-Za-z0-9._-]+' /tmp/page.html | sort -u); do
-              acode="$(curl -sS -o /tmp/asset -w '%{http_code}' "$base$asset")"
-              asize="$(wc -c < /tmp/asset | tr -d ' ')"
-              if [ "$acode" != "200" ] || [ "$asize" -lt 1000 ]; then
-                echo "ERROR: $asset -> HTTP $acode, $asize bytes" >&2
-                fail=1
-              fi
-            done
-            echo "  ok  /codelabs/$slug ($size bytes)"
           done
+
+          # Walking the HTML would only find what the page links directly, and
+          # the fonts are a level down inside codelab-fonts.css. The manifest
+          # already lists exactly what we vendored, so check every entry — and
+          # check its sha256, not its size: "200 and non-empty" would accept a
+          # truncated or substituted file, which breaks a page the same way the
+          # dead bucket did.
+          while read -r want name; do
+            [ -n "$name" ] || continue
+            code="$(curl -sS -o /tmp/asset -w '%{http_code}' "$base/codelab-assets/$name")"
+            got="$(sha256sum /tmp/asset | cut -d' ' -f1)"
+            if [ "$code" != "200" ] || [ "$got" != "$want" ]; then
+              echo "ERROR: /codelab-assets/$name -> HTTP $code, sha256 $got" >&2
+              echo "       expected $want" >&2
+              fail=1
+            fi
+          done < web/codelab-assets/SHA256SUMS
+          echo "  ok  $(wc -l < web/codelab-assets/SHA256SUMS | tr -d ' ') vendored asset(s) served byte-for-byte"
+
           [ "$fail" -eq 0 ] || exit 1

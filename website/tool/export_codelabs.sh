@@ -66,19 +66,46 @@ SITEMAP="build/jaspr/sitemap.xml"
 DOMAIN="${DOMAIN:-https://fluttergemma.dev}"
 CLAAT="${CLAAT:-$(command -v claat || echo "$HOME/.local/bin/claat")}"
 
-# Remote origins a codelab page is allowed to reach. Both come from claat's own
-# template, neither is ours, and both are the same shape of dependency as the
-# bucket that broke — listed rather than ignored so that adding a third is a
-# deliberate edit here and not something that slips in with a claat upgrade.
-#   fonts.googleapis.com — Roboto / Source Code Pro / Material Icons
-#   support.google.com   — the in-page feedback widget claat injects
-ALLOWED_REMOTE="//fonts.googleapis.com/ //support.google.com/"
+# Remote origins a codelab page may reach. EMPTY, deliberately: a codelab now
+# loads nothing it does not serve itself. claat's template reaches for three
+# third parties — the storage bucket, fonts.googleapis.com twice, and the
+# support.google.com feedback widget — and all three are rewritten away above.
+# Leaving the mechanism in place means the day one of them comes back, or a
+# claat upgrade adds a fourth, the build says so instead of the reader's
+# browser quietly telling Google they opened the page.
+ALLOWED_REMOTE=""
 
 if [[ ! -x "$CLAAT" ]]; then
   echo "ERROR: claat not found (looked at '$CLAAT')." >&2
   echo "Install claat from https://github.com/googlecodelabs/tools/releases" >&2
   echo "or pass CLAAT=/path/to/claat." >&2
   exit 2
+fi
+
+# Every check below is calibrated against what one particular claat emits, so
+# it matters which one ran. The workflows pinned claat-linux-amd64 by SHA-256
+# while deploy.sh took whatever was on PATH — the maintainer's machine had
+# 2.2.5 against CI's 2.2.6. Same output as it happened, but nothing said so.
+# shellcheck source=tool/claat_pin.env
+. "$(dirname "$0")/claat_pin.env"
+case "$(uname -s)/$(uname -m)" in
+  Darwin/*) claat_expected="$CLAAT_SHA256_darwin_amd64"; claat_asset="claat-darwin-amd64" ;;
+  Linux/x86_64) claat_expected="$CLAAT_SHA256_linux_amd64"; claat_asset="claat-linux-amd64" ;;
+  *) claat_expected=""; claat_asset="" ;;
+esac
+if [[ -n "$claat_expected" ]]; then
+  claat_got="$(shasum -a 256 "$CLAAT" | cut -d' ' -f1)"
+  if [[ "$claat_got" != "$claat_expected" ]]; then
+    echo "ERROR: '$CLAAT' is not the pinned claat $CLAAT_VERSION." >&2
+    echo "       expected $claat_expected" >&2
+    echo "       got      $claat_got" >&2
+    echo "  curl -fL -o ~/.local/bin/claat \\" >&2
+    echo "    $CLAAT_BASE_URL/$CLAAT_VERSION/$claat_asset && chmod +x ~/.local/bin/claat" >&2
+    echo "       Or bump the pin in tool/claat_pin.env if the move is deliberate." >&2
+    exit 2
+  fi
+else
+  echo "    WARNING: no claat pin for $(uname -s)/$(uname -m); running unverified" >&2
 fi
 
 echo "==> Exporting codelabs (claat static export)…"
@@ -119,16 +146,14 @@ if [[ ${#pages[@]} -ne $sources ]]; then
 fi
 echo "    ${#pages[@]} codelab(s) exported"
 
-echo "==> Repointing the element library at $ASSET_PREFIX/…"
-# perl, not `sed -i`: the -i flag takes a mandatory argument on BSD/macOS and
-# must NOT have one on GNU/Linux, and this script runs on both. perl exits 0
-# even when it cannot open an input file, so this rewrite is not trusted — the
-# verification pass below is what decides whether it worked.
-perl -pi -e "s|\Q$DEAD_PREFIX\E|$ASSET_PREFIX/|g" "${pages[@]}"
-
-echo "==> Verifying the exported pages…"
+echo "==> Repointing every remote resource at $ASSET_PREFIX/…"
+# Rewrite and verify in one pass, in python. Neither `sed -i` (its -i flag takes
+# a mandatory argument on BSD and must not have one on GNU) nor `perl -pi`
+# (which exits 0 even when it cannot open an input file) can be trusted to
+# report what it did; python reading each file explicitly either succeeds or
+# raises.
 ASSET_DIR="$ASSET_DIR" ASSET_PREFIX="$ASSET_PREFIX" MANIFEST="$MANIFEST" \
-ALLOWED_REMOTE="$ALLOWED_REMOTE" \
+ALLOWED_REMOTE="$ALLOWED_REMOTE" DEAD_PREFIX="$DEAD_PREFIX" \
 python3 - "${pages[@]}" <<'PY'
 import hashlib, io, os, re, sys
 
@@ -147,11 +172,34 @@ STYLE = re.compile(
     re.I,
 )
 
+dead = os.environ["DEAD_PREFIX"]
+
+# Everything claat points at somebody else's server, and what we point it at
+# instead. The fonts are two <link>s collapsed into one local stylesheet; the
+# feedback widget goes entirely, because claat emits `feedback-link=""` and the
+# script therefore has nowhere to send anything while still handing Google the
+# reader's IP, User-Agent and referrer on every page view.
+REWRITES = [
+    (re.compile(re.escape(dead)), prefix),
+    (re.compile(r'<link[^>]*\bhref="//fonts\.googleapis\.com/css\?[^"]*"[^>]*>', re.I),
+     f'<link rel="stylesheet" href="{prefix}codelab-fonts.css">'),
+    (re.compile(r'[ \t]*<link[^>]*\bhref="//fonts\.googleapis\.com/icon\?[^"]*"[^>]*>\n?', re.I),
+     ""),
+    (re.compile(r'[ \t]*<script[^>]*\bsrc="//support\.google\.com/[^"]*"[^>]*>\s*</script>\n?', re.I),
+     ""),
+]
+
 foreign, referenced, ga = [], set(), []
 for page in pages:
     # Read explicitly rather than letting a tool skip it: an unreadable page is
     # an error, never a page that passed.
     html = io.open(page, encoding="utf-8", errors="replace").read()
+    rewritten = html
+    for pattern, repl in REWRITES:
+        rewritten = pattern.sub(repl, rewritten)
+    if rewritten != html:
+        io.open(page, "w", encoding="utf-8").write(rewritten)
+        html = rewritten
     for url in SCRIPT.findall(html) + STYLE.findall(html):
         if url.startswith(prefix):
             referenced.add(url[len(prefix):])
@@ -196,25 +244,36 @@ else:
     fail = True
 
 for name in sorted(referenced):
+    if name not in want:
+        print(f"  [FAIL] {name} is referenced by a page but not listed in {manifest}")
+        fail = True
+
+# Check the WHOLE manifest, not only what the pages name. The fonts are reached
+# from inside codelab-fonts.css, one level below anything an HTML scan can see,
+# so a list derived from the pages is blind to them — emptying a .woff2 used to
+# pass this step. Existence alone would not do either: a truncated or
+# substituted file passes a file test and breaks the page exactly the way the
+# dead bucket did.
+for name, digest in sorted(want.items()):
     path = os.path.join(asset_dir, name)
     if not os.path.exists(path):
-        print(f"  [FAIL] {name} is referenced but absent from {asset_dir}/")
+        print(f"  [FAIL] {name} is in {manifest} but absent from {asset_dir}/")
         fail = True
         continue
-    # Existence is not integrity. A truncated or emptied file passes a file
-    # test and breaks the page exactly the way the outage did.
     got = hashlib.sha256(io.open(path, "rb").read()).hexdigest()
-    if name not in want:
-        print(f"  [FAIL] {name} is served but not listed in {manifest}")
-        fail = True
-    elif want[name] != got:
+    if got != digest:
         print(f"  [FAIL] {name} does not match {manifest}")
-        print(f"         expected {want[name]}\n         got      {got}")
+        print(f"         expected {digest}\n         got      {got}")
+        fail = True
+
+for name in sorted(referenced):
+    if not os.path.exists(os.path.join(asset_dir, name)):
+        print(f"  [FAIL] {name} is referenced but absent from {asset_dir}/")
         fail = True
 
 if fail:
     sys.exit(1)
-print(f"    {len(pages)} page(s), {len(referenced)} vendored asset(s), "
+print(f"    {len(pages)} page(s), {len(want)} vendored asset(s), "
       f"sha256 verified, no unexpected origin")
 PY
 

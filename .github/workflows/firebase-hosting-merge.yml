@@ -88,3 +88,45 @@ jobs:
           projectId: aichat-c0c27
           entryPoint: website
           target: fluttergemma
+
+      - name: Smoke-test the deployed codelabs
+        # Every other check in this pipeline reads files on the runner. None of
+        # them can tell whether the thing being served actually works — which is
+        # precisely how the codelabs shipped for weeks pointing at a Google
+        # Cloud Storage bucket that answered 403 to every request, with a green
+        # build every time. This step fetches the live site instead.
+        #
+        # It runs AFTER the deploy on purpose: a failure here does not roll
+        # anything back, it tells a human within minutes rather than whenever
+        # someone next opens the page.
+        working-directory: website
+        run: |
+          set -euo pipefail
+          base="https://fluttergemma.dev"
+          fail=0
+          # cleanUrls + trailingSlash:false — a slashed URL 301s, so ask for the
+          # canonical one and refuse to follow redirects: a redirect here would
+          # mean the sitemap and the hosting config disagree.
+          for src in codelabs/*/index.md; do
+            [ -e "$src" ] || continue
+            slug="$(basename "$(dirname "$src")")"
+            code="$(curl -sS -o /tmp/page.html -w '%{http_code}' "$base/codelabs/$slug")"
+            size="$(wc -c < /tmp/page.html | tr -d ' ')"
+            if [ "$code" != "200" ] || [ "$size" -lt 5000 ]; then
+              echo "ERROR: /codelabs/$slug -> HTTP $code, $size bytes" >&2
+              fail=1
+              continue
+            fi
+            # The page is only as good as what it loads. Follow each vendored
+            # asset it references and require a non-trivial body.
+            for asset in $(grep -oE '/codelab-assets/[A-Za-z0-9._-]+' /tmp/page.html | sort -u); do
+              acode="$(curl -sS -o /tmp/asset -w '%{http_code}' "$base$asset")"
+              asize="$(wc -c < /tmp/asset | tr -d ' ')"
+              if [ "$acode" != "200" ] || [ "$asize" -lt 1000 ]; then
+                echo "ERROR: $asset -> HTTP $acode, $asize bytes" >&2
+                fail=1
+              fi
+            done
+            echo "  ok  /codelabs/$slug ($size bytes)"
+          done
+          [ "$fail" -eq 0 ] || exit 1

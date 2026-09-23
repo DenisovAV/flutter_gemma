@@ -224,6 +224,38 @@ will ever point at it.
 Negative
 : This is the one place in the codelab you have to get right by hand. From Step 3 on, `searchSimilar(query:)` embeds the query for you and uses `retrievalQuery` by default — so the two halves stay matched as long as you index with `retrievalDocument`.
 
+### Wire it into the app
+
+`lib/embed_page.dart` is a new screen — the full file is in `step_02_embed`,
+and the parts that matter are above. Two small changes put it in reach.
+
+The Hugging Face token was a private constant in `main.dart`. Both the model
+download and the embedder install need it now, and they live on different
+pages, so it moves to `lib/model.dart` where both already import from:
+
+```dart
+// lib/model.dart
+const hfToken = String.fromEnvironment('HF_TOKEN');
+```
+
+Then give the chat screen a way in — an action in its app bar:
+
+```dart
+// lib/chat_page.dart
+import 'embed_page.dart';
+
+// ...in the AppBar's actions, before the delete button:
+IconButton(
+  tooltip: 'Recipes',
+  onPressed: () => Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => const EmbedPage(hfToken: hfToken),
+    ),
+  ),
+  icon: const Icon(Icons.restaurant_menu),
+),
+```
+
 ### Run it
 
 Tap the recipes icon in the app bar, then **Embed the corpus**. After the

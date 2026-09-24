@@ -183,10 +183,10 @@ Nothing to add to the project. The native libraries — including the Windows GP
 shader compiler and NPU runtime — are bundled at build time.
 
 - Windows: end users need nothing installed. Since flutter_gemma_litertlm 1.7.1
-  the DLLs we compile link the VC++ runtime statically; the Intel OpenVINO/TBB
-  prebuilts behind PreferredBackend.npu import only msvcp140/vcruntime140/
-  vcruntime140_1, never vcruntime140_threads.dll — the one the 2019
-  redistributable lacks and the one that broke #456.
+  the build links the VC++ runtime statically, so LiteRtLm.dll imports no CRT.
+  The Intel OpenVINO/TBB prebuilts behind PreferredBackend.npu still import
+  msvcp140/vcruntime140/vcruntime140_1, never vcruntime140_threads.dll — the one
+  the 2019 redistributable lacks, which is why pointing at it never fixed #456.
 - Linux: building needs `clang cmake ninja-build libgtk-3-dev lld`. GPU needs the
   vendor Vulkan driver; Mesa's `llvmpipe` software fallback cannot run Gemma 4.
 

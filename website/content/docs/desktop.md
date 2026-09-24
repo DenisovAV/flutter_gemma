@@ -264,20 +264,26 @@ DLL and silently fall back to CPU.
 End-users need **nothing installed**, and this page used to say otherwise.
 
 Up to `flutter_gemma_litertlm` 1.7.0 it told you "Visual C++ Redistributable 2019 or
-newer", which was wrong in a way that only showed on a clean machine: `LiteRtLm.dll`
-also imported `vcruntime140_threads.dll`, which ships with Visual Studio 2022 17.8 and
-is **not** in the 2019 redistributable. A Microsoft Store certification VM had exactly
-that shape — it resolved `msvcp140`, `vcruntime140` and `vcruntime140_1` and failed
-only on the fourth — so `LoadLibraryEx` failed there while every developer machine
-worked ([#456](https://github.com/DenisovAV/flutter_gemma/issues/456)).
+newer". That advice could not have helped the person who needed it: `LiteRtLm.dll`
+imported four CRT libraries, and one of them — `vcruntime140_threads.dll`, which
+arrived with Visual Studio 2022 17.8 — is **not** in the 2019 redistributable. Checked
+against the shipped bundle: `native-v0.16.0`'s `LiteRtLm.dll` imports `MSVCP140`,
+`VCRUNTIME140`, `VCRUNTIME140_1` and `VCRUNTIME140_THREADS`.
 
-Since 1.7.1 the DLLs we compile link the runtime statically (`/MT`) and import no CRT
-at all: `LiteRtLm.dll`, `LiteRt.dll`, `dxcompiler.dll`, `dxil.dll`. The Intel OpenVINO
-and TBB DLLs behind `PreferredBackend.npu` are Intel's prebuilts, so they still import
-`msvcp140`, `vcruntime140` and `vcruntime140_1` — the three any Windows machine
-running a Flutter app already resolves — but never the `_threads` one. CI checks every
-DLL in the bundle against that boundary on each native build, because an Intel SDK bump
-is exactly how a new CRT import would arrive unnoticed.
+That is what a Microsoft Store certification VM hit in
+[#456](https://github.com/DenisovAV/flutter_gemma/issues/456): `LoadLibraryEx` failed
+there while every developer machine worked. Which of the four was missing was never
+proved — the reporter added all four beside the executable and the submission passed —
+but only one of them is absent from the redistributable our own page pointed at.
+
+Since 1.7.1 the build uses `static_link_msvcrt`, and four of the DLLs import no CRT at
+all: `LiteRtLm.dll`, `LiteRt.dll`, `dxcompiler.dll`, `dxil.dll`. The Intel OpenVINO and
+TBB DLLs behind `PreferredBackend.npu` still import `msvcp140`, `vcruntime140` and
+`vcruntime140_1` — never the `_threads` one — and they are loaded only when that
+backend is selected. `build-litertlm-native-windows.yml` enforces that split on every
+DLL in the bundle on each native build: zero CRT imports from `LiteRtLm.dll`, only
+those three anywhere else. An Intel SDK bump is exactly how a fourth would arrive
+unnoticed.
 
 ### Linux
 

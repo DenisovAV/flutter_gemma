@@ -62,7 +62,7 @@ directories instead.)
 |---|---|---|---|---|---|
 | macOS | arm64 (Apple Silicon) | Metal | ✅ | ✅ | Vision verified on Gemma 4 + Gemma 3n (text decoder on Metal, vision encoder on CPU) |
 | macOS | x86_64 | — | — | — | Not supported (Apple Silicon only) |
-| Windows | x86_64 | DirectX 12 (via Dawn/WebGPU) | ✅ | ✅ | Nothing to install (1.7.1+) |
+| Windows | x86_64 | DirectX 12 (via Dawn/WebGPU) | ✅ | ✅ | Nothing to install |
 | Windows | arm64 | — | — | — | Not supported |
 | Linux | x86_64 | Vulkan (via Dawn/WebGPU) | ✅ | ✅ | glibc ≥ 2.34 (Ubuntu 22.04+, Debian 12+, RHEL 9+) |
 | Linux | arm64 | Vulkan (via Dawn/WebGPU) | ✅ | ✅ | Same glibc requirement |
@@ -261,33 +261,20 @@ modern Windows DLL search order doesn't always include the application directory
 for secondary `LoadLibrary` calls — they would fail to find the GPU accelerator
 DLL and silently fall back to CPU.
 
-End-users need **nothing installed**, and this page used to say otherwise.
+End-users need nothing installed. Since `flutter_gemma_litertlm` 1.7.1
+`LiteRtLm.dll` is linked against the static CRT and imports no C++ runtime at all;
+measured on `native-v0.17.1`, 16 of its 24 DLLs import none.
 
-Up to `flutter_gemma_litertlm` 1.7.0 it asked for the "Visual C++ Redistributable 2019
-or newer" and linked the current VS 2022 one. The runtime was genuinely needed then:
-measured on the shipped bundle, `native-v0.16.0`'s `LiteRtLm.dll` imports `MSVCP140`,
-`VCRUNTIME140`, `VCRUNTIME140_1` and `VCRUNTIME140_THREADS`, and the last of those
-only arrived with Visual Studio 2022 17.8. The link was adequate; the wording was not.
-"2019 or newer" tells a machine that already carries an older v14 runtime that it is
-covered, and it is not.
-
-A Microsoft Store certification VM failed exactly there while every developer machine
-worked ([#456](https://github.com/DenisovAV/flutter_gemma/issues/456)). Which of the
-four was missing on it was never established — the reporter put all four beside the
-executable at once and the submission passed.
-
-Since 1.7.1 the build uses `static_link_msvcrt` and `LiteRtLm.dll` imports no CRT at
-all. Measured across `native-v0.17.1`, 16 of its 24 DLLs import none. The other eight
-are Intel's prebuilts behind `PreferredBackend.npu` — `LiteRtDispatch.dll`, three
-`openvino*` and four `tbb*` — and they import `msvcp140`, `vcruntime140` and
-`vcruntime140_1`, never the `_threads` one. Nothing statically imports
-`LiteRtDispatch.dll`, and `litert_dispatch_lib_dir` is set only for that backend, so an
-app that never asks for the Intel NPU never loads them.
-
-The native build that produces the bundle — dispatched by hand, which is the only way
-one is made — checks every staged DLL against that split: zero CRT imports from
-`LiteRtLm.dll`, only those three anywhere else. An Intel SDK bump is exactly how a
-fourth would arrive unnoticed.
+The other eight are the Intel NPU stack behind `PreferredBackend.npu`: our own
+`LiteRtDispatch.dll`, which links OpenVINO's C++ API and keeps the dynamic CRT, plus
+Intel's three `openvino*` and four `tbb*`. Each imports some of `msvcp140`,
+`vcruntime140` and `vcruntime140_1` — the runtimes any Flutter Windows app already
+resolves — and none imports `vcruntime140_threads.dll`, the Visual Studio 2022 17.8
+one that used to make this page ask for a redistributable and that failed a Microsoft
+Store certification VM ([#456](https://github.com/DenisovAV/flutter_gemma/issues/456)).
+Nothing statically imports `LiteRtDispatch.dll` either, and `litert_dispatch_lib_dir`
+is set only for that backend, so an app that never asks for the Intel NPU never loads
+them at all.
 
 ### Linux
 

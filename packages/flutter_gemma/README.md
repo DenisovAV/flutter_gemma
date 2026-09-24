@@ -614,7 +614,7 @@ without a signing team they fail the build.
 
 **Windows Setup:**
 
-No additional configuration required. `hook/build.dart` (Native Assets) downloads `LiteRtLm.dll` + companion DLLs + the DXC runtime (`dxil.dll`, `dxcompiler.dll` v1.9.2602) from the GitHub release on first build, verifies them via SHA256, and bundles them next to your `app.exe`. End users need nothing installed: since `flutter_gemma_litertlm` 1.7.1 the build links the VC++ runtime statically, so `LiteRtLm.dll` imports no CRT at all. The Intel OpenVINO/TBB prebuilts behind `PreferredBackend.npu` still import `msvcp140`/`vcruntime140`/`vcruntime140_1`, but never `vcruntime140_threads.dll` — the one absent from the 2019 redistributable this README used to point at, and the reason that advice could not fix [#456](https://github.com/DenisovAV/flutter_gemma/issues/456).
+No additional configuration required. `hook/build.dart` (Native Assets) downloads `LiteRtLm.dll` + companion DLLs + the DXC runtime (`dxil.dll`, `dxcompiler.dll` v1.9.2602) from the GitHub release on first build, verifies them via SHA256, and bundles them next to your `app.exe`. End users need nothing installed: since `flutter_gemma_litertlm` 1.7.1 the build links the VC++ runtime statically, so `LiteRtLm.dll` imports no CRT and 16 of the bundle's 24 DLLs import none. The other eight are Intel's OpenVINO/TBB prebuilts behind `PreferredBackend.npu`, loaded only when that backend is selected ([#456](https://github.com/DenisovAV/flutter_gemma/issues/456)).
 
 **Linux Setup:**
 

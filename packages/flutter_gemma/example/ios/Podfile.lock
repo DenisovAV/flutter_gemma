@@ -1,6 +1,6 @@
 PODS:
   - Flutter (1.0.0)
-  - flutter_gemma_mediapipe (1.0.6):
+  - flutter_gemma_mediapipe (1.0.5):
     - Flutter
     - MediaPipeTasksGenAI (= 0.10.33)
     - MediaPipeTasksGenAIC (= 0.10.33)
@@ -36,8 +36,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/flutter_inappwebview_ios/ios"
 
 SPEC CHECKSUMS:
-  Flutter: 71a624a5bc0c04062bf19101d501e466baf2fb47
-  flutter_gemma_mediapipe: 7b4e40e277cea88fb06e84574514b71b98661f86
+  Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
+  flutter_gemma_mediapipe: e8c8d30b68dc890d7b2a305fe028d44e9c831899
   flutter_inappwebview_ios: b89ba3482b96fb25e00c967aae065701b66e9b99
   MediaPipeTasksGenAI: 8eed8e6d03fe26d30c4205cb5295ec7b394432ad
   MediaPipeTasksGenAIC: cb098ecea44e248efe8fe7e2f62b4cb0df781802

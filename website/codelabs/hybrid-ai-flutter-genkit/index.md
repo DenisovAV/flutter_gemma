@@ -383,8 +383,9 @@ and nothing is staged. Either turn SPM off with
 plugin in the app.
 
 **Windows** — nothing in the app, and x86_64 only: there is no Windows arm64
-build of the runtime. Nothing needs installing: every DLL we ship, the DirectX
-shader compiler behind the GPU backend included, carries its own C++ runtime.
+build of the runtime. Nothing needs installing: the DLLs the CPU and GPU paths use, the DirectX
+shader compiler behind the GPU backend included, carries its own C++ runtime. The Intel NPU backend is the exception: its OpenVINO DLLs are prebuilt by
+Intel and still need the Visual C++ Redistributable.
 
 **Linux** — nothing in the app either. glibc 2.34 or newer, which means Ubuntu
 22.04+, Debian 12+ or RHEL 9+; building a Flutter Linux app at all also wants

@@ -91,7 +91,7 @@ prompt and never mentions the rest, with no error raised
 
 - **Flutter** ≥ 3.44.0
 - **macOS**: Apple Silicon (arm64)
-- **Windows**: 10/11 64-bit. No Visual C++ Redistributable needed since `flutter_gemma_litertlm` 1.7.1 — the DLLs carry their own runtime.
+- **Windows**: 10/11 64-bit. No Visual C++ Redistributable needed for CPU or GPU since `flutter_gemma_litertlm` 1.7.1; `PreferredBackend.npu` still needs it (see below).
 - **Linux**: glibc ≥ 2.34, libstdc++ ≥ 6.0.30 (Ubuntu 22.04+, Debian 12+, Fedora 36+, RHEL 9+)
 - **GPU drivers**: any vendor driver with WebGPU/Vulkan/Metal/DX12 support; falls back to CPU if not available
 
@@ -268,8 +268,11 @@ was wrong in a way that only showed on a clean machine: `LiteRtLm.dll` also impo
 from the 2019 redistributable. A Microsoft Store certification VM had exactly that
 shape, and `LoadLibraryEx` failed there while every developer machine worked ([#456]
 (https://github.com/DenisovAV/flutter_gemma/issues/456)). Since 1.7.1 the runtime is
-statically linked (`/MT`) and no DLL in the bundle imports it; CI fails the build if
-that ever stops being true.
+statically linked (`/MT`) and nothing on the CPU or GPU path imports it — `LiteRtLm.dll`,
+`LiteRt.dll`, `dxcompiler.dll` and `dxil.dll` included. CI fails the build if that stops
+being true.
+
+The one exception is `PreferredBackend.npu` on Intel LunarLake/PantherLake: its OpenVINO and TBB DLLs come prebuilt from Intel and still link the runtime dynamically. They are bundled but only loaded when you select that backend.
 
 ### Linux
 

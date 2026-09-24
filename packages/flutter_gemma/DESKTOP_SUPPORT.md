@@ -86,7 +86,7 @@ For mobile platforms see the main [README](README.md).
 - **Flutter** ≥ 3.44.0
 - **Dart SDK** ≥ 3.12.0
 - **macOS**: 10.14+, Apple Silicon (arm64)
-- **Windows**: 10/11 64-bit. No Visual C++ Redistributable needed since `flutter_gemma_litertlm` 1.7.1 — the DLLs carry their own runtime.
+- **Windows**: 10/11 64-bit. No Visual C++ Redistributable needed for CPU or GPU since `flutter_gemma_litertlm` 1.7.1; `PreferredBackend.npu` still needs it (see below).
 - **Linux**: glibc ≥ 2.34, libstdc++ ≥ 6.0.30 (Ubuntu 22.04+, Debian 12+, Fedora 36+, RHEL 9+)
 - **GPU drivers**: any vendor driver with WebGPU/Vulkan/Metal/DX12 support; falls back to CPU if not available
 
@@ -213,6 +213,8 @@ VC++ runtime is statically linked into the shipped DLLs (`/MT`), and CI fails th
 build if any of them starts importing it again. Before 1.7.1 a clean machine could
 fail to load `LiteRtLm.dll` even with the 2019 redistributable installed, because it
 also needed `vcruntime140_threads.dll` from VS 2022 17.8 ([#456](https://github.com/DenisovAV/flutter_gemma/issues/456)).
+
+The one exception is `PreferredBackend.npu` on Intel LunarLake/PantherLake: its OpenVINO and TBB DLLs come prebuilt from Intel and still link the runtime dynamically. They are bundled but only loaded when you select that backend.
 
 ### Linux
 

@@ -62,7 +62,7 @@ directories instead.)
 |---|---|---|---|---|---|
 | macOS | arm64 (Apple Silicon) | Metal | ✅ | ✅ | Vision verified on Gemma 4 + Gemma 3n (text decoder on Metal, vision encoder on CPU) |
 | macOS | x86_64 | — | — | — | Not supported (Apple Silicon only) |
-| Windows | x86_64 | DirectX 12 (via Dawn/WebGPU) | ✅ | ✅ | Requires VS 2019+ runtime (`vcredist`) for DXC |
+| Windows | x86_64 | DirectX 12 (via Dawn/WebGPU) | ✅ | ✅ | Nothing to install |
 | Windows | arm64 | — | — | — | Not supported |
 | Linux | x86_64 | Vulkan (via Dawn/WebGPU) | ✅ | ✅ | glibc ≥ 2.34 (Ubuntu 22.04+, Debian 12+, RHEL 9+) |
 | Linux | arm64 | Vulkan (via Dawn/WebGPU) | ✅ | ✅ | Same glibc requirement |
@@ -91,7 +91,7 @@ prompt and never mentions the rest, with no error raised
 
 - **Flutter** ≥ 3.44.0
 - **macOS**: Apple Silicon (arm64)
-- **Windows**: 10/11 64-bit, [Microsoft Visual C++ Redistributable 2019+](https://aka.ms/vs/17/release/vc_redist.x64.exe)
+- **Windows**: 10/11 64-bit. No Visual C++ Redistributable needed since `flutter_gemma_litertlm` 1.7.1 (see below).
 - **Linux**: glibc ≥ 2.34, libstdc++ ≥ 6.0.30 (Ubuntu 22.04+, Debian 12+, Fedora 36+, RHEL 9+)
 - **GPU drivers**: any vendor driver with WebGPU/Vulkan/Metal/DX12 support; falls back to CPU if not available
 
@@ -261,9 +261,20 @@ modern Windows DLL search order doesn't always include the application directory
 for secondary `LoadLibrary` calls — they would fail to find the GPU accelerator
 DLL and silently fall back to CPU.
 
-End-users need the **Microsoft Visual C++ Redistributable 2019+** (LLM DLLs depend
-on `vcruntime140.dll`/`msvcp140.dll`). Most modern Windows 10/11 systems already
-have it.
+End-users need nothing installed. Since `flutter_gemma_litertlm` 1.7.1
+`LiteRtLm.dll` is linked against the static CRT and imports no C++ runtime at all;
+measured on `native-v0.17.1`, 16 of its 24 DLLs import none.
+
+The other eight are the Intel NPU stack behind `PreferredBackend.npu`: our own
+`LiteRtDispatch.dll`, which links OpenVINO's C++ API and keeps the dynamic CRT, plus
+Intel's three `openvino*` and four `tbb*`. Each imports some of `msvcp140`,
+`vcruntime140` and `vcruntime140_1` — the runtimes any Flutter Windows app already
+resolves — and none imports `vcruntime140_threads.dll`, the Visual Studio 2022 17.8
+one that used to make this page ask for a redistributable and that failed a Microsoft
+Store certification VM ([#456](https://github.com/DenisovAV/flutter_gemma/issues/456)).
+Nothing statically imports `LiteRtDispatch.dll` either, and `litert_dispatch_lib_dir`
+is set only for that backend, so an app that never asks for the Intel NPU never loads
+them at all.
 
 ### Linux
 
@@ -435,8 +446,8 @@ takes precedence over the release without saying so — delete that too.
 
 Symptom: `engine_create` returns null with no Dart-side error, app silently falls
 back to CPU. Verify `dxcompiler.dll` and `dxil.dll` are next to your `app.exe`
-(Native Assets bundles them). If present but still failing, check the user has the
-VS 2019+ Visual C++ Runtime.
+(Native Assets bundles them). Neither imports the Visual C++ runtime, so a missing
+redistributable is not the cause — look at the GPU driver instead.
 
 <Warning>
 On a Windows **discrete GPU** with litertlm 1.2.0–1.3.1, GPU also crashes for a

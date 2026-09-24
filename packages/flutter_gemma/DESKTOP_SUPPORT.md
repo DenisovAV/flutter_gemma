@@ -70,7 +70,7 @@ loading sequence differs per platform (handled in `litert_lm_client.dart`).
 |----------|--------------|-------------|--------|-------|-------|
 | macOS | arm64 (Apple Silicon) | Metal | ✅ | ✅ | Vision verified on Gemma 4 + Gemma 3n via Metal |
 | macOS | x86_64 | — | — | — | Not supported (Apple Silicon only) |
-| Windows | x86_64 | DirectX 12 (via Dawn/WebGPU) | ✅ | ✅ | Requires VS 2019+ runtime (`vcredist`) for DXC |
+| Windows | x86_64 | DirectX 12 (via Dawn/WebGPU) | ✅ | ✅ | Nothing to install |
 | Windows | arm64 | — | — | — | Not supported |
 | Linux | x86_64 | Vulkan (via Dawn/WebGPU) | ✅ | ✅ | glibc ≥ 2.34 (Ubuntu 22.04+, Debian 12+, RHEL 9+) |
 | Linux | arm64 | Vulkan (via Dawn/WebGPU) | ✅ | ✅ | Same glibc requirement |
@@ -86,7 +86,7 @@ For mobile platforms see the main [README](README.md).
 - **Flutter** ≥ 3.44.0
 - **Dart SDK** ≥ 3.12.0
 - **macOS**: 10.14+, Apple Silicon (arm64)
-- **Windows**: 10/11 64-bit, [Microsoft Visual C++ Redistributable 2019+](https://aka.ms/vs/17/release/vc_redist.x64.exe)
+- **Windows**: 10/11 64-bit. No Visual C++ Redistributable needed since `flutter_gemma_litertlm` 1.7.1 (see below).
 - **Linux**: glibc ≥ 2.34, libstdc++ ≥ 6.0.30 (Ubuntu 22.04+, Debian 12+, Fedora 36+, RHEL 9+)
 - **GPU drivers**: any vendor driver with WebGPU/Vulkan/Metal/DX12 support; falls back to CPU if not available
 
@@ -208,10 +208,20 @@ directory for secondary `LoadLibrary` calls made by `gpu_registry.cc` /
 `sampler_factory.cc` at runtime — they would fail to find the GPU accelerator
 DLL and silently fall back to CPU. (Mirrors the Linux `RTLD_GLOBAL` pattern.)
 
-Make sure your end-users have the **Microsoft Visual C++ Redistributable 2019+**
-installed; LLM DLLs depend on its `vcruntime140.dll`/`msvcp140.dll`. Most modern
-Windows 10/11 systems already have it; for distribution see
-[the official redistributable download](https://aka.ms/vs/17/release/vc_redist.x64.exe).
+Your end-users need nothing installed. Since `flutter_gemma_litertlm` 1.7.1
+`LiteRtLm.dll` is linked against the static CRT and imports no C++ runtime at all;
+measured on `native-v0.17.1`, 16 of its 24 DLLs import none.
+
+The other eight are the Intel NPU stack behind `PreferredBackend.npu`: our own
+`LiteRtDispatch.dll`, which links OpenVINO's C++ API and keeps the dynamic CRT, plus
+Intel's three `openvino*` and four `tbb*`. Each imports some of `msvcp140`,
+`vcruntime140` and `vcruntime140_1` — the runtimes any Flutter Windows app already
+resolves — and none imports `vcruntime140_threads.dll`, the Visual Studio 2022 17.8
+one that used to make this document ask for a redistributable and that failed a Microsoft
+Store certification VM ([#456](https://github.com/DenisovAV/flutter_gemma/issues/456)).
+Nothing statically imports `LiteRtDispatch.dll` either, and `litert_dispatch_lib_dir`
+is set only for that backend, so an app that never asks for the Intel NPU never loads
+them at all.
 
 ### Linux
 
@@ -423,8 +433,8 @@ Verify `dxcompiler.dll` and `dxil.dll` are next to your `app.exe`. They should
 be — Native Assets bundles them. If they're absent, the WebGPU/DX12 shader
 compiler can't run.
 
-If they're present but still failing, check that the user's Windows has the
-[VS 2019+ Visual C++ Runtime](https://aka.ms/vs/17/release/vc_redist.x64.exe).
+If they're present but still failing, it is not a missing Visual C++ runtime —
+neither DLL imports one. Look at the GPU driver instead.
 
 ### Model file not found / `Cannot find: gemma-...litertlm`
 

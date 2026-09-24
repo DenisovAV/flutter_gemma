@@ -383,9 +383,8 @@ and nothing is staged. Either turn SPM off with
 plugin in the app.
 
 **Windows** — nothing in the app, and x86_64 only: there is no Windows arm64
-build of the runtime. The machine needs the Microsoft Visual C++
-Redistributable (2019 or newer), which the DirectX shader compiler behind the
-GPU backend links against.
+build of the runtime. Nothing needs installing: nothing in the bundle needs a C++
+runtime the machine does not already have.
 
 **Linux** — nothing in the app either. glibc 2.34 or newer, which means Ubuntu
 22.04+, Debian 12+ or RHEL 9+; building a Flutter Linux app at all also wants

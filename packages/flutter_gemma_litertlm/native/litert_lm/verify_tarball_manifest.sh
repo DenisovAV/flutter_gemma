@@ -296,6 +296,235 @@ if [[ $align_fail -eq 1 ]]; then
 fi
 
 echo
+echo "==> Checking the Windows C++ runtime against what the docs promise"
+# The docs tell Windows end-users what they must install. That sentence is a
+# claim about the bundle's import tables, and it drifted for a year: the pages
+# asked for "Visual C++ Redistributable 2019 or newer" while `LiteRtLm.dll` also
+# needed `vcruntime140_threads.dll`, which VS 2022 17.8 introduced and the 2019
+# redistributable does not carry. Nothing failed until a Microsoft Store
+# certification VM refused the app (#456).
+#
+# Since litertlm 1.7.1 the runtime is linked statically and the promise is
+# "nothing to install". This checks that promise against the bytes, here rather
+# than in a separate tool, because here is where the bundle changes: an Intel
+# OpenVINO bump is exactly how a ninth CRT-importing DLL — or `_threads` coming
+# back — would arrive, and the page saying "nothing to install" would go on
+# saying it.
+win_dir=""
+for d in "$align_tmp"/litertlm-windows_*; do
+  [[ -d "$d" ]] && win_dir="$d"
+done
+if [[ -z "$win_dir" ]]; then
+  # Reachable only for a release that ships no Windows tarball at all. A
+  # release that DROPPED one has already failed the manifest stage above, which
+  # is where "was an asset of the previous tag but was not packed" is caught.
+  echo "  [skip] this release ships no Windows tarball"
+else
+  # `dirname $0` does not resolve a symlink, and this script is short enough to
+  # be symlinked somewhere convenient. Resolve before walking up.
+  self="$0"
+  while [[ -L "$self" ]]; do
+    link="$(readlink "$self")"
+    case "$link" in /*) self="$link" ;; *) self="$(dirname "$self")/$link" ;; esac
+  done
+  REPO_ROOT="$(cd "$(dirname "$self")/../../../.." && pwd)"
+  # `if ! cmd` rather than `cmd; if [[ $? -ne 0 ]]`: under `set -e` the second
+  # form never reaches the test — bash exits at the failing command and the
+  # explanatory banner is dead code. Measured on bash 3.2.
+  if ! WIN_DIR="$win_dir" REPO_ROOT="$REPO_ROOT" python3 - <<'PYWIN'
+import glob, io, os, re, struct, sys
+
+win, root = os.environ["WIN_DIR"], os.environ["REPO_ROOT"]
+
+def pe_imports(path):
+    """DLL names from the PE import directory.
+
+    Every malformed shape raises. A parser that returns an empty list for input
+    it did not understand reports "imports no C++ runtime", which is the answer
+    this whole check exists to distrust. Directory index 1 — index 0 is the
+    export table, and a first version read that and returned plausible nonsense.
+    """
+    d = open(path, "rb").read()
+    if d[:2] != b"MZ":
+        raise ValueError("not a PE file (no MZ)")
+    if len(d) < 0x40:
+        raise ValueError("truncated DOS header")
+    pe = struct.unpack_from("<I", d, 0x3C)[0]
+    if pe + 24 > len(d) or d[pe:pe + 4] != b"PE\0\0":
+        raise ValueError("no PE signature")
+    nsec, = struct.unpack_from("<H", d, pe + 6)
+    sizeopt, = struct.unpack_from("<H", d, pe + 20)
+    opt = pe + 24
+    magic, = struct.unpack_from("<H", d, opt)
+    if magic not in (0x10B, 0x20B):
+        raise ValueError("unknown optional-header magic 0x%x" % magic)
+    ddbase = opt + (112 if magic == 0x20B else 96)
+    nrva, = struct.unpack_from("<I", d, ddbase - 4)
+    if nrva < 2:
+        raise ValueError("no import data directory")
+    imp_rva, imp_size = struct.unpack_from("<II", d, ddbase + 8)
+    if not imp_rva:
+        return []
+    secs = []
+    for i in range(nsec):
+        h = opt + sizeopt + i * 40
+        if h + 40 > len(d):
+            raise ValueError("truncated section table")
+        vs, va, rs, ra = struct.unpack_from("<IIII", d, h + 8)
+        secs.append((va, vs, rs, ra))
+    def off(rva):
+        # Bounded by SizeOfRawData, not by max(VirtualSize, SizeOfRawData): the
+        # virtual tail of a section is zero-filled and has no bytes in the file,
+        # so mapping it would read whatever follows and call it a name.
+        for va, vs, rs, ra in secs:
+            if va <= rva < va + vs:
+                delta = rva - va
+                if delta >= rs:
+                    raise ValueError("RVA 0x%x is in a section's virtual tail" % rva)
+                fo = ra + delta
+                if fo >= len(d):
+                    raise ValueError("RVA 0x%x maps past end of file" % rva)
+                return fo
+        raise ValueError("RVA 0x%x is in no section" % rva)
+    out, o, limit = [], off(imp_rva), None
+    if imp_size:
+        limit = o + imp_size
+    while True:
+        if limit is not None and o + 20 > limit:
+            break
+        if o + 20 > len(d):
+            raise ValueError("import descriptor runs past end of file")
+        ent = d[o:o + 20]
+        if ent == b"\0" * 20:
+            break
+        nr, = struct.unpack_from("<I", ent, 12)
+        if nr:
+            no = off(nr)
+            z = d.find(b"\0", no)
+            if z < 0:
+                raise ValueError("unterminated import name")
+            out.append(d[no:z].decode("ascii", "replace"))
+        o += 20
+    return out
+
+CRT = re.compile(r"^(msvcp|vcruntime|concrt)\d", re.I)
+# What a Flutter Windows app resolves anyway. NOT what the redistributable
+# installs — the redist also carries vcruntime140_threads.dll, and needing that
+# one is exactly #456.
+ALLOWED = {"msvcp140.dll", "vcruntime140.dll", "vcruntime140_1.dll"}
+
+# Recursive: "*.dll" would describe the flat bundle we ship today and quietly
+# stop describing it the day anything lands in a subdirectory.
+dlls = sorted(glob.glob(os.path.join(win, "**", "*.dll"), recursive=True))
+if not dlls:
+    sys.exit("  [FAIL] the Windows tarball contains no DLLs — nothing was checked")
+
+crt, dispatch_importers, fail = {}, [], False
+for path in dlls:
+    name = os.path.relpath(path, win)
+    try:
+        imp = pe_imports(path)
+    except Exception as e:
+        print(f"  [FAIL] {name}: {e}")
+        fail = True
+        continue
+    got = sorted({i for i in imp if CRT.match(i)}, key=str.lower)
+    if got:
+        crt[name] = got
+    if any(i.lower() == "litertdispatch.dll" for i in imp):
+        dispatch_importers.append(name)
+
+clean = len(dlls) - len(crt)
+print(f"    {len(dlls)} DLL(s): {clean} import no C++ runtime, {len(crt)} do")
+
+# 1. The library we build must carry its own runtime. Windows filenames are
+#    case-insensitive, so match that way.
+litertlm = [n for n in crt if os.path.basename(n).lower() == "litertlm.dll"]
+if litertlm:
+    print(f"  [FAIL] {litertlm[0]} imports {', '.join(crt[litertlm[0]])} —"
+          " static_link_msvcrt did not apply")
+    fail = True
+if not any(os.path.basename(p).lower() == "litertlm.dll" for p in dlls):
+    print("  [FAIL] no LiteRtLm.dll in the Windows tarball — the assertion about"
+          " it cannot have been checked")
+    fail = True
+
+# 2. Nothing may need a runtime a Flutter app does not already resolve. Stated
+#    as a property: naming vcruntime140_threads.dll would catch only the one
+#    spelling that has already bitten us.
+for name, got in sorted(crt.items()):
+    bad = [g for g in got if g.lower() not in ALLOWED]
+    if bad:
+        print(f"  [FAIL] {name} needs {', '.join(bad)}, which an end-user would"
+              " have to install")
+        fail = True
+
+# 3. The NPU stack is reachable only through PreferredBackend.npu. A static
+#    import from an always-loaded DLL would make that false, and the docs say it.
+if dispatch_importers:
+    print("  [FAIL] these statically import LiteRtDispatch.dll, so its OpenVINO"
+          f" runtime loads unconditionally: {', '.join(dispatch_importers)}")
+    fail = True
+
+# 4. Every page that states the split must state the measured one, and each of
+#    them must still state it — one page keeping the sentence would otherwise
+#    cover for three that dropped it.
+DOCS = ["website/content/docs/desktop.md",
+        "packages/flutter_gemma/DESKTOP_SUPPORT.md",
+        "packages/flutter_gemma/README.md",
+        "packages/flutter_gemma/skills/flutter-gemma-inference/references/platform-setup.md"]
+COUNT = re.compile(r"(\d+) of (?:the bundle's |its )?(\d+) DLLs")
+# Every mention of a redistributable must be a denial or a description of the
+# past. Checking for instruction verbs instead would miss "Download the …" and
+# any phrasing nobody thought of; this way an approving mention has to opt in.
+# Deliberately narrow. "before" and "was" were in a first draft and would have
+# waved through "Download the Visual C++ Redistributable before launching."
+DENIAL = re.compile(r"\bno\b|\bnot\b|\bnothing\b|\bnever\b|\blacks\b|\babsent\b|"
+                    r"\bused to\b|\bup to\b|\bpreviously\b|\b1\.7\.0\b", re.I)
+for rel in DOCS:
+    p = os.path.join(root, rel)
+    if not os.path.exists(p):
+        print(f"  [FAIL] {rel} is gone — this check names the pages it guards")
+        fail = True
+        continue
+    text = io.open(p, encoding="utf-8").read()
+    hits = list(COUNT.finditer(text))
+    if not hits:
+        print(f"  [FAIL] {rel} no longer states the DLL split; this check would"
+              " pass vacuously for it")
+        fail = True
+    for m in hits:
+        if (int(m.group(1)), int(m.group(2))) != (clean, len(dlls)):
+            line = text[:m.start()].count("\n") + 1
+            print(f'  [FAIL] {rel}:{line} says "{m.group(0)}";'
+                  f" measured {clean} of {len(dlls)}")
+            fail = True
+    for sentence in re.split(r"(?<=[.!?])\s+|\n\n", text):
+        if not re.search(r"redistributable", sentence, re.I):
+            continue
+        if DENIAL.search(sentence):
+            continue
+        line = text[:text.index(sentence)].count("\n") + 1
+        one = " ".join(sentence.split())[:80]
+        print(f'  [FAIL] {rel}:{line} mentions a redistributable without denying'
+              f' it is needed: "{one}"')
+        fail = True
+
+if fail:
+    sys.exit(1)
+print(f"    docs agree: {clean} of {len(dlls)}, nothing to install")
+PYWIN
+  then
+    echo
+    echo "❌ WINDOWS RUNTIME CHECK FAILED — the bundle and the docs disagree, or"
+    echo "   a DLL now needs a runtime the end-user would have to install."
+    echo "   Fix whichever is wrong before publishing; #456 is what happens when"
+    echo "   the page keeps promising something the bytes stopped doing."
+    exit 1
+  fi
+fi
+
+echo
 if [[ $checked -eq 0 ]]; then
   echo "❌ MANIFEST CHECK DID NOT RUN — zero platforms compared."
   echo "   $skipped tarball(s) had no counterpart in $PREV_TAG."

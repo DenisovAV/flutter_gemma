@@ -62,7 +62,7 @@ directories instead.)
 |---|---|---|---|---|---|
 | macOS | arm64 (Apple Silicon) | Metal | ✅ | ✅ | Vision verified on Gemma 4 + Gemma 3n (text decoder on Metal, vision encoder on CPU) |
 | macOS | x86_64 | — | — | — | Not supported (Apple Silicon only) |
-| Windows | x86_64 | DirectX 12 (via Dawn/WebGPU) | ✅ | ✅ | Requires VS 2019+ runtime (`vcredist`) for DXC |
+| Windows | x86_64 | DirectX 12 (via Dawn/WebGPU) | ✅ | ✅ | Nothing to install (1.7.1+) |
 | Windows | arm64 | — | — | — | Not supported |
 | Linux | x86_64 | Vulkan (via Dawn/WebGPU) | ✅ | ✅ | glibc ≥ 2.34 (Ubuntu 22.04+, Debian 12+, RHEL 9+) |
 | Linux | arm64 | Vulkan (via Dawn/WebGPU) | ✅ | ✅ | Same glibc requirement |
@@ -264,11 +264,12 @@ DLL and silently fall back to CPU.
 End-users need **nothing installed**, and this page used to say otherwise.
 
 Up to `flutter_gemma_litertlm` 1.7.0 it told you "Visual C++ Redistributable 2019 or
-newer". That advice could not have helped the person who needed it: `LiteRtLm.dll`
-imported four CRT libraries, and one of them — `vcruntime140_threads.dll`, which
-arrived with Visual Studio 2022 17.8 — is **not** in the 2019 redistributable. Checked
-against the shipped bundle: `native-v0.16.0`'s `LiteRtLm.dll` imports `MSVCP140`,
-`VCRUNTIME140`, `VCRUNTIME140_1` and `VCRUNTIME140_THREADS`.
+newer" and linked the current VS 2022 one. The link was fine; the sentence was not.
+`LiteRtLm.dll` imported four CRT libraries — checked against the shipped bundle,
+`native-v0.16.0`'s copy imports `MSVCP140`, `VCRUNTIME140`, `VCRUNTIME140_1` and
+`VCRUNTIME140_THREADS` — and the last of those only arrived with Visual Studio 2022
+17.8. So "2019 or newer" told a machine that already had an older v14 runtime it was
+covered, when it was not.
 
 That is what a Microsoft Store certification VM hit in
 [#456](https://github.com/DenisovAV/flutter_gemma/issues/456): `LoadLibraryEx` failed
@@ -280,10 +281,10 @@ Since 1.7.1 the build uses `static_link_msvcrt`, and four of the DLLs import no 
 all: `LiteRtLm.dll`, `LiteRt.dll`, `dxcompiler.dll`, `dxil.dll`. The Intel OpenVINO and
 TBB DLLs behind `PreferredBackend.npu` still import `msvcp140`, `vcruntime140` and
 `vcruntime140_1` — never the `_threads` one — and they are loaded only when that
-backend is selected. `build-litertlm-native-windows.yml` enforces that split on every
-DLL in the bundle on each native build: zero CRT imports from `LiteRtLm.dll`, only
-those three anywhere else. An Intel SDK bump is exactly how a fourth would arrive
-unnoticed.
+backend is selected. The native build that produces the bundle — dispatched
+by hand, which is the only way a bundle is made — checks every staged DLL against
+that split: zero CRT imports from `LiteRtLm.dll`, only those three anywhere else. An
+Intel SDK bump is exactly how a fourth would arrive unnoticed.
 
 ### Linux
 
@@ -455,8 +456,8 @@ takes precedence over the release without saying so — delete that too.
 
 Symptom: `engine_create` returns null with no Dart-side error, app silently falls
 back to CPU. Verify `dxcompiler.dll` and `dxil.dll` are next to your `app.exe`
-(Native Assets bundles them). If present but still failing, check the user has the
-VS 2019+ Visual C++ Runtime.
+(Native Assets bundles them). Neither imports the Visual C++ runtime, so a missing
+redistributable is not the cause — look at the GPU driver instead.
 
 <Warning>
 On a Windows **discrete GPU** with litertlm 1.2.0–1.3.1, GPU also crashes for a

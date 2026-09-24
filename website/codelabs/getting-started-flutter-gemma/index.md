@@ -247,9 +247,9 @@ either turn SPM off with `flutter config --no-enable-swift-package-manager`, or
 keep one CocoaPods plugin in the app.
 
 **Windows** — nothing in the app, and x86_64 only: there is no Windows arm64
-build of the runtime, so a Snapdragon-X machine is out. Nothing needs installing: the DLLs the CPU and GPU paths use, the DirectX shader compiler
-(DXC) included, carries its own C++ runtime. The Intel NPU backend is the exception: its OpenVINO DLLs are prebuilt by
-Intel and still need the Visual C++ Redistributable.
+build of the runtime, so a Snapdragon-X machine is out. Nothing needs installing:
+since flutter_gemma_litertlm 1.7.1 the DLLs carry their own C++ runtime, the
+DirectX shader compiler (DXC) included.
 
 **Linux** — nothing in the app either. glibc 2.34 or newer, which means Ubuntu
 22.04+, Debian 12+ or RHEL 9+. Building a Flutter Linux app at all also wants

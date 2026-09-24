@@ -91,7 +91,7 @@ prompt and never mentions the rest, with no error raised
 
 - **Flutter** ≥ 3.44.0
 - **macOS**: Apple Silicon (arm64)
-- **Windows**: 10/11 64-bit. No Visual C++ Redistributable needed for CPU or GPU since `flutter_gemma_litertlm` 1.7.1; `PreferredBackend.npu` still needs it (see below).
+- **Windows**: 10/11 64-bit. No Visual C++ Redistributable needed since `flutter_gemma_litertlm` 1.7.1 (see below).
 - **Linux**: glibc ≥ 2.34, libstdc++ ≥ 6.0.30 (Ubuntu 22.04+, Debian 12+, Fedora 36+, RHEL 9+)
 - **GPU drivers**: any vendor driver with WebGPU/Vulkan/Metal/DX12 support; falls back to CPU if not available
 
@@ -261,18 +261,23 @@ modern Windows DLL search order doesn't always include the application directory
 for secondary `LoadLibrary` calls — they would fail to find the GPU accelerator
 DLL and silently fall back to CPU.
 
-End-users need **nothing installed**. Up to `flutter_gemma_litertlm` 1.7.0 the DLLs
-linked the VC++ runtime dynamically, and this page told you "2019 or newer" — which
-was wrong in a way that only showed on a clean machine: `LiteRtLm.dll` also imported
-`vcruntime140_threads.dll`, which ships with Visual Studio 2022 17.8 and is absent
-from the 2019 redistributable. A Microsoft Store certification VM had exactly that
-shape, and `LoadLibraryEx` failed there while every developer machine worked ([#456]
-(https://github.com/DenisovAV/flutter_gemma/issues/456)). Since 1.7.1 the runtime is
-statically linked (`/MT`) and nothing on the CPU or GPU path imports it — `LiteRtLm.dll`,
-`LiteRt.dll`, `dxcompiler.dll` and `dxil.dll` included. CI fails the build if that stops
-being true.
+End-users need **nothing installed**, and this page used to say otherwise.
 
-The one exception is `PreferredBackend.npu` on Intel LunarLake/PantherLake: its OpenVINO and TBB DLLs come prebuilt from Intel and still link the runtime dynamically. They are bundled but only loaded when you select that backend.
+Up to `flutter_gemma_litertlm` 1.7.0 it told you "Visual C++ Redistributable 2019 or
+newer", which was wrong in a way that only showed on a clean machine: `LiteRtLm.dll`
+also imported `vcruntime140_threads.dll`, which ships with Visual Studio 2022 17.8 and
+is **not** in the 2019 redistributable. A Microsoft Store certification VM had exactly
+that shape — it resolved `msvcp140`, `vcruntime140` and `vcruntime140_1` and failed
+only on the fourth — so `LoadLibraryEx` failed there while every developer machine
+worked ([#456](https://github.com/DenisovAV/flutter_gemma/issues/456)).
+
+Since 1.7.1 the DLLs we compile link the runtime statically (`/MT`) and import no CRT
+at all: `LiteRtLm.dll`, `LiteRt.dll`, `dxcompiler.dll`, `dxil.dll`. The Intel OpenVINO
+and TBB DLLs behind `PreferredBackend.npu` are Intel's prebuilts, so they still import
+`msvcp140`, `vcruntime140` and `vcruntime140_1` — the three any Windows machine
+running a Flutter app already resolves — but never the `_threads` one. CI checks every
+DLL in the bundle against that boundary on each native build, because an Intel SDK bump
+is exactly how a new CRT import would arrive unnoticed.
 
 ### Linux
 

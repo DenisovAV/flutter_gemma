@@ -91,7 +91,7 @@ prompt and never mentions the rest, with no error raised
 
 - **Flutter** ≥ 3.44.0
 - **macOS**: Apple Silicon (arm64)
-- **Windows**: 10/11 64-bit, [Microsoft Visual C++ Redistributable 2019+](https://aka.ms/vs/17/release/vc_redist.x64.exe)
+- **Windows**: 10/11 64-bit. No Visual C++ Redistributable needed since `flutter_gemma_litertlm` 1.7.1 — the DLLs carry their own runtime.
 - **Linux**: glibc ≥ 2.34, libstdc++ ≥ 6.0.30 (Ubuntu 22.04+, Debian 12+, Fedora 36+, RHEL 9+)
 - **GPU drivers**: any vendor driver with WebGPU/Vulkan/Metal/DX12 support; falls back to CPU if not available
 
@@ -261,9 +261,15 @@ modern Windows DLL search order doesn't always include the application directory
 for secondary `LoadLibrary` calls — they would fail to find the GPU accelerator
 DLL and silently fall back to CPU.
 
-End-users need the **Microsoft Visual C++ Redistributable 2019+** (LLM DLLs depend
-on `vcruntime140.dll`/`msvcp140.dll`). Most modern Windows 10/11 systems already
-have it.
+End-users need **nothing installed**. Up to `flutter_gemma_litertlm` 1.7.0 the DLLs
+linked the VC++ runtime dynamically, and this page told you "2019 or newer" — which
+was wrong in a way that only showed on a clean machine: `LiteRtLm.dll` also imported
+`vcruntime140_threads.dll`, which ships with Visual Studio 2022 17.8 and is absent
+from the 2019 redistributable. A Microsoft Store certification VM had exactly that
+shape, and `LoadLibraryEx` failed there while every developer machine worked ([#456]
+(https://github.com/DenisovAV/flutter_gemma/issues/456)). Since 1.7.1 the runtime is
+statically linked (`/MT`) and no DLL in the bundle imports it; CI fails the build if
+that ever stops being true.
 
 ### Linux
 

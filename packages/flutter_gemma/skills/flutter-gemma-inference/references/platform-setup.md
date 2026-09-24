@@ -182,7 +182,10 @@ Without it the build succeeds and the model fails to load at runtime.
 Nothing to add to the project. The native libraries — including the Windows GPU
 shader compiler and NPU runtime — are bundled at build time.
 
-- Windows: end users need the Microsoft Visual C++ Redistributable 2019 or later.
+- Windows: end users need nothing installed. The VC++ runtime is statically linked
+  into the shipped DLLs since flutter_gemma_litertlm 1.7.1 (#456); before that a
+  clean machine failed even with the 2019 redistributable, which lacks
+  vcruntime140_threads.dll.
 - Linux: building needs `clang cmake ninja-build libgtk-3-dev lld`. GPU needs the
   vendor Vulkan driver; Mesa's `llvmpipe` software fallback cannot run Gemma 4.
 

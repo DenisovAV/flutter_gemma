@@ -1,6 +1,9 @@
 ## 0.3.0
 - **Breaking:** now a thin adapter over `flutter_local_ai`, which supplies every OS backend.
-- Require `flutter_local_ai` 0.1.1 so native tool declarations retain their full JSON Schema and tool calls can be exercised through `FakeLocalAiHost` (#19).
+- Require `flutter_local_ai` 0.2.0 for session-scoped token counting,
+  immediate web user-activation errors, non-throwing availability reasons,
+  complete native tool schemas and the published `FakeLocalAiHost` (#19).
+- **Breaking:** require Flutter 3.44 / Dart 3.12, matching the upstream package.
 - **Breaking:** no longer a Flutter plugin — registrants and `Podfile.lock` regenerate; re-lock frozen CI.
 - **Breaking:** macOS deployment floor raised from 10.15 to 12.0.
 - **Breaking:** `lib/pigeon.g.dart` removed along with the native channel it wrapped.

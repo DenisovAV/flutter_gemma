@@ -34,6 +34,7 @@ import '../core/model_management/model_specs.dart'
 import '../mobile/flutter_gemma_mobile.dart' show MobileModelManager;
 
 import '../core/model_management/constants/preferences_keys.dart';
+import 'package:flutter_gemma/core/embedding/embedder_backend_notice.dart';
 
 /// Normalizes a `createTtsModel`/`getActiveTts` `language` argument for the
 /// same-model reuse guard's store/compare — defaults `null` to `'english'`
@@ -432,6 +433,11 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
         _initializedEmbeddingModel = null;
         _lastActiveEmbeddingModelName = null;
       } else {
+        // Same embedder. `preferredBackend` cannot change what gets built —
+        // every backend resolves to CPU — so say that instead of letting the
+        // argument look honoured. This sits ABOVE the cached return on
+        // purpose: a notice inside a backend never runs on this path.
+        noticeEmbedderBackendIgnored(preferredBackend);
         return _initEmbeddingCompleter!.future;
       }
     }
@@ -472,12 +478,14 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
       if (tokenizerPath == null) {
         throw StateError('Tokenizer path is required for desktop embeddings');
       }
-      if (preferredBackend == PreferredBackend.npu) {
-        throw UnsupportedError(
-          'PreferredBackend.npu is only supported on Android with .litertlm '
-          'models; not available for desktop embeddings.',
-        );
-      }
+      // No throw for PreferredBackend.npu here any more. It was the only
+      // `getActive*` path where a PREFERENCE was a hard error, and it
+      // contradicted three things at once: `gpu` passed silently to the
+      // identical CPU build, desktop INFERENCE falls npu -> gpu -> cpu rather
+      // than throwing, and PreferredBackend's own contract promises a
+      // fallback. Its message was also wrong about Windows NPU. Callers now
+      // get a CPU embedder and can read `activeBackend` to see it.
+      noticeEmbedderBackendIgnored(preferredBackend);
 
       // The LiteRT embedding runtime lives in flutter_gemma_litertlm; core
       // resolves paths (preamble above) + owns the singleton lifecycle, then

@@ -221,3 +221,80 @@ class ActiveModelParams {
     return null;
   }
 }
+
+/// The runtime knobs a caller passes to `getActiveEmbedder`, captured so a
+/// second call can tell whether the cached singleton still satisfies it.
+///
+/// Its own record rather than [ActiveModelParams] with eight nulls:
+/// `maxTokens` is required there and compared first, which is why the web
+/// shell has to pass `maxTokens: 0` as filler, and `normalized()` would apply
+/// vision and audio defaults to a model that has no encoders. A reader would
+/// have to work out which fields are decorative.
+///
+/// Only three values decide what an embedder IS. Everything else a caller can
+/// vary is per-call — `taskType` is an argument to `generateEmbedding`, not a
+/// property of the model.
+class ActiveEmbedderParams {
+  const ActiveEmbedderParams({
+    required this.modelPath,
+    this.tokenizerPath,
+    this.preferredBackend,
+  });
+
+  /// The file the compiled model opens. Compared instead of the spec NAME,
+  /// which is what mobile and desktop compared before: reinstalling a
+  /// same-named model to a new path was invisible to them.
+  final String modelPath;
+
+  /// Resolved by core and baked into the embedding worker at spawn.
+  final String? tokenizerPath;
+
+  /// Normalised away — see [normalized]. Kept in the record so the twin's
+  /// shape is visible, and so honouring it later is a one-line change here
+  /// rather than a new code path in three shells.
+  final PreferredBackend? preferredBackend;
+
+  /// The same request with what the backends normalise away already applied,
+  /// so two requests that build a bit-identical embedder compare equal.
+  ///
+  /// `preferredBackend` collapses to CPU because every embedding backend
+  /// resolves to CPU whatever is asked, and this is the one place that fact is
+  /// written down:
+  ///
+  ///   * LiteRT is CPU-only by decision, not by omission — the GPU delegate
+  ///     compiles and then returns all-zero vectors for EmbeddingGemma's int4
+  ///     weights (removed in `ab3df2bf`).
+  ///   * ONNX never appends an execution provider, so it runs ORT's default
+  ///     CPU EP (`ort_ffi_client.dart`).
+  ///
+  /// So two requests differing only here build the same model and must NOT
+  /// rebuild — the same reasoning that normalises `preferredVisionBackend`
+  /// above. A rebuild would unload and reload a bit-identical model at the
+  /// 570-780 ms compile measured in `docs/issue-299-embedding-ui-isolate.md`.
+  ///
+  /// The day a backend honours the value, deleting one line here restores
+  /// rebuild semantics with no new code.
+  ActiveEmbedderParams normalized() => ActiveEmbedderParams(
+    modelPath: modelPath,
+    tokenizerPath: tokenizerPath,
+    preferredBackend: PreferredBackend.cpu,
+  );
+
+  /// Name of the first parameter that differs from [other], or null when the
+  /// cached embedder can be reused. Both sides are [normalized] first.
+  String? firstDifference(ActiveEmbedderParams other) {
+    final a = normalized();
+    final b = other.normalized();
+    if (a.modelPath != b.modelPath) return 'modelPath';
+    if (a.tokenizerPath != b.tokenizerPath) return 'tokenizerPath';
+    if (a.preferredBackend != b.preferredBackend) return 'preferredBackend';
+    return null;
+  }
+
+  /// True when [requested] asks for something other than the CPU every
+  /// backend actually uses, so a caller can be told once that it changed
+  /// nothing. Separate from [firstDifference], which deliberately reports no
+  /// difference for exactly this case.
+  static bool isIgnoredBackend(PreferredBackend? requested) =>
+      requested != null && requested != PreferredBackend.cpu;
+}

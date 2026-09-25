@@ -14,6 +14,7 @@ import 'package:flutter_gemma/core/di/service_registry.dart';
 import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 
 import 'package:flutter_gemma/core/model_management/managers/web_model_manager.dart';
+import 'package:flutter_gemma/core/embedding/embedder_backend_notice.dart';
 
 class FlutterGemmaWeb extends FlutterGemmaPlugin {
   FlutterGemmaWeb();
@@ -228,6 +229,11 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     }
 
     if (_initializedEmbeddingModel != null) {
+      // Reusing. `preferredBackend` is not part of the comparison above and
+      // never will be here: on web the runtime picks for itself — LiteRT.js
+      // per operation, onnxruntime-web by trying ['webgpu', 'wasm'] in order —
+      // so say the argument did not apply rather than let it look honoured.
+      noticeEmbedderBackendIgnored(preferredBackend);
       return _initializedEmbeddingModel!;
     }
 

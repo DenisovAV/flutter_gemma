@@ -1,5 +1,4 @@
 ## 1.8.1
-- A requested embedding backend is refused with a debug log line, not dropped in silence.
 - Web reports the accelerator it actually ran on instead of claiming a WebGPU it may have lost.
 
 ## 1.8.0

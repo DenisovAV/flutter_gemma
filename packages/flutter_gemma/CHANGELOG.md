@@ -1,4 +1,8 @@
 ## 1.9.1
+- New `EmbeddingModel.activeBackend` — the embedder's backend, readable in release builds.
+- **Breaking for `implements EmbeddingModel`:** add `activeBackend`; `extends` inherits a default.
+- `getActiveEmbedder(preferredBackend:)` is no longer accepted and dropped without a word.
+- Desktop no longer throws on `PreferredBackend.npu` for embeddings; it returns a CPU embedder.
 - Fix two wrong claims in the shipped RAG skill that agents read as instructions.
 
 ## 1.9.0

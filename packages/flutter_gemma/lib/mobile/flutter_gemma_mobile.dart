@@ -24,6 +24,7 @@ import '../core/registry/stt_backend_provider.dart';
 import '../core/registry/tts_registry.dart';
 import '../core/registry/runtime_config.dart';
 import '../core/model_management/model_specs.dart';
+import 'package:flutter_gemma/core/embedding/embedder_backend_notice.dart';
 // Re-export the spec value types so existing importers of this library (tests,
 // example, and any external code that imported the mobile lib directly) keep
 // seeing InferenceModelSpec/EmbeddingModelSpec/etc. — they used to be `part`s
@@ -76,6 +77,11 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
   EmbeddingModel? _initializedEmbeddingModel;
   EmbeddingModelSpec?
   _lastActiveEmbeddingSpec; // Track which spec was used to create _initializedEmbeddingModel
+
+  /// The request the cached embedder was built for, so a second call can tell
+  /// whether it still satisfies it — the embedding twin of
+  /// `_lastInferenceParams`.
+  ActiveEmbedderParams? _lastEmbedderParams;
 
   Completer<SpeechRecognizer>? _initSttCompleter;
   SpeechRecognizer? _initializedSttModel;
@@ -460,24 +466,45 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
         );
       }
 
-      // Check if singleton exists and matches the active model
+      // Check if singleton exists and matches the active model.
+      //
+      // Compared on the RESOLVED PATHS, not the spec name: reinstalling a
+      // same-named embedder to a new path used to be invisible here. The
+      // comparison itself lives in core so all three shells share one rule —
+      // the same reason `ActiveModelParams` exists for inference.
+      final requestedParams = ActiveEmbedderParams(
+        modelPath: activeModelPath,
+        tokenizerPath: activeTokenizerPath,
+        preferredBackend: preferredBackend,
+      );
+
       if (_initEmbeddingCompleter != null &&
           _initializedEmbeddingModel != null &&
           _lastActiveEmbeddingSpec != null) {
         final currentSpec = _lastActiveEmbeddingSpec!;
         final requestedSpec = activeModel as EmbeddingModelSpec;
+        final baseline = _lastEmbedderParams;
+        final changedParam = baseline == null
+            ? 'unknown — no recorded config for the cached embedder'
+            : baseline.firstDifference(requestedParams);
 
-        if (currentSpec.name != requestedSpec.name) {
-          // Active model changed - close old model and create new one
+        if (changedParam != null) {
           gemmaLog(
-            '⚠️  Active embedding model changed: ${currentSpec.name} → ${requestedSpec.name}',
+            currentSpec.name != requestedSpec.name
+                ? '⚠️  Active embedding model changed: ${currentSpec.name} → ${requestedSpec.name}'
+                : '⚠️  Embedder config changed ($changedParam) for '
+                      '${requestedSpec.name} — rebuilding',
           );
           gemmaLog('🔄 Closing old embedding model and creating new one...');
           await _initializedEmbeddingModel?.close();
           // close-listener will reset _initializedEmbeddingModel and _initEmbeddingCompleter
           _lastActiveEmbeddingSpec = null;
+          _lastEmbedderParams = null;
         } else {
-          // Same model - return existing singleton
+          // Same embedder. `preferredBackend` never reaches this branch as a
+          // difference — it is normalised to CPU because every backend
+          // resolves there — so say so here rather than let it look honoured.
+          noticeEmbedderBackendIgnored(preferredBackend);
           gemmaLog(
             'ℹ️  Reusing existing embedding model instance for ${requestedSpec.name}',
           );
@@ -568,11 +595,17 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
         _initializedEmbeddingModel = null;
         _initEmbeddingCompleter = null;
         _lastActiveEmbeddingSpec = null;
+        _lastEmbedderParams = null;
       });
 
       // Save the spec that was used to create this model (Modern API path only)
       if (activeSpec != null) {
         _lastActiveEmbeddingSpec = activeSpec;
+        _lastEmbedderParams = ActiveEmbedderParams(
+          modelPath: modelPath,
+          tokenizerPath: tokenizerPath,
+          preferredBackend: preferredBackend,
+        );
       }
 
       completer.complete(model);
@@ -582,6 +615,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
       _initEmbeddingCompleter = null;
       _initializedEmbeddingModel = null;
       _lastActiveEmbeddingSpec = null;
+      _lastEmbedderParams = null;
       completer.completeError(e, st);
       // Return the error-completed completer future (not a separate throw) so
       // exactly one Future is in flight — a bare throw would orphan

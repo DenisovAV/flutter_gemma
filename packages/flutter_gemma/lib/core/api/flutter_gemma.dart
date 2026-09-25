@@ -650,7 +650,13 @@ class FlutterGemma {
   /// The model and tokenizer paths come from the active EmbeddingModelSpec.
   ///
   /// Runtime parameters:
-  /// - [preferredBackend]: CPU or GPU preference (optional)
+  /// - [preferredBackend]: accepted for symmetry with [getActiveModel], and
+  ///   **not applied**. Embeddings run on CPU on every backend: LiteRT's GPU
+  ///   delegate returns all-zero vectors for EmbeddingGemma's int4 weights,
+  ///   and the ONNX client appends no execution provider. Passing anything
+  ///   other than [PreferredBackend.cpu] logs a line once in debug; read
+  ///   [EmbeddingModel.activeBackend] for the backend actually in use, which
+  ///   is available in release builds too.
   ///
   /// Throws:
   /// - [StateError] if no active embedding model is set
@@ -663,13 +669,10 @@ class FlutterGemma {
   ///   .tokenizerFromNetwork('https://example.com/tokenizer.model')
   ///   .install();
   ///
-  /// // Create with default backend
-  /// final embeddingModel = await FlutterGemma.getActiveEmbedder();
+  /// final embedder = await FlutterGemma.getActiveEmbedder();
   ///
-  /// // Create with specific backend
-  /// final cpuModel = await FlutterGemma.getActiveEmbedder(
-  ///   preferredBackend: PreferredBackend.cpu,
-  /// );
+  /// // Where the backend matters, ask — do not assume the argument took.
+  /// assert(embedder.activeBackend == PreferredBackend.cpu);
   /// ```
   static Future<EmbeddingModel> getActiveEmbedder({
     PreferredBackend? preferredBackend,

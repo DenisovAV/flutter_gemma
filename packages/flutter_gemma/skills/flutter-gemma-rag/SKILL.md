@@ -122,9 +122,9 @@ await FlutterGemma.rag.addDocumentWithEmbedding(
 
 ## Backend
 
-LiteRT embeddings always run on CPU on native. `LiteRtEmbeddingBackend` hardcodes it and ignores `getActiveEmbedder(preferredBackend:)` — passing `PreferredBackend.gpu` there changes nothing, and logs a line once saying so. CPU is the correct answer rather than a fallback: the GPU delegate compiles and then returns all-zero vectors for EmbeddingGemma's int4 weights.
+LiteRT embeddings always run on CPU on native. `LiteRtEmbeddingBackend` hardcodes it and ignores `getActiveEmbedder(preferredBackend:)` — passing `PreferredBackend.gpu` there changes nothing, and logs a line once in debug builds saying so. CPU is the correct answer rather than a fallback: the GPU delegate compiles and then returns all-zero vectors for EmbeddingGemma's int4 weights.
 
-Web does not share that limit. The same backend goes through `litert_embeddings.js`, which asks the runtime for `accelerator: 'webgpu'` and falls back to `'wasm'` when the browser has no WebGPU. Nothing to configure, and the vectors are correct either way.
+Web does not share that limit, and is not configurable either. `litert_embeddings.js` asks for `accelerator: 'webgpu'` and recompiles for `'wasm'` when the browser has none. LiteRT then has a SECOND fallback that raises nothing: a model that is not fully accelerated is partly delegated to WASM where the browser has JSPI, and recompiled for WASM entirely where it does not. So the accelerator is only known after the first embedding — `window.getLiteRtEmbeddingAccelerator()` returns it, and the console names it. `preferredBackend` is dropped on web too, and unlike native it is dropped without a line.
 
 ## Web
 

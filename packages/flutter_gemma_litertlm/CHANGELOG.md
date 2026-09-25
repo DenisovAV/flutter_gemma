@@ -1,5 +1,6 @@
 ## 1.8.1
-- A requested embedding backend is refused with a log line instead of dropped in silence.
+- A requested embedding backend is refused with a debug log line, not dropped in silence.
+- Web reports the accelerator it actually ran on instead of claiming a WebGPU it may have lost.
 
 ## 1.8.0
 - Google Play no longer rejects apps over 16 KB page sizes (#529).

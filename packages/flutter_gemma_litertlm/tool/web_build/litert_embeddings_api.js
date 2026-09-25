@@ -35,6 +35,12 @@ let tokenizer = null;
 let isInitialized = false;
 let liteRtWasmLoaded = false;  // Track if LiteRT WASM runtime is loaded
 
+// What the model ACTUALLY ran on, as reported by the first output tensor.
+// Null until the first run: at compile time this cannot be known — see the
+// comment in the compile block below.
+let actualAccelerator = null;
+let requestedAccelerator = null;
+
 // ============================================================================
 // SentencePiece Tokenizer Loading
 // ============================================================================
@@ -104,12 +110,21 @@ async function loadLiteRTModel(modelPath, wasmPath = '/node_modules/@litertjs/co
     // Pass modelPath directly - LiteRT.js handles blob URLs internally
     try {
       console.log('[LiteRT] Attempting to compile model with WebGPU...');
+      requestedAccelerator = 'webgpu';
       tfliteModel = await loadAndCompile(modelPath, {
         accelerator: 'webgpu',
       });
-      console.log('[LiteRT] Model compiled with WebGPU successfully');
+      // Deliberately NOT "compiled with WebGPU successfully". LiteRT.js can
+      // hand back a model it quietly recompiled for WASM: when a webgpu build
+      // is not fully accelerated it either partially delegates to WASM (JSPI
+      // browsers) or deletes the model and re-runs loadAndCompile with
+      // accelerator 'wasm' (everywhere else). It throws in NEITHER case, so
+      // this line is reached either way and the old wording was a guess.
+      // The first output tensor is the only thing that knows; see below.
+      console.log('[LiteRT] Model compiled, accelerator confirmed on first run');
     } catch (error) {
       console.warn('[LiteRT] WebGPU not available, falling back to WASM:', error.message);
+      requestedAccelerator = 'wasm';
       tfliteModel = await loadAndCompile(modelPath, {
         accelerator: 'wasm',
       });
@@ -218,6 +233,7 @@ async function generateEmbeddingInternal(text) {
 
     // Step 5: Extract embeddings
     const outputTensor = outputTensors[0];
+    reportAccelerator(outputTensor.accelerator);
 
     // Move back to CPU to read data
     let cpuTensor = outputTensor;
@@ -303,6 +319,27 @@ async function generateDocumentEmbeddingInternal(text) {
 // ============================================================================
 // Public API (window-scoped for Dart/JS interop)
 // ============================================================================
+
+/**
+ * Records what the model actually ran on, and says so once.
+ *
+ * Called with the first output tensor's accelerator. When it disagrees with
+ * what was requested, LiteRT.js fell back without throwing — the case the old
+ * unconditional "compiled with WebGPU successfully" line hid. `window.getLiteRtEmbeddingAccelerator()`
+ * exposes the same value to Dart.
+ */
+function reportAccelerator(accelerator) {
+  if (actualAccelerator !== null || !accelerator) return;
+  actualAccelerator = accelerator;
+  if (requestedAccelerator && accelerator !== requestedAccelerator) {
+    console.warn(
+      `[LiteRT] Running on ${accelerator}, not the requested ${requestedAccelerator}. ` +
+      `LiteRT fell back without raising — the model was not fully accelerated.`,
+    );
+  } else {
+    console.log(`[LiteRT] Running on ${accelerator}`);
+  }
+}
 
 /**
  * Initialize LiteRT embeddings
@@ -411,6 +448,14 @@ window.generateEmbeddings = async function(texts) {
 };
 
 /**
+ * The accelerator the model actually ran on: 'webgpu', 'wasm', or null before
+ * the first embedding. Null is "not yet known", never "none".
+ */
+window.getLiteRtEmbeddingAccelerator = function() {
+  return actualAccelerator;
+};
+
+/**
  * Get the dimension of embeddings
  * @returns {number} Embedding dimension (768)
  */
@@ -428,6 +473,8 @@ window.getLiteRtEmbeddingDimension = function() {
  * - WASM runtime flag (forces reload on next init)
  */
 window.cleanupLiteRtEmbeddings = async function() {
+  actualAccelerator = null;
+  requestedAccelerator = null;
   console.log('[LiteRT] ========================================');
   console.log('[LiteRT] Starting cleanup...');
   console.log('[LiteRT] ========================================');

@@ -256,6 +256,13 @@ packages:
       relative: true
     source: path
     version: "0.2.2"
+  flutter_gemma_diagnostics:
+    dependency: "direct main"
+    description:
+      path: "../../flutter_gemma_diagnostics"
+      relative: true
+    source: path
+    version: "0.1.0"
   flutter_gemma_embeddings:
     dependency: "direct main"
     description:

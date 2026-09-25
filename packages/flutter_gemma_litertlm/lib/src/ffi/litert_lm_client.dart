@@ -106,12 +106,18 @@ abstract class ConversationHandle {
 /// One conversation owned by a [LiteRtLmFfiClient]. Each call to
 /// [LiteRtLmFfiClient.createConversationHandle] returns a fresh handle:
 /// the engine pointer is shared across handles, the conversation pointer
-/// is private to this handle.
+/// is private to this handle. The handle owns that pointer's lifetime and
+/// routes every per-conversation native call through the client's private
+/// `_…On(conv, …)` methods.
 ///
-/// This is what makes concurrent sessions possible — the LiteRT-LM C API
-/// supports multiple `LiteRtLmConversation*` per engine; the handle owns
-/// one and routes every per-conversation native call through the client's
-/// private `_…On(conv, …)` methods.
+/// What the handle does NOT give you is simultaneity. The engine allows
+/// only ONE live conversation at a time today (upstream LiteRT-LM #966),
+/// so any prior conversation must be deleted before
+/// [LiteRtLmFfiClient.createConversationHandle] is called again.
+/// Concurrent sessions come from the virtual-session multiplexer, which
+/// tears the native conversation down and rebuilds it seeded with the
+/// active session's history — not from several `LiteRtLmConversation*`
+/// coexisting on one engine.
 ///
 /// Lifetime contract: the caller must call [close] when done. The owning
 /// client closes any remaining handles on [LiteRtLmFfiClient.shutdown].

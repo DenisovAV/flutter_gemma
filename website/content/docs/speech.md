@@ -184,9 +184,10 @@ await synth.close();   // close before asking for another language
 ### Inflect-Nano-v2 (fast)
 
 For snappy spoken replies, `TtsModelType.inflect` selects Inflect-Nano-v2 — a
-tiny VITS voice (`sasha-denisov/inflect-nano-v2-litert`, ~8 MB) that synthesizes
-~90× faster than real-time on CPU (RTF≈0.01). English-only; it reuses Matcha's
-phonemizer bundle, so those G2P files are fetched cross-repo automatically.
+tiny VITS voice (`sasha-denisov/inflect-nano-v2-litert`) and the fastest of the
+three: it synthesizes much faster than it speaks. English-only; it reuses
+Matcha's phonemizer bundle, so those G2P files are fetched cross-repo
+automatically — about 36 MB in all, of which its own two networks are 8 MB.
 
 ```dart
 await FlutterGemma.installTts()

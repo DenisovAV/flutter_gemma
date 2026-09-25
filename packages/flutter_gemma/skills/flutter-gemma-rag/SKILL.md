@@ -122,14 +122,16 @@ await FlutterGemma.rag.addDocumentWithEmbedding(
 
 ## Backend
 
-LiteRT embeddings always run on CPU. `LiteRtEmbeddingBackend` hardcodes it and ignores `getActiveEmbedder(preferredBackend:)` entirely — passing `PreferredBackend.gpu` there changes nothing. That is deliberate: the GPU delegate compiles and then returns all-zero vectors for EmbeddingGemma.
+LiteRT embeddings always run on CPU on native. `LiteRtEmbeddingBackend` hardcodes it and ignores `getActiveEmbedder(preferredBackend:)` — passing `PreferredBackend.gpu` there changes nothing, and logs a line once saying so. CPU is the correct answer rather than a fallback: the GPU delegate compiles and then returns all-zero vectors for EmbeddingGemma's int4 weights.
+
+Web does not share that limit. The same backend goes through `litert_embeddings.js`, which asks the runtime for `accelerator: 'webgpu'` and falls back to `'wasm'` when the browser has no WebGPU. Nothing to configure, and the vectors are correct either way.
 
 ## Web
 
 - Copy `web/rag/sqlite3.wasm` from the `flutter_gemma_rag_sqlite` package into the app as `web/rag/sqlite3.wasm`.
 - Web embeddings need four module files side by side in the app's `web/`, all four from `flutter_gemma_litertlm/web/`: `litert_embeddings.js`, `sentencepiece.js`, `litert.js`, `tensorflow.js` — the first imports the other three by relative path, so three files alone give a 404 and an embedder that never initialises. They are one bundle in four pieces; never mix them across package versions.
 - The LiteRT WASM runtime underneath comes from a pinned CDN copy by default (`flutter_gemma_litertlm` — `LiteRtWebRuntime.wasmPath`). To self-host, copy `node_modules/@litertjs/core/wasm/` into the app's `web/wasm/` and set `LiteRtWebRuntime.wasmPath = '/wasm/';` before the first embedding. Pin `@litertjs/core` to `LiteRtWebRuntime.pinnedVersion`: the runtime and `web/litert.js` are two halves of one release, and a mismatch fails at the first embedding with an error that never mentions versions.
-- In `web/index.html`, before Flutter boots: `<script src="cache_api.js"></script>` first — it is not a module, and the embedding runtime calls its cache helpers during init — then `<script type="module" src="litert_embeddings.js"></script>`.
+- In `web/index.html`, before Flutter boots: `<script src="cache_api.js"></script>` first — it is not a module, and Dart's model cache calls its helpers (`cacheGetBlobUrl`, `cachePut`) to download and store the model, then hands the embedder a blob URL from that cache — then `<script type="module" src="litert_embeddings.js"></script>`.
 
 Find a package's directory with `grep -A1 '"name": "flutter_gemma_rag_sqlite"' .dart_tool/package_config.json`.
 

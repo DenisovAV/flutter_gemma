@@ -1,3 +1,6 @@
+## 1.8.1
+- A requested embedding backend is refused with a log line instead of dropped in silence.
+
 ## 1.8.0
 - Google Play no longer rejects apps over 16 KB page sizes (#529).
 - Native runtime LiteRT-LM v0.17.1: integer tool-call arguments stay integers.

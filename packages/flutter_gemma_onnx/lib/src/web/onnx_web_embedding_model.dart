@@ -30,6 +30,8 @@ import 'package:flutter_gemma/core/embedding/tokenizer_adapter.dart'
 import 'onnx_web_embedding_forward_pass.dart';
 import 'opfs_web_resolver.dart';
 import 'ort_web_client.dart';
+import 'package:flutter_gemma/core/domain/platform_types.dart'
+    show PreferredBackend;
 
 /// ONNX Runtime Web embedding model — `onnxruntime-web` over a WordPiece
 /// (MiniLM-family) `.onnx`/`.ort` export. The tokenizer arrives as a
@@ -47,6 +49,7 @@ class OnnxWebEmbeddingModel extends EmbeddingModel with CloseNotifier {
 
   final String _modelPath;
   final String _tokenizerPath;
+
   /// Resolved from core's tokenizer registry by the backend, not chosen here:
   /// the tokenizer family is a property of the model, and its implementations
   /// live in a package this one does not depend on.
@@ -142,6 +145,12 @@ class OnnxWebEmbeddingModel extends EmbeddingModel with CloseNotifier {
     }
     return results;
   }
+
+  /// Null, and stated rather than inherited: onnxruntime-web resolves
+  /// `['webgpu', 'wasm']` in order and keeps the first that initialises, so the
+  /// accelerator is the runtime's choice and is not reported back to Dart.
+  @override
+  PreferredBackend? get activeBackend => null;
 
   @override
   Future<int> getDimension() async {

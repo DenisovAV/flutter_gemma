@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter/foundation.dart' show kDebugMode, visibleForTesting;
 import 'package:flutter_gemma/core/domain/platform_types.dart'
     show PreferredBackend;
 import 'package:flutter_gemma/core/registry/runtime_config.dart'
@@ -44,6 +44,7 @@ void noticeEmbedderBackendIgnored(PreferredBackend? requested) {
   );
 }
 
-/// Lets a test assert from a known state. The flag is private and process-wide
+/// Lets a test assert from a known state. The flag is private and per-isolate
 /// otherwise, which is what forces one test to carry every case in order.
+@visibleForTesting
 void resetEmbedderBackendNotice() => _warned = false;

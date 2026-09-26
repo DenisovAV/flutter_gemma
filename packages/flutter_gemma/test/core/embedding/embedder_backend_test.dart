@@ -2,6 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/core/domain/platform_types.dart';
 import 'package:flutter_gemma/core/embedding/embedder_backend_notice.dart';
 import 'package:flutter_gemma/core/utils/gemma_log.dart';
+import 'package:flutter_gemma/core/embedding/common_embedding_model.dart';
+import 'package:flutter_gemma/core/embedding/forward_pass.dart';
+import 'package:flutter_gemma/core/embedding/tokenizer_adapter.dart';
 import 'package:flutter_gemma/core/registry/runtime_config.dart';
 import 'package:flutter_gemma/flutter_gemma_interface.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -155,9 +158,65 @@ void main() {
     });
   });
 
+  test(
+    'the facade carries the engine\'s answer, it does not decide one',
+    () async {
+      // A descriptor claiming GPU must come back as GPU. If this goes red because
+      // it answers `cpu`, the fact was moved back into the shared facade — and
+      // then the next engine that really does use an accelerator is reported as
+      // CPU with nothing to catch it.
+      final model = await CommonEmbeddingModel.create(
+        descriptor: ForwardPassDescriptor(
+          engineTag: 'fake',
+          modelPath: 'fake',
+          factory: buildFakePass,
+          tokenizerFactory: buildFakeTokenizer,
+          outputContract: EmbeddingOutputContract.pooledFinal,
+          activeBackend: PreferredBackend.gpu,
+        ),
+        tokenizerPath: 'fake',
+      );
+      addTearDown(model.close);
+      expect(model.activeBackend, PreferredBackend.gpu);
+    },
+  );
+
   test('EmbeddingModel.activeBackend defaults to null, not to a guess', () {
     // Defaulted rather than abstract so an existing implementation of this
     // public interface keeps compiling. Null means "not known here".
     expect(_BareEmbedder().activeBackend, isNull);
   });
 }
+
+/// Minimal pass: the facade must carry whatever the descriptor declares, so the
+/// pass itself only has to be loadable.
+class _FakePass implements EmbeddingForwardPass {
+  @override
+  Future<void> load() async {}
+  @override
+  Future<void> close() async {}
+  @override
+  int get outputDimension => 2;
+  @override
+  int? get inputSequenceLength => null;
+  @override
+  EmbeddingOutputContract? get outputContract => null;
+  @override
+  Future<ForwardResult> run({
+    required List<int> tokenIds,
+    List<int>? attentionMask,
+    List<int>? tokenTypeIds,
+  }) async => const ForwardResult(values: [1.0, 0.0], shape: [1, 2]);
+}
+
+EmbeddingForwardPass buildFakePass(String modelPath) => _FakePass();
+
+class _FakeTokenizer implements EmbeddingTokenizer {
+  const _FakeTokenizer();
+  @override
+  TokenizedInput encode(String prefix, String text) =>
+      const TokenizedInput(ids: [1, 2]);
+}
+
+Future<EmbeddingTokenizer> buildFakeTokenizer(String path) async =>
+    const _FakeTokenizer();

@@ -24,10 +24,17 @@ import 'package:flutter_gemma/core/domain/platform_types.dart'
 typedef VoidCallback = void Function();
 
 class CommonEmbeddingModel extends EmbeddingModel with CloseNotifier {
-  CommonEmbeddingModel._(this._worker, this.onClose);
+  CommonEmbeddingModel._(this._worker, this.onClose, this.activeBackend);
 
   final EmbeddingWorker _worker;
   final VoidCallback onClose;
+
+  /// Carried from the engine's [ForwardPassDescriptor], never decided here.
+  /// This facade is runtime-agnostic by design, so it is not entitled to an
+  /// opinion about which backend ran — asserting CPU here would report the
+  /// next GPU-capable engine as CPU with nothing to catch it.
+  @override
+  final PreferredBackend? activeBackend;
   bool _isClosed = false;
 
   /// Sequence length the forward pass reported at load, if any (see
@@ -54,7 +61,11 @@ class CommonEmbeddingModel extends EmbeddingModel with CloseNotifier {
       descriptor: descriptor,
       tokenizerPath: tokenizerPath,
     );
-    return CommonEmbeddingModel._(worker, onClose ?? () {});
+    return CommonEmbeddingModel._(
+      worker,
+      onClose ?? () {},
+      descriptor.activeBackend,
+    );
   }
 
   void _assertNotClosed() {
@@ -92,14 +103,6 @@ class CommonEmbeddingModel extends EmbeddingModel with CloseNotifier {
     _assertNotClosed();
     return outputDimension;
   }
-
-  /// Always CPU, and not as a fallback. Every forward pass behind this facade
-  /// runs on CPU by decision: LiteRT's GPU delegate returns all-zero vectors
-  /// for EmbeddingGemma's int4 weights, and the ONNX client appends no
-  /// execution provider. A caller who asked for something else can read that
-  /// here in a release build.
-  @override
-  PreferredBackend? get activeBackend => PreferredBackend.cpu;
 
   @override
   Future<void> close() async {

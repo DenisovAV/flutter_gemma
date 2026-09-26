@@ -16,6 +16,8 @@ import 'package:flutter_gemma/core/embedding/forward_pass.dart'
 import 'package:flutter_gemma/core/registry/embedding_tokenizer_registry.dart';
 
 import 'litert_embedding_forward_pass.dart';
+import 'package:flutter_gemma/core/domain/platform_types.dart'
+    show PreferredBackend;
 
 /// LiteRT C API embedding backend (Gecko / EmbeddingGemma `.tflite`). Pure
 /// factory; core owns the singleton lifecycle via [EmbeddingModel.addCloseListener].
@@ -57,6 +59,12 @@ class LiteRtEmbeddingBackend implements EmbeddingBackendProvider {
         // here is what made `canHandle => true` a trap: a WordPiece model was
         // accepted and then tokenized with the wrong convention.
         tokenizerFactory: EmbeddingTokenizerRegistry.instance.resolveFor(spec),
+        // CPU, and by decision rather than omission: the GPU delegate
+        // compiles and then returns all-zero vectors for EmbeddingGemma's int4
+        // weights (removed in ab3df2bf). Surfaced as
+        // EmbeddingModel.activeBackend so a caller who asked for GPU can see
+        // what happened in a release build.
+        activeBackend: PreferredBackend.cpu,
         outputContract: EmbeddingOutputContract.pooledFinal,
       ),
       tokenizerPath: tokenizerPath,

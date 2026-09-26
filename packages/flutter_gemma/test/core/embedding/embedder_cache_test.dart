@@ -173,6 +173,21 @@ void main() {
       expect(await cache.serialize(() async => 'after'), 'after');
     });
 
+    test('an unawaited failure still reaches the zone', () async {
+      // The lane must not advance by attaching an error handler to the future
+      // it hands back: that marks the caller's error HANDLED, and a
+      // fire-and-forget `createEmbeddingModel()` that failed then reported
+      // nothing anywhere — measured, not assumed.
+      final seen = <Object>[];
+      await runZonedGuarded(() async {
+        final cache = EmbedderCache();
+        cache.serialize<void>(() async => throw StateError('boom'));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+      }, (e, _) => seen.add(e));
+
+      expect(seen, hasLength(1), reason: 'the failure must not vanish');
+    });
+
     test(
       'a body that throws still lets the next one see fresh state',
       () async {

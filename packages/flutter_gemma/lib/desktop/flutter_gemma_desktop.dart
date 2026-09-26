@@ -449,6 +449,10 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
     PreferredBackend? preferredBackend,
   }) async {
     final currentActiveModel = _modelManager.activeEmbeddingModel;
+    // Named from how this call was MADE, not from whatever happens to be
+    // active: a caller passing explicit paths while an unrelated embedder is
+    // installed would otherwise see that other model's name in the log.
+    String label = 'explicit paths';
 
     // Paths are resolved BEFORE the reuse check, and the explicit-paths caller
     // goes through the same comparison as everyone else. Both were bugs: this
@@ -471,6 +475,9 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
       }
       modelPath ??= filePaths[PreferencesKeys.embeddingModelFile];
       tokenizerPath ??= filePaths[PreferencesKeys.embeddingTokenizerFile];
+      if (currentActiveModel is EmbeddingModelSpec) {
+        label = currentActiveModel.name;
+      }
     }
     if (modelPath == null) {
       throw StateError('Embedding model path is required');
@@ -486,9 +493,7 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
     );
     final reused = await _embedderCache.reuseOrInvalidate(
       requestedParams,
-      label: currentActiveModel is EmbeddingModelSpec
-          ? currentActiveModel.name
-          : 'explicit paths',
+      label: label,
     );
     if (reused != null) return reused;
 

@@ -49,10 +49,16 @@ class EmbedderCache {
   /// removes the reordering hazard — moving an await earlier in the entry point
   /// silently widened that window once already.
   Future<T> serialize<T>(Future<T> Function() body) {
-    final result = _lane.then((_) => body());
-    // A failure belongs to its own caller, never to the next one in line.
-    _lane = result.then((_) {}, onError: (_) {});
-    return result;
+    final previous = _lane;
+    // The lane advances on a completer of its own rather than on a handler
+    // attached to the returned future. Attaching one there marks the caller's
+    // error as HANDLED, so a fire-and-forget `createEmbeddingModel()` that
+    // failed reported nothing at all — the silence this whole change is
+    // against. `gate` only ever completes with a value, so a failure belongs
+    // to its own caller and still cannot reach the next one in line.
+    final gate = Completer<void>();
+    _lane = gate.future;
+    return previous.then((_) => body()).whenComplete(gate.complete);
   }
 
   /// The cached embedder when it matches [requested], else null for "build one".

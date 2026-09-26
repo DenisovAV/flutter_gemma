@@ -248,6 +248,28 @@ def publishes_handshake(html: str) -> bool:
     return False
 
 
+def declares_web(app: Path) -> bool:
+    """Whether the app's codelab says it runs in a browser.
+
+    Read from the `environments:` line of the codelab's own claat header,
+    `website/codelabs/<id>/index.md` — the page that tells a reader which
+    platforms to try. A codelab that lists no `web` (speech needs `dart:ffi`,
+    which the browser does not have) has nothing to install there, and holding
+    its apps to a browser setup would mean teaching a line that does nothing.
+
+    Fails closed: no header, or no `environments:` line, means checked.
+    """
+    header = root / "website" / "codelabs" / app.parent.name / "index.md"
+    try:
+        text = header.read_text(encoding="utf-8")
+    except OSError:
+        return True
+    match = re.search(r"^environments:[ \t]*(.*)$", text, re.MULTILINE)
+    if match is None:
+        return True
+    return "web" in {e.strip() for e in match.group(1).split(",")}
+
+
 def check_app(app: Path) -> None:
     deps = dependencies(app)
     if deps is None:
@@ -365,12 +387,20 @@ def main(argv: list[str]) -> int:
         print("::error::no codelab apps found — the web storage check cannot run")
         return 1
 
+    skipped = 0
     for app in apps:
+        if not declares_web(app):
+            skipped += 1
+            print(f"  {rel(app)}: skipped — its codelab does not list web")
+            continue
         before = len(errors)
         check_app(app)
         print(f"  {rel(app)}: {'ok' if len(errors) == before else 'PROBLEM'}")
 
-    print(f"Checked web model storage in {len(apps)} app(s); {len(errors)} problem(s).")
+    print(
+        f"Checked web model storage in {len(apps) - skipped} app(s), "
+        f"skipped {skipped} native-only; {len(errors)} problem(s)."
+    )
     return 1 if errors else 0
 
 

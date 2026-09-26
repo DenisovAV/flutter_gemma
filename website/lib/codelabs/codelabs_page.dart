@@ -132,11 +132,13 @@ class CodelabsPage extends StatelessComponent {
       title: 'Building an Offline Voice Assistant in Flutter: STT, LLM, and TTS',
       blurb:
           'Wire speech-to-text, the model, and text-to-speech into one loop '
-          'that runs in airplane mode — including barge-in.',
-      duration: '60 min',
+          'that runs in airplane mode — with barge-in, and tools it calls by '
+          'voice.',
+      duration: '67 min',
       level: 'Advanced',
-      tags: ['STT', 'TTS', 'voice loop'],
+      tags: ['STT', 'TTS', 'voice loop', 'tools'],
       accent: Brand.orange,
+      href: '/codelabs/voice-assistant-flutter-gemma',
     ),
     _Codelab(
       title: 'Hybrid AI in Flutter: From Cloud to On-Device with Genkit Dart',

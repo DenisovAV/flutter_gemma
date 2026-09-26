@@ -10,10 +10,12 @@
 /// (`g2p_dict.txt.gz`), and the neural OOV G2P — and differs from
 /// `MatchaTextFrontend` in only two ways:
 ///   1. Inflect's encoder takes RAW token ids (int32 `tokens`), not gathered
-///      phoneme embeddings, so there is no `emb.bin` gather and no
-///      blank-interspersing — just a per-character IPA-string -> id map (exactly
-///      Inflect's `cleaned_text_to_sequence`, which drops symbols outside the
-///      table).
+///      phoneme embeddings, so there is no `emb.bin` gather — a per-character
+///      IPA-string -> id map (Inflect's `cleaned_text_to_sequence`, which drops
+///      symbols outside the table), then the VITS blank (id 0) interspersed
+///      around every id, as the reference `say.py` does. Without the blanks
+///      the duration predictor sees half the sequence it was trained on and
+///      the speech comes out about a third as long and unintelligible.
 ///   2. Inflect keeps the inter-word SPACES espeak emits (`həlˈoʊ ðˈɛɹ`), which
 ///      Matcha drops (its blank tokens play that role). A space precedes every
 ///      non-first word; punctuation ([SymbolToken]) attaches with no space.
@@ -79,8 +81,9 @@ class InflectTextFrontend {
     );
   }
 
-  /// text -> Inflect phoneme-symbol token ids. Symbols outside the table are
-  /// dropped (matches the reference `cleaned_text_to_sequence`).
+  /// text -> Inflect phoneme-symbol token ids, blank-interspersed:
+  /// `[0, id1, 0, id2, …, idN, 0]`. Symbols outside the table are dropped
+  /// (matches the reference `cleaned_text_to_sequence`).
   List<int> encode(String text) {
     final tokens = _normalizer.normalize(text);
     final ipa = StringBuffer();
@@ -116,6 +119,12 @@ class InflectTextFrontend {
       final id = symbolToId[String.fromCharCode(rune)];
       if (id != null) ids.add(id);
     }
-    return ids;
+    // Empty stays empty: the worker skips a clause with nothing to say.
+    if (ids.isEmpty) return ids;
+    final interspersed = List<int>.filled(2 * ids.length + 1, 0);
+    for (var i = 0; i < ids.length; i++) {
+      interspersed[2 * i + 1] = ids[i];
+    }
+    return interspersed;
   }
 }

@@ -1,3 +1,4 @@
+import 'dart:async';
 // Pins the WIRING of noticeEmbedderBackendIgnored, which the unit tests for the
 // notice itself cannot see.
 //
@@ -118,6 +119,32 @@ void main() {
       },
     );
 
+    test('two concurrent first calls build ONE embedder, not two', () async {
+      // `_initializedEmbeddingModel` is only assigned after the build returns,
+      // so a guard that waited for it let the second caller start its own
+      // build: two worker isolates, two compiles, and the loser orphaned with
+      // nobody to close it.
+      final plugin = FlutterGemmaMobile();
+      backend.gate = Completer<void>();
+
+      final a = plugin.createEmbeddingModel(
+        modelPath: '/a.tflite',
+        tokenizerPath: '/a.json',
+      );
+      // Let the first call reach the backend before the second arrives.
+      await Future<void>.delayed(Duration.zero);
+      final b = plugin.createEmbeddingModel(
+        modelPath: '/a.tflite',
+        tokenizerPath: '/a.json',
+      );
+
+      backend.gate!.complete();
+      final models = await Future.wait([a, b]);
+
+      expect(backend.seenModelPaths, ['/a.tflite']);
+      expect(identical(models[0], models[1]), isTrue);
+    });
+
     test('a different tokenizer alone is also a different embedder', () async {
       final plugin = FlutterGemmaMobile();
       await plugin.createEmbeddingModel(
@@ -153,6 +180,10 @@ void main() {
 class _CountingBackend implements EmbeddingBackendProvider {
   final List<String> seenModelPaths = [];
 
+  /// When set, `createModel` waits on it — the window a second caller needs to
+  /// arrive while the first build is still running.
+  Completer<void>? gate;
+
   @override
   String get name => 'counting';
 
@@ -168,6 +199,7 @@ class _CountingBackend implements EmbeddingBackendProvider {
     RuntimeConfig config,
   ) async {
     seenModelPaths.add(config.modelPath);
+    if (gate != null) await gate!.future;
     return _InertEmbeddingModel();
   }
 }

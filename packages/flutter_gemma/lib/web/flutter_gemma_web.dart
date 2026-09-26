@@ -53,6 +53,12 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
   /// every shell instead of three that can disagree.
   ActiveEmbedderParams? _lastEmbedderParams;
 
+  /// The build in flight, so a second caller arriving mid-build joins it
+  /// instead of starting its own. Without this the web shell had no in-flight
+  /// guard at all: two concurrent first calls both compiled a model, and the
+  /// loser was left with nobody to close it.
+  Completer<EmbeddingModel>? _initEmbeddingCompleter;
+
   /// Same pattern as [_lastEmbedderParams], for the STT model.
   ({String? modelPath, String? tokenizerPath})? _lastSttPaths;
 
@@ -251,6 +257,15 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
       return _initializedEmbeddingModel!;
     }
 
+    // A build already running for this same request: join it.
+    if (_initEmbeddingCompleter case Completer<EmbeddingModel> inFlight) {
+      return inFlight.future;
+    }
+    final completer = _initEmbeddingCompleter = Completer<EmbeddingModel>();
+    // Recorded before the await so the comparison above has something to
+    // compare while the build is still running.
+    _lastEmbedderParams = requestedParams;
+
     // The LiteRT.js embedding runtime lives in flutter_gemma_litertlm; core
     // resolves paths (preamble above) + owns the singleton lifecycle, then
     // dispatches construction through the EmbeddingRegistry. The backend reads
@@ -282,23 +297,36 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     // The backend's createModel(spec, config) requires a non-null spec but
     // resolves paths exclusively from config; synthesize one from the resolved
     // file paths when there's no active EmbeddingModelSpec.
-    final model = await backend.createModel(
-      activeEmb is EmbeddingModelSpec
-          ? activeEmb
-          : EmbeddingModelSpec(
-              name: 'web-active-embedding',
-              modelSource: ModelSource.file(modelPath),
-              tokenizerSource: ModelSource.file(tokenizerPath),
-            ),
-      embConfig,
-    );
-    _initializedEmbeddingModel = model;
-    _lastEmbedderParams = requestedParams;
-    model.addCloseListener(() {
-      _initializedEmbeddingModel = null;
+    try {
+      final model = await backend.createModel(
+        activeEmb is EmbeddingModelSpec
+            ? activeEmb
+            : EmbeddingModelSpec(
+                name: 'web-active-embedding',
+                modelSource: ModelSource.file(modelPath),
+                tokenizerSource: ModelSource.file(tokenizerPath),
+              ),
+        embConfig,
+      );
+      _initializedEmbeddingModel = model;
+      _lastEmbedderParams = requestedParams;
+      model.addCloseListener(() {
+        _initializedEmbeddingModel = null;
+        _lastEmbedderParams = null;
+        _initEmbeddingCompleter = null;
+      });
+      completer.complete(model);
+      return model;
+    } catch (e, st) {
+      // Clear the slot BEFORE completing the error, or a failed build wedges
+      // every later call on a completer nobody will ever finish.
+      _initEmbeddingCompleter = null;
       _lastEmbedderParams = null;
-    });
-    return model;
+      completer.completeError(e, st);
+      // Return the error-completed future rather than rethrowing, so exactly
+      // one Future is in flight — a bare rethrow orphans completer.future.
+      return completer.future;
+    }
   }
 
   // === SpeechRecognizer Methods - Web Implementation ===

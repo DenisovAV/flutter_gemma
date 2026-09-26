@@ -437,19 +437,42 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
     ActiveEmbedderParams requested, {
     required String label,
   }) async {
-    if (_initEmbeddingCompleter == null ||
-        _initializedEmbeddingModel == null ||
-        _lastEmbedderParams == null) {
-      return null;
+    final inFlight = _initEmbeddingCompleter;
+    if (inFlight == null) return null;
+
+    // Deliberately NOT gated on `_initializedEmbeddingModel != null`. That is
+    // only assigned AFTER the build returns, so gating on it let a second
+    // caller arriving during the build fall through, overwrite the completer and
+    // start a SECOND build: two worker isolates, two 570-780 ms compiles, and
+    // the loser orphaned with nobody to close it. `_lastEmbedderParams` is
+    // recorded when the completer is created, so an in-flight build has
+    // something to compare against.
+    final baseline = _lastEmbedderParams;
+    if (baseline == null) {
+      // Nothing to compare — joining the build in flight is still strictly
+      // better than racing a duplicate one.
+      return inFlight.future;
     }
-    final changedParam = _lastEmbedderParams!.firstDifference(requested);
+
+    final changedParam = baseline.firstDifference(requested);
     if (changedParam == null) {
       gemmaLog('ℹ️  Reusing existing embedding model instance for $label');
-      return _initEmbeddingCompleter!.future;
+      return inFlight.future;
     }
+
     gemmaLog(
       '⚠️  Embedder config changed ($changedParam) for $label — rebuilding',
     );
+    if (_initializedEmbeddingModel == null) {
+      // A build for the OTHER config is still running. Let it finish rather
+      // than tearing down half-built state, then close it and fall through to
+      // build what was actually asked for. Serialised, not raced.
+      try {
+        await inFlight.future;
+      } catch (_) {
+        // Its failure belongs to its own caller, not to this one.
+      }
+    }
     gemmaLog('🔄 Closing old embedding model and creating new one...');
     await _initializedEmbeddingModel?.close();
     // close-listener resets _initializedEmbeddingModel and _initEmbeddingCompleter
@@ -544,6 +567,13 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
     }
 
     final completer = _initEmbeddingCompleter = Completer<EmbeddingModel>();
+    // Recorded BEFORE the await so a concurrent caller can compare against a
+    // build that has not finished yet. The catch below clears it on failure.
+    _lastEmbedderParams = ActiveEmbedderParams(
+      modelPath: modelPath,
+      tokenizerPath: tokenizerPath,
+      preferredBackend: preferredBackend,
+    );
 
     // Verify the active model is still installed (for Modern API path)
     final manager = _unifiedManager;

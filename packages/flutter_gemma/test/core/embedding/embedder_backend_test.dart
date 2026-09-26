@@ -82,6 +82,29 @@ void main() {
       expect(params().firstDifference(params()), isNull);
     });
 
+    test('equal requests are ==, because the type says so now', () {
+      // Without operator == the shells' "same embedder" question could be
+      // answered by identity, which always says "different" and always
+      // rebuilds. The house style for value types in this package implements it.
+      expect(params(backend: PreferredBackend.gpu), params());
+      expect(
+        params(backend: PreferredBackend.gpu).hashCode,
+        params().hashCode,
+        reason: 'a normalised backend must not change the hash either',
+      );
+      expect(params(model: '/other.tflite'), isNot(params()));
+    });
+
+    test('an empty modelPath is rejected at construction', () {
+      // modelPath IS the identity. RuntimeConfig documents '' as the web value,
+      // so an adopter wiring config.modelPath straight in would make every
+      // embedder compare equal to every other and silently reuse a stale one.
+      expect(
+        () => ActiveEmbedderParams(modelPath: ''),
+        throwsA(isA<AssertionError>()),
+      );
+    });
+
     test('isIgnoredBackend is true only for something CPU is not', () {
       expect(ActiveEmbedderParams.isIgnoredBackend(null), isFalse);
       expect(

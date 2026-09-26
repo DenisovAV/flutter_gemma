@@ -626,6 +626,7 @@ void main() {
       'npu does not throw on desktop, and activeBackend names what ran',
       (_) async {
         if (!(Platform.isMacOS || Platform.isLinux || Platform.isWindows)) {
+          markTestSkipped('desktop-only: no NPU chain to fall back through');
           return;
         }
         // Distinct maxTokens forces the singleton-reuse path to rebuild —
@@ -635,20 +636,38 @@ void main() {
           maxTokens: 2048,
           preferredBackend: PreferredBackend.npu,
         );
-        expect(
-          model.activeBackend,
-          isNotNull,
-          reason: 'a silent fallback is the defect; the value must be readable',
-        );
-        expect(
-          model.activeBackend,
-          anyOf(
-            PreferredBackend.npu,
-            PreferredBackend.gpu,
-            PreferredBackend.cpu,
-          ),
-          reason: 'whatever ran must be one of nativeBackendChain(npu)',
-        );
+        try {
+          expect(
+            model.activeBackend,
+            isNotNull,
+            reason:
+                'a silent fallback is the defect; the value must be readable',
+          );
+          // Named per platform, because `anyOf` over the whole enum is a
+          // tautology after isNotNull: PreferredBackend has exactly these three
+          // values, so such a test passes for any answer at all — including a
+          // wrong one. Only Windows bundles an NPU dispatch stack (Intel
+          // LunarLake/PantherLake), so on macOS and Linux a reported `npu` is
+          // precisely the misattribution this group exists to catch.
+          expect(
+            model.activeBackend,
+            Platform.isWindows
+                ? anyOf(
+                    PreferredBackend.npu,
+                    PreferredBackend.gpu,
+                    PreferredBackend.cpu,
+                  )
+                : anyOf(PreferredBackend.gpu, PreferredBackend.cpu),
+            reason: Platform.isWindows
+                ? 'whatever ran must be one of nativeBackendChain(npu)'
+                : 'no NPU dispatch ships for this platform, so claiming npu '
+                      'would attribute CPU or GPU work to an NPU',
+          );
+        } finally {
+          // Closed, or the 2048-token model stays cached and the next test's
+          // request is answered by this one.
+          await model.close();
+        }
       },
       timeout: const Timeout(Duration(minutes: 1)),
     );

@@ -15,6 +15,7 @@ import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 
 import 'package:flutter_gemma/core/model_management/managers/web_model_manager.dart';
 import 'package:flutter_gemma/core/embedding/embedder_backend_notice.dart';
+import 'package:flutter_gemma/core/embedding/embedder_cache.dart';
 
 class FlutterGemmaWeb extends FlutterGemmaPlugin {
   FlutterGemmaWeb();
@@ -37,29 +38,20 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
   InferenceModel? get initializedModel => _initializedModel;
 
   @override
-  EmbeddingModel? get initializedEmbeddingModel => _initializedEmbeddingModel;
+  EmbeddingModel? get initializedEmbeddingModel => _embedderCache.model;
 
   InferenceModel? _initializedModel;
-  EmbeddingModel? _initializedEmbeddingModel;
   SpeechRecognizer? _initializedSttModel;
 
-  /// Last resolved embedding paths — replaces the previous package-type
-  /// downcast (`_initializedEmbeddingModel as WebEmbeddingModel`) now that the
-  /// LiteRT.js embedding runtime lives in flutter_gemma_litertlm. Mirrors the
-  /// desktop `_lastInferenceParams` pattern: core owns lifecycle + change
-  /// detection without depending on the package's concrete model type.
-  /// What the cached embedder was built for. The shared core type rather than
-  /// a local record, so the rule that decides "same embedder" is one rule for
-  /// every shell instead of three that can disagree.
-  ActiveEmbedderParams? _lastEmbedderParams;
+  /// The cached embedder and the rule for reusing it, shared with the mobile
+  /// and desktop shells. It replaces the package-type downcast this shell used
+  /// to do (a cast to `WebEmbeddingModel`) to read the
+  /// paths back, and the hand-rolled version it replaces was the worst of the
+  /// three: it joined a build in flight without comparing anything, so a
+  /// caller asking for a different model file got the first model's vectors.
+  final EmbedderCache _embedderCache = EmbedderCache();
 
-  /// The build in flight, so a second caller arriving mid-build joins it
-  /// instead of starting its own. Without this the web shell had no in-flight
-  /// guard at all: two concurrent first calls both compiled a model, and the
-  /// loser was left with nobody to close it.
-  Completer<EmbeddingModel>? _initEmbeddingCompleter;
-
-  /// Same pattern as [_lastEmbedderParams], for the STT model.
+  /// The embedder's params live in [_embedderCache]; STT still keeps its own.
   ({String? modelPath, String? tokenizerPath})? _lastSttPaths;
 
   @override
@@ -171,7 +163,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     String? modelPath,
     String? tokenizerPath,
     PreferredBackend? preferredBackend,
-  }) async {
+  }) {
     // FIRST statement, before every guard. It is idempotent and one-shot, so
     // it needs neither resolved paths nor cache state — and putting it in a
     // branch is what made it unreachable twice: once behind the singleton
@@ -179,6 +171,25 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     // held for the app's lifetime; if it does not speak here it never speaks.
     noticeEmbedderBackendIgnored(preferredBackend);
 
+    // Serialised, so that resolving paths, comparing them and compiling are one
+    // step. A WASM/WebGPU compile is the longest of the three platforms' builds
+    // and so the widest window for a second caller to slip through.
+    return _embedderCache.serialize(
+      () => _reuseOrBuildEmbedder(
+        modelPath: modelPath,
+        tokenizerPath: tokenizerPath,
+        preferredBackend: preferredBackend,
+      ),
+    );
+  }
+
+  /// Runs inside [EmbedderCache.serialize], so it may assume nothing else is
+  /// touching the cache while it awaits.
+  Future<EmbeddingModel> _reuseOrBuildEmbedder({
+    String? modelPath,
+    String? tokenizerPath,
+    PreferredBackend? preferredBackend,
+  }) async {
     // Modern API: Use active embedding model if paths not provided
     if (modelPath == null || tokenizerPath == null) {
       final manager = modelManager as WebModelManager;
@@ -221,83 +232,56 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
       }
     }
 
-    // Check if model already exists with different parameters. The LiteRT.js
-    // embedding runtime now lives in flutter_gemma_litertlm, so core can no
-    // longer downcast to the package's WebEmbeddingModel to read its paths —
-    // it compares against the last resolved paths it cached itself.
     final requestedParams = ActiveEmbedderParams(
       modelPath: modelPath,
       tokenizerPath: tokenizerPath,
       preferredBackend: preferredBackend,
     );
-
-    if (_initializedEmbeddingModel != null) {
-      final baseline = _lastEmbedderParams;
-      final changedParam =
-          baseline?.firstDifference(requestedParams) ??
-          'unknown — no recorded config for the cached embedder';
-
-      if (changedParam != null) {
-        if (kDebugMode) {
-          gemmaLog(
-            '[FlutterGemmaWeb] Embedder config changed ($changedParam) — '
-            'closing the existing model',
-          );
-        }
-        await _initializedEmbeddingModel?.close();
-        _initializedEmbeddingModel = null;
-        _lastEmbedderParams = null;
-      }
-    }
-
-    if (_initializedEmbeddingModel != null) {
-      // Reusing. On web the runtime picks the accelerator itself — LiteRT.js
+    final reused = await _embedderCache.reuseOrInvalidate(
+      requestedParams,
+      // Reusing: on web the runtime picks the accelerator itself — LiteRT.js
       // per operation, onnxruntime-web by trying ['webgpu', 'wasm'] in order —
       // and the notice already fired at the top of this method.
-      return _initializedEmbeddingModel!;
-    }
-
-    // A build already running for this same request: join it.
-    if (_initEmbeddingCompleter case Completer<EmbeddingModel> inFlight) {
-      return inFlight.future;
-    }
-    final completer = _initEmbeddingCompleter = Completer<EmbeddingModel>();
-    // Recorded before the await so the comparison above has something to
-    // compare while the build is still running.
-    _lastEmbedderParams = requestedParams;
-
-    // The LiteRT.js embedding runtime lives in flutter_gemma_litertlm; core
-    // resolves paths (preamble above) + owns the singleton lifecycle, then
-    // dispatches construction through the EmbeddingRegistry. The backend reads
-    // ONLY config.modelPath/config.tokenizerPath — it ignores the spec for path
-    // resolution. Web selects by the sole registered backend (WebGPU LiteRT.js).
-    final activeEmb = (modelManager as WebModelManager).activeEmbeddingModel;
-    final EmbeddingBackendProvider? backend = activeEmb is EmbeddingModelSpec
-        ? EmbeddingRegistry.instance.findFor(activeEmb)
-        : (EmbeddingRegistry.instance.registered.isNotEmpty
-              ? EmbeddingRegistry.instance.registered.first
-              : null);
-    if (backend == null) {
-      throw StateError(
-        'No embedding backend registered. Add flutter_gemma_litertlm to '
-        'pubspec.yaml and pass LiteRtEmbeddingBackend() in embeddingBackends: '
-        'of FlutterGemma.initialize(...). Registered backends: '
-        '${EmbeddingRegistry.instance.registered.map((b) => b.name).join(", ")}.',
-      );
-    }
-    // modelPath/tokenizerPath are non-null here (resolved in the preamble or
-    // passed by the caller). preferredBackend is ignored on web (LiteRT.js uses
-    // WebGPU when available); maxTokens is unused by embeddings.
-    final embConfig = RuntimeConfig(
-      maxTokens: 0,
-      modelPath: modelPath,
-      tokenizerPath: tokenizerPath,
-      preferredBackend: preferredBackend,
+      label: 'web embedder',
     );
-    // The backend's createModel(spec, config) requires a non-null spec but
-    // resolves paths exclusively from config; synthesize one from the resolved
-    // file paths when there's no active EmbeddingModelSpec.
+    if (reused != null) return reused;
+
     try {
+      // The LiteRT.js embedding runtime lives in flutter_gemma_litertlm; core
+      // resolves paths (preamble above) + owns the singleton lifecycle, then
+      // dispatches construction through the EmbeddingRegistry. The backend reads
+      // ONLY config.modelPath/config.tokenizerPath — it ignores the spec for path
+      // resolution. Web selects by the sole registered backend (WebGPU LiteRT.js).
+      //
+      // Inside the try, where every other shell has it: this throw used to sit
+      // between "slot claimed" and the try, so a missing backend reported itself
+      // once and then wedged every later call on a completer nobody completed.
+      final activeEmb = (modelManager as WebModelManager).activeEmbeddingModel;
+      final EmbeddingBackendProvider? backend = activeEmb is EmbeddingModelSpec
+          ? EmbeddingRegistry.instance.findFor(activeEmb)
+          : (EmbeddingRegistry.instance.registered.isNotEmpty
+                ? EmbeddingRegistry.instance.registered.first
+                : null);
+      if (backend == null) {
+        throw StateError(
+          'No embedding backend registered. Add flutter_gemma_litertlm to '
+          'pubspec.yaml and pass LiteRtEmbeddingBackend() in embeddingBackends: '
+          'of FlutterGemma.initialize(...). Registered backends: '
+          '${EmbeddingRegistry.instance.registered.map((b) => b.name).join(", ")}.',
+        );
+      }
+      // modelPath/tokenizerPath are non-null here (resolved in the preamble or
+      // passed by the caller). preferredBackend is ignored on web (LiteRT.js uses
+      // WebGPU when available); maxTokens is unused by embeddings.
+      final embConfig = RuntimeConfig(
+        maxTokens: 0,
+        modelPath: modelPath,
+        tokenizerPath: tokenizerPath,
+        preferredBackend: preferredBackend,
+      );
+      // The backend's createModel(spec, config) requires a non-null spec but
+      // resolves paths exclusively from config; synthesize one from the resolved
+      // file paths when there's no active EmbeddingModelSpec.
       final model = await backend.createModel(
         activeEmb is EmbeddingModelSpec
             ? activeEmb
@@ -308,24 +292,11 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
               ),
         embConfig,
       );
-      _initializedEmbeddingModel = model;
-      _lastEmbedderParams = requestedParams;
-      model.addCloseListener(() {
-        _initializedEmbeddingModel = null;
-        _lastEmbedderParams = null;
-        _initEmbeddingCompleter = null;
-      });
-      completer.complete(model);
+      _embedderCache.record(model, requestedParams);
       return model;
-    } catch (e, st) {
-      // Clear the slot BEFORE completing the error, or a failed build wedges
-      // every later call on a completer nobody will ever finish.
-      _initEmbeddingCompleter = null;
-      _lastEmbedderParams = null;
-      completer.completeError(e, st);
-      // Return the error-completed future rather than rethrowing, so exactly
-      // one Future is in flight — a bare rethrow orphans completer.future.
-      return completer.future;
+    } catch (_) {
+      _embedderCache.invalidate();
+      rethrow;
     }
   }
 
@@ -382,7 +353,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     // Check if model already exists with different parameters. Core can no
     // longer downcast to the package's concrete STT model type, so it
     // compares against the last resolved paths it cached itself (mirrors
-    // _lastEmbedderParams).
+    // the embedder cache).
     if (_initializedSttModel != null) {
       final p = _lastSttPaths;
       final modelChanged =
@@ -509,7 +480,8 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     required String content,
     String? metadata,
   }) async {
-    if (_initializedEmbeddingModel == null) {
+    final embedder = _embedderCache.model;
+    if (embedder == null) {
       throw StateError(
         'No embedding model is active. addDocument(content:) and '
         'searchSimilar(query:) auto-embed text, which requires an embedding '
@@ -520,7 +492,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     }
 
     // Generate embedding and add document
-    final embedding = await _initializedEmbeddingModel!.generateEmbedding(
+    final embedding = await embedder.generateEmbedding(
       content,
       taskType: TaskType.retrievalDocument,
     );
@@ -539,7 +511,8 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     double threshold = 0.0,
     Filter? filter,
   }) async {
-    if (_initializedEmbeddingModel == null) {
+    final embedder = _embedderCache.model;
+    if (embedder == null) {
       throw StateError(
         'No embedding model is active. addDocument(content:) and '
         'searchSimilar(query:) auto-embed text, which requires an embedding '
@@ -550,9 +523,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     }
 
     // Generate query embedding and search
-    final queryEmbedding = await _initializedEmbeddingModel!.generateEmbedding(
-      query,
-    );
+    final queryEmbedding = await embedder.generateEmbedding(query);
     return await ServiceRegistry.instance.vectorStoreRepository.searchSimilar(
       queryEmbedding: queryEmbedding,
       topK: topK,

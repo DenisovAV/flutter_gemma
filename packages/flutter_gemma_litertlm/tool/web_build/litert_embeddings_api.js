@@ -35,10 +35,13 @@ let tokenizer = null;
 let isInitialized = false;
 let liteRtWasmLoaded = false;  // Track if LiteRT WASM runtime is loaded
 
-// What the model ACTUALLY ran on, as reported by the first output tensor.
-// Null until the first run: at compile time this cannot be known — see the
-// comment in the compile block below.
+// Where the OUTPUT BUFFER lived after a run, as reported by the first output
+// tensor. Null until the first run. Buffer residency, not execution: an op that
+// spilled to WASM inside a webgpu build still leaves WebGPU buffers, which is
+// why `fullyAccelerated` below exists rather than this answering alone.
 let actualAccelerator = null;
+// What the model was actually COMPILED for — set from `model.options` right
+// after compiling, so it survives LiteRT.js silently recompiling for WASM.
 let requestedAccelerator = null;
 // Null until the model is compiled; false when LiteRT had to spill ops to WASM.
 let fullyAccelerated = null;
@@ -122,14 +125,6 @@ async function loadLiteRTModel(modelPath, wasmPath = '/node_modules/@litertjs/co
       // browsers) or deletes the model and re-runs loadAndCompile with
       // accelerator 'wasm' (everywhere else). It throws in NEITHER case, so
       // this line is reached either way and the old wording was a guess.
-      //
-      // Two questions, two sources. WHETHER the graph is fully on the
-      // accelerator is answerable right here — isFullyAccelerated is the flag
-      // LiteRT itself branches on — and it is the only way to see the JSPI
-      // partial case, which keeps WebGPU buffers and so looks like a clean
-      // webgpu run to every later check. WHICH accelerator ran is answerable
-      // only from an output tensor, after the first embedding.
-      reportFullAcceleration(tfliteModel);
       console.log('[LiteRT] Model compiled, accelerator confirmed on first run');
     } catch (error) {
       console.warn('[LiteRT] WebGPU not available, falling back to WASM:', error.message);
@@ -139,6 +134,25 @@ async function loadLiteRTModel(modelPath, wasmPath = '/node_modules/@litertjs/co
       });
       console.log('[LiteRT] Model compiled with WASM successfully');
     }
+
+    // Two questions, two sources. WHETHER the graph is fully on the accelerator
+    // is answerable here, at compile time — isFullyAccelerated is the flag
+    // LiteRT itself branches on, and the only way to see the JSPI partial case,
+    // which keeps WebGPU buffers and so looks like a clean webgpu run to every
+    // later check. WHICH accelerator ran is answerable only from an output
+    // tensor, after the first embedding.
+    //
+    // Below the try/catch so it runs on BOTH arms. Inside the try it was
+    // unreachable on the WASM fallback, which left the getter null after a
+    // SUCCESSFUL compile — indistinguishable from "not compiled yet", and on
+    // exactly the browsers the fallback exists for.
+    //
+    // The accelerator is read back off the model rather than from what we asked
+    // for: LiteRT.js can delete a webgpu build and return a wasm one without
+    // throwing, so `requestedAccelerator` is a guess until the model corrects
+    // it, and `options.accelerator` is the compile that actually happened.
+    requestedAccelerator = tfliteModel.options?.accelerator ?? requestedAccelerator;
+    reportFullAcceleration(tfliteModel);
 
     // Auto-detect sequence length from model input shape (like iOS/Android)
     try {
@@ -334,14 +348,6 @@ async function generateDocumentEmbeddingInternal(text) {
 // ============================================================================
 
 /**
- * Records what the model actually ran on, and says so once.
- *
- * Called with the first output tensor's accelerator. When it disagrees with
- * what was requested, LiteRT.js fell back without throwing — the case the old
- * unconditional "compiled with WebGPU successfully" line hid. `window.getLiteRtEmbeddingAccelerator()`
- * exposes the same value to Dart.
- */
-/**
  * Says once, at compile time, when the graph did NOT land entirely on the
  * requested accelerator.
  *
@@ -356,7 +362,11 @@ function reportFullAcceleration(model) {
   try {
     full = model.isFullyAccelerated;
   } catch (_) {
-    return; // a runtime without the flag — nothing to say
+    // Not "a runtime without the flag": an absent property reads as undefined,
+    // which the triple state below already handles by saying nothing. This is
+    // only the getter itself throwing (a deleted model), and there is nothing
+    // truthful to report about one.
+    return;
   }
   if (full === false) {
     fullyAccelerated = false;
@@ -370,6 +380,14 @@ function reportFullAcceleration(model) {
   }
 }
 
+/**
+ * Records what the model actually ran on, and says so once.
+ *
+ * Called with the first output tensor's accelerator. When it disagrees with
+ * what was requested, LiteRT.js fell back without throwing — the case the old
+ * unconditional "compiled with WebGPU successfully" line hid. `window.getLiteRtEmbeddingAccelerator()`
+ * exposes the same value to Dart.
+ */
 function reportAccelerator(accelerator) {
   if (actualAccelerator !== null || !accelerator) return;
   actualAccelerator = accelerator;

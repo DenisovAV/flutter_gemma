@@ -2,8 +2,6 @@ import 'dart:ffi' show Abi;
 import 'dart:io';
 
 import 'package:flutter/foundation.dart' show visibleForTesting;
-import 'package:flutter_gemma/core/domain/platform_types.dart'
-    show PreferredBackend;
 import 'package:flutter_gemma/core/model.dart' show ModelFileType;
 import 'package:flutter_gemma/core/model_management/model_specs.dart'
     show InferenceModelSpec;

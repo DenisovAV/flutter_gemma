@@ -35,6 +35,7 @@ import '../mobile/flutter_gemma_mobile.dart' show MobileModelManager;
 
 import '../core/model_management/constants/preferences_keys.dart';
 import 'package:flutter_gemma/core/embedding/embedder_backend_notice.dart';
+import 'package:flutter_gemma/core/embedding/embedder_cache.dart';
 
 /// Normalizes a `createTtsModel`/`getActiveTts` `language` argument for the
 /// same-model reuse guard's store/compare — defaults `null` to `'english'`
@@ -95,14 +96,11 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
   /// cleared everywhere it is cleared.
   ({String specName, ActiveModelParams params})? _inFlightRequest;
 
-  // Embedding model
-  Completer<EmbeddingModel>? _initEmbeddingCompleter;
-  EmbeddingModel? _initializedEmbeddingModel;
-
-  /// What the cached embedder was built for — the inference twin of
-  /// `_lastInferenceParams`, and the reason this shell no longer compares a
-  /// spec name.
-  ActiveEmbedderParams? _lastEmbedderParams;
+  // Embedding model: one shared cache instead of a completer, a model and a
+  // params field kept in lockstep by hand. This shell's hand-rolled version
+  // gated its comparison on a field that is only assigned after the build
+  // returns, then joined any build in flight without comparing at all.
+  final EmbedderCache _embedderCache = EmbedderCache();
 
   // STT model
   Completer<SpeechRecognizer>? _initSttCompleter;
@@ -130,7 +128,7 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
   InferenceModel? get initializedModel => _initializedModel;
 
   @override
-  EmbeddingModel? get initializedEmbeddingModel => _initializedEmbeddingModel;
+  EmbeddingModel? get initializedEmbeddingModel => _embedderCache.model;
 
   @override
   Future<InferenceModel> createModel({
@@ -422,7 +420,7 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
     String? modelPath,
     String? tokenizerPath,
     PreferredBackend? preferredBackend,
-  }) async {
+  }) {
     // FIRST statement, before every guard. It is idempotent and one-shot, so
     // it needs neither resolved paths nor cache state — and putting it in a
     // branch is what made it unreachable twice: once behind the singleton
@@ -430,6 +428,26 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
     // held for the app's lifetime; if it does not speak here it never speaks.
     noticeEmbedderBackendIgnored(preferredBackend);
 
+    // Serialised, because this shell resolves paths from preferences before it
+    // can compare them — an await between "decide" and "record" that two
+    // callers can both slip through. Moving that resolution earlier once
+    // widened exactly that window; the lane makes the ordering not matter.
+    return _embedderCache.serialize(
+      () => _reuseOrBuildEmbedder(
+        modelPath: modelPath,
+        tokenizerPath: tokenizerPath,
+        preferredBackend: preferredBackend,
+      ),
+    );
+  }
+
+  /// Runs inside [EmbedderCache.serialize], so it may assume nothing else is
+  /// touching the cache while it awaits.
+  Future<EmbeddingModel> _reuseOrBuildEmbedder({
+    String? modelPath,
+    String? tokenizerPath,
+    PreferredBackend? preferredBackend,
+  }) async {
     final currentActiveModel = _modelManager.activeEmbeddingModel;
 
     // Paths are resolved BEFORE the reuse check, and the explicit-paths caller
@@ -466,33 +484,13 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
       tokenizerPath: tokenizerPath,
       preferredBackend: preferredBackend,
     );
-
-    if (_initEmbeddingCompleter != null &&
-        _initializedEmbeddingModel != null &&
-        _lastEmbedderParams != null) {
-      final changedParam = _lastEmbedderParams!.firstDifference(
-        requestedParams,
-      );
-      if (changedParam != null) {
-        gemmaLog(
-          '[FlutterGemmaDesktop] Embedder config changed ($changedParam) — '
-          'rebuilding',
-        );
-        await _initializedEmbeddingModel?.close();
-        _initEmbeddingCompleter = null;
-        _initializedEmbeddingModel = null;
-        _lastEmbedderParams = null;
-      } else {
-        return _initEmbeddingCompleter!.future;
-      }
-    }
-
-    // Return existing if initialization in progress
-    if (_initEmbeddingCompleter case Completer<EmbeddingModel> completer) {
-      return completer.future;
-    }
-
-    final completer = _initEmbeddingCompleter = Completer<EmbeddingModel>();
+    final reused = await _embedderCache.reuseOrInvalidate(
+      requestedParams,
+      label: currentActiveModel is EmbeddingModelSpec
+          ? currentActiveModel.name
+          : 'explicit paths',
+    );
+    if (reused != null) return reused;
 
     try {
       gemmaLog('[FlutterGemmaDesktop] Loading embedding model: $modelPath');
@@ -547,26 +545,13 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
           );
       final model = await backend.createModel(specForBackend, embConfig);
 
-      // Core owns the singleton lifecycle: track it + reset on close. The
-      // package-built model fires this via CloseNotifier (addCloseListener).
-      _initializedEmbeddingModel = model;
-      model.addCloseListener(() {
-        _initializedEmbeddingModel = null;
-        _initEmbeddingCompleter = null;
-        _lastEmbedderParams = null;
-      });
-
-      _lastEmbedderParams = requestedParams;
-      completer.complete(model);
+      // Core owns the singleton lifecycle: the cache tracks the model, resets
+      // on close (identity-guarded) and records what it was built from.
+      _embedderCache.record(model, requestedParams);
       return model;
-    } catch (e, st) {
-      completer.completeError(e, st);
-      _initEmbeddingCompleter = null;
-      _initializedEmbeddingModel = null;
-      _lastEmbedderParams = null;
-      // Return the error-completed completer future (not rethrow) so exactly one
-      // Future is in flight — a bare rethrow orphans completer.future. See #394.
-      return completer.future;
+    } catch (_) {
+      _embedderCache.invalidate();
+      rethrow;
     }
   }
 

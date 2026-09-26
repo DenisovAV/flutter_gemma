@@ -1,6 +1,6 @@
 ## 1.10.0
 - New `EmbeddingModel.activeBackend`: `getActiveEmbedder(preferredBackend:)` no longer goes unremarked.
-- **Breaking for `implements EmbeddingModel`:** add `activeBackend`; `extends` inherits a default.
+- **Breaking for engine authors:** add `EmbeddingModel.activeBackend` (`implements` only) and `ForwardPassDescriptor.activeBackend`.
 - Fix two wrong claims in the shipped RAG skill that agents read as instructions.
 
 ## 1.9.0

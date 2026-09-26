@@ -19,8 +19,6 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/core/embedding/embedder_backend_notice.dart';
 import 'package:flutter_gemma/core/lifecycle/close_notifier.dart';
-import 'package:flutter_gemma/core/model_management/model_specs.dart'
-    show EmbeddingModelSpec;
 import 'package:flutter_gemma/core/registry/embedding_backend_provider.dart';
 import 'package:flutter_gemma/core/registry/embedding_registry.dart';
 import 'package:flutter_gemma/core/registry/runtime_config.dart';
@@ -120,10 +118,10 @@ void main() {
     );
 
     test('two concurrent first calls build ONE embedder, not two', () async {
-      // `_initializedEmbeddingModel` is only assigned after the build returns,
-      // so a guard that waited for it let the second caller start its own
-      // build: two worker isolates, two compiles, and the loser orphaned with
-      // nobody to close it.
+      // The cached model is only recorded after the build returns, so a guard
+      // that waited for it let the second caller start its own build: two
+      // worker isolates, two compiles, and the loser orphaned with nobody to
+      // close it.
       final plugin = FlutterGemmaMobile();
       backend.gate = Completer<void>();
 
@@ -144,6 +142,108 @@ void main() {
       expect(backend.seenModelPaths, ['/a.tflite']);
       expect(identical(models[0], models[1]), isTrue);
     });
+
+    // Driven against BOTH native shells, because the rule lives in one shared
+    // cache but each shell has to wrap its own entry point in
+    // EmbedderCache.serialize. A shell that forgets the wrapper passes every
+    // unit test the cache has and still races.
+    for (final shell in _shells) {
+      test('${shell.name}: a concurrent DIFFERENT request is served its own '
+          'model, not the one already building', () async {
+        final plugin = shell.create();
+        addTearDown(() => plugin.initializedEmbeddingModel?.close());
+        backend.gate = Completer<void>();
+
+        final a = plugin.createEmbeddingModel(
+          modelPath: '/a.tflite',
+          tokenizerPath: '/a.json',
+        );
+        await Future<void>.delayed(Duration.zero);
+        // Arrives while /a is still compiling and asks for something else.
+        // Joining the build in flight here is how a caller got another model's
+        // vectors with no error and no log.
+        final b = plugin.createEmbeddingModel(
+          modelPath: '/b.tflite',
+          tokenizerPath: '/b.json',
+        );
+
+        backend.gate!.complete();
+        final models = await Future.wait([a, b]);
+
+        expect(backend.seenModelPaths, ['/a.tflite', '/b.tflite']);
+        expect(identical(models[0], models[1]), isFalse);
+        // The discriminating part. Two callers that merely raced would each
+        // record their own model, the last writer would win the cache and the
+        // loser would leak unclosed. Serialised, /b's request SEES /a in the
+        // cache and closes it — which is the only reason the counts above are
+        // not also reachable by racing.
+        expect(
+          (models[0] as _InertEmbeddingModel).closed,
+          isTrue,
+          reason: '/a was superseded, so the rebuild must have closed it',
+        );
+        expect(plugin.initializedEmbeddingModel, same(models[1]));
+      });
+
+      test(
+        '${shell.name}: three concurrent callers leave one live embedder',
+        () async {
+          final plugin = shell.create();
+          addTearDown(() => plugin.initializedEmbeddingModel?.close());
+          backend.gate = Completer<void>();
+
+          final calls = [
+            plugin.createEmbeddingModel(
+              modelPath: '/a.tflite',
+              tokenizerPath: '/a.json',
+            ),
+            plugin.createEmbeddingModel(
+              modelPath: '/b.tflite',
+              tokenizerPath: '/b.json',
+            ),
+            plugin.createEmbeddingModel(
+              modelPath: '/b.tflite',
+              tokenizerPath: '/b.json',
+            ),
+          ];
+          backend.gate!.complete();
+          final models = await Future.wait(calls);
+
+          expect(backend.seenModelPaths, [
+            '/a.tflite',
+            '/b.tflite',
+          ], reason: 'the third caller matches the second and reuses it');
+          expect(identical(models[1], models[2]), isTrue);
+          expect(
+            plugin.initializedEmbeddingModel,
+            same(models[2]),
+            reason: 'the survivor is what the last request asked for',
+          );
+        },
+      );
+
+      test('${shell.name}: a failed build leaves no baseline behind', () async {
+        final plugin = shell.create();
+        addTearDown(() => plugin.initializedEmbeddingModel?.close());
+        backend.failNext = true;
+
+        await expectLater(
+          plugin.createEmbeddingModel(
+            modelPath: '/a.tflite',
+            tokenizerPath: '/a.json',
+          ),
+          throwsA(anything),
+        );
+
+        // The retry must be a fresh decision, not a replay of the failure.
+        final retry = await plugin.createEmbeddingModel(
+          modelPath: '/a.tflite',
+          tokenizerPath: '/a.json',
+        );
+        expect(retry, isNotNull);
+        expect(backend.seenModelPaths, ['/a.tflite', '/a.tflite']);
+      });
+    }
 
     test('a different tokenizer alone is also a different embedder', () async {
       final plugin = FlutterGemmaMobile();
@@ -175,6 +275,14 @@ void main() {
   });
 }
 
+/// The two shells a VM test can construct. Web is absent because
+/// `FlutterGemmaWeb` needs `dart:js_interop`; its wiring is covered by the same
+/// shared cache and by the web integration suites.
+final _shells = <({String name, FlutterGemmaPlugin Function() create})>[
+  (name: 'mobile', create: FlutterGemmaMobile.new),
+  (name: 'desktop', create: () => FlutterGemmaDesktop.instance),
+];
+
 /// Counts how many times the shell actually asked for a model to be built, and
 /// with which path — the only way to tell "reused" from "rebuilt" from outside.
 class _CountingBackend implements EmbeddingBackendProvider {
@@ -183,6 +291,10 @@ class _CountingBackend implements EmbeddingBackendProvider {
   /// When set, `createModel` waits on it — the window a second caller needs to
   /// arrive while the first build is still running.
   Completer<void>? gate;
+
+  /// Fails exactly one build, to check the shell forgets it rather than
+  /// remembering a model it never got.
+  bool failNext = false;
 
   @override
   String get name => 'counting';
@@ -200,11 +312,17 @@ class _CountingBackend implements EmbeddingBackendProvider {
   ) async {
     seenModelPaths.add(config.modelPath);
     if (gate != null) await gate!.future;
+    if (failNext) {
+      failNext = false;
+      throw StateError('backend refused to build');
+    }
     return _InertEmbeddingModel();
   }
 }
 
 class _InertEmbeddingModel extends EmbeddingModel with CloseNotifier {
+  bool closed = false;
+
   @override
   Future<List<double>> generateEmbedding(
     String text, {
@@ -223,5 +341,8 @@ class _InertEmbeddingModel extends EmbeddingModel with CloseNotifier {
   Future<int> getDimension() async => 1;
 
   @override
-  Future<void> close() async => fireCloseListeners();
+  Future<void> close() async {
+    closed = true;
+    fireCloseListeners();
+  }
 }

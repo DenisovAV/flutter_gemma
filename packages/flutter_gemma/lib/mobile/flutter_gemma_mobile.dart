@@ -25,6 +25,7 @@ import '../core/registry/tts_registry.dart';
 import '../core/registry/runtime_config.dart';
 import '../core/model_management/model_specs.dart';
 import 'package:flutter_gemma/core/embedding/embedder_backend_notice.dart';
+import 'package:flutter_gemma/core/embedding/embedder_cache.dart';
 // Re-export the spec value types so existing importers of this library (tests,
 // example, and any external code that imported the mobile lib directly) keep
 // seeing InferenceModelSpec/EmbeddingModelSpec/etc. — they used to be `part`s
@@ -73,13 +74,10 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
   /// cleared everywhere it is cleared.
   ({String specName, ActiveModelParams params})? _inFlightRequest;
 
-  Completer<EmbeddingModel>? _initEmbeddingCompleter;
-  EmbeddingModel? _initializedEmbeddingModel;
-
-  /// The request the cached embedder was built for, so a second call can tell
-  /// whether it still satisfies it — the embedding twin of
-  /// `_lastInferenceParams`.
-  ActiveEmbedderParams? _lastEmbedderParams;
+  /// The cached embedder, the rule for reusing it, and the serialisation that
+  /// makes the rule mean anything — shared with the desktop and web shells,
+  /// because three hand-rolled copies of it were wrong in three different ways.
+  final EmbedderCache _embedderCache = EmbedderCache();
 
   Completer<SpeechRecognizer>? _initSttCompleter;
   SpeechRecognizer? _initializedSttModel;
@@ -109,7 +107,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
   InferenceModel? get initializedModel => _initializedModel;
 
   @override
-  EmbeddingModel? get initializedEmbeddingModel => _initializedEmbeddingModel;
+  EmbeddingModel? get initializedEmbeddingModel => _embedderCache.model;
 
   @override
   Future<InferenceModel> createModel({
@@ -426,72 +424,40 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
     }
   }
 
-  /// Returns the cached embedder when [requested] still describes it, and
-  /// closes it when it does not. Null means "build a new one".
-  ///
-  /// One helper because BOTH entry shapes need the same answer: the active-spec
-  /// path and the explicit-paths path. The second used to return whatever
-  /// singleton existed with no comparison at all, so asking for a different
-  /// model file silently handed back the previous model's vectors.
-  Future<Future<EmbeddingModel>?> _reuseEmbedderIfUnchanged(
-    ActiveEmbedderParams requested, {
-    required String label,
-  }) async {
-    final inFlight = _initEmbeddingCompleter;
-    if (inFlight == null) return null;
-
-    // Deliberately NOT gated on `_initializedEmbeddingModel != null`. That is
-    // only assigned AFTER the build returns, so gating on it let a second
-    // caller arriving during the build fall through, overwrite the completer and
-    // start a SECOND build: two worker isolates, two 570-780 ms compiles, and
-    // the loser orphaned with nobody to close it. `_lastEmbedderParams` is
-    // recorded when the completer is created, so an in-flight build has
-    // something to compare against.
-    final baseline = _lastEmbedderParams;
-    if (baseline == null) {
-      // Nothing to compare — joining the build in flight is still strictly
-      // better than racing a duplicate one.
-      return inFlight.future;
-    }
-
-    final changedParam = baseline.firstDifference(requested);
-    if (changedParam == null) {
-      gemmaLog('ℹ️  Reusing existing embedding model instance for $label');
-      return inFlight.future;
-    }
-
-    gemmaLog(
-      '⚠️  Embedder config changed ($changedParam) for $label — rebuilding',
-    );
-    if (_initializedEmbeddingModel == null) {
-      // A build for the OTHER config is still running. Let it finish rather
-      // than tearing down half-built state, then close it and fall through to
-      // build what was actually asked for. Serialised, not raced.
-      try {
-        await inFlight.future;
-      } catch (_) {
-        // Its failure belongs to its own caller, not to this one.
-      }
-    }
-    gemmaLog('🔄 Closing old embedding model and creating new one...');
-    await _initializedEmbeddingModel?.close();
-    // close-listener resets _initializedEmbeddingModel and _initEmbeddingCompleter
-    _lastEmbedderParams = null;
-    return null;
-  }
-
   @override
   Future<EmbeddingModel> createEmbeddingModel({
     String? modelPath,
     String? tokenizerPath,
     PreferredBackend? preferredBackend,
-  }) async {
+  }) {
     // FIRST statement, before every guard. It is idempotent and one-shot, so
     // it needs neither resolved paths nor cache state — and putting it in a
     // branch is what made it unreachable twice: once behind the singleton
     // cache, once behind "only on reuse". The ordinary shape is a single call
     // held for the app's lifetime; if it does not speak here it never speaks.
     noticeEmbedderBackendIgnored(preferredBackend);
+
+    // Serialised, because resolving paths, comparing them against the cached
+    // embedder and building are three steps with awaits between them: run
+    // interleaved, two callers both finish deciding before either records a
+    // model, and one of the two builds is orphaned with nobody to close it.
+    return _embedderCache.serialize(
+      () => _reuseOrBuildEmbedder(
+        modelPath: modelPath,
+        tokenizerPath: tokenizerPath,
+        preferredBackend: preferredBackend,
+      ),
+    );
+  }
+
+  /// Runs inside [EmbedderCache.serialize], so it may assume nothing else is
+  /// touching the cache while it awaits.
+  Future<EmbeddingModel> _reuseOrBuildEmbedder({
+    String? modelPath,
+    String? tokenizerPath,
+    PreferredBackend? preferredBackend,
+  }) async {
+    String label = 'explicit paths';
 
     // Modern API: Use active embedding model if paths not provided
     if (modelPath == null || tokenizerPath == null) {
@@ -525,55 +491,30 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
         );
       }
 
-      // Check if singleton exists and matches the active model.
-      //
-      // Compared on the RESOLVED PATHS, not the spec name: reinstalling a
-      // same-named embedder to a new path used to be invisible here. The
-      // comparison lives in core so the shells CAN share one rule — but only
-      // this one calls it so far. Desktop still compares the spec name and web
-      // keeps its own path record, so the staleness above is still live on
-      // those two.
-      final requestedParams = ActiveEmbedderParams(
-        modelPath: activeModelPath,
-        tokenizerPath: activeTokenizerPath,
-        preferredBackend: preferredBackend,
-      );
-
-      final reused = await _reuseEmbedderIfUnchanged(
-        requestedParams,
-        label: (activeModel as EmbeddingModelSpec).name,
-      );
-      if (reused != null) return reused;
-
       modelPath = activeModelPath;
       tokenizerPath = activeTokenizerPath;
+      label = (activeModel as EmbeddingModelSpec).name;
 
       gemmaLog(
         'Using active embedding model: $modelPath, tokenizer: $tokenizerPath',
       );
-    } else {
-      // Explicit paths go through the SAME comparison. Returning the cached
-      // singleton unconditionally here is how a caller asking for a different
-      // model file got the previous model's vectors, silently.
-      final reused = await _reuseEmbedderIfUnchanged(
-        ActiveEmbedderParams(
-          modelPath: modelPath,
-          tokenizerPath: tokenizerPath,
-          preferredBackend: preferredBackend,
-        ),
-        label: 'explicit paths',
-      );
-      if (reused != null) return reused;
     }
 
-    final completer = _initEmbeddingCompleter = Completer<EmbeddingModel>();
-    // Recorded BEFORE the await so a concurrent caller can compare against a
-    // build that has not finished yet. The catch below clears it on failure.
-    _lastEmbedderParams = ActiveEmbedderParams(
+    // Both entry shapes get the SAME comparison, on the RESOLVED PATHS rather
+    // than a spec name: reinstalling a same-named embedder to a new path used
+    // to be invisible, and returning the cached singleton unconditionally on
+    // the explicit-paths side handed a caller who asked for a different model
+    // file the previous model's vectors, silently.
+    final requestedParams = ActiveEmbedderParams(
       modelPath: modelPath,
       tokenizerPath: tokenizerPath,
       preferredBackend: preferredBackend,
     );
+    final reused = await _embedderCache.reuseOrInvalidate(
+      requestedParams,
+      label: label,
+    );
+    if (reused != null) return reused;
 
     // Verify the active model is still installed (for Modern API path)
     final manager = _unifiedManager;
@@ -582,12 +523,9 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
     if (activeModel != null) {
       final isModelInstalled = await manager.isModelInstalled(activeModel);
       if (!isModelInstalled) {
-        completer.completeError(
-          Exception(
-            'Active embedding model is no longer installed. Use the `modelManager` to load the model first',
-          ),
+        throw Exception(
+          'Active embedding model is no longer installed. Use the `modelManager` to load the model first',
         );
-        return completer.future;
       }
     }
 
@@ -635,44 +573,16 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
           );
       final model = await backend.createModel(specForBackend, embConfig);
 
-      // Core owns the singleton lifecycle: track it + reset on close. The
-      // package-built model fires this via CloseNotifier (addCloseListener).
-      _initializedEmbeddingModel = model;
-      model.addCloseListener(() {
-        _initializedEmbeddingModel = null;
-        _initEmbeddingCompleter = null;
-        _lastEmbedderParams = null;
-      });
-
-      // Save the spec that was used to create this model (Modern API path only)
-      // Recorded on BOTH paths now: the explicit-paths caller compares against
-      // it too, and a null baseline is what made that comparison impossible.
-      _lastEmbedderParams = ActiveEmbedderParams(
-        modelPath: modelPath,
-        tokenizerPath: tokenizerPath,
-        preferredBackend: preferredBackend,
-      );
-      if (activeSpec != null) {
-        _lastEmbedderParams = ActiveEmbedderParams(
-          modelPath: modelPath,
-          tokenizerPath: tokenizerPath,
-          preferredBackend: preferredBackend,
-        );
-      }
-
-      completer.complete(model);
+      // Core owns the singleton lifecycle: the cache tracks the model, resets
+      // on close (identity-guarded) and records what it was built from, so the
+      // next caller has something to compare against.
+      _embedderCache.record(model, requestedParams);
       return model;
-    } catch (e, st) {
-      // FIX #170: Reset state to allow retry with different model
-      _initEmbeddingCompleter = null;
-      _initializedEmbeddingModel = null;
-      _lastEmbedderParams = null;
-      completer.completeError(e, st);
-      // Return the error-completed completer future (not a separate throw) so
-      // exactly one Future is in flight — a bare throw would orphan
-      // completer.future (no listener in the single-caller path) → spurious
-      // unhandled-async. Mirrors createTtsModel. See #394.
-      return completer.future;
+    } catch (_) {
+      // FIX #170: leave no bookkeeping behind, so a retry with a different
+      // model is a fresh decision rather than a replay of this failure.
+      _embedderCache.invalidate();
+      rethrow;
     }
   }
 

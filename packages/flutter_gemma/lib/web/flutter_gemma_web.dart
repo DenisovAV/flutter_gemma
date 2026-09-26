@@ -48,9 +48,12 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
   /// LiteRT.js embedding runtime lives in flutter_gemma_litertlm. Mirrors the
   /// desktop `_lastInferenceParams` pattern: core owns lifecycle + change
   /// detection without depending on the package's concrete model type.
-  ({String? modelPath, String? tokenizerPath})? _lastEmbeddingPaths;
+  /// What the cached embedder was built for. The shared core type rather than
+  /// a local record, so the rule that decides "same embedder" is one rule for
+  /// every shell instead of three that can disagree.
+  ActiveEmbedderParams? _lastEmbedderParams;
 
-  /// Same pattern as [_lastEmbeddingPaths], for the STT model.
+  /// Same pattern as [_lastEmbedderParams], for the STT model.
   ({String? modelPath, String? tokenizerPath})? _lastSttPaths;
 
   @override
@@ -216,22 +219,28 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     // embedding runtime now lives in flutter_gemma_litertlm, so core can no
     // longer downcast to the package's WebEmbeddingModel to read its paths —
     // it compares against the last resolved paths it cached itself.
-    if (_initializedEmbeddingModel != null) {
-      final p = _lastEmbeddingPaths;
-      final modelChanged =
-          p == null ||
-          p.modelPath != modelPath ||
-          p.tokenizerPath != tokenizerPath;
+    final requestedParams = ActiveEmbedderParams(
+      modelPath: modelPath,
+      tokenizerPath: tokenizerPath,
+      preferredBackend: preferredBackend,
+    );
 
-      if (modelChanged) {
+    if (_initializedEmbeddingModel != null) {
+      final baseline = _lastEmbedderParams;
+      final changedParam =
+          baseline?.firstDifference(requestedParams) ??
+          'unknown — no recorded config for the cached embedder';
+
+      if (changedParam != null) {
         if (kDebugMode) {
           gemmaLog(
-            '[FlutterGemmaWeb] Embedding model paths changed, closing existing model',
+            '[FlutterGemmaWeb] Embedder config changed ($changedParam) — '
+            'closing the existing model',
           );
         }
         await _initializedEmbeddingModel?.close();
         _initializedEmbeddingModel = null;
-        _lastEmbeddingPaths = null;
+        _lastEmbedderParams = null;
       }
     }
 
@@ -284,10 +293,10 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
       embConfig,
     );
     _initializedEmbeddingModel = model;
-    _lastEmbeddingPaths = (modelPath: modelPath, tokenizerPath: tokenizerPath);
+    _lastEmbedderParams = requestedParams;
     model.addCloseListener(() {
       _initializedEmbeddingModel = null;
-      _lastEmbeddingPaths = null;
+      _lastEmbedderParams = null;
     });
     return model;
   }
@@ -345,7 +354,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     // Check if model already exists with different parameters. Core can no
     // longer downcast to the package's concrete STT model type, so it
     // compares against the last resolved paths it cached itself (mirrors
-    // _lastEmbeddingPaths).
+    // _lastEmbedderParams).
     if (_initializedSttModel != null) {
       final p = _lastSttPaths;
       final modelChanged =

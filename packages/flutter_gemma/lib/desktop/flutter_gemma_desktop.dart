@@ -98,7 +98,11 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
   // Embedding model
   Completer<EmbeddingModel>? _initEmbeddingCompleter;
   EmbeddingModel? _initializedEmbeddingModel;
-  String? _lastActiveEmbeddingModelName;
+
+  /// What the cached embedder was built for — the inference twin of
+  /// `_lastInferenceParams`, and the reason this shell no longer compares a
+  /// spec name.
+  ActiveEmbedderParams? _lastEmbedderParams;
 
   // STT model
   Completer<SpeechRecognizer>? _initSttCompleter;
@@ -426,19 +430,58 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
     // held for the app's lifetime; if it does not speak here it never speaks.
     noticeEmbedderBackendIgnored(preferredBackend);
 
-    // Check if active embedding model changed
     final currentActiveModel = _modelManager.activeEmbeddingModel;
+
+    // Paths are resolved BEFORE the reuse check, and the explicit-paths caller
+    // goes through the same comparison as everyone else. Both were bugs: this
+    // shell compared the spec NAME, so a same-named embedder reinstalled to a
+    // new file was served stale — and a caller passing explicit paths got
+    // whatever singleton existed, with no comparison at all. Resolving first
+    // costs one preferences read on a reuse and removes both.
+    if (modelPath == null || tokenizerPath == null) {
+      if (currentActiveModel == null) {
+        throw StateError(
+          'No active embedding model set. '
+          'Use `FlutterGemma.installEmbedder()` first.',
+        );
+      }
+      final filePaths = await _modelManager.getModelFilePaths(
+        currentActiveModel,
+      );
+      if (filePaths == null || filePaths.isEmpty) {
+        throw StateError('Embedding model file paths not found');
+      }
+      modelPath ??= filePaths[PreferencesKeys.embeddingModelFile];
+      tokenizerPath ??= filePaths[PreferencesKeys.embeddingTokenizerFile];
+    }
+    if (modelPath == null) {
+      throw StateError('Embedding model path is required');
+    }
+    if (tokenizerPath == null) {
+      throw StateError('Tokenizer path is required for desktop embeddings');
+    }
+
+    final requestedParams = ActiveEmbedderParams(
+      modelPath: modelPath,
+      tokenizerPath: tokenizerPath,
+      preferredBackend: preferredBackend,
+    );
+
     if (_initEmbeddingCompleter != null &&
         _initializedEmbeddingModel != null &&
-        _lastActiveEmbeddingModelName != null) {
-      final modelChanged =
-          currentActiveModel == null ||
-          currentActiveModel.name != _lastActiveEmbeddingModelName;
-      if (modelChanged) {
+        _lastEmbedderParams != null) {
+      final changedParam = _lastEmbedderParams!.firstDifference(
+        requestedParams,
+      );
+      if (changedParam != null) {
+        gemmaLog(
+          '[FlutterGemmaDesktop] Embedder config changed ($changedParam) — '
+          'rebuilding',
+        );
         await _initializedEmbeddingModel?.close();
         _initEmbeddingCompleter = null;
         _initializedEmbeddingModel = null;
-        _lastActiveEmbeddingModelName = null;
+        _lastEmbedderParams = null;
       } else {
         return _initEmbeddingCompleter!.future;
       }
@@ -452,34 +495,7 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
     final completer = _initEmbeddingCompleter = Completer<EmbeddingModel>();
 
     try {
-      // Resolve model and tokenizer paths from active embedding model
-      if (modelPath == null || tokenizerPath == null) {
-        final activeModel = _modelManager.activeEmbeddingModel;
-        if (activeModel == null) {
-          throw StateError(
-            'No active embedding model set. '
-            'Use `FlutterGemma.installEmbedder()` first.',
-          );
-        }
-
-        final filePaths = await _modelManager.getModelFilePaths(activeModel);
-        if (filePaths == null || filePaths.isEmpty) {
-          throw StateError('Embedding model file paths not found');
-        }
-
-        modelPath ??= filePaths[PreferencesKeys.embeddingModelFile];
-        tokenizerPath ??= filePaths[PreferencesKeys.embeddingTokenizerFile];
-      }
-
-      if (modelPath == null) {
-        throw StateError('Embedding model path is required');
-      }
-
       gemmaLog('[FlutterGemmaDesktop] Loading embedding model: $modelPath');
-
-      if (tokenizerPath == null) {
-        throw StateError('Tokenizer path is required for desktop embeddings');
-      }
       // No throw for PreferredBackend.npu here any more. It was the only
       // `getActive*` path where a PREFERENCE was a hard error, and it
       // contradicted three things at once: `gpu` passed silently to the
@@ -537,17 +553,17 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
       model.addCloseListener(() {
         _initializedEmbeddingModel = null;
         _initEmbeddingCompleter = null;
-        _lastActiveEmbeddingModelName = null;
+        _lastEmbedderParams = null;
       });
 
-      _lastActiveEmbeddingModelName = currentActiveModel?.name;
+      _lastEmbedderParams = requestedParams;
       completer.complete(model);
       return model;
     } catch (e, st) {
       completer.completeError(e, st);
       _initEmbeddingCompleter = null;
       _initializedEmbeddingModel = null;
-      _lastActiveEmbeddingModelName = null;
+      _lastEmbedderParams = null;
       // Return the error-completed completer future (not rethrow) so exactly one
       // Future is in flight — a bare rethrow orphans completer.future. See #394.
       return completer.future;

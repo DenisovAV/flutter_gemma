@@ -257,6 +257,41 @@ else
   done
 fi
 
+
+# 8c. Patch GPU accelerator libs with DT_NEEDED libandroid.so. At the pinned
+#     PREBUILT_REF, upstream's libLiteRtOpenClAccelerator.so and
+#     libLiteRtGpuAccelerator.so reference AHardwareBuffer_allocate/_release
+#     as WEAK UND but list neither libandroid.so nor libnativewindow.so in
+#     NEEDED, so under BIND_NOW both bind to NULL (same bionic rule as 8b:
+#     a symbol only resolves through the library's own DT_NEEDED chain).
+#     Adreno evidently doesn't take that path (the GPU backend works there).
+#     On Mali, weights preparation on GPU is disabled and buffers go through
+#     AHardwareBuffer, so engine_create jumps to address 0 (SIGSEGV) while
+#     delegating the decode subgraph.
+#     Upstream fixed this by linking accelerators with -landroid under
+#     --no-as-needed (litert_accelerator_library in LiteRT); newer LiteRT-LM
+#     prebuilts already carry libandroid.so, so this becomes a no-op once
+#     PREBUILT_REF moves past that change. libandroid.so pulls in
+#     libnativewindow.so. Verified on Galaxy A34 (Mali-G68 MC4).
+if ! command -v patchelf >/dev/null 2>&1; then
+  echo "WARN: patchelf not installed — skipping DT_NEEDED fix for GPU accelerators"
+  echo "      Install with: brew install patchelf"
+else
+  echo ""
+  echo "=== Patching GPU accelerator DT_NEEDED (Mali AHardwareBuffer) ==="
+  for lib in libLiteRtOpenClAccelerator.so libLiteRtGpuAccelerator.so; do
+    if [ -f "$PREBUILT_DIR/$lib" ]; then
+      # Idempotent: only add if not already present.
+      if ! patchelf --print-needed "$PREBUILT_DIR/$lib" | grep -q '^libandroid\.so$'; then
+        patchelf --add-needed libandroid.so "$PREBUILT_DIR/$lib"
+        echo "  $lib: added libandroid.so to NEEDED"
+      else
+        echo "  $lib: libandroid.so already in NEEDED, skipping"
+      fi
+    fi
+  done
+fi
+
 # 9. Verify
 echo ""
 echo "=== Verification ==="

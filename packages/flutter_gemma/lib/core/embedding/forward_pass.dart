@@ -16,6 +16,8 @@
 // `litert_embedding_worker.dart`'s pattern) `await` it inside the worker.
 
 import 'tokenizer_adapter.dart';
+import 'package:flutter_gemma/core/domain/platform_types.dart'
+    show PreferredBackend;
 
 /// One engine's forward-pass implementation.
 ///
@@ -171,6 +173,7 @@ class ForwardPassDescriptor {
     required this.factory,
     required this.tokenizerFactory,
     required this.outputContract,
+    required this.activeBackend,
   });
 
   /// Human-readable engine identifier for diagnostics (e.g. `'LiteRT-LM'`,
@@ -193,6 +196,19 @@ class ForwardPassDescriptor {
   /// engine logic — kept alongside [factory] on the same descriptor because
   /// both cross the same isolate boundary together (design D-T1).
   final EmbeddingTokenizerFactory tokenizerFactory;
+
+  /// The backend this engine's forward pass actually runs on, surfaced by
+  /// [EmbeddingModel.activeBackend].
+  ///
+  /// Required, and deliberately not defaulted to CPU: a default would let the
+  /// next engine — including one that really does use an accelerator — be
+  /// reported as CPU by omission, which is the same "accepted the argument and
+  /// said nothing" defect this field exists to answer. The engine that built
+  /// the pass is the only thing that knows, so it has to say.
+  ///
+  /// Null where the runtime chooses per operation and does not report back,
+  /// which is the web arms' situation.
+  final PreferredBackend? activeBackend;
 
   /// How the worker must turn this engine's [ForwardResult] into the final
   /// embedding — see [EmbeddingOutputContract]. A plain enum value, so it

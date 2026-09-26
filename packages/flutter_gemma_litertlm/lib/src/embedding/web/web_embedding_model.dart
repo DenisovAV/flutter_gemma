@@ -7,6 +7,8 @@ import 'package:flutter_gemma/flutter_gemma_interface.dart';
 
 import 'web_runtime.dart';
 import 'litert_web_embeddings.dart';
+import 'package:flutter_gemma/core/domain/platform_types.dart'
+    show PreferredBackend;
 
 class WebEmbeddingModel extends EmbeddingModel with CloseNotifier {
   WebEmbeddingModel({
@@ -127,6 +129,16 @@ class WebEmbeddingModel extends EmbeddingModel with CloseNotifier {
       rethrow;
     }
   }
+
+  /// Null, and stated rather than inherited: on web the runtime picks the
+  /// accelerator itself and the answer does not exist until the first
+  /// embedding, so a synchronous getter cannot carry it. The JS side reports it
+  /// — `window.getLiteRtEmbeddingAccelerator()` and
+  /// `getLiteRtEmbeddingFullyAccelerated()`. Saying so here keeps "we cannot
+  /// know" distinguishable from "nobody thought about it", which a default
+  /// alone cannot.
+  @override
+  PreferredBackend? get activeBackend => null;
 
   @override
   Future<int> getDimension() async {

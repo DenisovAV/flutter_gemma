@@ -17,15 +17,24 @@ import 'package:flutter_gemma/flutter_gemma_interface.dart'
 
 import 'embedding_worker.dart';
 import 'forward_pass.dart';
+import 'package:flutter_gemma/core/domain/platform_types.dart'
+    show PreferredBackend;
 
 /// Signature for the `onClose` callback. Same name Flutter uses.
 typedef VoidCallback = void Function();
 
 class CommonEmbeddingModel extends EmbeddingModel with CloseNotifier {
-  CommonEmbeddingModel._(this._worker, this.onClose);
+  CommonEmbeddingModel._(this._worker, this.onClose, this.activeBackend);
 
   final EmbeddingWorker _worker;
   final VoidCallback onClose;
+
+  /// Carried from the engine's [ForwardPassDescriptor], never decided here.
+  /// This facade is runtime-agnostic by design, so it is not entitled to an
+  /// opinion about which backend ran — asserting CPU here would report the
+  /// next GPU-capable engine as CPU with nothing to catch it.
+  @override
+  final PreferredBackend? activeBackend;
   bool _isClosed = false;
 
   /// Sequence length the forward pass reported at load, if any (see
@@ -52,7 +61,11 @@ class CommonEmbeddingModel extends EmbeddingModel with CloseNotifier {
       descriptor: descriptor,
       tokenizerPath: tokenizerPath,
     );
-    return CommonEmbeddingModel._(worker, onClose ?? () {});
+    return CommonEmbeddingModel._(
+      worker,
+      onClose ?? () {},
+      descriptor.activeBackend,
+    );
   }
 
   void _assertNotClosed() {

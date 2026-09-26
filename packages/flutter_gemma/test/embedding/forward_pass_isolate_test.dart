@@ -15,6 +15,7 @@ import 'dart:isolate';
 
 import 'package:flutter_gemma/core/embedding/forward_pass.dart';
 import 'package:flutter_gemma/core/embedding/tokenizer_adapter.dart';
+import 'package:flutter_gemma/core/domain/platform_types.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// A minimal forward-pass fake, built exclusively via the top-level
@@ -118,6 +119,7 @@ void main() {
       factory: _buildIsolateFake,
       tokenizerFactory: _buildIsolateFakeTokenizer,
       outputContract: EmbeddingOutputContract.pooledFinal,
+      activeBackend: PreferredBackend.cpu,
     );
 
     final receivePort = ReceivePort();

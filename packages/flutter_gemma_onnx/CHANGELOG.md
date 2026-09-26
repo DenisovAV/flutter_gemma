@@ -1,3 +1,6 @@
+## 0.5.0
+- `activeBackend` no longer echoes the requested backend; ORT's real provider is unknown, so it reports null.
+
 ## 0.4.0
 - No longer depends on `flutter_gemma_embeddings`; asks core for a tokenizer, so register `embeddingTokenizers:`.
 

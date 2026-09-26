@@ -122,14 +122,18 @@ await FlutterGemma.rag.addDocumentWithEmbedding(
 
 ## Backend
 
-LiteRT embeddings always run on CPU. `LiteRtEmbeddingBackend` hardcodes it and ignores `getActiveEmbedder(preferredBackend:)` entirely — passing `PreferredBackend.gpu` there changes nothing. That is deliberate: the GPU delegate compiles and then returns all-zero vectors for EmbeddingGemma.
+LiteRT embeddings always run on CPU on native, and so do ONNX ones. `getActiveEmbedder(preferredBackend:)` is accepted for symmetry with `getActiveModel` and never applied; core logs one line per isolate saying so, in debug builds only. Read `EmbeddingModel.activeBackend` when it matters — that answer exists in release builds too. CPU is the correct answer rather than a fallback: LiteRT's GPU delegate compiles and then returns all-zero vectors for EmbeddingGemma's int4 weights, and the ONNX client appends no execution provider.
+
+Web is not configurable either, and its accelerator is not a single fact. `litert_embeddings.js` asks for `accelerator: 'webgpu'` and recompiles for `'wasm'` when the browser has none. LiteRT then has a SECOND fallback that raises nothing: a model that is not fully accelerated is partly delegated to WASM where the browser has JSPI, and recompiled for WASM entirely where it does not.
+
+So two things are worth reading, and they answer different questions. `window.getLiteRtEmbeddingFullyAccelerated()` is known at compile time and is the only way to see the JSPI partial case, which keeps WebGPU buffers and therefore looks like a clean WebGPU run to everything downstream. `window.getLiteRtEmbeddingAccelerator()` is known after the first embedding — query or document — and says where the output buffer lived. `EmbeddingModel.activeBackend` is null on web for that reason: a synchronous getter cannot carry an answer that does not exist until the first run.
 
 ## Web
 
 - Copy `web/rag/sqlite3.wasm` from the `flutter_gemma_rag_sqlite` package into the app as `web/rag/sqlite3.wasm`.
 - Web embeddings need four module files side by side in the app's `web/`, all four from `flutter_gemma_litertlm/web/`: `litert_embeddings.js`, `sentencepiece.js`, `litert.js`, `tensorflow.js` — the first imports the other three by relative path, so three files alone give a 404 and an embedder that never initialises. They are one bundle in four pieces; never mix them across package versions.
 - The LiteRT WASM runtime underneath comes from a pinned CDN copy by default (`flutter_gemma_litertlm` — `LiteRtWebRuntime.wasmPath`). To self-host, copy `node_modules/@litertjs/core/wasm/` into the app's `web/wasm/` and set `LiteRtWebRuntime.wasmPath = '/wasm/';` before the first embedding. Pin `@litertjs/core` to `LiteRtWebRuntime.pinnedVersion`: the runtime and `web/litert.js` are two halves of one release, and a mismatch fails at the first embedding with an error that never mentions versions.
-- In `web/index.html`, before Flutter boots: `<script src="cache_api.js"></script>` first — it is not a module, and the embedding runtime calls its cache helpers during init — then `<script type="module" src="litert_embeddings.js"></script>`.
+- In `web/index.html`, before Flutter boots: `<script src="cache_api.js"></script>` first — it is not a module, and Dart's model cache calls its helpers (`cacheGetBlobUrl`, `cachePut`) to download and store the model, then hands the embedder a blob URL from that cache — then `<script type="module" src="litert_embeddings.js"></script>`.
 
 Find a package's directory with `grep -A1 '"name": "flutter_gemma_rag_sqlite"' .dart_tool/package_config.json`.
 

@@ -139,13 +139,9 @@ void main() {
       }
     }
 
-    testWidgets(
-      'CPU stochastic decode honors randomSeed',
-      (_) async {
-        await runStochasticSeedCheck(PreferredBackend.cpu);
-      },
-      timeout: const Timeout(Duration(minutes: 5)),
-    );
+    testWidgets('CPU stochastic decode honors randomSeed', (_) async {
+      await runStochasticSeedCheck(PreferredBackend.cpu);
+    }, timeout: const Timeout(Duration(minutes: 5)));
 
     // Temperature test: independently confirms sampler params reach native.
     // If temperature is honored:
@@ -221,51 +217,47 @@ void main() {
     // topK is silently dropped — the model would then use its metadata
     // default (typically topK=1, temperature=1.0, type=TOP_P) producing
     // ambiguous results.
-    testWidgets(
-      'CPU honors topK=1 (deterministic across seeds)',
-      (_) async {
-        final model = await FlutterGemma.getActiveModel(
-          maxTokens: 4096,
-          preferredBackend: PreferredBackend.cpu,
-          supportImage: true,
-          maxNumImages: 1,
-          supportAudio: true,
-        );
-        try {
-          Future<String> runOnce(int seed) async {
-            final session = await model.createSession(
-              temperature: 1.0,
-              topK: 1, // hard greedy via top-k
-              randomSeed: seed,
-            );
-            await session.addQueryChunk(
-              const Message(
-                text: 'Write a 30-word creative story about a dragon.',
-                isUser: true,
-              ),
-            );
-            final out = await session.getResponse();
-            await session.close();
-            return out;
-          }
-
-          final seed42 = await runOnce(42);
-          final seed99 = await runOnce(99);
-          expect(
-            seed42,
-            equals(seed99),
-            reason:
-                '[CPU topK=1] Different seeds must yield identical output '
-                '(top-1 has only one candidate). Different output means '
-                'topK was dropped or did not reach native. '
-                's42=$seed42\ns99=$seed99',
+    testWidgets('CPU honors topK=1 (deterministic across seeds)', (_) async {
+      final model = await FlutterGemma.getActiveModel(
+        maxTokens: 4096,
+        preferredBackend: PreferredBackend.cpu,
+        supportImage: true,
+        maxNumImages: 1,
+        supportAudio: true,
+      );
+      try {
+        Future<String> runOnce(int seed) async {
+          final session = await model.createSession(
+            temperature: 1.0,
+            topK: 1, // hard greedy via top-k
+            randomSeed: seed,
           );
-        } finally {
-          await model.close();
+          await session.addQueryChunk(
+            const Message(
+              text: 'Write a 30-word creative story about a dragon.',
+              isUser: true,
+            ),
+          );
+          final out = await session.getResponse();
+          await session.close();
+          return out;
         }
-      },
-      timeout: const Timeout(Duration(minutes: 5)),
-    );
+
+        final seed42 = await runOnce(42);
+        final seed99 = await runOnce(99);
+        expect(
+          seed42,
+          equals(seed99),
+          reason:
+              '[CPU topK=1] Different seeds must yield identical output '
+              '(top-1 has only one candidate). Different output means '
+              'topK was dropped or did not reach native. '
+              's42=$seed42\ns99=$seed99',
+        );
+      } finally {
+        await model.close();
+      }
+    }, timeout: const Timeout(Duration(minutes: 5)));
 
     // GPU sampler param tests: same logic as CPU but on GPU. On platforms
     // where the GPU sampler dynamic library is fully wired (mobile with
@@ -275,95 +267,89 @@ void main() {
     // (already deterministic), and temperature is effectively pinned. The
     // tests are still useful: they catch any regression that turns the
     // GPU pipeline non-deterministic.
-    testWidgets(
-      'GPU temperature=0.0 produces same-seed-stable output',
-      (_) async {
-        final model = await FlutterGemma.getActiveModel(
-          maxTokens: 4096,
-          preferredBackend: PreferredBackend.gpu,
-          supportImage: true,
-          maxNumImages: 1,
-          supportAudio: true,
-        );
-        try {
-          Future<String> runOnce(int seed) async {
-            final session = await model.createSession(
-              temperature: 0.0,
-              topK: 1,
-              randomSeed: seed,
-            );
-            await session.addQueryChunk(
-              const Message(
-                text: 'Write a 30-word creative story about a dragon.',
-                isUser: true,
-              ),
-            );
-            final out = await session.getResponse();
-            await session.close();
-            return out;
-          }
-
-          final s1 = await runOnce(1);
-          final s42 = await runOnce(42);
-          expect(
-            s1,
-            equals(s42),
-            reason:
-                '[GPU temp=0.0] greedy decode must be deterministic across '
-                'seeds. Different output means GPU pipeline is non-deterministic '
-                'OR temperature was reinterpreted upstream. '
-                's1=$s1\ns42=$s42',
+    testWidgets('GPU temperature=0.0 produces same-seed-stable output', (
+      _,
+    ) async {
+      final model = await FlutterGemma.getActiveModel(
+        maxTokens: 4096,
+        preferredBackend: PreferredBackend.gpu,
+        supportImage: true,
+        maxNumImages: 1,
+        supportAudio: true,
+      );
+      try {
+        Future<String> runOnce(int seed) async {
+          final session = await model.createSession(
+            temperature: 0.0,
+            topK: 1,
+            randomSeed: seed,
           );
-        } finally {
-          await model.close();
-        }
-      },
-      timeout: const Timeout(Duration(minutes: 5)),
-    );
-
-    testWidgets(
-      'GPU topK=1 produces same-seed-stable output',
-      (_) async {
-        final model = await FlutterGemma.getActiveModel(
-          maxTokens: 4096,
-          preferredBackend: PreferredBackend.gpu,
-          supportImage: true,
-          maxNumImages: 1,
-          supportAudio: true,
-        );
-        try {
-          Future<String> runOnce(int seed) async {
-            final session = await model.createSession(
-              temperature: 1.0,
-              topK: 1,
-              randomSeed: seed,
-            );
-            await session.addQueryChunk(
-              const Message(
-                text: 'Write a 30-word creative story about a dragon.',
-                isUser: true,
-              ),
-            );
-            final out = await session.getResponse();
-            await session.close();
-            return out;
-          }
-
-          final s42 = await runOnce(42);
-          final s99 = await runOnce(99);
-          expect(
-            s42,
-            equals(s99),
-            reason:
-                '[GPU topK=1] only one candidate per step — must be '
-                'deterministic across seeds. s42=$s42\ns99=$s99',
+          await session.addQueryChunk(
+            const Message(
+              text: 'Write a 30-word creative story about a dragon.',
+              isUser: true,
+            ),
           );
-        } finally {
-          await model.close();
+          final out = await session.getResponse();
+          await session.close();
+          return out;
         }
-      },
-      timeout: const Timeout(Duration(minutes: 5)),
-    );
+
+        final s1 = await runOnce(1);
+        final s42 = await runOnce(42);
+        expect(
+          s1,
+          equals(s42),
+          reason:
+              '[GPU temp=0.0] greedy decode must be deterministic across '
+              'seeds. Different output means GPU pipeline is non-deterministic '
+              'OR temperature was reinterpreted upstream. '
+              's1=$s1\ns42=$s42',
+        );
+      } finally {
+        await model.close();
+      }
+    }, timeout: const Timeout(Duration(minutes: 5)));
+
+    testWidgets('GPU topK=1 produces same-seed-stable output', (_) async {
+      final model = await FlutterGemma.getActiveModel(
+        maxTokens: 4096,
+        preferredBackend: PreferredBackend.gpu,
+        supportImage: true,
+        maxNumImages: 1,
+        supportAudio: true,
+      );
+      try {
+        Future<String> runOnce(int seed) async {
+          final session = await model.createSession(
+            temperature: 1.0,
+            topK: 1,
+            randomSeed: seed,
+          );
+          await session.addQueryChunk(
+            const Message(
+              text: 'Write a 30-word creative story about a dragon.',
+              isUser: true,
+            ),
+          );
+          final out = await session.getResponse();
+          await session.close();
+          return out;
+        }
+
+        final s42 = await runOnce(42);
+        final s99 = await runOnce(99);
+        expect(
+          s42,
+          equals(s99),
+          reason:
+              '[GPU topK=1] only one candidate per step — must be '
+              'deterministic across seeds. s42=$s42\ns99=$s99',
+        );
+      } finally {
+        await model.close();
+      }
+    }, timeout: const Timeout(Duration(minutes: 5)));
 
     // GPU determinism: same prompt + same engine config must yield
     // identical output across runs. This is the only assertion we can make
@@ -387,60 +373,52 @@ void main() {
     // randomSeed values produced identical output. After the patch, two
     // engine-level CreateSession() with seed=42 vs seed=99 at temperature=1.0
     // must produce different outputs.
-    testWidgets(
-      'GPU stochastic decode honors randomSeed',
-      (_) async {
-        await runStochasticSeedCheck(PreferredBackend.gpu);
-      },
-      timeout: const Timeout(Duration(minutes: 5)),
-    );
+    testWidgets('GPU stochastic decode honors randomSeed', (_) async {
+      await runStochasticSeedCheck(PreferredBackend.gpu);
+    }, timeout: const Timeout(Duration(minutes: 5)));
 
-    testWidgets(
-      'GPU produces deterministic output across runs',
-      (_) async {
-        final model = await FlutterGemma.getActiveModel(
-          maxTokens: 4096,
-          preferredBackend: PreferredBackend.gpu,
-          supportImage: true,
-          maxNumImages: 1,
-          supportAudio: true,
-        );
-        try {
-          Future<String> runOnce() async {
-            final session = await model.createSession(
-              temperature: 1.0,
-              topK: 50,
-              topP: 0.95,
-              randomSeed: 42,
-            );
-            await session.addQueryChunk(
-              const Message(
-                text: 'Write a 30-word creative story about a dragon.',
-                isUser: true,
-              ),
-            );
-            final out = await session.getResponse();
-            await session.close();
-            return out;
-          }
-
-          final first = await runOnce();
-          final second = await runOnce();
-          expect(
-            second,
-            equals(first),
-            reason:
-                '[GPU] Two runs with the same prompt + same config produced '
-                'different output. Either sampler is reading uninitialized '
-                'state across runs, or the GPU pipeline is non-deterministic. '
-                'first=$first\nsecond=$second',
+    testWidgets('GPU produces deterministic output across runs', (_) async {
+      final model = await FlutterGemma.getActiveModel(
+        maxTokens: 4096,
+        preferredBackend: PreferredBackend.gpu,
+        supportImage: true,
+        maxNumImages: 1,
+        supportAudio: true,
+      );
+      try {
+        Future<String> runOnce() async {
+          final session = await model.createSession(
+            temperature: 1.0,
+            topK: 50,
+            topP: 0.95,
+            randomSeed: 42,
           );
-        } finally {
-          await model.close();
+          await session.addQueryChunk(
+            const Message(
+              text: 'Write a 30-word creative story about a dragon.',
+              isUser: true,
+            ),
+          );
+          final out = await session.getResponse();
+          await session.close();
+          return out;
         }
-      },
-      timeout: const Timeout(Duration(minutes: 5)),
-    );
+
+        final first = await runOnce();
+        final second = await runOnce();
+        expect(
+          second,
+          equals(first),
+          reason:
+              '[GPU] Two runs with the same prompt + same config produced '
+              'different output. Either sampler is reading uninitialized '
+              'state across runs, or the GPU pipeline is non-deterministic. '
+              'first=$first\nsecond=$second',
+        );
+      } finally {
+        await model.close();
+      }
+    }, timeout: const Timeout(Duration(minutes: 5)));
   });
 
   group('C4 — loraPath silently dropped on FFI path', () {
@@ -451,46 +429,44 @@ void main() {
     // Fix expectation: passing a non-existent loraPath should throw
     // (FileSystemException, ArgumentError, or UnsupportedError if LoRA is
     // not yet implemented). Silent acceptance is the bug.
-    testWidgets(
-      'non-existent loraPath must not be silently accepted',
-      (_) async {
-        final model = await FlutterGemma.getActiveModel(
-          maxTokens: 4096,
-          preferredBackend: PreferredBackend.cpu,
-          supportImage: true,
-          maxNumImages: 1,
-          supportAudio: true,
-        );
+    testWidgets('non-existent loraPath must not be silently accepted', (
+      _,
+    ) async {
+      final model = await FlutterGemma.getActiveModel(
+        maxTokens: 4096,
+        preferredBackend: PreferredBackend.cpu,
+        supportImage: true,
+        maxNumImages: 1,
+        supportAudio: true,
+      );
+      try {
+        // /this/path/does/not/exist.bin — must produce a clear error,
+        // either at createSession time (validation) or at first inference
+        // (engine-side error). Silent success means the param was dropped.
+        Object? caught;
+        InferenceModelSession? session;
         try {
-          // /this/path/does/not/exist.bin — must produce a clear error,
-          // either at createSession time (validation) or at first inference
-          // (engine-side error). Silent success means the param was dropped.
-          Object? caught;
-          InferenceModelSession? session;
-          try {
-            session = await model.createSession(
-              temperature: 0.8,
-              topK: 1,
-              loraPath: '/this/path/does/not/exist/lora.bin',
-            );
-          } catch (e) {
-            caught = e;
-          }
-          if (session != null) {
-            await session.close();
-          }
-          expect(
-            caught,
-            isNotNull,
-            reason:
-                'Either throw at createSession (validation) or UnsupportedError if not yet implemented. See review C4.',
+          session = await model.createSession(
+            temperature: 0.8,
+            topK: 1,
+            loraPath: '/this/path/does/not/exist/lora.bin',
           );
-        } finally {
-          await model.close();
+        } catch (e) {
+          caught = e;
         }
-      },
-      timeout: const Timeout(Duration(minutes: 2)),
-    );
+        if (session != null) {
+          await session.close();
+        }
+        expect(
+          caught,
+          isNotNull,
+          reason:
+              'Either throw at createSession (validation) or UnsupportedError if not yet implemented. See review C4.',
+        );
+      } finally {
+        await model.close();
+      }
+    }, timeout: const Timeout(Duration(minutes: 2)));
   });
 
   group('C5 — tools list silently dropped from native conversation config', () {
@@ -595,77 +571,103 @@ void main() {
     // Fix expectation: calling stopGeneration() AFTER close() must
     // not throw and must not crash the process — it should be a
     // guarded no-op.
-    testWidgets(
-      'stopGeneration after close is a no-op (no UAF crash)',
-      (_) async {
-        final model = await FlutterGemma.getActiveModel(
-          maxTokens: 4096,
-          preferredBackend: PreferredBackend.cpu,
-          supportImage: true,
-          maxNumImages: 1,
-          supportAudio: true,
-        );
-        final session = await model.createSession(temperature: 0.8, topK: 1);
-        await session.addQueryChunk(const Message(text: 'Hi.', isUser: true));
-        await session.close();
+    testWidgets('stopGeneration after close is a no-op (no UAF crash)', (
+      _,
+    ) async {
+      final model = await FlutterGemma.getActiveModel(
+        maxTokens: 4096,
+        preferredBackend: PreferredBackend.cpu,
+        supportImage: true,
+        maxNumImages: 1,
+        supportAudio: true,
+      );
+      final session = await model.createSession(temperature: 0.8, topK: 1);
+      await session.addQueryChunk(const Message(text: 'Hi.', isUser: true));
+      await session.close();
 
-        // Calling stopGeneration on a closed session must not throw and
-        // must not crash. Today this only avoids crash by accident (the
-        // FFI client's null-guard at one layer below), not by design here.
-        // If the test runner crashes during this call (segfault from
-        // a freed pointer), the bug is reproduced.
-        Object? stopError;
-        try {
-          await session.stopGeneration();
-        } catch (e) {
-          stopError = e;
-        }
-        expect(
-          stopError,
-          isNull,
-          reason:
-              'stopGeneration() on a closed session must not throw. See review C6.',
-        );
+      // Calling stopGeneration on a closed session must not throw and
+      // must not crash. Today this only avoids crash by accident (the
+      // FFI client's null-guard at one layer below), not by design here.
+      // If the test runner crashes during this call (segfault from
+      // a freed pointer), the bug is reproduced.
+      Object? stopError;
+      try {
+        await session.stopGeneration();
+      } catch (e) {
+        stopError = e;
+      }
+      expect(
+        stopError,
+        isNull,
+        reason:
+            'stopGeneration() on a closed session must not throw. See review C6.',
+      );
 
-        await model.close();
-      },
-      timeout: const Timeout(Duration(minutes: 1)),
-    );
+      await model.close();
+    }, timeout: const Timeout(Duration(minutes: 1)));
   });
 
-  group('I3 — PreferredBackend.npu silently coerced to gpu on desktop', () {
-    // The bug: lib/desktop/flutter_gemma_desktop.dart and
-    // lib/mobile/flutter_gemma_mobile.dart map any non-cpu PreferredBackend
-    // to 'gpu'. NPU is documented Android-only on .litertlm. On desktop,
-    // requesting NPU silently runs GPU.
+  group('I3 — PreferredBackend.npu on desktop falls back and says so', () {
+    // This group used to assert the OPPOSITE: that npu must throw
+    // UnsupportedError on desktop, on the premise that "NPU is documented
+    // Android-only on .litertlm". Both halves of that premise are now false.
     //
-    // Fix expectation: requesting NPU on a non-supporting platform should
-    // throw UnsupportedError, not silently use GPU.
+    //   * Windows NPU is supported (Intel LunarLake/PantherLake), with the
+    //     dispatch stack bundled in the Windows native archive since 0.15.1.
+    //   * `PreferredBackend`'s own contract promises a fallback: "If the
+    //     selected backend is unavailable, the engine falls back to GPU, then
+    //     CPU", and `nativeBackendChain(npu)` is [npu, gpu, cpu]. Nothing
+    //     throws by design.
+    //
+    // What IS worth pinning is that the fallback is not silent: `activeBackend`
+    // must name what actually ran, so a benchmark cannot attribute CPU numbers
+    // to an NPU.
     testWidgets(
-      'NPU on desktop must throw, not silently fall back to GPU',
+      'npu does not throw on desktop, and activeBackend names what ran',
       (_) async {
-        // Skip this test on platforms where NPU might be valid.
         if (!(Platform.isMacOS || Platform.isLinux || Platform.isWindows)) {
+          markTestSkipped('desktop-only: no NPU chain to fall back through');
           return;
         }
-        Object? caught;
-        try {
-          // Use distinct maxTokens to force singleton-reuse path to recreate
-          // the model — otherwise `_initializedModel` from earlier tests is
-          // returned without re-evaluating the requested backend.
-          await FlutterGemma.getActiveModel(
-            maxTokens: 2048,
-            preferredBackend: PreferredBackend.npu,
-          );
-        } catch (e) {
-          caught = e;
-        }
-        expect(
-          caught,
-          isA<UnsupportedError>(),
-          reason:
-              'NPU is Android-only. On desktop it must throw UnsupportedError, not silently coerce to GPU. See review I3.',
+        // Distinct maxTokens forces the singleton-reuse path to rebuild —
+        // otherwise a model from an earlier test comes back without the
+        // requested backend being re-evaluated.
+        final model = await FlutterGemma.getActiveModel(
+          maxTokens: 2048,
+          preferredBackend: PreferredBackend.npu,
         );
+        try {
+          expect(
+            model.activeBackend,
+            isNotNull,
+            reason:
+                'a silent fallback is the defect; the value must be readable',
+          );
+          // Named per platform, because `anyOf` over the whole enum is a
+          // tautology after isNotNull: PreferredBackend has exactly these three
+          // values, so such a test passes for any answer at all — including a
+          // wrong one. Only Windows bundles an NPU dispatch stack (Intel
+          // LunarLake/PantherLake), so on macOS and Linux a reported `npu` is
+          // precisely the misattribution this group exists to catch.
+          expect(
+            model.activeBackend,
+            Platform.isWindows
+                ? anyOf(
+                    PreferredBackend.npu,
+                    PreferredBackend.gpu,
+                    PreferredBackend.cpu,
+                  )
+                : anyOf(PreferredBackend.gpu, PreferredBackend.cpu),
+            reason: Platform.isWindows
+                ? 'whatever ran must be one of nativeBackendChain(npu)'
+                : 'no NPU dispatch ships for this platform, so claiming npu '
+                      'would attribute CPU or GPU work to an NPU',
+          );
+        } finally {
+          // Closed, or the 2048-token model stays cached and the next test's
+          // request is answered by this one.
+          await model.close();
+        }
       },
       timeout: const Timeout(Duration(minutes: 1)),
     );
@@ -678,69 +680,67 @@ void main() {
     //
     // Fix expectation: closing a session mid-stream must complete cleanly
     // (no exception leaking out of the stream subscription, no hang).
-    testWidgets(
-      'close() during active stream must terminate cleanly',
-      (_) async {
-        final model = await FlutterGemma.getActiveModel(
-          maxTokens: 4096,
-          preferredBackend: PreferredBackend.cpu,
-          supportImage: true,
-          maxNumImages: 1,
-          supportAudio: true,
+    testWidgets('close() during active stream must terminate cleanly', (
+      _,
+    ) async {
+      final model = await FlutterGemma.getActiveModel(
+        maxTokens: 4096,
+        preferredBackend: PreferredBackend.cpu,
+        supportImage: true,
+        maxNumImages: 1,
+        supportAudio: true,
+      );
+      try {
+        final session = await model.createSession(temperature: 0.8, topK: 1);
+        await session.addQueryChunk(
+          const Message(
+            text: 'Tell me a long story about a brave knight.',
+            isUser: true,
+          ),
         );
-        try {
-          final session = await model.createSession(temperature: 0.8, topK: 1);
-          await session.addQueryChunk(
-            const Message(
-              text: 'Tell me a long story about a brave knight.',
-              isUser: true,
-            ),
-          );
 
-          final stream = session.getResponseAsync();
-          final completer = Completer<void>();
-          var receivedAny = false;
+        final stream = session.getResponseAsync();
+        final completer = Completer<void>();
+        var receivedAny = false;
 
-          final sub = stream.listen(
-            (chunk) {
-              if (!receivedAny) {
-                receivedAny = true;
-                // Mid-stream close — this races with native generation.
-                // Schedule async to avoid reentry into the stream.
-                Future.microtask(() async {
-                  await session.close();
-                  if (!completer.isCompleted) completer.complete();
-                });
-              }
-            },
-            onError: (_) {
-              if (!completer.isCompleted) completer.complete();
-            },
-            onDone: () {
-              if (!completer.isCompleted) completer.complete();
-            },
-            cancelOnError: true,
-          );
+        final sub = stream.listen(
+          (chunk) {
+            if (!receivedAny) {
+              receivedAny = true;
+              // Mid-stream close — this races with native generation.
+              // Schedule async to avoid reentry into the stream.
+              Future.microtask(() async {
+                await session.close();
+                if (!completer.isCompleted) completer.complete();
+              });
+            }
+          },
+          onError: (_) {
+            if (!completer.isCompleted) completer.complete();
+          },
+          onDone: () {
+            if (!completer.isCompleted) completer.complete();
+          },
+          cancelOnError: true,
+        );
 
-          await completer.future.timeout(
-            const Duration(seconds: 60),
-            onTimeout: () {
-              throw StateError(
-                'Stream did not terminate within 60s after mid-stream close — race condition. See review I1.',
-              );
-            },
-          );
-          await sub.cancel();
-          expect(
-            receivedAny,
-            isTrue,
-            reason: 'Stream emitted at least one chunk before close.',
-          );
-        } finally {
-          await model.close();
-        }
-      },
-      timeout: const Timeout(Duration(minutes: 3)),
-    );
+        await completer.future.timeout(
+          const Duration(seconds: 60),
+          onTimeout: () {
+            throw StateError(
+              'Stream did not terminate within 60s after mid-stream close — race condition. See review I1.',
+            );
+          },
+        );
+        await sub.cancel();
+        expect(
+          receivedAny,
+          isTrue,
+          reason: 'Stream emitted at least one chunk before close.',
+        );
+      } finally {
+        await model.close();
+      }
+    }, timeout: const Timeout(Duration(minutes: 3)));
   });
 }

@@ -189,6 +189,11 @@ class FakeEmbeddingModel implements gemma.EmbeddingModel {
   int generateEmbeddingsCallCount = 0;
   List<String> lastTexts = [];
 
+  /// `implements` does not inherit the interface's default, so this has to be
+  /// spelled out. CPU matches every real embedder.
+  @override
+  gemma.PreferredBackend? get activeBackend => gemma.PreferredBackend.cpu;
+
   @override
   Future<List<double>> generateEmbedding(
     String text, {

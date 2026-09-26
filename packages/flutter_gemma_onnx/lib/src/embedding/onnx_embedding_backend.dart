@@ -19,6 +19,8 @@ import 'package:flutter_gemma/core/embedding/forward_pass.dart'
 import 'package:flutter_gemma/core/registry/embedding_tokenizer_registry.dart';
 
 import 'onnx_embedding_forward_pass.dart';
+import 'package:flutter_gemma/core/domain/platform_types.dart'
+    show PreferredBackend;
 
 /// ONNX Runtime embedding backend — plain ORT forward pass (no GenAI, no
 /// text generation) over an `.onnx`/`.ort` embedding model directory. Pure
@@ -110,6 +112,10 @@ class OnnxEmbeddingBackend implements EmbeddingBackendProvider {
         // via `OnnxEmbeddingForwardPass.outputContract` (design D-T2). The
         // worker resolves `pass.outputContract ?? descriptor.outputContract`,
         // so this default is never actually used once `load()` completes.
+        // CPU: this client creates its session with no
+        // SessionOptionsAppendExecutionProvider call, so ORT runs its default
+        // CPU provider. Stated here rather than assumed by the shared facade.
+        activeBackend: PreferredBackend.cpu,
         outputContract: EmbeddingOutputContract.tokenLevel,
       ),
       tokenizerPath: tokenizerPath,

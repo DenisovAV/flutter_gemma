@@ -2,8 +2,6 @@ import 'dart:ffi' show Abi;
 import 'dart:io';
 
 import 'package:flutter/foundation.dart' show visibleForTesting;
-import 'package:flutter_gemma/core/domain/platform_types.dart'
-    show PreferredBackend;
 import 'package:flutter_gemma/core/model.dart' show ModelFileType;
 import 'package:flutter_gemma/core/model_management/model_specs.dart'
     show InferenceModelSpec;
@@ -171,7 +169,18 @@ class OnnxEngine implements InferenceEngineProvider, HuggingFaceResolverSource {
       client: client,
       maxTokens: config.maxTokens,
       modelType: spec.modelType,
-      activeBackend: config.preferredBackend ?? PreferredBackend.cpu,
+      // NOT `config.preferredBackend`. Echoing the request is the one thing
+      // this getter must never do: `InferenceModel.activeBackend` promises to
+      // "reflect any fallback the plugin performed internally", and asking for
+      // GPU here used to come back as GPU while the session ran on ORT's
+      // default CPU provider — neither client calls
+      // SessionOptionsAppendExecutionProvider at all.
+      //
+      // Null rather than CPU, because CPU would be its own guess: ORT-GenAI
+      // selects the provider from the model directory's own genai_config.json,
+      // which we never read. Null is what the contract defines for exactly
+      // this — "the platform runtime does not expose a final backend".
+      activeBackend: null,
       fileType: spec.fileType,
       onClose: () {},
     );

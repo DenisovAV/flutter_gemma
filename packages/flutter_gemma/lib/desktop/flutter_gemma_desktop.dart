@@ -34,6 +34,8 @@ import '../core/model_management/model_specs.dart'
 import '../mobile/flutter_gemma_mobile.dart' show MobileModelManager;
 
 import '../core/model_management/constants/preferences_keys.dart';
+import 'package:flutter_gemma/core/embedding/embedder_backend_notice.dart';
+import 'package:flutter_gemma/core/embedding/embedder_cache.dart';
 
 /// Normalizes a `createTtsModel`/`getActiveTts` `language` argument for the
 /// same-model reuse guard's store/compare — defaults `null` to `'english'`
@@ -94,10 +96,11 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
   /// cleared everywhere it is cleared.
   ({String specName, ActiveModelParams params})? _inFlightRequest;
 
-  // Embedding model
-  Completer<EmbeddingModel>? _initEmbeddingCompleter;
-  EmbeddingModel? _initializedEmbeddingModel;
-  String? _lastActiveEmbeddingModelName;
+  // Embedding model: one shared cache instead of a completer, a model and a
+  // params field kept in lockstep by hand. This shell's hand-rolled version
+  // gated its comparison on a field that is only assigned after the build
+  // returns, then joined any build in flight without comparing at all.
+  final EmbedderCache _embedderCache = EmbedderCache();
 
   // STT model
   Completer<SpeechRecognizer>? _initSttCompleter;
@@ -125,7 +128,7 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
   InferenceModel? get initializedModel => _initializedModel;
 
   @override
-  EmbeddingModel? get initializedEmbeddingModel => _initializedEmbeddingModel;
+  EmbeddingModel? get initializedEmbeddingModel => _embedderCache.model;
 
   @override
   Future<InferenceModel> createModel({
@@ -417,67 +420,92 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
     String? modelPath,
     String? tokenizerPath,
     PreferredBackend? preferredBackend,
+  }) {
+    // FIRST statement, before every guard. It is idempotent and one-shot, so
+    // it needs neither resolved paths nor cache state — and putting it in a
+    // branch is what made it unreachable twice: once behind the singleton
+    // cache, once behind "only on reuse". The ordinary shape is a single call
+    // held for the app's lifetime; if it does not speak here it never speaks.
+    noticeEmbedderBackendIgnored(preferredBackend);
+
+    // Serialised, because this shell resolves paths from preferences before it
+    // can compare them — an await between "decide" and "record" that two
+    // callers can both slip through. Moving that resolution earlier once
+    // widened exactly that window; the lane makes the ordering not matter.
+    return _embedderCache.serialize(
+      () => _reuseOrBuildEmbedder(
+        modelPath: modelPath,
+        tokenizerPath: tokenizerPath,
+        preferredBackend: preferredBackend,
+      ),
+    );
+  }
+
+  /// Runs inside [EmbedderCache.serialize], so it may assume nothing else is
+  /// touching the cache while it awaits.
+  Future<EmbeddingModel> _reuseOrBuildEmbedder({
+    String? modelPath,
+    String? tokenizerPath,
+    PreferredBackend? preferredBackend,
   }) async {
-    // Check if active embedding model changed
     final currentActiveModel = _modelManager.activeEmbeddingModel;
-    if (_initEmbeddingCompleter != null &&
-        _initializedEmbeddingModel != null &&
-        _lastActiveEmbeddingModelName != null) {
-      final modelChanged =
-          currentActiveModel == null ||
-          currentActiveModel.name != _lastActiveEmbeddingModelName;
-      if (modelChanged) {
-        await _initializedEmbeddingModel?.close();
-        _initEmbeddingCompleter = null;
-        _initializedEmbeddingModel = null;
-        _lastActiveEmbeddingModelName = null;
-      } else {
-        return _initEmbeddingCompleter!.future;
-      }
-    }
+    // Named from how this call was MADE, not from whatever happens to be
+    // active: a caller passing explicit paths while an unrelated embedder is
+    // installed would otherwise see that other model's name in the log.
+    String label = 'explicit paths';
 
-    // Return existing if initialization in progress
-    if (_initEmbeddingCompleter case Completer<EmbeddingModel> completer) {
-      return completer.future;
-    }
-
-    final completer = _initEmbeddingCompleter = Completer<EmbeddingModel>();
-
-    try {
-      // Resolve model and tokenizer paths from active embedding model
-      if (modelPath == null || tokenizerPath == null) {
-        final activeModel = _modelManager.activeEmbeddingModel;
-        if (activeModel == null) {
-          throw StateError(
-            'No active embedding model set. '
-            'Use `FlutterGemma.installEmbedder()` first.',
-          );
-        }
-
-        final filePaths = await _modelManager.getModelFilePaths(activeModel);
-        if (filePaths == null || filePaths.isEmpty) {
-          throw StateError('Embedding model file paths not found');
-        }
-
-        modelPath ??= filePaths[PreferencesKeys.embeddingModelFile];
-        tokenizerPath ??= filePaths[PreferencesKeys.embeddingTokenizerFile];
-      }
-
-      if (modelPath == null) {
-        throw StateError('Embedding model path is required');
-      }
-
-      gemmaLog('[FlutterGemmaDesktop] Loading embedding model: $modelPath');
-
-      if (tokenizerPath == null) {
-        throw StateError('Tokenizer path is required for desktop embeddings');
-      }
-      if (preferredBackend == PreferredBackend.npu) {
-        throw UnsupportedError(
-          'PreferredBackend.npu is only supported on Android with .litertlm '
-          'models; not available for desktop embeddings.',
+    // Paths are resolved BEFORE the reuse check, and the explicit-paths caller
+    // goes through the same comparison as everyone else. Both were bugs: this
+    // shell compared the spec NAME, so a same-named embedder reinstalled to a
+    // new file was served stale — and a caller passing explicit paths got
+    // whatever singleton existed, with no comparison at all. Resolving first
+    // costs one preferences read on a reuse and removes both.
+    if (modelPath == null || tokenizerPath == null) {
+      if (currentActiveModel == null) {
+        throw StateError(
+          'No active embedding model set. '
+          'Use `FlutterGemma.installEmbedder()` first.',
         );
       }
+      final filePaths = await _modelManager.getModelFilePaths(
+        currentActiveModel,
+      );
+      if (filePaths == null || filePaths.isEmpty) {
+        throw StateError('Embedding model file paths not found');
+      }
+      modelPath ??= filePaths[PreferencesKeys.embeddingModelFile];
+      tokenizerPath ??= filePaths[PreferencesKeys.embeddingTokenizerFile];
+      if (currentActiveModel is EmbeddingModelSpec) {
+        label = currentActiveModel.name;
+      }
+    }
+    if (modelPath == null) {
+      throw StateError('Embedding model path is required');
+    }
+    if (tokenizerPath == null) {
+      throw StateError('Tokenizer path is required for desktop embeddings');
+    }
+
+    final requestedParams = ActiveEmbedderParams(
+      modelPath: modelPath,
+      tokenizerPath: tokenizerPath,
+      preferredBackend: preferredBackend,
+    );
+    final reused = await _embedderCache.reuseOrInvalidate(
+      requestedParams,
+      label: label,
+    );
+    if (reused != null) return reused;
+
+    try {
+      gemmaLog('[FlutterGemmaDesktop] Loading embedding model: $modelPath');
+      // No throw for PreferredBackend.npu here any more. It was the only
+      // `getActive*` path where a PREFERENCE was a hard error, and it
+      // contradicted three things at once: `gpu` passed silently to the
+      // identical CPU build, desktop INFERENCE falls npu -> gpu -> cpu rather
+      // than throwing, and PreferredBackend's own contract promises a
+      // fallback. Its message was also wrong about Windows NPU. Callers now
+      // get a CPU embedder and can read `activeBackend` to see it.
 
       // The LiteRT embedding runtime lives in flutter_gemma_litertlm; core
       // resolves paths (preamble above) + owns the singleton lifecycle, then
@@ -522,26 +550,13 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
           );
       final model = await backend.createModel(specForBackend, embConfig);
 
-      // Core owns the singleton lifecycle: track it + reset on close. The
-      // package-built model fires this via CloseNotifier (addCloseListener).
-      _initializedEmbeddingModel = model;
-      model.addCloseListener(() {
-        _initializedEmbeddingModel = null;
-        _initEmbeddingCompleter = null;
-        _lastActiveEmbeddingModelName = null;
-      });
-
-      _lastActiveEmbeddingModelName = currentActiveModel?.name;
-      completer.complete(model);
+      // Core owns the singleton lifecycle: the cache tracks the model, resets
+      // on close (identity-guarded) and records what it was built from.
+      _embedderCache.record(model, requestedParams);
       return model;
-    } catch (e, st) {
-      completer.completeError(e, st);
-      _initEmbeddingCompleter = null;
-      _initializedEmbeddingModel = null;
-      _lastActiveEmbeddingModelName = null;
-      // Return the error-completed completer future (not rethrow) so exactly one
-      // Future is in flight — a bare rethrow orphans completer.future. See #394.
-      return completer.future;
+    } catch (_) {
+      _embedderCache.invalidate();
+      rethrow;
     }
   }
 

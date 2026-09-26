@@ -1,3 +1,8 @@
+## 1.10.0
+- New `EmbeddingModel.activeBackend`: `getActiveEmbedder(preferredBackend:)` no longer goes unremarked.
+- **Breaking for engine authors:** add `EmbeddingModel.activeBackend` (`implements` only) and `ForwardPassDescriptor.activeBackend`.
+- Fix two wrong claims in the shipped RAG skill that agents read as instructions.
+
 ## 1.9.0
 - New `initialize(embeddingTokenizers:)` — register one or embeddings throw; engines no longer bundle a tokenizer.
 - Drop the dead `web/rag/` build from the published archive.

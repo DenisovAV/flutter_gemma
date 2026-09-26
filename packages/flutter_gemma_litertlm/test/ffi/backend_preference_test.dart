@@ -1,15 +1,56 @@
+import 'dart:io';
+
 import 'package:flutter_gemma_litertlm/src/ffi/backend_preference.dart';
 import 'package:flutter_gemma/core/domain/platform_types.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('ffiBackendFallbackOrder', () {
-    test('tries NPU, then GPU, then CPU for an NPU preference', () {
-      expect(ffiBackendFallbackOrder(PreferredBackend.npu), const [
-        PreferredBackend.npu,
-        PreferredBackend.gpu,
-        PreferredBackend.cpu,
-      ]);
+    test('tries NPU, then GPU, then CPU where an NPU dispatch stack ships', () {
+      expect(
+        ffiBackendFallbackOrder(
+          PreferredBackend.npu,
+          npuDispatchAvailable: true,
+        ),
+        const [
+          PreferredBackend.npu,
+          PreferredBackend.gpu,
+          PreferredBackend.cpu,
+        ],
+      );
+    });
+
+    test('does not offer NPU where no dispatch stack ships', () {
+      // The native runtime accepts `backend: "npu"` on a host that cannot
+      // honour it and does not fail, and initializeFfiRuntime reports the first
+      // candidate whose init did not throw — so offering npu here is what made
+      // a Mac report `activeBackend == npu`. Measured on macOS with Gemma 4
+      // E2B before this gate existed.
+      expect(
+        ffiBackendFallbackOrder(
+          PreferredBackend.npu,
+          npuDispatchAvailable: false,
+        ),
+        const [PreferredBackend.gpu, PreferredBackend.cpu],
+        reason:
+            'a backend we cannot run must not be reported as the one we ran',
+      );
+    });
+
+    test('the host default offers NPU only on Android and Windows', () {
+      expect(
+        hostShipsNpuDispatch,
+        Platform.isAndroid || Platform.isWindows,
+        reason:
+            'only those two native tarballs carry a dispatch stack — Qualcomm '
+            'QNN and Intel OpenVino respectively',
+      );
+      expect(
+        ffiBackendFallbackOrder(
+          PreferredBackend.npu,
+        ).contains(PreferredBackend.npu),
+        hostShipsNpuDispatch,
+      );
     });
 
     test('tries GPU, then CPU for a GPU preference', () {
@@ -77,6 +118,9 @@ void main() {
       await expectLater(
         initializeFfiRuntime<_FakeClient>(
           preferredBackend: PreferredBackend.npu,
+          // Pinned rather than host-dependent: this case is about all THREE
+          // attempts being reported, which needs npu to be on offer.
+          npuDispatchAvailable: true,
           logTag: '[Test]',
           createClient: () {
             final client = _FakeClient();

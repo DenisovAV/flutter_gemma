@@ -19,6 +19,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/core/embedding/embedder_backend_notice.dart';
 import 'package:flutter_gemma/core/lifecycle/close_notifier.dart';
+import 'package:flutter_gemma/core/domain/model_source.dart';
 import 'package:flutter_gemma/core/registry/embedding_backend_provider.dart';
 import 'package:flutter_gemma/core/registry/embedding_registry.dart';
 import 'package:flutter_gemma/core/registry/runtime_config.dart';
@@ -244,6 +245,41 @@ void main() {
         expect(backend.seenModelPaths, ['/a.tflite', '/a.tflite']);
       });
     }
+
+    test('desktop names the call, not whatever embedder is active', () async {
+      // The label only differs when an UNRELATED embedder is installed: this
+      // shell used to read its name off the active spec, so a caller passing
+      // explicit paths saw another model's name in the reuse log.
+      final plugin = FlutterGemmaDesktop.instance;
+      addTearDown(() => plugin.initializedEmbeddingModel?.close());
+      plugin.modelManager.setActiveModel(
+        EmbeddingModelSpec(
+          name: 'unrelated-active-embedder',
+          modelSource: ModelSource.file('/other.tflite'),
+          tokenizerSource: ModelSource.file('/other.json'),
+        ),
+      );
+
+      await plugin.createEmbeddingModel(
+        modelPath: '/a.tflite',
+        tokenizerPath: '/a.json',
+      );
+      // The second call is the one that logs a label, on the reuse branch.
+      await plugin.createEmbeddingModel(
+        modelPath: '/a.tflite',
+        tokenizerPath: '/a.json',
+      );
+
+      final reuse = printed.where((l) => l.contains('Reusing existing'));
+      expect(reuse, isNotEmpty, reason: 'the second call must have reused');
+      expect(
+        reuse.join('\n'),
+        allOf(
+          contains('explicit paths'),
+          isNot(contains('unrelated-active-embedder')),
+        ),
+      );
+    });
 
     test('a different tokenizer alone is also a different embedder', () async {
       final plugin = FlutterGemmaMobile();

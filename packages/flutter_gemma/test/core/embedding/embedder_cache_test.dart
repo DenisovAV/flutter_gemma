@@ -173,6 +173,29 @@ void main() {
       expect(await cache.serialize(() async => 'after'), 'after');
     });
 
+    test('a body that never settles holds the lane, and releases it', () async {
+      // The documented price of having no completer to join: one stuck build
+      // (a wedged native createModel) stalls EVERY later request on this shell,
+      // not just a matching one. Pinned so the trade-off cannot change by
+      // accident — the previous per-shell code stalled them too, via an await
+      // on the in-flight completer, so this is not new, only explicit.
+      final cache = EmbedderCache();
+      final stuck = Completer<void>();
+      var secondStarted = false;
+
+      cache.serialize<void>(() => stuck.future);
+      final second = cache.serialize<void>(() async {
+        secondStarted = true;
+      });
+
+      await pumpEventQueue();
+      expect(secondStarted, isFalse, reason: 'the lane is held by the first');
+
+      stuck.complete();
+      await second;
+      expect(secondStarted, isTrue, reason: 'and released when it settles');
+    });
+
     test('an unawaited failure still reaches the zone', () async {
       // The lane must not advance by attaching an error handler to the future
       // it hands back: that marks the caller's error HANDLED, and a

@@ -96,7 +96,29 @@ def run(root: Path) -> int:
 
 
 # Each case mutates the fixture in place; the guard must exit non-zero.
+def with_speech(app: Path, environments: str | None) -> Path:
+    """Make the fixture depend on flutter_gemma_speech, and give its codelab a
+    claat header with this environments line (None: no header at all)."""
+    pubspec = app / "pubspec.yaml"
+    pubspec.write_text(pubspec.read_text() + "  flutter_gemma_speech: ^0.5.2\n")
+    if environments is not None:
+        header = app.parents[2] / "website" / "codelabs" / app.parent.name / "index.md"
+        header.parent.mkdir(parents=True, exist_ok=True)
+        header.write_text(f"id: demo\nenvironments: {environments}\n\n# Demo\n")
+    return app
+
+
 MUST_FAIL = {
+    # The header promises the web to an app that cannot run there.
+    "native-only app, header lists web": lambda app: with_speech(app, "android, ios, web"),
+    "native-only app, header lists web as a flow list": lambda app: with_speech(
+        app, "[android, 'Web']"
+    ),
+    "native-only app, header lists web before a trailing comment": lambda app: (
+        with_speech(app, "android, web # native caveat")
+    ),
+    # Nothing to check the claim against is not a pass.
+    "native-only app, no header": lambda app: with_speech(app, None),
     "missing js": lambda app: (app / "web" / "opfs_helper.js").unlink(),
     "js differs by a byte": lambda app: (app / "web" / "cache_api.js").write_bytes(
         (app / "web" / "cache_api.js").read_bytes() + b";"
@@ -189,6 +211,9 @@ MUST_FAIL = {
 
 # The guard must NOT fire on these: they are correct, just spelled differently.
 MUST_PASS = {
+    "native-only app, header leaves web out": lambda app: with_speech(
+        app, "android, ios, macos"
+    ),
     "embeddings backend registered for native only": lambda app: (
         (app / "lib" / "main.dart").write_text(
             MAIN.replace(

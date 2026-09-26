@@ -1,5 +1,8 @@
-## 1.8.1
+## 1.8.2
 - Web reports the accelerator it ran on, and whether the graph was fully accelerated.
+
+## 1.8.1
+- A chat stopped mid-reply answered every later message with nothing (#325).
 
 ## 1.8.0
 - Google Play no longer rejects apps over 16 KB page sizes (#529).

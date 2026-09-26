@@ -37,7 +37,7 @@ const _sttTokenizerUrl =
 const _llmModelUrl =
     'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm';
 
-// ── TTS: Inflect-Nano-v2 (fast, ~90× real-time) — 2 tflites from this repo +
+// ── TTS: Inflect-Nano-v2 (the fastest voice) — 2 tflites from this repo +
 // 4 G2P files fetched cross-repo from Matcha (routed by fetchLocationFor).
 // Public repos, no token needed. ──
 const _ttsModelUrl =

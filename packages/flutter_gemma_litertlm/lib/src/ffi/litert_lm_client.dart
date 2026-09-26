@@ -1371,6 +1371,11 @@ class LiteRtLmFfiClient {
   /// live stream (use-after-free).
   bool _virtualTurnInFlight = false;
 
+  /// Set when a virtual turn is cancelled mid-generation. A cancelled
+  /// conversation answers every later message with nothing, so the next turn
+  /// must rebuild it even when it belongs to the same session.
+  bool _virtualConvStopped = false;
+
   /// Token of a session that asked to release the live conversation while a
   /// turn was in flight. The teardown is deferred to the turn's cleanup.
   Object? _pendingReleaseToken;
@@ -1428,9 +1433,13 @@ class LiteRtLmFfiClient {
         await _nativeMutex.acquire();
         mutexHeld = true;
         _virtualTurnInFlight = true;
-        if (_virtualActiveToken != conversationToken || _virtualConv == null) {
-          // Switching sessions (or first turn): drop the old live conversation
-          // and rebuild one replaying this session's history as a preface.
+        if (_virtualActiveToken != conversationToken ||
+            _virtualConv == null ||
+            _virtualConvStopped) {
+          // Switching sessions (or first turn, or the turn after a stop): drop
+          // the old live conversation and rebuild one replaying this session's
+          // history as a preface.
+          _virtualConvStopped = false;
           final old = _virtualConv;
           if (old != null) {
             _deleteConversation(old);
@@ -1533,7 +1542,10 @@ class LiteRtLmFfiClient {
   void cancelVirtualTurn(Object conversationToken) {
     if (_virtualActiveToken != conversationToken) return;
     final conv = _virtualConv;
-    if (conv != null) _cancelOn(conv);
+    if (conv == null) return;
+    // Only a cancel that lands inside a turn damages the conversation.
+    if (_virtualTurnInFlight) _virtualConvStopped = true;
+    _cancelOn(conv);
   }
 
   /// Tear down the live virtual conversation if it belongs to

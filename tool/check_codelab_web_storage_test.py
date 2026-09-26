@@ -116,6 +116,9 @@ MUST_FAIL = {
     "codelab lists web, no webStorageMode": lambda app: drop_storage_mode(
         with_header(app, "android, ios, web")
     ),
+    "codelab lists web as a YAML flow list, no webStorageMode": lambda app: (
+        drop_storage_mode(with_header(app, "[android, ios, 'Web']"))
+    ),
     # A header with no environments line is not a statement about the web.
     "codelab header without environments, no webStorageMode": lambda app: (
         drop_storage_mode(app),

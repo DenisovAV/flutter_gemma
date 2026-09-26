@@ -47,7 +47,9 @@ class _ChatPageState extends State<ChatPage> {
   /// Turns text into PCM, at whatever rate its model produces
   /// ([SpeechSynthesizer.sampleRate] — 24 kHz for Inflect, not 16).
   SpeechSynthesizer? _tts;
-  final _speaker = Speaker();
+  late final _speaker = Speaker(
+    onError: (error) => _say('Could not play the reply: $error'),
+  );
 
   /// The functions behind the tools the model is told about.
   late final _tools = AssistantTools(onTimerDone: _timerDone);
@@ -68,6 +70,7 @@ class _ChatPageState extends State<ChatPage> {
   /// Set while `startStream` is still opening the microphone, so a second tap
   /// that lands in that gap waits for it instead of stopping nothing.
   Future<void>? _micStarting;
+  bool _opening = false;
 
   /// The voice turn in flight, so a barge-in can wait for it to wind down.
   Future<void>? _turn;
@@ -254,12 +257,25 @@ class _ChatPageState extends State<ChatPage> {
   /// A tap while the assistant is answering is a barge-in: it stops the
   /// answer first, then listens.
   Future<void> _toggleMic() async {
-    if (_listening) {
+    // `_listening` turns true only once the microphone is open. A tap that
+    // lands while it is still opening is a stop too, not a second start.
+    if (_listening || _opening) {
       await _stopListening();
       return;
     }
+    _opening = true;
+    try {
+      // One future for the whole opening — the interrupt included — so a stop
+      // that lands in the middle of it waits for all of it, not half.
+      await (_micStarting = _interruptThenListen());
+    } finally {
+      _opening = false;
+    }
+  }
+
+  Future<void> _interruptThenListen() async {
     if (_turn != null) await _interrupt();
-    await (_micStarting = _startListening());
+    await _startListening();
   }
 
   /// Stops the answer — the sound at once, then the turn behind it.

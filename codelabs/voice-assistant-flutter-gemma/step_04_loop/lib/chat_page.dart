@@ -67,6 +67,7 @@ class _ChatPageState extends State<ChatPage> {
   /// Set while `startStream` is still opening the microphone, so a second tap
   /// that lands in that gap waits for it instead of stopping nothing.
   Future<void>? _micStarting;
+  bool _opening = false;
 
   @override
   void initState() {
@@ -232,10 +233,21 @@ class _ChatPageState extends State<ChatPage> {
 
   /// One tap starts the microphone, the next one stops it and transcribes.
   Future<void> _toggleMic() async {
-    if (_listening) {
+    // `_listening` turns true only once the microphone is open. A tap that
+    // lands while it is still opening is a stop too, not a second start.
+    if (_listening || _opening) {
       await _stopListening();
     } else {
+      await _openMic();
+    }
+  }
+
+  Future<void> _openMic() async {
+    _opening = true;
+    try {
       await (_micStarting = _startListening());
+    } finally {
+      _opening = false;
     }
   }
 

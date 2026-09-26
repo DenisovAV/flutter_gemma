@@ -44,7 +44,7 @@ between them:
 
 ### What you'll need
 
-* Flutter **3.47** or newer
+* Flutter **3.44** or newer
 * An arm64 Android device or emulator, an iOS device, or an Apple-silicon Mac.
   Speech runs through `dart:ffi`, which the browser does not have, so there is
   no web target in this codelab
@@ -510,11 +510,12 @@ void enqueue(Uint8List pcm, int sampleRate) {
   final generation = _generation;
   _tail = _tail.then((_) async {
     if (generation != _generation) return;
-    // write the clip to a file ...
+    // write the clip to a file, then:
     await _player.stop();
     await _player.setFilePath(file.path);
+    if (generation != _generation) return;
     await _player.play();
-  });
+  }).catchError((Object error) => onError(error));
 }
 
 Future<void> stop() async {
@@ -525,6 +526,13 @@ Future<void> stop() async {
 
 Each clip is chained onto the one before it. `stop()` bumps a generation
 counter, so a clip queued before the stop sees the new number and skips itself.
+The check runs a second time right before `play()`: a stop can land while the
+file is being loaded, and without it a clip from before the barge-in plays over
+the microphone that has just opened.
+
+A clip that cannot be written or played goes to `onError`, which the page shows.
+Dropping it quietly would leave a reply on screen that was never heard, with
+nothing to say why.
 
 **Watch out:** The `_player.stop()` before each clip is load-bearing. After a clip ends, `just_audio` still reports `playing`, and `play()` on a playing player returns at once **without playing anything**. Stopping first puts it back where `play()` means "play this".
 
@@ -535,12 +543,21 @@ listening:
 
 ```dart
 Future<void> _toggleMic() async {
-  if (_listening) {
+  if (_listening || _opening) {
     await _stopListening();
     return;
   }
+  _opening = true;
+  try {
+    await (_micStarting = _interruptThenListen());
+  } finally {
+    _opening = false;
+  }
+}
+
+Future<void> _interruptThenListen() async {
   if (_turn != null) await _interrupt();
-  await (_micStarting = _startListening());
+  await _startListening();
 }
 
 Future<void> _interrupt() async {
@@ -555,6 +572,12 @@ wait for generation to notice it was asked to stop. `interrupt()` stops the
 model, drops any clause not yet synthesized, and completes once the turn has
 ended with a `VoiceTurnInterruptedEvent`. The mic button stays enabled during a
 voice turn for exactly this reason.
+
+Opening the microphone takes a moment — a permission prompt the first time, the
+recorder starting every time — and `_listening` turns true only at the end of
+it. A second tap in that gap is a stop, not a second start: `_opening` routes it
+to `_stopListening`, which waits for the whole opening, interrupt included,
+before it stops.
 
 ### What the model remembers
 
@@ -643,6 +666,7 @@ Future<void> _timerDone(num minutes) async {
   final whole = minutes == minutes.roundToDouble() ? minutes.round() : minutes;
   final length = whole == 1 ? 'one minute' : '$whole minute';
   final text = 'Your $length timer is done.';
+  if (!mounted) return;
   _say(text);
   await _speak(text);
 }
@@ -690,9 +714,14 @@ await for (final chunk in chat.generateChatResponseWithTools(
 Ask "What time is it?". The model calls `get_current_time`, reads the result,
 and says it: *It is currently twelve fifty-five.*
 
-Notice the words. The spoken-style instruction from Step 4 is still in force,
-so the model writes numbers the way they are said. Then ask it to "set a timer
-for one minute", and a minute later the app tells you it is done.
+Run it a few times and sometimes you get *It is currently 2:27 PM.* instead. The
+spoken-style instruction from Step 4 nudges the model toward numbers the way
+they are said, and a small model does not follow a nudge every time. The words
+are what the voice reads best: played back to the recognizer, "twelve
+fifty-five" comes back as "1255", while "2:27 PM" comes back as "two, 27th M".
+
+Then ask it to "set a timer for one minute", and a minute later the app tells
+you it is done.
 
 ## Airplane mode
 Duration: 3

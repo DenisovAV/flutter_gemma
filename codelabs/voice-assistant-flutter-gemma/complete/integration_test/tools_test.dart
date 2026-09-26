@@ -123,12 +123,31 @@ void main() {
     debugPrint('[tools] time reply: "$timeReply" | heard: "$timeHeard"');
     expect(calls.map((c) => c.name), ['get_current_time']);
     // What the tool returned, as the model read it out: the hour, at least.
-    // The spoken-style instruction makes the model write numbers as words
-    // ("twelve fifty-four"); moonshine writes what it hears as digits
-    // ("1254"). So the hour is checked in what the assistant SAID.
+    // The spoken-style instruction often — not always — makes the model write
+    // numbers as words, so accept the hour either way: "2:27" or "two".
+    const hourWords = [
+      'twelve',
+      'one',
+      'two',
+      'three',
+      'four',
+      'five',
+      'six',
+      'seven',
+      'eight',
+      'nine',
+      'ten',
+      'eleven',
+    ];
     final now = DateTime.now();
     final hour12 = now.hour % 12 == 0 ? 12 : now.hour % 12;
-    expect(timeHeard, anyOf(contains('$hour12'), contains('${now.hour}')));
+    final said = timeReply.toLowerCase();
+    expect(
+      RegExp('\\b(${now.hour}|$hour12)(:|\\s)').hasMatch(said) ||
+          RegExp('\\b${hourWords[hour12 % 12]}\\b').hasMatch(said),
+      isTrue,
+      reason: 'the hour $hour12 is not in "$timeReply"',
+    );
 
     // --- The timer. ---
     calls.clear();

@@ -267,7 +267,10 @@ def declares_web(app: Path) -> bool:
     match = re.search(r"^environments:[ \t]*(.*)$", text, re.MULTILINE)
     if match is None:
         return True
-    return "web" in {e.strip() for e in match.group(1).split(",")}
+    # claat writes a bare comma list; a YAML flow list, quotes or case must
+    # not turn "web" into "web]" and quietly opt a web codelab out.
+    listed = re.sub(r"[\[\]\"']", "", match.group(1)).lower()
+    return "web" in {e.strip() for e in listed.split(",")}
 
 
 def check_app(app: Path) -> None:

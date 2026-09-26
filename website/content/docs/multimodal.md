@@ -141,3 +141,7 @@ matrix.
   default; move audio encoding to GPU with `preferredAudioBackend: PreferredBackend.gpu`.
 - If image input fails at model load on a GPU backend on an older release, upgrade
   to `flutter_gemma_litertlm` 1.4.2 — the vision encoder now defaults to CPU.
+- After `stopGeneration()` on a `.litertlm` model the chat keeps working
+  (`flutter_gemma_litertlm` 1.8.1+), but it continues from a text copy of the
+  history: images and audio from earlier turns are gone. Send the image again
+  if the next question is about it.

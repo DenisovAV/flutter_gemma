@@ -75,7 +75,6 @@ abstract final class Models {
     sizeLabel: '2.0 GB',
     requiresToken: false,
   );
-
 }
 
 /// The speech-to-text model: moonshine tiny, English, 109 MB.

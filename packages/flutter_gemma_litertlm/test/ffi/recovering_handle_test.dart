@@ -83,12 +83,18 @@ void main() {
   late List<_Conversation> reopened;
   late RecoveringConversationHandle handle;
 
+  /// When set, a rebuild waits on it before the new conversation exists — a
+  /// native create in flight.
+  Completer<void>? reopenGate;
+
   setUp(() {
     first = _Conversation('first');
     reopened = [];
+    reopenGate = null;
     handle = RecoveringConversationHandle(
       first,
       reopen: (messagesJson) async {
+        await reopenGate?.future;
         final c = _Conversation(
           'rebuilt ${reopened.length}',
           seed: messagesJson,
@@ -186,6 +192,49 @@ void main() {
       expect(reopened.single.sent, [toolResult]);
     },
   );
+
+  test('a turn started before the stopped one has wound down still '
+      'replays it', () async {
+    // VoiceSession can do this: after a bounded drain it detaches the
+    // stopped stream and starts the next turn while that stream is still
+    // finishing.
+    final gate = first.hold = Completer<void>();
+    final stopped = handle.chat('one').join();
+    await pumpEventQueue();
+    handle.cancelGeneration();
+
+    final next = handle.chat('two').join();
+    await pumpEventQueue();
+    gate.complete();
+    await stopped;
+    await next;
+
+    final seed = jsonDecode(reopened.single.seed!) as List<dynamic>;
+    expect(
+      [for (final m in seed) (m['content'] as List).single['text']],
+      ['one', 'Hello'],
+      reason: 'the stopped exchange must be in the replayed history',
+    );
+  });
+
+  test('a stop that lands while the conversation is being rebuilt stops '
+      'the turn before it reaches the model', () async {
+    await stopMidTurn('one', first);
+
+    final gate = reopenGate = Completer<void>();
+    final pending = handle.chat('two').join();
+    await pumpEventQueue();
+    handle.cancelGeneration();
+    gate.complete();
+
+    expect(await pending, isEmpty);
+    expect(reopened.single.sent, isEmpty, reason: 'nothing was sent');
+    // Nothing was generated on the new conversation, so nothing damaged it:
+    // the next turn runs there without another rebuild.
+    expect(await handle.chat('three').join(), 'Hello there.');
+    expect(reopened, hasLength(1));
+    expect(reopened.single.sent, ['three']);
+  });
 
   test('closing closes the live conversation, rebuilt or not', () async {
     await stopMidTurn('one', first);

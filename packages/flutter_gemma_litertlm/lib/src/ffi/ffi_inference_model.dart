@@ -738,9 +738,19 @@ class RecoveringConversationHandle implements ConversationHandle {
   /// Every turn so far, as the messages a rebuild replays.
   final List<Map<String, Object?>> _history = [];
 
+  /// True from the start of a turn — rebuild included — to the end of its
+  /// `finally`.
   bool _inFlight = false;
 
-  /// Set when a turn was cut off; the next turn rebuilds before it runs.
+  /// A cancel landed inside the current turn. Reset when the next turn starts.
+  bool _stopRequested = false;
+
+  /// Completes when the current turn's `finally` has run, so a turn that
+  /// starts before a stopped one has wound down can wait for its history.
+  Future<void>? _turnDone;
+
+  /// Set when a turn that reached the model was cut off; the next turn
+  /// rebuilds before it runs.
   bool _stopped = false;
 
   /// Images and audio are not replayed — the preface is text — so a rebuild
@@ -755,6 +765,8 @@ class RecoveringConversationHandle implements ConversationHandle {
     _live = await reopen(
       _history.isEmpty ? null : LiteRtLmFfiClient.buildHistoryJson(_history),
     );
+    // Only now: a reopen that throws leaves the old conversation closed and
+    // this set, so the next turn tries again instead of using a dead handle.
     _stopped = false;
     if (_closed) {
       _live.close();
@@ -782,13 +794,25 @@ class RecoveringConversationHandle implements ConversationHandle {
     required bool raw,
   }) async* {
     if (_closed) throw StateError('Conversation handle is closed');
-    if (_stopped) await _rebuild();
+    // A turn that starts while a stopped one is still winding down — which
+    // VoiceSession does after a bounded drain — waits for its `finally`, or
+    // the rebuild would replay a history that is missing the stopped exchange.
+    if (_stopRequested) await _turnDone;
+    final done = Completer<void>();
+    _turnDone = done.future;
+    _inFlight = true;
+    _stopRequested = false;
     final text = StringBuffer();
     final rawReply = StringBuffer();
+    var sent = false;
     var finished = false;
     var failed = false;
-    _inFlight = true;
     try {
+      if (_stopped) await _rebuild();
+      // Stopped while the conversation was being rebuilt: nothing has reached
+      // the model, so there is nothing to generate and nothing to record.
+      if (_stopRequested) return;
+      sent = true;
       await for (final chunk in send(_live)) {
         if (raw) {
           text.write(LiteRtLmFfiClient.extractTextFromResponse(chunk));
@@ -806,19 +830,22 @@ class RecoveringConversationHandle implements ConversationHandle {
       rethrow;
     } finally {
       _inFlight = false;
-      // Abandoning the stream mid-turn cancels native just as stopGeneration
-      // does, and leaves the conversation in the same state.
-      if (!finished && !failed) _stopped = true;
-      // The message reached the model either way, so it belongs in the
-      // history a rebuild replays — with whatever of the reply was produced.
-      _history
-        ..add(message)
-        ..add(
-          _VirtualConversationHandle._assistantTurn(
-            text.toString(),
-            rawReply.toString(),
-          ),
-        );
+      if (sent) {
+        // Stopped by cancelGeneration, or abandoned mid-turn — which cancels
+        // native the same way — leaves the conversation answering nothing.
+        if (_stopRequested || (!finished && !failed)) _stopped = true;
+        // The message reached the model either way, so it belongs in the
+        // history a rebuild replays — with whatever of the reply was produced.
+        _history
+          ..add(message)
+          ..add(
+            _VirtualConversationHandle._assistantTurn(
+              text.toString(),
+              rawReply.toString(),
+            ),
+          );
+      }
+      done.complete();
     }
   }
 
@@ -885,8 +912,9 @@ class RecoveringConversationHandle implements ConversationHandle {
 
   @override
   void cancelGeneration() {
-    // Only a cancel that lands inside a turn damages the conversation.
-    if (_inFlight) _stopped = true;
+    // Only a cancel that lands inside a turn damages the conversation. The
+    // turn's `finally` turns this into a rebuild if generation had begun.
+    if (_inFlight) _stopRequested = true;
     _live.cancelGeneration();
   }
 
@@ -955,6 +983,15 @@ class _VirtualConversationHandle implements ConversationHandle {
 
   bool _closed = false;
 
+  /// This session's own turn is running. See [cancelGeneration].
+  bool _inFlight = false;
+
+  /// A cancel landed inside this session's current turn.
+  bool _stopRequested = false;
+
+  /// Completes when the current turn has recorded its history.
+  Future<void>? _turnDone;
+
   /// Drive one turn through the multiplexer, then record the sent [message]
   /// and the generated assistant reply so the NEXT turn replays them as
   /// preface. [raw] decides what the caller gets per chunk (raw SDK JSON or its
@@ -965,6 +1002,14 @@ class _VirtualConversationHandle implements ConversationHandle {
     bool enableThinking = false,
   }) async* {
     if (_closed) throw StateError('Conversation handle is closed');
+    // After a stop the client rebuilds the conversation from this snapshot,
+    // so a turn that starts before the stopped one has recorded itself waits
+    // for it — otherwise the rebuild would leave the stopped exchange out.
+    if (_stopRequested) await _turnDone;
+    final done = Completer<void>();
+    _turnDone = done.future;
+    _inFlight = true;
+    _stopRequested = false;
     final messageJson = jsonEncode(message);
     final extraContext = enableThinking ? '{"enable_thinking": true}' : null;
     // Snapshot history BEFORE this turn — the live message is sent separately.
@@ -1009,6 +1054,8 @@ class _VirtualConversationHandle implements ConversationHandle {
     } finally {
       // Also record on error/cancel so the user turn isn't lost.
       record();
+      _inFlight = false;
+      done.complete();
     }
   }
 
@@ -1088,7 +1135,10 @@ class _VirtualConversationHandle implements ConversationHandle {
           as Map<String, Object?>;
 
   @override
-  void cancelGeneration() => client.cancelVirtualTurn(token);
+  void cancelGeneration() {
+    if (_inFlight) _stopRequested = true;
+    client.cancelVirtualTurn(token);
+  }
 
   @override
   SessionMetrics getSessionMetrics() => SessionMetrics();

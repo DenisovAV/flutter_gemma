@@ -163,6 +163,13 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     String? tokenizerPath,
     PreferredBackend? preferredBackend,
   }) async {
+    // FIRST statement, before every guard. It is idempotent and one-shot, so
+    // it needs neither resolved paths nor cache state — and putting it in a
+    // branch is what made it unreachable twice: once behind the singleton
+    // cache, once behind "only on reuse". The ordinary shape is a single call
+    // held for the app's lifetime; if it does not speak here it never speaks.
+    noticeEmbedderBackendIgnored(preferredBackend);
+
     // Modern API: Use active embedding model if paths not provided
     if (modelPath == null || tokenizerPath == null) {
       final manager = modelManager as WebModelManager;
@@ -229,11 +236,9 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     }
 
     if (_initializedEmbeddingModel != null) {
-      // Reusing. `preferredBackend` is not part of the comparison above and
-      // never will be here: on web the runtime picks for itself — LiteRT.js
+      // Reusing. On web the runtime picks the accelerator itself — LiteRT.js
       // per operation, onnxruntime-web by trying ['webgpu', 'wasm'] in order —
-      // so say the argument did not apply rather than let it look honoured.
-      noticeEmbedderBackendIgnored(preferredBackend);
+      // and the notice already fired at the top of this method.
       return _initializedEmbeddingModel!;
     }
 

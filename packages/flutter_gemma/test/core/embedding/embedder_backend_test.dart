@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/core/domain/platform_types.dart';
 import 'package:flutter_gemma/core/embedding/embedder_backend_notice.dart';
+import 'package:flutter_gemma/core/utils/gemma_log.dart';
 import 'package:flutter_gemma/core/registry/runtime_config.dart';
 import 'package:flutter_gemma/flutter_gemma_interface.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -37,22 +38,25 @@ void main() {
   );
 
   group('ActiveEmbedderParams', () {
-    test('a different backend is NOT a difference — it builds the same model', () {
-      // The whole point of normalizing to CPU: asking for GPU must not unload
-      // and reload a bit-identical embedder. If this goes red, the
-      // normalization line was dropped and every backend change costs a
-      // 570-780 ms recompile for nothing.
-      expect(
-        params(backend: PreferredBackend.gpu).firstDifference(
-          params(backend: PreferredBackend.cpu),
-        ),
-        isNull,
-      );
-      expect(
-        params().firstDifference(params(backend: PreferredBackend.npu)),
-        isNull,
-      );
-    });
+    test(
+      'a different backend is NOT a difference — it builds the same model',
+      () {
+        // The whole point of normalizing to CPU: asking for GPU must not unload
+        // and reload a bit-identical embedder. If this goes red, the
+        // normalization line was dropped and every backend change costs a
+        // 570-780 ms recompile for nothing.
+        expect(
+          params(
+            backend: PreferredBackend.gpu,
+          ).firstDifference(params(backend: PreferredBackend.cpu)),
+          isNull,
+        );
+        expect(
+          params().firstDifference(params(backend: PreferredBackend.npu)),
+          isNull,
+        );
+      },
+    );
 
     test('paths are differences, and the changed one is named', () {
       expect(
@@ -66,7 +70,8 @@ void main() {
       expect(
         params().firstDifference(params(tokenizer: null)),
         'tokenizerPath',
-        reason: 'losing the tokenizer is a different embedder, not a null-safe no-op',
+        reason:
+            'losing the tokenizer is a different embedder, not a null-safe no-op',
       );
     });
 
@@ -104,7 +109,10 @@ void main() {
       };
     });
 
-    tearDown(() => debugPrint = original);
+    tearDown(() {
+      debugPrint = original;
+      gemmaLogLevel = GemmaLogLevel.info;
+    });
 
     test('says nothing for the backend embeddings actually use', () {
       noticeEmbedderBackendIgnored(null);
@@ -121,6 +129,18 @@ void main() {
         contains('activeBackend'),
         reason: 'a debug line must hand over to something a release build has',
       );
+    });
+
+    test('a muted log does not spend the one shot', () {
+      // The level is public API, and an app that starts silent and raises it
+      // to debug this is the whole reason the flag must not burn early.
+      gemmaLogLevel = GemmaLogLevel.none;
+      noticeEmbedderBackendIgnored(PreferredBackend.gpu);
+      expect(printed, isEmpty);
+
+      gemmaLogLevel = GemmaLogLevel.info;
+      noticeEmbedderBackendIgnored(PreferredBackend.gpu);
+      expect(printed, hasLength(1), reason: 'the shot was still unspent');
     });
 
     test('says it once, and a reset lets it speak again', () {

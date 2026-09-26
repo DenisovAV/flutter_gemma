@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_gemma/core/domain/platform_types.dart'
     show PreferredBackend;
 import 'package:flutter_gemma/core/registry/runtime_config.dart'
@@ -29,6 +30,12 @@ bool _warned = false;
 /// execution provider. What was wrong was accepting the argument in silence.
 void noticeEmbedderBackendIgnored(PreferredBackend? requested) {
   if (!ActiveEmbedderParams.isIgnoredBackend(requested) || _warned) return;
+  // Spend the one shot only on a line that can actually appear. `gemmaLog`
+  // returns early in a release build and when the level is `none`, and the
+  // level is public API — so setting the flag first turned "say it once" into
+  // "suppress once" for an app that starts silent and raises the level later
+  // to debug exactly this.
+  if (!kDebugMode || gemmaLogLevel == GemmaLogLevel.none) return;
   _warned = true;
   gemmaLog(
     'ℹ️  Embeddings run on CPU: preferredBackend ${requested!.name} is not '

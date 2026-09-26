@@ -434,6 +434,13 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
     String? tokenizerPath,
     PreferredBackend? preferredBackend,
   }) async {
+    // FIRST statement, before every guard. It is idempotent and one-shot, so
+    // it needs neither resolved paths nor cache state — and putting it in a
+    // branch is what made it unreachable twice: once behind the singleton
+    // cache, once behind "only on reuse". The ordinary shape is a single call
+    // held for the app's lifetime; if it does not speak here it never speaks.
+    noticeEmbedderBackendIgnored(preferredBackend);
+
     // Modern API: Use active embedding model if paths not provided
     if (modelPath == null || tokenizerPath == null) {
       final manager = _unifiedManager;
@@ -501,10 +508,9 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
           _lastActiveEmbeddingSpec = null;
           _lastEmbedderParams = null;
         } else {
-          // Same embedder. `preferredBackend` never reaches this branch as a
-          // difference — it is normalised to CPU because every backend
-          // resolves there — so say so here rather than let it look honoured.
-          noticeEmbedderBackendIgnored(preferredBackend);
+          // Same embedder. `preferredBackend` is not a difference here — it
+          // is normalised to CPU because every backend resolves there — and
+          // the notice already fired at the top of this method.
           gemmaLog(
             'ℹ️  Reusing existing embedding model instance for ${requestedSpec.name}',
           );

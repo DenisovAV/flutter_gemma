@@ -419,6 +419,13 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
     String? tokenizerPath,
     PreferredBackend? preferredBackend,
   }) async {
+    // FIRST statement, before every guard. It is idempotent and one-shot, so
+    // it needs neither resolved paths nor cache state — and putting it in a
+    // branch is what made it unreachable twice: once behind the singleton
+    // cache, once behind "only on reuse". The ordinary shape is a single call
+    // held for the app's lifetime; if it does not speak here it never speaks.
+    noticeEmbedderBackendIgnored(preferredBackend);
+
     // Check if active embedding model changed
     final currentActiveModel = _modelManager.activeEmbeddingModel;
     if (_initEmbeddingCompleter != null &&
@@ -433,11 +440,6 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
         _initializedEmbeddingModel = null;
         _lastActiveEmbeddingModelName = null;
       } else {
-        // Same embedder. `preferredBackend` cannot change what gets built —
-        // every backend resolves to CPU — so say that instead of letting the
-        // argument look honoured. This sits ABOVE the cached return on
-        // purpose: a notice inside a backend never runs on this path.
-        noticeEmbedderBackendIgnored(preferredBackend);
         return _initEmbeddingCompleter!.future;
       }
     }
@@ -485,7 +487,6 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
       // than throwing, and PreferredBackend's own contract promises a
       // fallback. Its message was also wrong about Windows NPU. Callers now
       // get a CPU embedder and can read `activeBackend` to see it.
-      noticeEmbedderBackendIgnored(preferredBackend);
 
       // The LiteRT embedding runtime lives in flutter_gemma_litertlm; core
       // resolves paths (preamble above) + owns the singleton lifecycle, then

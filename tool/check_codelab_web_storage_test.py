@@ -114,6 +114,9 @@ MUST_FAIL = {
     "native-only app, header lists web as a flow list": lambda app: with_speech(
         app, "[android, 'Web']"
     ),
+    "native-only app, header lists web before a trailing comment": lambda app: (
+        with_speech(app, "android, web # native caveat")
+    ),
     # Nothing to check the claim against is not a pass.
     "native-only app, no header": lambda app: with_speech(app, None),
     "missing js": lambda app: (app / "web" / "opfs_helper.js").unlink(),

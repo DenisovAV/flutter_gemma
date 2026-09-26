@@ -276,8 +276,10 @@ def check_platform_claim(app: Path, deps: set[str]) -> None:
         fail(f"{rel(header)} has no environments: line — cannot check that "
              f"{rel(app)} is not promised on web")
         return
-    # claat writes a bare comma list; brackets, quotes or case must not hide it.
-    listed = re.sub(r"[\[\]\"']", "", match.group(1)).lower()
+    # claat writes a bare comma list; a trailing `#` comment, brackets, quotes
+    # or case must not hide `web` from this check.
+    listed = match.group(1).split("#", 1)[0]
+    listed = re.sub(r"[\[\]\"']", "", listed).lower()
     if "web" in {e.strip() for e in listed.split(",")}:
         fail(f"{rel(header)} lists web, but {rel(app)} depends on "
              f"{', '.join(sorted(native_only))}, which has no web implementation")

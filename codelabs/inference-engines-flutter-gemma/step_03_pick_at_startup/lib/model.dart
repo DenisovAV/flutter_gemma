@@ -61,21 +61,23 @@ abstract final class Models {
     requiresToken: true,
   );
 
-  /// Ungated alternative — no Hugging Face account needed.
-  static const qwen3 = ModelChoice(
-    label: 'Qwen3 0.6B',
-    id: 'Qwen3-0.6B.litertlm',
-    modelType: ModelType.qwen3,
+  /// Ungated, so no Hugging Face token. The largest of the downloadable
+  /// models: 2.59 GB, and a phone with 6 GB of RAM or more.
+  static const gemma4 = ModelChoice(
+    label: 'Gemma 4 E2B',
+    id: 'gemma-4-E2B-it.litertlm',
+    modelType: ModelType.gemma4,
     fileType: ModelFileType.litertlm,
     url:
-        'https://huggingface.co/litert-community/Qwen3-0.6B/resolve/main/'
-        'Qwen3-0.6B.litertlm',
-    sizeLabel: '0.6 GB',
+        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/'
+        'resolve/main/gemma-4-E2B-it.litertlm',
+    sizeLabel: '2.59 GB',
   );
 
   /// The web build. The browser engine (`@litert-lm/core`) runs only models
-  /// exported for it — [gemma3] and [qwen3] install fine on web and then fail
-  /// when the engine starts — and Gemma 4 E2B is the smallest one published.
+  /// exported for it — [gemma3] and the native [gemma4] install fine on web and
+  /// then fail when the engine starts — and this is the web export of the
+  /// same Gemma 4 E2B, the smallest one published.
   static const gemma4Web = ModelChoice(
     label: 'Gemma 4 E2B (web build)',
     id: 'gemma-4-E2B-it-web.litertlm',
@@ -94,10 +96,10 @@ abstract final class Models {
   static ModelChoice get downloaded => kIsWeb ? gemma4Web : gemma3;
 
   /// The downloadable models to offer in the chat's switch-model menu. On
-  /// web, [qwen3] has no browser build and the native [gemma3] file installs
-  /// and then fails at engine creation — offer only what can actually run.
+  /// web the native files — [gemma3], [gemma4] — install and then fail at
+  /// engine creation; only [gemma4Web] runs there, so offer only that.
   static List<ModelChoice> get downloadable =>
-      kIsWeb ? [gemma4Web] : [gemma3, qwen3];
+      kIsWeb ? [gemma4Web] : [gemma3, gemma4];
 
   /// The model the platform ships: Gemini Nano on Android and in Chrome, Apple
   /// Foundation Models on iOS and macOS. Nothing to download — the OS or the

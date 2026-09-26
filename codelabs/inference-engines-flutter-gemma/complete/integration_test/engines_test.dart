@@ -4,9 +4,9 @@
 // either used — chatted through, to prove the gate's readiness rule holds — or,
 // on a device without one (an emulator, say), reported as a typed
 // BuiltInAiUnavailableException; the downloaded model then answers on
-// LiteRT-LM. Uses the ungated Qwen3 build so it needs no Hugging Face token.
+// LiteRT-LM. Uses the ungated Gemma 4 E2B build so it needs no Hugging Face token.
 //
-// Not part of CI (needs a device, may download ~0.6 GB):
+// Not part of CI (needs a device, may download ~2.6 GB):
 //   flutter test integration_test/engines_test.dart -d <device-id>
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
@@ -80,7 +80,7 @@ void main() {
     }
 
     // Whatever the OS said, the downloaded model must work on this device.
-    const fallback = Models.qwen3;
+    const fallback = Models.gemma4;
     var last = -1;
     await activate(
       fallback,

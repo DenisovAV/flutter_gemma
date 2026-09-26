@@ -105,26 +105,12 @@ Duration: 12
 ### Pick the model that will answer
 
 The starter defaults to Gemma 3 1B, which needs a Hugging Face token. For a voice
-assistant, use Gemma 4 E2B instead. It is ungated, and — this matters in
+assistant, use Gemma 4 E2B instead — `Models.gemma4`, already in `model.dart` as
+Getting Started's no-account option. It is ungated, and — this matters in
 Step 6 — it is the smallest Gemma that calls a tool and then says something
 sensible about the result.
 
-In `lib/model.dart`, add it to `Models`:
-
-```dart
-static const gemma4 = ModelChoice(
-  label: 'Gemma 4 E2B',
-  url:
-      'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/'
-      'resolve/main/gemma-4-E2B-it.litertlm',
-  fileName: 'gemma-4-E2B-it.litertlm',
-  modelType: ModelType.gemma4,
-  sizeLabel: '2.59 GB',
-  requiresToken: false,
-);
-```
-
-And point the app at it in `lib/main.dart`:
+Point the app at it in `lib/main.dart`:
 
 ```dart
 const _model = Models.gemma4;

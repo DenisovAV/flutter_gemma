@@ -100,16 +100,15 @@ flutter run --dart-define=HF_TOKEN=hf_your_token
 [Getting Started](/codelabs/getting-started-flutter-gemma) covers that in its
 Step 2. Without the token the download 401s — and since a device without a
 built-in model takes the fallback path, that is most devices. If you would
-rather not have a Hugging Face account, `Models.qwen3` in `model.dart` is
-ungated. The fallback is named in exactly one place — the `Models.downloaded`
+rather not have a Hugging Face account, `Models.gemma4` in `model.dart` is
+ungated — a 2.59 GB download against Gemma 3 1B's 0.6 GB. The fallback is named in exactly one place — the `Models.downloaded`
 getter in `model.dart` — so repoint that one line and every fallback path picks
 it up: the startup policy in `main.dart`, the setup screen's **Use … instead**
 button in `download_page.dart`, and the chat's switch-model menu.
 
 On the **web** this question does not come up: the browser engine
-(`@litert-lm/core`) only runs a `.litertlm` file exported for it, and neither
-Gemma 3 1B nor Qwen3 has one — the native files install fine and then fail at
-engine creation. `Models.downloaded` already resolves to `Models.gemma4Web`
+(`@litert-lm/core`) only runs a `.litertlm` file exported for it, and the
+native files install fine and then fail at engine creation. `Models.downloaded` already resolves to `Models.gemma4Web`
 there (the same web build [Getting Started](/codelabs/getting-started-flutter-gemma)
 uses), so nothing to repoint and no token needed.
 

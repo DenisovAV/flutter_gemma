@@ -30,7 +30,7 @@ class ModelChoice {
 /// All of them are `.litertlm`, the format the LiteRT-LM engine reads on
 /// Android, iOS, desktop and the web — but the browser engine
 /// (`@litert-lm/core`) only runs a `.litertlm` file exported for it. [gemma3]
-/// and [qwen3] are native builds: they install fine on web and then fail when
+/// and [gemma4] are native builds: they install fine on web and then fail when
 /// the engine starts. [gemma4Web] is this app's one web-exported model, and
 /// `main.dart` picks it there instead. (`.task` files are MediaPipe-only — a
 /// different engine package, and no desktop support.)
@@ -49,15 +49,16 @@ abstract final class Models {
   );
 
   /// No Hugging Face account? This repo is ungated. Same code path — the only
-  /// thing that changes is which constant you hand to the app.
-  static const qwen3 = ModelChoice(
-    label: 'Qwen3 0.6B',
+  /// thing that changes is which constant you hand to the app. It is also the
+  /// largest of the three: 2.59 GB, and a phone with 6 GB of RAM or more.
+  static const gemma4 = ModelChoice(
+    label: 'Gemma 4 E2B',
     url:
-        'https://huggingface.co/litert-community/Qwen3-0.6B/resolve/main/'
-        'Qwen3-0.6B.litertlm',
-    fileName: 'Qwen3-0.6B.litertlm',
-    modelType: ModelType.qwen3,
-    sizeLabel: '0.6 GB',
+        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/'
+        'resolve/main/gemma-4-E2B-it.litertlm',
+    fileName: 'gemma-4-E2B-it.litertlm',
+    modelType: ModelType.gemma4,
+    sizeLabel: '2.59 GB',
     requiresToken: false,
   );
 
@@ -75,19 +76,6 @@ abstract final class Models {
     requiresToken: false,
   );
 
-  /// The voice assistant's model. Ungated, and the smallest Gemma that calls a
-  /// tool and then says something about the result — which Step 6 depends on.
-  /// It is also a 2.59 GB download that wants a phone with 6 GB of RAM or more.
-  static const gemma4 = ModelChoice(
-    label: 'Gemma 4 E2B',
-    url:
-        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/'
-        'resolve/main/gemma-4-E2B-it.litertlm',
-    fileName: 'gemma-4-E2B-it.litertlm',
-    modelType: ModelType.gemma4,
-    sizeLabel: '2.59 GB',
-    requiresToken: false,
-  );
 }
 
 /// The speech-to-text model: moonshine tiny, English, 109 MB.

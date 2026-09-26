@@ -709,6 +709,10 @@ class FfiInferenceModelSession extends InferenceModelSession
   }
 }
 
+/// How long a turn waits for a stopped one to wind down before going ahead —
+/// the same bound VoiceSession gives a stopped reply to drain.
+const _windDownTimeout = Duration(seconds: 5);
+
 /// The single-session lane's handle: one real native conversation, rebuilt
 /// after a turn is stopped.
 ///
@@ -727,7 +731,14 @@ class FfiInferenceModelSession extends InferenceModelSession
 /// Public, though nothing outside this library uses it, so that tests can drive
 /// the recovery over fake handles with no engine.
 class RecoveringConversationHandle implements ConversationHandle {
-  RecoveringConversationHandle(this._live, {required this.reopen});
+  RecoveringConversationHandle(
+    this._live, {
+    required this.reopen,
+    this.windDownTimeout = _windDownTimeout,
+  });
+
+  /// How long a turn waits for a stopped one to record itself. See [_turn].
+  final Duration windDownTimeout;
 
   ConversationHandle _live;
 
@@ -797,7 +808,23 @@ class RecoveringConversationHandle implements ConversationHandle {
     // A turn that starts while a stopped one is still winding down — which
     // VoiceSession does after a bounded drain — waits for its `finally`, or
     // the rebuild would replay a history that is missing the stopped exchange.
-    if (_stopRequested) await _turnDone;
+    // Bounded: a consumer that pauses the stopped stream and never resumes it
+    // would otherwise block every later turn. Past the bound the stopped turn
+    // is treated as having damaged the conversation, and the rebuild goes
+    // ahead without its exchange rather than not at all.
+    if (_stopRequested) {
+      await _turnDone?.timeout(
+        windDownTimeout,
+        onTimeout: () {
+          _stopped = true;
+          gemmaLog(
+            '[FfiInferenceModel] a stopped turn did not wind down within '
+            '${windDownTimeout.inSeconds}s (is its stream paused?); rebuilding '
+            'without it',
+          );
+        },
+      );
+    }
     final done = Completer<void>();
     _turnDone = done.future;
     _inFlight = true;
@@ -1005,7 +1032,10 @@ class _VirtualConversationHandle implements ConversationHandle {
     // After a stop the client rebuilds the conversation from this snapshot,
     // so a turn that starts before the stopped one has recorded itself waits
     // for it — otherwise the rebuild would leave the stopped exchange out.
-    if (_stopRequested) await _turnDone;
+    if (_stopRequested) {
+      // Bounded for the reason given in RecoveringConversationHandle._turn.
+      await _turnDone?.timeout(_windDownTimeout, onTimeout: () {});
+    }
     final done = Completer<void>();
     _turnDone = done.future;
     _inFlight = true;

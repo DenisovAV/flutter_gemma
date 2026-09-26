@@ -140,7 +140,7 @@ await for (final token in session.getResponseAsync()) {
 }
 ```
 
-To stop early, call `await session.stopGeneration()` — `chat.stopGeneration()` on a chat. Cancelling the stream subscription detaches Dart but does not stop native decoding on every engine. On `.litertlm` (`flutter_gemma_litertlm` 1.8.1+) the chat keeps working after a stop, but images and audio from earlier turns are no longer visible to the model — re-send an image if the next question is about it.
+To stop early, call `await session.stopGeneration()` — `chat.stopGeneration()` on a chat. Cancelling the stream subscription detaches Dart but does not stop native decoding on every engine. On `.litertlm` on Android, iOS and desktop (`flutter_gemma_litertlm` 1.8.1+) the chat keeps working after a stop, but images and audio from earlier turns are no longer visible to the model — re-send an image if the next question is about it.
 
 ## Multi-turn chat
 

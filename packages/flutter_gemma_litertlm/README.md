@@ -231,8 +231,9 @@ from a SHA256-verified GitHub release — no manual setup on native platforms.
 
 Symptom: after `stopGeneration()` in the middle of a reply — or after
 abandoning the response stream — every later message on that chat or session
-comes back empty, on every platform. A new chat on the same model answers
-normally.
+comes back empty, on Android, iOS and desktop. A new chat on the same model
+answers normally. (The web engine is a separate path and is not covered by this
+entry.)
 
 Cause: a conversation whose generation is cancelled mid-reply stays unusable
 in the native runtime.

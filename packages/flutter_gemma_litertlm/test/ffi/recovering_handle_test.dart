@@ -236,6 +236,35 @@ void main() {
     expect(reopened.single.sent, ['three']);
   });
 
+  test('a stopped turn whose stream is paused, not cancelled, does not '
+      'block the next turn forever', () async {
+    handle = RecoveringConversationHandle(
+      first,
+      reopen: (messagesJson) async {
+        final c = _Conversation('rebuilt', seed: messagesJson);
+        reopened.add(c);
+        return c;
+      },
+      windDownTimeout: const Duration(milliseconds: 100),
+    );
+    // Paused before its first chunk is delivered, so the turn is parked on
+    // that `yield` and cannot reach its `finally` until someone resumes it.
+    final sub = handle.chat('one').listen(null)..pause();
+    await pumpEventQueue();
+    handle.cancelGeneration();
+
+    final next = await handle
+        .chat('two')
+        .join()
+        .timeout(const Duration(seconds: 10), onTimeout: () => 'TIMED OUT');
+    expect(next, 'Hello there.');
+    // The stopped turn never recorded itself, so it counts as damaging: the
+    // next turn ran on a rebuilt conversation, not on the stopped one.
+    expect(reopened, hasLength(1));
+    expect(reopened.single.sent, ['two']);
+    await sub.cancel();
+  });
+
   test('closing closes the live conversation, rebuilt or not', () async {
     await stopMidTurn('one', first);
     await handle.chat('two').join();

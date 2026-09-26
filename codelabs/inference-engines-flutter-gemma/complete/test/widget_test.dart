@@ -6,7 +6,7 @@ import 'package:gemma_quickstart/model.dart';
 
 void main() {
   test('every downloaded model id matches the last segment of its URL', () {
-    for (final model in [Models.gemma3, Models.qwen3, Models.gemma4Web]) {
+    for (final model in [Models.gemma3, Models.gemma4, Models.gemma4Web]) {
       expect(model.id, model.url!.split('/').last, reason: model.label);
     }
   });
@@ -28,13 +28,13 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: DownloadPage(
-          model: Models.qwen3,
+          model: Models.gemma4,
           onReady: () {},
           onSwitch: (_) {},
         ),
       ),
     );
-    expect(find.text('Qwen3 0.6B'), findsOneWidget);
+    expect(find.text('Gemma 4 E2B'), findsOneWidget);
     expect(find.text('Download model'), findsOneWidget);
   });
 }

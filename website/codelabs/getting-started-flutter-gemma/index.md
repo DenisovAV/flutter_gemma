@@ -43,9 +43,10 @@ of decisions the API asks you to make, and this codelab is built around them:
   Apple-silicon Mac, a Windows or Linux desktop, or Chrome. The same code runs
   on all of them — Step 2 lists the handful of things each one asks of you, and
   which model it downloads there
-* Free space and a connection that can pull it: about 1 GB on native, where the
-  models are 0.6 GB each (Gemma 3 1B and Qwen3), and about 3 GB on the web,
-  where the app downloads a different, larger model — 2.0 GB, and a browser
+* Free space and a connection that can pull it: about 1 GB on native for
+  Gemma 3 1B (0.6 GB), or about 3 GB if you take the no-account path, Gemma 4
+  E2B (2.59 GB). About 3 GB on the web too, where the app downloads a
+  different model — 2.0 GB, and a browser
   that is nearly out of storage refuses a write rather than slowing down, so
   leave it headroom (Step 2 explains why the web model is a different one)
 * Optionally, a free Hugging Face account (Step 2 explains when you need one —
@@ -119,9 +120,8 @@ each drags in native binaries you would otherwise ship for nothing.
 
 On the web, "reads `.litertlm` files" comes with a catch this codelab's model
 choice is built around: the browser engine (`@litert-lm/core`) only runs a
-`.litertlm` file **exported for it**. The two native files this codelab uses
-elsewhere — Gemma 3 1B and Qwen3 — have no such export; they install on web
-and then fail the moment the engine starts. The "Choose a model" section below
+`.litertlm` file **exported for it**. The native files this codelab uses
+elsewhere install on web and then fail the moment the engine starts. The "Choose a model" section below
 says which one does exist and why `main.dart` reaches for it only on that one
 platform.
 
@@ -319,17 +319,16 @@ over the network, not another 2 GB on disk.
 
 One more thing is web-specific, and it is not a preview limitation — it is a
 different model. Verified against the published packages: install and open
-either `Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm` (Step 3's Gemma 3
-1B) or `Qwen3-0.6B.litertlm` in a browser, and both download fine, then fail
-the moment the engine starts:
+`Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm` (Step 3's Gemma 3 1B) in
+a browser, and it downloads fine, then fails the moment the engine starts:
 
 ```text
 Error: Streaming kTfLitePrefillDecode models is not supported yet.
 ```
 
-That is `@litert-lm/core` refusing a file it was never built for — those two
-are native exports, and the browser engine only runs a `.litertlm` file
-**exported for the web**. Neither Gemma 3 1B nor Qwen3 has one published.
+That is `@litert-lm/core` refusing a file it was never built for — it is a
+native export, and the browser engine only runs a `.litertlm` file
+**exported for the web**. Gemma 3 1B has none published.
 [Gemma 4 E2B](https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm)
 does — `gemma-4-E2B-it-web.litertlm`, 2.0 GB, and ungated, so no Hugging Face
 token either — and it is what this codelab's apps download on web instead.
@@ -383,14 +382,14 @@ abstract final class Models {
     requiresToken: true,
   );
 
-  static const qwen3 = ModelChoice(
-    label: 'Qwen3 0.6B',
+  static const gemma4 = ModelChoice(
+    label: 'Gemma 4 E2B',
     url:
-        'https://huggingface.co/litert-community/Qwen3-0.6B/resolve/main/'
-        'Qwen3-0.6B.litertlm',
-    fileName: 'Qwen3-0.6B.litertlm',
-    modelType: ModelType.qwen3,
-    sizeLabel: '0.6 GB',
+        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/'
+        'resolve/main/gemma-4-E2B-it.litertlm',
+    fileName: 'gemma-4-E2B-it.litertlm',
+    modelType: ModelType.gemma4,
+    sizeLabel: '2.59 GB',
     requiresToken: false,
   );
 
@@ -424,10 +423,11 @@ at run time:
 flutter run --dart-define=HF_TOKEN=hf_your_token
 ```
 
-**No Hugging Face account, or in a hurry?** On native platforms, switch the
-`_model` constant's non-web arm to `Models.qwen3`. That repository is ungated
-too, so it downloads with no token at all, and every other line of this
-codelab stays the same. On the web the app already needs no token — `_model`
+**No Hugging Face account?** On native platforms, switch the `_model`
+constant's non-web arm to `Models.gemma4`. That repository is ungated, so it
+downloads with no token at all, and every other line of this codelab stays the
+same. It is a bigger download — 2.59 GB against 0.6 GB — and on a phone it
+wants 6 GB of RAM or more. On the web the app already needs no token — `_model`
 picks `gemma4Web` for you, and that repository is ungated as well.
 
 A token belongs on the command line, never in source control. `String.fromEnvironment` reads it at compile time and the value never enters a file you might commit. The plugin attaches it only to URLs whose host contains `huggingface.co`, so a token set once does not ride along to the other hosts your app downloads from. (That test is a substring match, so treat it as a convenience rather than a security boundary.)
@@ -714,7 +714,7 @@ the kind of mistake that is invisible when it is wrong:
 
 ```dart
 test('every model id matches the last segment of its URL', () {
-  for (final model in [Models.gemma3, Models.qwen3, Models.gemma4Web]) {
+  for (final model in [Models.gemma3, Models.gemma4, Models.gemma4Web]) {
     expect(model.fileName, model.url.split('/').last, reason: model.label);
   }
 });

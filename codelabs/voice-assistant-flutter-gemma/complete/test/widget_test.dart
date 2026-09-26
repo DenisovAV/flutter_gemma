@@ -8,12 +8,7 @@ void main() {
   // already has, so a name that drifts from its URL does not re-download — it
   // strands the app on a download screen the gate is never satisfied by.
   test('every model id matches the last segment of its URL', () {
-    for (final model in [
-      Models.gemma3,
-      Models.qwen3,
-      Models.gemma4Web,
-      Models.gemma4,
-    ]) {
+    for (final model in [Models.gemma3, Models.gemma4, Models.gemma4Web]) {
       expect(model.fileName, model.url.split('/').last, reason: model.label);
     }
     // The speech model follows the same rule: the gate asks for it by name.

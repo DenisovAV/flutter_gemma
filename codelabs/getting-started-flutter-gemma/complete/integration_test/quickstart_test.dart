@@ -1,8 +1,8 @@
 // End-to-end check that the quickstart's own API path works: install a model,
-// open a chat, stream a reply. Uses the ungated Qwen3 build so it needs no
+// open a chat, stream a reply. Uses the ungated Gemma 4 E2B build so it needs no
 // Hugging Face token.
 //
-// Not part of CI — it downloads ~0.6 GB and needs a real device:
+// Not part of CI — it downloads ~2.6 GB and needs a real device:
 //   flutter test integration_test/quickstart_test.dart -d <device-id>
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
@@ -18,7 +18,7 @@ void main() {
   testWidgets('install, then stream a reply', (tester) async {
     await FlutterGemma.initialize(inferenceEngines: [LiteRtLmEngine()]);
 
-    const model = Models.qwen3;
+    const model = Models.gemma4;
 
     // Unconditionally, on every run. `install()` is idempotent: on a device
     // that already has the file it skips the download and re-activates the

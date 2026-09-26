@@ -13,7 +13,7 @@ const _hfToken = String.fromEnvironment('HF_TOKEN');
 
 /// Change this one line to run the whole app on a different model. There is
 /// no web branch any more: speech runs through `dart:ffi`, which the browser
-/// does not have, so this app is Android and iOS from here on.
+/// does not have, so this app is Android, iOS and macOS from here on.
 const _model = Models.gemma4;
 
 Future<void> main() async {
@@ -29,6 +29,10 @@ Future<void> main() async {
     sttBackends: [const LiteRtSttBackend()],
     ttsBackends: [const LiteRtTtsBackend()],
     huggingFaceToken: _hfToken.isEmpty ? null : _hfToken,
+    // OPFS streaming. On web the model is 2.0 GB, right on the ~2 GB blob
+    // ceiling the default `cacheApi` mode would have to buffer it into.
+    // The other platforms ignore this option.
+    webStorageMode: WebStorageMode.streaming,
   );
 
   runApp(const QuickstartApp());

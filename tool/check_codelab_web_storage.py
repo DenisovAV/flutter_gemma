@@ -248,35 +248,46 @@ def publishes_handshake(html: str) -> bool:
     return False
 
 
-def declares_web(app: Path) -> bool:
-    """Whether the app's codelab says it runs in a browser.
+# Packages whose web export is a stub: an app that depends on one cannot run in
+# a browser, so its codelab must not tell readers it does.
+NATIVE_ONLY = {"flutter_gemma_speech"}
 
-    Read from the `environments:` line of the codelab's own claat header,
-    `website/codelabs/<id>/index.md` — the page that tells a reader which
-    platforms to try. A codelab that lists no `web` (speech needs `dart:ffi`,
-    which the browser does not have) has nothing to install there, and holding
-    its apps to a browser setup would mean teaching a line that does nothing.
 
-    Fails closed: no header, or no `environments:` line, means checked.
+def check_platform_claim(app: Path, deps: set[str]) -> None:
+    """The codelab's claat header must not promise the web to a native-only app.
+
+    `environments:` in `website/codelabs/<id>/index.md` is what the codelab page
+    shows readers. This makes it a checked claim: an app that depends on a
+    package with no web implementation belongs to a codelab that leaves `web`
+    out. Fails closed when the header or the line cannot be read.
     """
+    native_only = deps & NATIVE_ONLY
+    if not native_only:
+        return
     header = root / "website" / "codelabs" / app.parent.name / "index.md"
     try:
         text = header.read_text(encoding="utf-8")
     except OSError:
-        return True
+        fail(f"{rel(header)} is missing or unreadable — cannot check that "
+             f"{rel(app)} ({', '.join(sorted(native_only))}) is not promised on web")
+        return
     match = re.search(r"^environments:[ \t]*(.*)$", text, re.MULTILINE)
     if match is None:
-        return True
-    # claat writes a bare comma list; a YAML flow list, quotes or case must
-    # not turn "web" into "web]" and quietly opt a web codelab out.
+        fail(f"{rel(header)} has no environments: line — cannot check that "
+             f"{rel(app)} is not promised on web")
+        return
+    # claat writes a bare comma list; brackets, quotes or case must not hide it.
     listed = re.sub(r"[\[\]\"']", "", match.group(1)).lower()
-    return "web" in {e.strip() for e in listed.split(",")}
+    if "web" in {e.strip() for e in listed.split(",")}:
+        fail(f"{rel(header)} lists web, but {rel(app)} depends on "
+             f"{', '.join(sorted(native_only))}, which has no web implementation")
 
 
 def check_app(app: Path) -> None:
     deps = dependencies(app)
     if deps is None:
         return
+    check_platform_claim(app, deps)
     uses_gemma = "flutter_gemma" in deps
 
     index = app / "web" / "index.html"
@@ -390,20 +401,12 @@ def main(argv: list[str]) -> int:
         print("::error::no codelab apps found — the web storage check cannot run")
         return 1
 
-    skipped = 0
     for app in apps:
-        if not declares_web(app):
-            skipped += 1
-            print(f"  {rel(app)}: skipped — its codelab does not list web")
-            continue
         before = len(errors)
         check_app(app)
         print(f"  {rel(app)}: {'ok' if len(errors) == before else 'PROBLEM'}")
 
-    print(
-        f"Checked web model storage in {len(apps) - skipped} app(s), "
-        f"skipped {skipped} native-only; {len(errors)} problem(s)."
-    )
+    print(f"Checked web model storage in {len(apps)} app(s); {len(errors)} problem(s).")
     return 1 if errors else 0
 
 

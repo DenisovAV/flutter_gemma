@@ -149,7 +149,7 @@ flutter pub add flutter_gemma_speech record
 await FlutterGemma.initialize(
   inferenceEngines: [LiteRtLmEngine()],
   sttBackends: [const LiteRtSttBackend()],
-  huggingFaceToken: _hfToken.isEmpty ? null : _hfToken,
+  // huggingFaceToken and webStorageMode, as in the starter
 );
 ```
 

@@ -225,11 +225,20 @@ class ActiveModelParams {
 /// The runtime knobs a caller passes to `getActiveEmbedder`, captured so a
 /// second call can tell whether the cached singleton still satisfies it.
 ///
-/// Its own record rather than [ActiveModelParams] with eight nulls:
-/// `maxTokens` is required there and compared first, which is why the web
-/// shell has to pass `maxTokens: 0` as filler, and `normalized()` would apply
-/// vision and audio defaults to a model that has no encoders. A reader would
-/// have to work out which fields are decorative.
+/// Its own record rather than [ActiveModelParams], which carries ten inference
+/// knobs and no identity at all: `maxTokens` is required there and compared
+/// first, and `normalized()` would apply vision and audio defaults to a model
+/// that has no encoders. (The `maxTokens: 0` filler in the web shell is on
+/// [RuntimeConfig], not on that class — no shell builds an `ActiveModelParams`
+/// for an embedder.)
+///
+/// The empirical reason, which is the same one that justified the neighbour:
+/// the reuse check was written three times and disagreed. Mobile compared the
+/// spec NAME, so reinstalling a same-named embedder to a new path was
+/// invisible; web kept its own record with both paths nullable; desktop
+/// compared the name too. Mobile now calls this type. Desktop and web have not
+/// been converted yet, so that staleness is still live there — see the
+/// backlog.
 ///
 /// Only three values decide what an embedder IS. Everything else a caller can
 /// vary is per-call — `taskType` is an argument to `generateEmbedding`, not a
@@ -258,8 +267,7 @@ class ActiveEmbedderParams {
   /// so two requests that build a bit-identical embedder compare equal.
   ///
   /// `preferredBackend` collapses to CPU because every embedding backend
-  /// resolves to CPU whatever is asked, and this is the one place that fact is
-  /// written down:
+  /// resolves to CPU whatever is asked:
   ///
   ///   * LiteRT is CPU-only by decision, not by omission — the GPU delegate
   ///     compiles and then returns all-zero vectors for EmbeddingGemma's int4
@@ -272,8 +280,13 @@ class ActiveEmbedderParams {
   /// above. A rebuild would unload and reload a bit-identical model at the
   /// 570-780 ms compile measured in `docs/issue-299-embedding-ui-isolate.md`.
   ///
-  /// The day a backend honours the value, deleting one line here restores
-  /// rebuild semantics with no new code.
+  /// The day a backend honours the value, three things change together, and
+  /// this line is only the first: write `preferredBackend ?? CPU` here (NOT
+  /// the raw value — null and an explicit `cpu` are the same request, which is
+  /// why the neighbour normalises its encoder backends the same way), thread
+  /// the value into the backend that now reads it, and drop
+  /// [isIgnoredBackend] so callers stop being told it did nothing. Changing
+  /// this line alone buys rebuild churn without effect.
   ActiveEmbedderParams normalized() => ActiveEmbedderParams(
     modelPath: modelPath,
     tokenizerPath: tokenizerPath,

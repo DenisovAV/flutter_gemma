@@ -40,6 +40,8 @@ let liteRtWasmLoaded = false;  // Track if LiteRT WASM runtime is loaded
 // comment in the compile block below.
 let actualAccelerator = null;
 let requestedAccelerator = null;
+// Null until the model is compiled; false when LiteRT had to spill ops to WASM.
+let fullyAccelerated = null;
 
 // ============================================================================
 // SentencePiece Tokenizer Loading
@@ -120,7 +122,14 @@ async function loadLiteRTModel(modelPath, wasmPath = '/node_modules/@litertjs/co
       // browsers) or deletes the model and re-runs loadAndCompile with
       // accelerator 'wasm' (everywhere else). It throws in NEITHER case, so
       // this line is reached either way and the old wording was a guess.
-      // The first output tensor is the only thing that knows; see below.
+      //
+      // Two questions, two sources. WHETHER the graph is fully on the
+      // accelerator is answerable right here — isFullyAccelerated is the flag
+      // LiteRT itself branches on — and it is the only way to see the JSPI
+      // partial case, which keeps WebGPU buffers and so looks like a clean
+      // webgpu run to every later check. WHICH accelerator ran is answerable
+      // only from an output tensor, after the first embedding.
+      reportFullAcceleration(tfliteModel);
       console.log('[LiteRT] Model compiled, accelerator confirmed on first run');
     } catch (error) {
       console.warn('[LiteRT] WebGPU not available, falling back to WASM:', error.message);
@@ -286,6 +295,10 @@ async function generateDocumentEmbeddingInternal(text) {
     // directly. Awaiting is the whole migration on our side.
     const outputTensors = await tfliteModel.run(gpuTensor);
     const outputTensor = outputTensors[0];
+    // Documents are the path a RAG ingest takes, and usually the FIRST
+    // embedding an app ever makes — leaving this out kept the accelerator null
+    // for a whole corpus.
+    reportAccelerator(outputTensor.accelerator);
 
     let cpuTensor = outputTensor;
     if (outputTensor.accelerator === 'webgpu') {
@@ -328,6 +341,35 @@ async function generateDocumentEmbeddingInternal(text) {
  * unconditional "compiled with WebGPU successfully" line hid. `window.getLiteRtEmbeddingAccelerator()`
  * exposes the same value to Dart.
  */
+/**
+ * Says once, at compile time, when the graph did NOT land entirely on the
+ * requested accelerator.
+ *
+ * This is the case `reportAccelerator` structurally cannot see: on a browser
+ * with JSPI, LiteRT keeps the WebGPU compile and delegates the unsupported ops
+ * to WASM, so the output tensor still lives in a WebGPU buffer and reports
+ * 'webgpu'. `isFullyAccelerated` is the flag LiteRT itself branches on to take
+ * that path.
+ */
+function reportFullAcceleration(model) {
+  let full;
+  try {
+    full = model.isFullyAccelerated;
+  } catch (_) {
+    return; // a runtime without the flag — nothing to say
+  }
+  if (full === false) {
+    fullyAccelerated = false;
+    console.warn(
+      `[LiteRT] Model is not fully accelerated on ${requestedAccelerator}. ` +
+      `Unsupported ops run in WASM, so the accelerator reported after the ` +
+      `first embedding is where the output buffer lives, not where every op ran.`,
+    );
+  } else if (full === true) {
+    fullyAccelerated = true;
+  }
+}
+
 function reportAccelerator(accelerator) {
   if (actualAccelerator !== null || !accelerator) return;
   actualAccelerator = accelerator;
@@ -456,6 +498,15 @@ window.getLiteRtEmbeddingAccelerator = function() {
 };
 
 /**
+ * False when the graph did not land entirely on the requested accelerator, true
+ * when it did, null before the model is compiled. Separate from the accelerator
+ * because a partially delegated model still reports WebGPU buffers.
+ */
+window.getLiteRtEmbeddingFullyAccelerated = function() {
+  return fullyAccelerated;
+};
+
+/**
  * Get the dimension of embeddings
  * @returns {number} Embedding dimension (768)
  */
@@ -475,6 +526,7 @@ window.getLiteRtEmbeddingDimension = function() {
 window.cleanupLiteRtEmbeddings = async function() {
   actualAccelerator = null;
   requestedAccelerator = null;
+  fullyAccelerated = null;
   console.log('[LiteRT] ========================================');
   console.log('[LiteRT] Starting cleanup...');
   console.log('[LiteRT] ========================================');

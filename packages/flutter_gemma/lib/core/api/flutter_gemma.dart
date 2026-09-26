@@ -651,12 +651,13 @@ class FlutterGemma {
   ///
   /// Runtime parameters:
   /// - [preferredBackend]: accepted for symmetry with [getActiveModel], and
-  ///   **not applied**. Embeddings run on CPU on every backend: LiteRT's GPU
-  ///   delegate returns all-zero vectors for EmbeddingGemma's int4 weights,
-  ///   and the ONNX client appends no execution provider. Passing anything
-  ///   other than [PreferredBackend.cpu] logs a line once in debug; read
-  ///   [EmbeddingModel.activeBackend] for the backend actually in use, which
-  ///   is available in release builds too.
+  ///   **not applied**. On native every backend runs the forward pass on CPU:
+  ///   LiteRT's GPU delegate returns all-zero vectors for EmbeddingGemma's
+  ///   int4 weights, and the ONNX client appends no execution provider. On web
+  ///   the runtime chooses for itself and the argument is equally ignored.
+  ///   Passing anything other than [PreferredBackend.cpu] logs a line once per
+  ///   isolate in debug builds; read [EmbeddingModel.activeBackend] for the
+  ///   backend in use, which is available in release builds too.
   ///
   /// Throws:
   /// - [StateError] if no active embedding model is set
@@ -672,7 +673,9 @@ class FlutterGemma {
   /// final embedder = await FlutterGemma.getActiveEmbedder();
   ///
   /// // Where the backend matters, ask — do not assume the argument took.
-  /// assert(embedder.activeBackend == PreferredBackend.cpu);
+  /// // Native answers PreferredBackend.cpu; web answers null, because there
+  /// // the accelerator is not known until the first embedding.
+  /// debugPrint('embedding on ${embedder.activeBackend}');
   /// ```
   static Future<EmbeddingModel> getActiveEmbedder({
     PreferredBackend? preferredBackend,

@@ -477,8 +477,10 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
       //
       // Compared on the RESOLVED PATHS, not the spec name: reinstalling a
       // same-named embedder to a new path used to be invisible here. The
-      // comparison itself lives in core so all three shells share one rule —
-      // the same reason `ActiveModelParams` exists for inference.
+      // comparison lives in core so the shells CAN share one rule — but only
+      // this one calls it so far. Desktop still compares the spec name and web
+      // keeps its own path record, so the staleness above is still live on
+      // those two.
       final requestedParams = ActiveEmbedderParams(
         modelPath: activeModelPath,
         tokenizerPath: activeTokenizerPath,

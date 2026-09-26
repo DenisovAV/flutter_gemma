@@ -1,30 +1,30 @@
-import { m as A, d as k, s as S, r as M } from "./tensorflow.js";
-import { l as z, a as L, T as R } from "./litert.js";
-import { S as F } from "./sentencepiece.js";
-const $ = "task: search result | query: ", x = "title: none | text: ", y = 2, h = 1, E = 0;
+import { m as k, d as M, s as F, r as z } from "./tensorflow.js";
+import { l as $, a as R, T as b } from "./litert.js";
+import { S as x } from "./sentencepiece.js";
+const C = "task: search result | query: ", _ = "title: none | text: ", h = 2, L = 1, E = 0;
 let c = 256;
-const m = 768;
-let a = null, d = null, u = !1, w = !1, T = null, g = null;
-async function C(t) {
+const w = 768;
+let s = null, d = null, u = !1, m = !1, p = null, g = null, T = null;
+async function D(t) {
   try {
     const o = await fetch(t);
     if (!o.ok)
       throw new Error(`Failed to fetch tokenizer: ${o.status} ${o.statusText}`);
-    const r = await o.arrayBuffer(), n = new F();
+    const r = await o.arrayBuffer(), n = new x();
     if (typeof n.loadFromBuffer == "function")
       await n.loadFromBuffer(new Uint8Array(r));
     else {
       const e = new Uint8Array(r);
-      let s = "";
+      let a = "";
       for (let l = 0; l < e.length; l++)
-        s += String.fromCharCode(e[l]);
-      const i = btoa(s);
+        a += String.fromCharCode(e[l]);
+      const i = btoa(a);
       await n.loadFromB64StringModel(i);
     }
     return d = {
-      encode: (e, s = !1) => {
+      encode: (e, a = !1) => {
         const i = n.encodeIds(e);
-        return s ? [y, ...i, h] : i;
+        return a ? [h, ...i, L] : i;
       },
       decode: (e) => n.decodeIds(e),
       processor: n
@@ -33,20 +33,20 @@ async function C(t) {
     throw new Error("Failed to load SentencePiece tokenizer: " + o.message);
   }
 }
-async function D(t, o = "/node_modules/@litertjs/core/wasm/") {
+async function I(t, o = "/node_modules/@litertjs/core/wasm/") {
   try {
-    console.log(`[LiteRT] Loading model from: ${t}`), console.log(`[LiteRT] WASM loaded flag: ${w}`), await S("webgl"), await M(), w ? console.log("[LiteRT] WASM runtime already loaded, reusing") : (console.log(`[LiteRT] Loading WASM runtime from: ${o}`), await z(o), w = !0, console.log("[LiteRT] WASM runtime loaded successfully"));
+    console.log(`[LiteRT] Loading model from: ${t}`), console.log(`[LiteRT] WASM loaded flag: ${m}`), await F("webgl"), await z(), m ? console.log("[LiteRT] WASM runtime already loaded, reusing") : (console.log(`[LiteRT] Loading WASM runtime from: ${o}`), await $(o), m = !0, console.log("[LiteRT] WASM runtime loaded successfully"));
     try {
-      console.log("[LiteRT] Attempting to compile model with WebGPU..."), g = "webgpu", a = await L(t, {
+      console.log("[LiteRT] Attempting to compile model with WebGPU..."), g = "webgpu", s = await R(t, {
         accelerator: "webgpu"
-      }), console.log("[LiteRT] Model compiled, accelerator confirmed on first run");
+      }), B(s), console.log("[LiteRT] Model compiled, accelerator confirmed on first run");
     } catch (r) {
-      console.warn("[LiteRT] WebGPU not available, falling back to WASM:", r.message), g = "wasm", a = await L(t, {
+      console.warn("[LiteRT] WebGPU not available, falling back to WASM:", r.message), g = "wasm", s = await R(t, {
         accelerator: "wasm"
       }), console.log("[LiteRT] Model compiled with WASM successfully");
     }
     try {
-      const r = a.getInputDetails();
+      const r = s.getInputDetails();
       if (r && r.length > 0) {
         const n = r[0].shape;
         if (n && n.length >= 2) {
@@ -57,74 +57,86 @@ async function D(t, o = "/node_modules/@litertjs/core/wasm/") {
     } catch (r) {
       console.warn("[LiteRT] Failed to auto-detect sequence length, using default:", r);
     }
-    return a;
+    return s;
   } catch (r) {
     throw new Error("Failed to load LiteRT model: " + r.message);
   }
 }
-function I(t) {
-  const o = d.encode($, !1), r = "▁" + t, n = d.encode(r, !1);
+function W(t) {
+  const o = d.encode(C, !1), r = "▁" + t, n = d.encode(r, !1);
   let e = [...o, ...n];
-  if (e.unshift(y), e.push(h), e.length > c)
+  if (e.unshift(h), e.push(L), e.length > c)
     e = e.slice(0, c);
   else if (e.length < c) {
-    const s = c - e.length;
-    e = [...e, ...new Array(s).fill(E)];
+    const a = c - e.length;
+    e = [...e, ...new Array(a).fill(E)];
   }
   return e;
-}
-function _(t) {
-  const o = d.encode(x, !1), r = "▁" + t, n = d.encode(r, !1);
-  let e = [...o, ...n];
-  if (e.unshift(y), e.push(h), e.length > c)
-    e = e.slice(0, c);
-  else if (e.length < c) {
-    const s = c - e.length;
-    e = [...e, ...new Array(s).fill(E)];
-  }
-  return e;
-}
-async function b(t) {
-  if (!a || !d)
-    throw new Error("Model or tokenizer not initialized. Call loadLiteRtEmbeddings first.");
-  const o = I(t), r = new Int32Array(o), n = new R(r, [1, c]), e = n;
-  try {
-    const i = (await a.run(e))[0];
-    N(i.accelerator);
-    let l = i;
-    i.accelerator === "webgpu" && (l = await i.moveTo("wasm"));
-    const p = l.toTypedArray(), f = Array.from(p);
-    return f.length !== m && console.warn(`Unexpected embedding dimension: ${f.length}, expected ${m}`), e !== n && !e.deleted && e.delete(), n.deleted || n.delete(), l !== i && !l.deleted && l.delete(), i.deleted || i.delete(), f;
-  } catch (s) {
-    try {
-      e !== n && !e.deleted && e.delete(), n.deleted || n.delete();
-    } catch (i) {
-      console.warn("[LiteRT] Tensor cleanup failed:", i);
-    }
-    throw s;
-  }
-}
-async function W(t) {
-  if (!a || !d)
-    throw new Error("Model or tokenizer not initialized. Call loadLiteRtEmbeddings first.");
-  const o = _(t), r = new Int32Array(o), n = new R(r, [1, c]), e = n;
-  try {
-    const i = (await a.run(e))[0];
-    let l = i;
-    i.accelerator === "webgpu" && (l = await i.moveTo("wasm"));
-    const p = l.toTypedArray(), f = Array.from(p);
-    return f.length !== m && console.warn(`Unexpected embedding dimension: ${f.length}, expected ${m}`), e !== n && !e.deleted && e.delete(), n.deleted || n.delete(), l !== i && !l.deleted && l.delete(), i.deleted || i.delete(), f;
-  } catch (s) {
-    try {
-      e !== n && !e.deleted && e.delete(), n.deleted || n.delete();
-    } catch (i) {
-      console.warn("[LiteRT] Tensor cleanup failed:", i);
-    }
-    throw s;
-  }
 }
 function N(t) {
-  T !== null || !t || (T = t, g && t !== g ? console.warn(
+  const o = d.encode(_, !1), r = "▁" + t, n = d.encode(r, !1);
+  let e = [...o, ...n];
+  if (e.unshift(h), e.push(L), e.length > c)
+    e = e.slice(0, c);
+  else if (e.length < c) {
+    const a = c - e.length;
+    e = [...e, ...new Array(a).fill(E)];
+  }
+  return e;
+}
+async function A(t) {
+  if (!s || !d)
+    throw new Error("Model or tokenizer not initialized. Call loadLiteRtEmbeddings first.");
+  const o = W(t), r = new Int32Array(o), n = new b(r, [1, c]), e = n;
+  try {
+    const i = (await s.run(e))[0];
+    S(i.accelerator);
+    let l = i;
+    i.accelerator === "webgpu" && (l = await i.moveTo("wasm"));
+    const y = l.toTypedArray(), f = Array.from(y);
+    return f.length !== w && console.warn(`Unexpected embedding dimension: ${f.length}, expected ${w}`), e !== n && !e.deleted && e.delete(), n.deleted || n.delete(), l !== i && !l.deleted && l.delete(), i.deleted || i.delete(), f;
+  } catch (a) {
+    try {
+      e !== n && !e.deleted && e.delete(), n.deleted || n.delete();
+    } catch (i) {
+      console.warn("[LiteRT] Tensor cleanup failed:", i);
+    }
+    throw a;
+  }
+}
+async function U(t) {
+  if (!s || !d)
+    throw new Error("Model or tokenizer not initialized. Call loadLiteRtEmbeddings first.");
+  const o = N(t), r = new Int32Array(o), n = new b(r, [1, c]), e = n;
+  try {
+    const i = (await s.run(e))[0];
+    S(i.accelerator);
+    let l = i;
+    i.accelerator === "webgpu" && (l = await i.moveTo("wasm"));
+    const y = l.toTypedArray(), f = Array.from(y);
+    return f.length !== w && console.warn(`Unexpected embedding dimension: ${f.length}, expected ${w}`), e !== n && !e.deleted && e.delete(), n.deleted || n.delete(), l !== i && !l.deleted && l.delete(), i.deleted || i.delete(), f;
+  } catch (a) {
+    try {
+      e !== n && !e.deleted && e.delete(), n.deleted || n.delete();
+    } catch (i) {
+      console.warn("[LiteRT] Tensor cleanup failed:", i);
+    }
+    throw a;
+  }
+}
+function B(t) {
+  let o;
+  try {
+    o = t.isFullyAccelerated;
+  } catch {
+    return;
+  }
+  o === !1 ? (T = !1, console.warn(
+    `[LiteRT] Model is not fully accelerated on ${g}. Unsupported ops run in WASM, so the accelerator reported after the first embedding is where the output buffer lives, not where every op ran.`
+  )) : o === !0 && (T = !0);
+}
+function S(t) {
+  p !== null || !t || (p = t, g && t !== g ? console.warn(
     `[LiteRT] Running on ${t}, not the requested ${g}. LiteRT fell back without raising — the model was not fully accelerated.`
   ) : console.log(`[LiteRT] Running on ${t}`));
 }
@@ -135,11 +147,11 @@ window.loadLiteRtEmbeddings = async function(t, o, r) {
       try {
         await window.cleanupLiteRtEmbeddings();
       } catch (e) {
-        console.warn("[LiteRT] Non-fatal cleanup error (will reinitialize anyway):", e), a = null, d = null, w = !1, u = !1;
+        console.warn("[LiteRT] Non-fatal cleanup error (will reinitialize anyway):", e), s = null, d = null, m = !1, u = !1;
       }
     }
     const n = r ?? "/node_modules/@litertjs/core/wasm/";
-    await C(o), await D(t, n), u = !0;
+    await D(o), await I(t, n), u = !0;
   } catch (n) {
     throw u = !1, new Error("Failed to initialize LiteRT embeddings: " + n.message);
   }
@@ -149,7 +161,7 @@ window.generateEmbedding = async function(t) {
     throw new Error("LiteRT embeddings not initialized. Call loadLiteRtEmbeddings first.");
   if (typeof t != "string" || t.trim().length === 0)
     throw new Error("Text must be a non-empty string");
-  const o = await b(t);
+  const o = await A(t);
   return new Float32Array(o);
 };
 window.generateDocumentEmbedding = async function(t) {
@@ -157,7 +169,7 @@ window.generateDocumentEmbedding = async function(t) {
     throw new Error("LiteRT embeddings not initialized. Call loadLiteRtEmbeddings first.");
   if (typeof t != "string" || t.trim().length === 0)
     throw new Error("Text must be a non-empty string");
-  const o = await W(t);
+  const o = await U(t);
   return new Float32Array(o);
 };
 window.generateEmbeddings = async function(t) {
@@ -169,25 +181,28 @@ window.generateEmbeddings = async function(t) {
   for (const r of t) {
     if (typeof r != "string" || r.trim().length === 0)
       throw new Error("All texts must be non-empty strings");
-    const n = await b(r);
+    const n = await A(r);
     o.push(new Float32Array(n));
   }
   return o;
 };
 window.getLiteRtEmbeddingAccelerator = function() {
+  return p;
+};
+window.getLiteRtEmbeddingFullyAccelerated = function() {
   return T;
 };
 window.getLiteRtEmbeddingDimension = function() {
-  return m;
+  return w;
 };
 window.cleanupLiteRtEmbeddings = async function() {
-  if (T = null, g = null, console.log("[LiteRT] ========================================"), console.log("[LiteRT] Starting cleanup..."), console.log("[LiteRT] ========================================"), a)
+  if (p = null, g = null, T = null, console.log("[LiteRT] ========================================"), console.log("[LiteRT] Starting cleanup..."), console.log("[LiteRT] ========================================"), s)
     try {
-      typeof a.delete == "function" && !a.deleted && (a.delete(), console.log("[LiteRT] ✅ Model deleted"));
+      typeof s.delete == "function" && !s.deleted && (s.delete(), console.log("[LiteRT] ✅ Model deleted"));
     } catch (t) {
       console.warn("[LiteRT] ⚠️  Error deleting model (non-fatal):", t);
     }
-  if (a = null, d)
+  if (s = null, d)
     try {
       d.processor && typeof d.processor.delete == "function" && (d.processor.delete(), console.log("[LiteRT] ✅ Tokenizer deleted"));
     } catch (t) {
@@ -195,8 +210,8 @@ window.cleanupLiteRtEmbeddings = async function() {
     }
   d = null;
   try {
-    const o = A().numTensors;
-    o > 0 && (console.log(`[LiteRT] Disposing ${o} TensorFlow.js tensors`), k(), console.log("[LiteRT] ✅ Tensors disposed"));
+    const o = k().numTensors;
+    o > 0 && (console.log(`[LiteRT] Disposing ${o} TensorFlow.js tensors`), M(), console.log("[LiteRT] ✅ Tensors disposed"));
   } catch (t) {
     console.warn("[LiteRT] ⚠️  Error disposing tensors (non-fatal):", t);
   }

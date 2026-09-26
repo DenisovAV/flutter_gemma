@@ -122,9 +122,11 @@ await FlutterGemma.rag.addDocumentWithEmbedding(
 
 ## Backend
 
-LiteRT embeddings always run on CPU on native. `LiteRtEmbeddingBackend` hardcodes it and ignores `getActiveEmbedder(preferredBackend:)` — passing `PreferredBackend.gpu` there changes nothing, and logs a line once in debug builds saying so. CPU is the correct answer rather than a fallback: the GPU delegate compiles and then returns all-zero vectors for EmbeddingGemma's int4 weights.
+LiteRT embeddings always run on CPU on native, and so do ONNX ones. `getActiveEmbedder(preferredBackend:)` is accepted for symmetry with `getActiveModel` and never applied; core logs one line per isolate saying so, in debug builds only. Read `EmbeddingModel.activeBackend` when it matters — that answer exists in release builds too. CPU is the correct answer rather than a fallback: LiteRT's GPU delegate compiles and then returns all-zero vectors for EmbeddingGemma's int4 weights, and the ONNX client appends no execution provider.
 
-Web does not share that limit, and is not configurable either. `litert_embeddings.js` asks for `accelerator: 'webgpu'` and recompiles for `'wasm'` when the browser has none. LiteRT then has a SECOND fallback that raises nothing: a model that is not fully accelerated is partly delegated to WASM where the browser has JSPI, and recompiled for WASM entirely where it does not. So the accelerator is only known after the first embedding — `window.getLiteRtEmbeddingAccelerator()` returns it, and the console names it. `preferredBackend` is dropped on web too, and unlike native it is dropped without a line.
+Web is not configurable either, and its accelerator is not a single fact. `litert_embeddings.js` asks for `accelerator: 'webgpu'` and recompiles for `'wasm'` when the browser has none. LiteRT then has a SECOND fallback that raises nothing: a model that is not fully accelerated is partly delegated to WASM where the browser has JSPI, and recompiled for WASM entirely where it does not.
+
+So two things are worth reading, and they answer different questions. `window.getLiteRtEmbeddingFullyAccelerated()` is known at compile time and is the only way to see the JSPI partial case, which keeps WebGPU buffers and therefore looks like a clean WebGPU run to everything downstream. `window.getLiteRtEmbeddingAccelerator()` is known after the first embedding — query or document — and says where the output buffer lived. `EmbeddingModel.activeBackend` is null on web for that reason: a synchronous getter cannot carry an answer that does not exist until the first run.
 
 ## Web
 

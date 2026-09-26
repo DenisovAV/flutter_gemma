@@ -227,6 +227,22 @@ from a SHA256-verified GitHub release — no manual setup on native platforms.
 
 ## Troubleshooting
 
+### A stopped chat answers every later message with nothing (fixed in 1.8.1)
+
+Symptom: after `stopGeneration()` in the middle of a reply — or after
+abandoning the response stream — every later message on that chat or session
+comes back empty, on Android, iOS and desktop. A new chat on the same model
+answers normally. (The web engine is a separate path and is not covered by this
+entry.)
+
+Cause: a conversation whose generation is cancelled mid-reply stays unusable
+in the native runtime.
+
+Fix: upgrade to 1.8.1. The first turn after a stop now runs on a fresh
+conversation that replays the chat's history, including whatever the stopped
+reply had produced. That history is replayed as text: images and audio sent in
+earlier turns are not, so after a stop the model can no longer see them.
+
 ### Google Play rejects the app over 16 KB page sizes (fixed in 1.8.0)
 
 Symptom: Play Console refuses the release with *"Your app does not support

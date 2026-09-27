@@ -57,8 +57,9 @@ class EmbedderCache {
     return model == null || model.isClosed ? null : model;
   }
 
-  /// What [model] was built from. Null exactly when [model] is null.
-  ActiveEmbedderParams? get params => _cached?.params;
+  /// What [model] was built from. Null exactly when [model] is null — closed
+  /// included, so the two getters never describe different models.
+  ActiveEmbedderParams? get params => model == null ? null : _cached!.params;
 
   /// Runs [body] after every earlier `serialize` call on this cache has
   /// settled, so that resolving paths, deciding on reuse and building are one
@@ -158,6 +159,32 @@ class EmbedderCache {
       _cached = null;
     });
     _cached = _CachedEmbedder(model, params);
+  }
+
+  /// Records [model], or closes it when the cache cannot take custody.
+  ///
+  /// The shell that built [model] owns it until this returns: a third-party
+  /// model may throw from `addCloseListener`, which is abstract on the
+  /// interface, and dropping it then would leave a live worker nobody can
+  /// reach. One place, not three — the shells each had a copy, and each copy
+  /// let a throwing `close()` replace the error that explains the failure.
+  Future<void> adopt(EmbeddingModel model, ActiveEmbedderParams params) async {
+    try {
+      record(model, params);
+    } catch (error, stack) {
+      try {
+        await model.close();
+      } catch (closeError, closeStack) {
+        // `print`, as in [reuseOrInvalidate]: a leak is debugged in release.
+        // ignore: avoid_print
+        print(
+          '[flutter_gemma] WARNING: an embedder the cache could not take '
+          'also failed to close; its worker and native model may be leaked: '
+          '$closeError\n$closeStack',
+        );
+      }
+      Error.throwWithStackTrace(error, stack);
+    }
   }
 
   /// Forgets the cached embedder without closing it.

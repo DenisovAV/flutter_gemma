@@ -124,6 +124,32 @@ void main() {
     });
   });
 
+  group('EmbedderCache.adopt', () {
+    test(
+      'a model the cache refuses is closed, and its caller is told why',
+      () async {
+        // Both halves of custody fail: the listener cannot be registered, and the
+        // close that backs out of it throws too. The caller must see the FIRST
+        // error — the one that explains the failure — not the teardown's.
+        final cache = EmbedderCache();
+        final hostile = _HostileListenerEmbedder(throwOnClose: true);
+
+        await expectLater(
+          cache.adopt(hostile, paramsFor('/a')),
+          throwsA(
+            isA<StateError>().having(
+              (e) => e.message,
+              'message',
+              contains('does not support close listeners'),
+            ),
+          ),
+        );
+        expect(hostile.closeCount, 1, reason: 'the refused model is closed');
+        expect(cache.model, isNull);
+      },
+    );
+  });
+
   test(
     'a throwing close does not fail the caller who asked to rebuild',
     () async {
@@ -182,6 +208,11 @@ void main() {
       cache.model,
       isNull,
       reason: 'no listener fired, so only isClosed can keep this from leaking',
+    );
+    expect(
+      cache.params,
+      isNull,
+      reason: 'params describing a model the cache no longer hands out',
     );
   });
 
@@ -351,6 +382,8 @@ class _SilentCloseEmbedder extends _FakeEmbedder {
 /// Refuses to register a close listener, the way a third-party implementation
 /// that does not mix in `CloseNotifier` might.
 class _HostileListenerEmbedder extends _FakeEmbedder {
+  _HostileListenerEmbedder({super.throwOnClose});
+
   @override
   void addCloseListener(void Function() listener) =>
       throw StateError('this model does not support close listeners');

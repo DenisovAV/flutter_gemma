@@ -1,3 +1,6 @@
+## Unreleased
+- Apply `activationDataType` to the engine; `float32` fixes wrong digits on some GPUs.
+
 ## 1.8.2
 - The Android GPU backend no longer crashes on Mali GPUs (#545).
 

@@ -71,10 +71,12 @@ int clampLitertlmContextTokens(
 }
 
 /// Pure map from a [RuntimeConfig] + resolved text backend to the encoder /
-/// backend args of [LiteRtLmFfiClient.initialize]. Extracted from
+/// backend / activation args of [LiteRtLmFfiClient.initialize]. Extracted from
 /// [LiteRtLmEngine.createModel] so the vision↔audio wiring is unit-testable
 /// without path_provider or a real FFI `dlopen` — the swap it guards is silent
-/// under the default config (both encoders resolve to `cpu`).
+/// under the default config (both encoders resolve to `cpu`). The activation
+/// type is here for the same reason: a dropped value is silent until a GPU
+/// writes wrong digits.
 @visibleForTesting
 ({
   String backend,
@@ -83,6 +85,7 @@ int clampLitertlmContextTokens(
   int maxNumImages,
   bool enableAudio,
   String audioBackend,
+  int? activationDataType,
 })
 encoderInitArgs(RuntimeConfig config, PreferredBackend activeBackend) => (
   backend: ffiBackendWireName(activeBackend),
@@ -91,6 +94,7 @@ encoderInitArgs(RuntimeConfig config, PreferredBackend activeBackend) => (
   maxNumImages: config.supportImage ? (config.maxNumImages ?? 1) : 0,
   enableAudio: config.supportAudio,
   audioBackend: encoderBackendWireName(config.preferredAudioBackend),
+  activationDataType: activationDataTypeWireValue(config.activationDataType),
 );
 
 /// LiteRT-LM (.litertlm) inference engine. Pure factory: builds and returns a
@@ -152,6 +156,7 @@ class LiteRtLmEngine
           enableAudio: args.enableAudio,
           audioBackend: args.audioBackend,
           enableSpeculativeDecoding: config.enableSpeculativeDecoding,
+          activationDataType: args.activationDataType,
         );
       },
       shutdownClient: (client) => client.shutdown(),

@@ -65,6 +65,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     bool supportImage = false, // Enabling image support
     bool supportAudio = false, // Enabling audio support (Gemma 3n E4B)
     bool? enableSpeculativeDecoding, // Ignored on web (MediaPipe path).
+    ActivationDataType? activationDataType, // Not read by the web engines.
     int? maxConcurrentSessions,
   }) async {
     // TODO: Implement multimodal support for web
@@ -131,6 +132,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
       supportAudio: supportAudio,
       maxNumImages: maxNumImages,
       enableSpeculativeDecoding: enableSpeculativeDecoding,
+      activationDataType: activationDataType,
       maxConcurrentSessions: maxConcurrentSessions,
       loraRanks: loraRanks,
     );

@@ -1,3 +1,6 @@
+## Unreleased
+- Add `activationDataType` to `getActiveModel`; `float32` fixes wrong digits on some GPUs.
+
 ## 1.9.0
 - New `initialize(embeddingTokenizers:)` — register one or embeddings throw; engines no longer bundle a tokenizer.
 - Drop the dead `web/rag/` build from the published archive.

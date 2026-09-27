@@ -21,6 +21,7 @@ class LiteRtLmFfiClient {
     int maxNumImages = 0,
     bool enableAudio = false,
     bool? enableSpeculativeDecoding,
+    int? activationDataType,
   }) => throw UnsupportedError('web stub — never instantiated');
 
   // Referenced by the FFI fallback runtime in flutter_gemma_mobile.dart

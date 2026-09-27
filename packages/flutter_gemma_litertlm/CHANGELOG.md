@@ -1,4 +1,4 @@
-## Unreleased
+## 1.8.3
 - Apply `activationDataType` to the engine; `float32` fixes wrong digits on some GPUs.
 
 ## 1.8.2

@@ -1,3 +1,6 @@
+## 1.0.7
+- README: the Android dependency is `com.google.mediapipe:tasks-genai`.
+
 ## 1.0.6
 - Fix Android release builds failing in R8 on classes MediaPipe references but does not ship (#514).
 

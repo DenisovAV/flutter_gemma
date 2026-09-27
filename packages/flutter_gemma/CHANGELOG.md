@@ -1,4 +1,4 @@
-## Unreleased
+## 1.10.0
 - Add `activationDataType` to `getActiveModel`; `float32` fixes wrong digits on some GPUs.
 
 ## 1.9.0

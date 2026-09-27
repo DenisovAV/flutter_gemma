@@ -1,5 +1,7 @@
 import 'dart:async';
+
 import 'package:flutter_gemma/core/utils/gemma_log.dart';
+
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -8,6 +10,7 @@ import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:background_downloader/background_downloader.dart';
+
 import 'smart_downloader.dart'; // SmartDownloader.downloadGroup — single source of truth for the task group
 
 import '../flutter_gemma.dart';
@@ -380,6 +383,14 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
           'Add the engine package to pubspec.yaml and pass it in inferenceEngines: '
           'of FlutterGemma.initialize(...). Registered engines: '
           '${EngineRegistry.instance.registered.map((e) => e.name).join(", ")}.',
+        );
+      }
+      if (activationDataType != null &&
+          spec.fileType != ModelFileType.litertlm) {
+        gemmaLog(
+          '[FlutterGemma] activationDataType (${activationDataType.name}) is '
+          'read only by the .litertlm engine; ${engine.name} ignores it for '
+          'ModelFileType.${spec.fileType.name}.',
         );
       }
       final model = await engine.createModel(spec, config);

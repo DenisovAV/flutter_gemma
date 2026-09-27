@@ -162,6 +162,18 @@ class LiteRtLmEngine
       shutdownClient: (client) => client.shutdown(),
     );
 
+    // Only the GPU executor reads the activation type. A GPU attempt that
+    // failed — float32 needs more GPU memory — falls back to CPU without an
+    // error, so say that the setting did nothing here.
+    if (config.activationDataType != null &&
+        ffiRuntime.activeBackend != PreferredBackend.gpu) {
+      gemmaLog(
+        '[LiteRtLmEngine] activationDataType '
+        '(${config.activationDataType!.name}) has no effect: the model runs on '
+        '${ffiRuntime.activeBackend.name}, and only the GPU executor reads it.',
+      );
+    }
+
     return FfiInferenceModel(
       ffiClient: ffiRuntime.client,
       // The value the engine was actually built with: the same rule, resolved

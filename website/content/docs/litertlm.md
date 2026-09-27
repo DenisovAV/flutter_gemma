@@ -104,13 +104,14 @@ long replies rather than long prompts, measure both before assuming.
 
 The GPU runs the model at half precision unless you ask otherwise, and the
 published Gemma 4 files ask for it. From about 2,000 prompt tokens, Gemma 4 then
-copies digits wrongly. `activationDataType: ActivationDataType.float32` on
+copies digits wrongly on some GPUs (seen on Adreno and Metal). `activationDataType: ActivationDataType.float32` on
 `getActiveModel` fixes it at the cost of a slower prefill; left unset, the model
 file decides. It applies to the text decoder of `.litertlm` models on Android,
 iOS and desktop — not on web, and not to the vision or audio encoders, which
 keep what the model file asks for. `float32` also needs more GPU memory, and a
 GPU engine that cannot be created falls back to CPU silently, so read
-`model.activeBackend` afterwards. See [Troubleshooting → Wrong numbers on
+`model.activeBackend` afterwards. It needs `flutter_gemma_litertlm` 1.8.3 or
+later; older versions ignore it. See [Troubleshooting → Wrong numbers on
 GPU](/docs/troubleshooting#wrong-numbers-on-gpu).
 
 Windows NPU ships the Intel dispatch stack — `LiteRtDispatch.dll` + the OpenVino

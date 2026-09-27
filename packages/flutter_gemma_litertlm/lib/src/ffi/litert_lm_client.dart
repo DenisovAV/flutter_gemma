@@ -1,5 +1,7 @@
 import 'dart:async';
+
 import 'package:flutter_gemma/core/utils/gemma_log.dart';
+
 import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
@@ -12,32 +14,30 @@ import 'package:mutex/mutex.dart';
 
 import 'package:flutter_gemma/flutter_gemma_interface.dart';
 import 'package:flutter_gemma/core/parsing/sdk_text_extractor.dart';
+
 import 'litert_default_scope.dart';
 import 'litert_lm_bindings.dart';
 
 /// Callback typedef with Uint8 for bool (C _Bool = 1 byte)
-typedef _StreamCallbackNative =
-    Void Function(
-      Pointer<Void> callbackData,
-      Pointer<Char> chunk,
-      Uint8 isFinal,
-      Pointer<Char> errorMsg,
-    );
+typedef _StreamCallbackNative = Void Function(
+  Pointer<Void> callbackData,
+  Pointer<Char> chunk,
+  Uint8 isFinal,
+  Pointer<Char> errorMsg,
+);
 
 /// stream_proxy_create: creates a proxy that strdup's strings before
 /// forwarding to the Dart callback (prevents use-after-free).
-typedef _ProxyCreateNative =
-    Pointer<Void> Function(
-      Pointer<NativeFunction<_StreamCallbackNative>> dartCallback,
-      Pointer<Void> dartData,
-      Pointer<Pointer<NativeFunction<_StreamCallbackNative>>> outProxyFn,
-    );
-typedef _ProxyCreateDart =
-    Pointer<Void> Function(
-      Pointer<NativeFunction<_StreamCallbackNative>> dartCallback,
-      Pointer<Void> dartData,
-      Pointer<Pointer<NativeFunction<_StreamCallbackNative>>> outProxyFn,
-    );
+typedef _ProxyCreateNative = Pointer<Void> Function(
+  Pointer<NativeFunction<_StreamCallbackNative>> dartCallback,
+  Pointer<Void> dartData,
+  Pointer<Pointer<NativeFunction<_StreamCallbackNative>>> outProxyFn,
+);
+typedef _ProxyCreateDart = Pointer<Void> Function(
+  Pointer<NativeFunction<_StreamCallbackNative>> dartCallback,
+  Pointer<Void> dartData,
+  Pointer<Pointer<NativeFunction<_StreamCallbackNative>>> outProxyFn,
+);
 
 /// Free a strdup'd string from the proxy callback.
 typedef _ProxyFreeStringNative = Void Function(Pointer<Char> str);
@@ -479,9 +479,8 @@ class LiteRtLmFfiClient {
     try {
       final f = File(p);
       if (!f.existsSync()) return null;
-      final match = RegExp(
-        r'section_backend_constraint:\s*(\w+)',
-      ).firstMatch(f.readAsStringSync());
+      final match = RegExp(r'section_backend_constraint:\s*(\w+)')
+          .firstMatch(f.readAsStringSync());
       return match?.group(1);
     } catch (_) {
       return null;
@@ -784,7 +783,11 @@ class LiteRtLmFfiClient {
           settings,
           activationDataType,
         );
-        gemmaLog('[LiteRtLmFfi] activation_data_type=$activationDataType');
+        gemmaLog(
+          '[LiteRtLmFfi] activation_data_type=$activationDataType '
+          '(${_activationName(activationDataType)}, backend=$backend; only the '
+          'GPU executor reads it)',
+        );
       }
 
       // Windows NPU: point LiteRT at the directory containing
@@ -925,8 +928,13 @@ class LiteRtLmFfiClient {
             '(or omit preferredBackend to try GPU first).',
           );
         }
+        // Only the GPU executor reads the activation type, so only a float32
+        // GPU attempt can have failed because of it.
+        final float32OnGpu = activationDataType == 0 && backend == 'gpu';
         throw Exception(
-          'Failed to create engine. Model may be invalid: $modelPath',
+          'Failed to create engine. Model may be invalid: $modelPath'
+          '${float32OnGpu ? ' (float32 activations need more GPU memory than '
+                    'the default — try without activationDataType)' : ''}',
         );
       }
 
@@ -2052,3 +2060,12 @@ class LiteRtLmFfiClient {
     }
   }
 }
+
+/// Name of a LiteRT-LM activation wire value, for logs and errors.
+String _activationName(int value) => switch (value) {
+  0 => 'float32',
+  1 => 'float16',
+  2 => 'int16',
+  3 => 'int8',
+  _ => 'type $value',
+};

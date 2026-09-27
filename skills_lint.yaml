@@ -1,4 +1,4 @@
-# Static checks for the agent skills shipped inside packages/flutter_gemma.
+# Static checks for the agent skills shipped inside packages/flutter_edge_ai.
 #
 # Division of labour: tool/check_skills.dart proves the CODE in the skills
 # compiles against the real packages; this proves the FILES are well formed —

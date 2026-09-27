@@ -23,7 +23,7 @@ use flutter_edge_ai.
 
 ## Install
 
-From your app's root, once `flutter_gemma` 1.8.2 or later is a dependency:
+From your app's root, once `flutter_edge_ai` 1.12.0 or later is a dependency:
 
 ```
 dart run skills@ get --all

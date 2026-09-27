@@ -7,6 +7,14 @@ import 'package:hooks/hooks.dart';
 
 const _packageName = 'flutter_edge_ai_litertlm';
 
+/// The owner recorded in the native-cache marker. The cache is shared by every
+/// project on the machine, and one still on the pre-rename `flutter_gemma_litertlm` reads the
+/// same marker: recording the old name keeps both of them bundling the
+/// library, and [_isMarkerOwner] accepts either name.
+const _markerOwner = 'flutter_gemma_litertlm';
+bool _isMarkerOwner(String owner) =>
+    owner == _markerOwner || owner == _packageName;
+
 // ============================================================================
 // Native bundles
 // ============================================================================
@@ -405,11 +413,11 @@ Directory _cacheBaseDir() {
   }
 }
 
-/// Writes the JSON marker {version, owner}. owner = this hook's _packageName.
+/// Writes the JSON marker {version, owner}. owner = [_markerOwner].
 /// COMMIT POINT: call LAST, only after the dylib files are fully in place.
 void _writeMarker(_NativeBundle bundle) {
   bundle.markerFile().writeAsStringSync(
-    jsonEncode({'version': bundle.version, 'owner': _packageName}),
+    jsonEncode({'version': bundle.version, 'owner': _markerOwner}),
   );
 }
 
@@ -672,7 +680,7 @@ Future<Directory?> _downloadAndExtract(
   // exact match → dedup.
   if (existing.version == bundle.version) return (present: true);
   // same-owner upgrade → fetch.
-  if (existing.owner == _packageName) return (present: false);
+  if (_isMarkerOwner(existing.owner)) return (present: false);
   throw StateError(
     'Native library conflict for "${bundle.namespace}": '
     'this package ($_packageName) needs version ${bundle.version}, '
@@ -729,7 +737,7 @@ Future<void> _processBundle({
   // Capture the owner state BEFORE _writeMarker below can overwrite it: a
   // non-owner dedup must not clobber the marker's owner to itself.
   final existingOwner = _readMarker(bundle)?.owner;
-  final iAmRegistrant = existingOwner == null || existingOwner == _packageName;
+  final iAmRegistrant = existingOwner == null || _isMarkerOwner(existingOwner);
 
   _invalidateBundleCacheIfStale(bundle);
 

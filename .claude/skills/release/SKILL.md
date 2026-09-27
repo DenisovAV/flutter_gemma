@@ -293,7 +293,7 @@ catches it.
 **A floor naming an UNPUBLISHED core forces a publish ORDER — and dry-run is blind
 to it.** `dart pub publish --dry-run` only checks that a constraint is satisfiable in
 the workspace, never that the named version exists on pub.dev, so it reports 0
-warnings for `flutter_edge_ai: ^1.12.0` while 1.6.3 is the latest published. Publish the
+warnings for `flutter_gemma: ^1.6.4` while 1.6.3 is the latest published. Publish the
 satellite first and consumers on `^0.1.0` silently backtrack to the previous version —
 no error, just none of the fix. So: **publish core FIRST, then every satellite whose
 floor names it**, and check before publishing any satellite:
@@ -312,9 +312,9 @@ curl -s https://pub.dev/api/packages/flutter_edge_ai | \
 
 > **Regression this prevents (agent 0.2.2):** `AgentLoop` was rewritten to call
 > `generateChatResponseWithTools(onMaxToolTurns:)` — `onMaxToolTurns` landed in
-> core `1.5.5` — but the satellite still declared `flutter_edge_ai: ^1.12.0`. A
+> core `1.5.5` — but the satellite still declared `flutter_gemma: ^1.2.0`. A
 > fresh install resolves core to latest (fine), but a consumer on
-> `flutter_edge_ai: 1.4.0` + `flutter_edge_ai_agent: 0.2.2` resolves happily then
+> `flutter_gemma: 1.4.0` + `flutter_gemma_agent: 0.2.2` resolves happily then
 > throws `No named parameter 'onMaxToolTurns'` at build time.
 
 **For every satellite whose own Dart code changed, bump its `flutter_edge_ai:`

@@ -102,6 +102,6 @@ export 'core/model_management/model_specs.dart'
 // Note: Desktop uses MobileModelManager for file management
 export 'desktop/flutter_edge_ai_desktop.dart'
     if (dart.library.js_interop) 'desktop/flutter_edge_ai_desktop_stub.dart'
-    show FlutterEdgeAiDesktop, isDesktop;
+    show FlutterEdgeAiDesktop, FlutterGemmaDesktop, isDesktop;
 
 // ModelReplacePolicy is already exported from model_file_manager_interface.dart

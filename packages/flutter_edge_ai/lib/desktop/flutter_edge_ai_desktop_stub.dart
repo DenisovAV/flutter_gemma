@@ -26,3 +26,8 @@ class FlutterEdgeAiDesktop extends FlutterEdgeAiPlugin {
 
 /// Always false on web
 bool get isDesktop => false;
+
+@Deprecated(
+  'Use FlutterEdgeAiDesktop: flutter_gemma was renamed to flutter_edge_ai.',
+)
+typedef FlutterGemmaDesktop = FlutterEdgeAiDesktop;

@@ -1,5 +1,5 @@
 ## 0.7.0
-- Renamed to `genkit_flutter_edge_ai`; this release only re-exports it.
+- Renamed to `genkit_flutter_edge_ai` (model ids are now `flutter-edge-ai/<name>`); this release only re-exports it.
 
 ## 0.6.2
 - README: register `embeddingTokenizers:`, and pins for the 1.9.0 release.

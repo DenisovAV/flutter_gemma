@@ -13,7 +13,7 @@
  * Browser support: Requires OPFS (Chrome 86+, Edge 86+, Safari 15.2+)
  */
 
-window.flutterEdgeAiOPFS = {
+window.flutterGemmaOPFS = {
   /**
    * Check if a model is already cached in OPFS
    * @param {string} filename - Model filename (used as cache key)

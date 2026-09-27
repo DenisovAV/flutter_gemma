@@ -69,12 +69,15 @@ That scans your dependencies and installs every skill they bundle where your age
 What they cover: registering an engine (core ships none), routing by the declared `ModelFileType` rather than the filename, and the two defaults that fail quietly — `maxTokens` is the context window and not the reply length, and `Message.isUser` defaults to `false`.
 
 ## What's new in 1.12.0
+
 - **flutter_gemma is now flutter_edge_ai.** Every package has a new name; models, stores and platform setup carry over unchanged, and the old Dart names still compile as deprecated aliases. See [MIGRATION.md](MIGRATION.md#flutter_gemma--flutter_edge_ai-1120).
+
+Releases up to 1.11.0 shipped as `flutter_gemma`.
 
 ## What's new in 1.9.0
 
 - 🔤 **Embedding tokenizers are registered, not bundled.** Which tokenizer an embedding model needs is a property of the model, not of the engine that runs it — EmbeddingGemma wants SentencePiece under LiteRT and under ONNX alike. So the backends stopped carrying one: add `flutter_edge_ai_embeddings`, import it, and pass `embeddingTokenizers: [GemmaEmbeddingTokenizers()]` beside `embeddingBackends:`. Miss it and the first embedding throws a `StateError` naming the package to add — it will not quietly tokenize with the wrong convention and hand you vectors from the wrong point in the embedding space. See [MIGRATION.md](MIGRATION.md).
-- 🧩 **No package depends on a sibling any more.** That registry is what let `flutter_edge_ai_litertlm` and `flutter_edge_ai_onnx` drop their dependency on `flutter_edge_ai_embeddings`; the contracts live in core, the implementations stay opt-in.
+- 🧩 **No package depends on a sibling any more.** That registry is what let `flutter_gemma_litertlm` and `flutter_gemma_onnx` drop their dependency on `flutter_gemma_embeddings`; the contracts live in core, the implementations stay opt-in.
 - 🌐 **Web embeddings actually run** (`flutter_gemma_litertlm` 1.8.0) — the LiteRT.js bundle was rebuilt on `@litertjs/core` 2.5.3 and now lives, all four files together, in `flutter_edge_ai_litertlm/web/`. Copy them from there.
 - 💾 **`flutter_gemma_rag_sqlite` 1.4.0 makes web `flush()` a real fence** by requiring sqlite3 3.6.0, and with it Flutter 3.47. An app on Flutter 3.44 resolves to 1.3.2 instead.
 
@@ -196,7 +199,7 @@ await FlutterEdgeAi.installModel(modelType: ModelType.phi)
 
 ## Installation
 
-As of **1.0**, `flutter_edge_ai` is split into a small **core** package plus
+Since **1.0** (then `flutter_gemma`), the plugin is split into a small **core** package plus
 **opt-in** packages for each engine / backend, so your app only pulls the native
 weight it actually uses. Add the core package, then the packages for the
 model formats and features you need.
@@ -240,7 +243,7 @@ model formats and features you need.
     | Transcribe audio, synthesize speech, or run a voice loop on-device (STT + TTS + voice) | `flutter_edge_ai_speech` |
 
     Core registers **no** engine by itself — you wire the packages you added in
-    `await FlutterEdgeAi.initialize(...)` (see [Initialize Flutter Edge AI](#initialize-flutter-gemma)).
+    `await FlutterEdgeAi.initialize(...)` (see [Initialize Flutter Edge AI](#initialize-flutter-edge-ai)).
 
 2.  Run `flutter pub get` to install.
 
@@ -363,7 +366,7 @@ use_frameworks! :linkage => :static
   `buildscript`/`plugins {}`. A normal `flutter build` app needs nothing — Flutter's
   own Gradle plugin carries KGP.
 
-**GPU: nothing to add.** Since 1.2.0 `flutter_edge_ai`'s own manifest declares the
+**GPU: nothing to add.** Since 1.2.0 (as `flutter_gemma`) the core plugin's own manifest declares the
 OpenCL entries, and the manifest merger folds them into your app. If you pin or audit
 the merged manifest, it must contain these — `libvndksupport.so` above all: without
 it the OpenCL driver load is denied on Android 12+, the engine falls back to WebGPU,
@@ -2024,7 +2027,7 @@ fully supported.
 
 Desktop builds store downloaded models outside the user's `Documents/` folder to avoid OneDrive / iCloud / Domain-Roaming sync corrupting FFI mmap of large `.litertlm` files (since 0.15.1):
 
-- **Windows:** `%LOCALAPPDATA%\flutter_edge_ai\` (never OneDrive-synced)
+- **Windows:** `%LOCALAPPDATA%\flutter_gemma\` (never OneDrive-synced; the name predates the rename and is kept so installed models stay found)
 - **macOS:** `~/Library/Application Support/<bundle>/flutter_edge_ai/`
 - **Linux:** `~/.local/share/<app>/flutter_edge_ai/`
 

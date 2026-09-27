@@ -2,8 +2,8 @@
 //
 // Placeholder header for Linux plugin registration.
 
-#ifndef FLUTTER_PLUGIN_FLUTTER_GEMMA_PLUGIN_H_
-#define FLUTTER_PLUGIN_FLUTTER_GEMMA_PLUGIN_H_
+#ifndef FLUTTER_PLUGIN_FLUTTER_EDGE_AI_PLUGIN_H_
+#define FLUTTER_PLUGIN_FLUTTER_EDGE_AI_PLUGIN_H_
 
 #include <flutter_linux/flutter_linux.h>
 
@@ -14,4 +14,4 @@ void flutter_edge_ai_plugin_register_with_registrar(FlPluginRegistrar* registrar
 
 G_END_DECLS
 
-#endif  // FLUTTER_PLUGIN_FLUTTER_GEMMA_PLUGIN_H_
+#endif  // FLUTTER_PLUGIN_FLUTTER_EDGE_AI_PLUGIN_H_

@@ -23,7 +23,7 @@ class WebOPFSService {
 
   WebOPFSService(this._opfs);
 
-  /// Factory constructor using global window.flutterEdgeAiOPFS
+  /// Factory constructor using global window.flutterGemmaOPFS
   factory WebOPFSService.fromWindow() {
     return WebOPFSService(opfsInterop);
   }

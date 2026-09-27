@@ -3,8 +3,8 @@
 // Placeholder plugin class. The real implementation is in Dart
 // (FlutterEdgeAiDesktop) using dart:ffi against the LiteRT-LM C API.
 
-#ifndef FLUTTER_PLUGIN_FLUTTER_GEMMA_PLUGIN_H_
-#define FLUTTER_PLUGIN_FLUTTER_GEMMA_PLUGIN_H_
+#ifndef FLUTTER_PLUGIN_FLUTTER_EDGE_AI_PLUGIN_H_
+#define FLUTTER_PLUGIN_FLUTTER_EDGE_AI_PLUGIN_H_
 
 #include <flutter_plugin_registrar.h>
 
@@ -44,4 +44,4 @@ class FlutterEdgeAiPlugin : public flutter::Plugin {
 
 }  // namespace flutter_edge_ai
 
-#endif  // FLUTTER_PLUGIN_FLUTTER_GEMMA_PLUGIN_H_
+#endif  // FLUTTER_PLUGIN_FLUTTER_EDGE_AI_PLUGIN_H_

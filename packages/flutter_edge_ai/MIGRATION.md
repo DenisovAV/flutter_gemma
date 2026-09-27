@@ -23,7 +23,7 @@ code, the platforms and the on-device data are the same.
 2. Replace `package:flutter_gemma` with `package:flutter_edge_ai` in your
    imports — the same for every other package in the table.
 3. Rename `FlutterGemma` to `FlutterEdgeAi` when convenient. The old names
-   (`FlutterGemma`, `FlutterGemmaPlugin`, `GemmaLogLevel`) still compile as
+   (`FlutterGemma`, `FlutterGemmaPlugin`, `FlutterGemmaDesktop`, `GemmaLogLevel`) still compile as
    deprecated aliases.
 
 What does not change:
@@ -34,13 +34,26 @@ What does not change:
 - The Android package `dev.flutterberlin.*`, the platform channels and the
   macOS `post_install` snippet in your Podfile are unchanged.
 
-Genkit: model and embedder ids are now `flutter-edge-ai/<name>`. Code that uses
-`flutterEdgeAi.model(...)` picks this up; a hard-coded `'flutter-gemma/<name>'`
-string has to change. The old Dart names are deprecated aliases here too.
+Genkit: model and embedder ids are now `flutter-edge-ai/<name>`, and the
+context-window middleware is registered as `flutter-edge-ai-context-window`.
+Code that uses `flutterEdgeAi.model(...)` and `trimContext()` picks this up; a
+hard-coded `'flutter-gemma/<name>'` string has to change. The old Dart names are
+deprecated aliases here too.
 
-The last `flutter_gemma*` releases re-export the new packages, so an app that
-only bumps its versions keeps compiling — with a deprecation warning pointing
-here.
+Depend on one name per package: an app that pulls in both `flutter_gemma_X` and
+`flutter_edge_ai_X` gets the same Android classes twice and the build fails.
+
+If you cannot switch right away, the last release under each old name
+re-exports its successor. Bump **every** `flutter_gemma*` dependency to it in
+the same edit — a mix of old and new versions does not resolve:
+`flutter_gemma`, `flutter_gemma_litertlm`, `flutter_gemma_mediapipe`,
+`flutter_gemma_rag_sqlite` and `flutter_gemma_rag_qdrant` to `^2.0.0`,
+`flutter_gemma_embeddings` to `^3.0.0`, `flutter_gemma_speech` and
+`flutter_gemma_onnx` to `^0.6.0`, `flutter_gemma_agent` and
+`flutter_gemma_builtin_ai` to `^0.3.0`, `genkit_flutter_gemma` to `^0.7.0`.
+Only each package's main import keeps working that way
+(`package:flutter_gemma/flutter_gemma.dart`); an import of a file inside a
+package needs the new name.
 
 ## flutter_gemma 0.x → 1.0
 

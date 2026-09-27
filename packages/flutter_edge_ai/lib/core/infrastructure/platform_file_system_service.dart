@@ -202,7 +202,7 @@ class PlatformFileSystemService implements FileSystemService {
   ///
   /// Mobile (Android, iOS): app's Documents — sandboxed, never cloud-synced.
   /// Desktop:
-  ///   - Windows: `%LOCALAPPDATA%\flutter_edge_ai\` — truly local, never
+  ///   - Windows: `%LOCALAPPDATA%\flutter_gemma\` — truly local, never
   ///     OneDrive-synced (unlike Documents or Roaming AppData). NOTE:
   ///     path_provider's `getApplicationSupportDirectory()` returns
   ///     `%APPDATA%` (Roaming) which is Domain-synced in corporate envs,

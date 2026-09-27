@@ -104,7 +104,7 @@
 
 ### ⚠️ maxTokens = CONTEXT window, not output length (#318)
 `maxTokens` (on `getActiveModel`/`createModel`) is the whole **context window** — input (system + history + message) **plus** generated output, i.e. the KV-cache budget. It is **NOT** the response length. `.litertlm` models bake a `kv_cache_max_len` (1024 for every supported model — Gemma 4 E2B, FunctionGemma, …); a `maxTokens` below it underflows the native magic-number KV-cache resize and `DYNAMIC_UPDATE_SLICE` fails to allocate tensors at generation (cryptic `Stream error: INTERNAL: …executor.cc:734`). Verified on Pixel 8a (CPU): 100/256/512 crash, 1024/4096 work.
-- The litertlm engine now **clamps `maxTokens` up to 1024** with a `gemmaLog` warning (`clampLitertlmContextTokens` in `flutter_edge_ai_litertlm/lib/src/litert_lm_engine.dart`). MediaPipe `.task` tolerates small values and is not clamped.
+- The litertlm engine now **clamps `maxTokens` up to 1024** with an `edgeAiLog` warning (`clampLitertlmContextTokens` in `flutter_edge_ai_litertlm/lib/src/litert_lm_engine.dart`). MediaPipe `.task` tolerates small values and is not clamped.
 - To cap **generation length**, use the new **`maxOutputTokens`** on `createSession`/`openSession` → native `set_max_output_tokens` (litertlm only; MediaPipe has no session-level output cap and logs that it's ignored).
 ```dart
 // ❌ WRONG - meant "100-token reply", actually shrinks the context → crash on .litertlm
@@ -155,7 +155,7 @@ Core has NO pigeon (dropped at the 1.0 cut; its value types are hand-written in 
 - **LiteRT-LM**: native libs from `native-v0.17.1-a` GitHub Release (= `native-v0.17.1` plus the two Android GPU accelerators patched with `libandroid.so` in `DT_NEEDED` — without it Mali GPUs SIGSEGV at `engine_create`, #545; `build_android.sh` step 8d lints every import against its NEEDED chain). LiteRT-LM pin `5e58e9a0` = upstream v0.17.1, LiteRT pin `9fe5be45` unchanged since v0.17.0, companion prebuilts from upstream main `4453b286` — the v0.17.x tags carry a `libGemmaModelConstraintProvider` built against the pre-`ComputeMask` `Constraint`, so with a runtime built from their own source every tool call segfaults in `CompositeLogitMask::Apply`). v0.17.1: a tool-call argument declared `"type": "integer"` reaches the app as an integer instead of `1000.0`; the Android tarball's four Qualcomm Skel blobs are raised to `p_align=0x4000`, because at 4 KB Google Play rejects every app that ships them (#529). v0.17.0: the GPU samplers' `Create` gained a leading `runtime_c_api` argument (upstream refreshed the prebuilt samplers); `LiteRtLayout` has been one layout on every compiler since LiteRT `d84656955` (already in the v0.16.0 pin) — our Windows-only MSVC mirror broke Windows embeddings and speech from native-v0.16.0 until litertlm 1.7.0 dropped it. Android tarball bundles the Qualcomm QNN dispatch stack and Windows tarball bundles Intel NPU dispatch (`LiteRtDispatch.dll` + OpenVino runtime + TBB) for `PreferredBackend.npu` (Qualcomm Snapdragon / Intel LunarLake/PantherLake) — both dispatch libs are **rebuilt from the pin every release**; carrying them forward is what silently broke NPU on both platforms (see the `build-native` skill). v0.16.0: fixes the Android OpenCL per-turn memory leak (LiteRT-LM #2699, #348/#402); v0.15.0 **broke the stream-callback ABI** (4-arg → 2-arg chunk object) with no compat path, handled by a runtime probe in `stream_proxy.c`. Windows discrete GPU works again — the crash was our own dead `litert_link_capi_so` Bazel define, not an upstream regression (#2957 retracted).
 - **sqlite-vec**: `flutter_edge_ai_sqlite` fetches the per-platform `vec0` loadable from the `native-sqlite-vec-v<X>` GitHub Release (`sqlite-vec-<target>.tar.gz` + `checksums_sqlite_vec.txt`), SHA256-verified by its `hook/build.dart`. `<X>` names the **upstream sqlite-vec release** the bytes were built from; a letter suffix (`0.1.9-a`) is only for RE-releasing changed bytes under an already-published number. The loadables are NOT committed — `native/sqlite_vec/prebuilt/` is a maintainer override produced by `build_local.sh`, gitignored and `.pubignore`d.
 - **large_file_handler**: `^0.5.0` (core dep; 0.5.0 declares all 6 platforms — needed for pana platform support + the dart2wasm-clean web graph)
-- **Current Version**: core `flutter_edge_ai` `1.11.0`, `flutter_edge_ai_sqlite` `1.4.0`, `flutter_edge_ai_qdrant` `1.3.2`; `flutter_edge_ai_litertlm` `1.8.4`, `flutter_edge_ai_mediapipe` `1.0.7`, `flutter_edge_ai_embeddings` `2.2.1`, `flutter_edge_ai_speech` `0.5.2`; `flutter_edge_ai_agent` `0.2.6`, `flutter_edge_ai_builtin_ai` `0.2.2`, `flutter_edge_ai_onnx` `0.5.0`; `genkit_flutter_edge_ai` `0.6.2`, `genkit_hybrid` `0.2.1`
+- **Current Version**: core `flutter_edge_ai` `1.12.0`, `flutter_edge_ai_sqlite` `1.5.0`, `flutter_edge_ai_qdrant` `1.4.0`; `flutter_edge_ai_litertlm` `1.9.0`, `flutter_edge_ai_mediapipe` `1.1.0`, `flutter_edge_ai_embeddings` `2.3.0`, `flutter_edge_ai_speech` `0.6.0`; `flutter_edge_ai_agent` `0.3.0`, `flutter_edge_ai_builtin_ai` `0.3.0`, `flutter_edge_ai_onnx` `0.6.0`; `genkit_flutter_edge_ai` `0.7.0`, `genkit_hybrid` `0.2.1`. Until 1.11.0 the family shipped as `flutter_gemma*`; `shims/` holds the last release of each old name (a re-export of its successor)
 - **0.15.2**: embedding unified on LiteRT C API via Dart FFI on all native platforms (Android + iOS + Desktop). Drops `localagents-rag` JVM dep on Android and the separate TFLite C 0.12.7 tarball on Desktop; `TensorFlowLiteC` pod no longer needed on iOS. Single source of truth for `TaskType.prefix` in Dart, fixes cross-platform embedding drift (#264).
 
 ## Platform-Specific Setup
@@ -266,7 +266,7 @@ flutter analyze && dart format . && tool/test_all.sh
 | `lib/web/web_model_source.dart`, `web_model_manager.dart` | Public shared web infra (imported by litertlm-web + mediapipe-web) |
 | `lib/core/domain/platform_types.dart` | Plain-Dart `PreferredBackend` enum + RAG value types (RetrievalResult/VectorStoreStats/DocumentWithEmbedding). Core has NO pigeon/PlatformService — these were hand-written off pigeon at the 1.0 cut so the public graph stays dart:io/wasm-clean |
 | `hook/build.dart` | Native Assets hook — empty bundle list (core owns no native lib) |
-| `android/src/.../FlutterEdgeAiPlugin.kt`, `ios/Classes/FlutterEdgeAiPlugin.swift` | Slim native plugin — hosts only the `flutter_gemma_bundled` channel (file-ops + litertlm NPU `getNativeLibraryDir`) |
+| `android/src/.../FlutterEdgeAiPlugin.kt`, `{ios,macos}/flutter_edge_ai/Sources/flutter_edge_ai/FlutterEdgeAiPlugin.swift` | Slim native plugin — hosts only the `flutter_gemma_bundled` channel (file-ops + litertlm NPU `getNativeLibraryDir`) |
 | `example/lib/gemma_bootstrap.dart` | Single source of truth for the example's engine/backend lists + RAG switcher |
 | `example/lib/models/model.dart` | Model configurations & URLs |
 
@@ -283,7 +283,7 @@ flutter analyze && dart format . && tool/test_all.sh
 | `hook/build.dart` | Native Assets hook — OWNS the litertlm bundle; `stage()` is **Apple-only** (Xcode cycle) |
 | `native/litert_lm/{build_ios.sh,patch_c_api.sh,stream_proxy.c}` | iOS dylib rebuild + C API patcher + preload helper |
 
-**`packages/flutter_edge_ai_embeddings/` (tokenizer implementations — 2.2.0; depends ONLY on core, and NOTHING depends on it: engines get a tokenizer from core's registry, which the app fills from here):**
+**`packages/flutter_edge_ai_embeddings/` (tokenizer implementations — 2.3.0; depends ONLY on core, and NOTHING depends on it: engines get a tokenizer from core's registry, which the app fills from here):**
 
 | File | Purpose |
 |------|---------|
@@ -291,7 +291,7 @@ flutter analyze && dart format . && tool/test_all.sh
 | `lib/src/tokenizer_router.dart` | `resolveEmbeddingTokenizer` — sniffs the tokenizer file and routes WordPiece / SigLIP2-refusal / SentencePiece (moved from `flutter_edge_ai_onnx`; never was ONNX-specific) |
 | `lib/src/wordpiece_tokenizer_json.dart` | The WordPiece `tokenizer.json` parse step, split out so it carries no `dart:js_interop` and stays VM-testable |
 | `lib/src/embedding_tokenizer.dart` | Gemma SentencePiece tokenize + BOS=2/EOS=1 + TaskType prefix (`.json`/`.model` loader) |
-| *(no engine dep, no `hook/build.dart`, no `web/`)* | The seam, worker, pooling and facade moved to core’s `lib/core/embedding/` in 1.9.0; the LiteRT.js web bundle moved to `flutter_edge_ai_litertlm` in its 1.8.0 |
+| *(no engine dep, no `hook/build.dart`, no `web/`)* | The seam, worker, pooling and facade moved to core’s `lib/core/embedding/` in 1.9.0; the LiteRT.js web bundle moved to the litertlm package in `flutter_gemma_litertlm` 1.8.0 |
 
 **`packages/flutter_edge_ai_mediapipe/` (.task MediaPipe; mobile + web, NO desktop):**
 
@@ -347,7 +347,7 @@ flutter analyze && dart format . && tool/test_all.sh
 ## Project Structure
 
 ```
-flutter_edge_ai/                       # Dart pub workspace (monorepo root)
+flutter_gemma/                       # Dart pub workspace (monorepo root; the repo keeps its old name)
 ├── pubspec.yaml                     # root: workspace: [packages/*] + melos config
 ├── packages/
 │   ├── flutter_edge_ai/               # CORE — no engine; registry, contracts, shells, slim native plugin
@@ -366,6 +366,7 @@ flutter_edge_ai/                       # Dart pub workspace (monorepo root)
 │   ├── flutter_edge_ai_agent/         # opt-in on-device agent skills (SKILL.md: text/JS/native-intent/MCP) over the function-calling loop
 │   ├── genkit_flutter_edge_ai/        # Firebase Genkit integration (flutter_edge_ai runtime + converters)
 │   └── genkit_hybrid/               # Genkit hybrid on-device + cloud helpers
+├── shims/                           # last releases of the flutter_gemma* names — each re-exports its successor
 └── docs/                            # design docs, testing, benchmarks
 ```
 

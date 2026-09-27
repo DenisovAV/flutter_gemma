@@ -30,7 +30,7 @@ web/*.js
 web/*.js.map
 # But keep cache_api.js (hand-written, runtime needs window.cacheHas/Put/Get)
 !web/cache_api.js
-# And opfs_helper.js — defines window.flutterEdgeAiOPFS, which web streaming
+# And opfs_helper.js — defines window.flutterGemmaOPFS, which web streaming
 # storage (WebStorageMode.streaming) binds to. Without this line it never
 # reached pub, so the documented copy-from-the-package step had nothing to copy.
 !web/opfs_helper.js

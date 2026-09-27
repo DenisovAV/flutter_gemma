@@ -60,7 +60,7 @@ it with a vector store from `flutter_edge_ai_sqlite` or
 
 ## Web setup
 
-The web embedding bundle moved to `flutter_edge_ai_litertlm` in its 1.8.0 — it is
+The web embedding bundle moved to the LiteRT-LM package in `flutter_gemma_litertlm` 1.8.0 — it is
 LiteRT.js, and it belongs with the package named after it. See
 [flutter_edge_ai_litertlm's web setup](https://pub.dev/packages/flutter_edge_ai_litertlm#embeddings-on-web).
 

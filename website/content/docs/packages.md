@@ -4,7 +4,7 @@ description: The 1.0 modular architecture — a small core plus opt-in engine, e
 image: https://flutteredge.ai/images/og-image.png
 ---
 
-As of **1.0**, the monolithic `flutter_edge_ai` plugin is split into a small
+As of **1.0**, the monolithic `flutter_gemma` plugin was split into a small
 **core** package plus **opt-in** packages for each engine / backend. Your app
 ships only the native weight it actually uses. All packages live in one monorepo
 (a Dart pub workspace). The opt-in packages depend on core and never on each

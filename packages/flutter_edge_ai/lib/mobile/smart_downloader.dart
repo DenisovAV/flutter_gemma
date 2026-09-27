@@ -259,7 +259,7 @@ class SmartDownloader {
   /// Single source of truth — cleanup / resume code that queries or resets
   /// tasks must use this exact group, or it operates on an empty set and
   /// silently no-ops (this is what caused the #383 leak amplifier: three call
-  /// sites used the stale literal `'flutter_edge_ai_downloads'`).
+  /// sites used the stale literal `'flutter_gemma_downloads'`).
   static const String downloadGroup = 'smart_downloads';
 
   /// Scheduling priority for model downloads — and it must differ per platform.

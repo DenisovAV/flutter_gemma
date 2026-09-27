@@ -4,7 +4,7 @@ description: Add the packages, register engines, and complete per-platform setup
 image: https://flutteredge.ai/images/og-image.png
 ---
 
-As of **1.0**, `flutter_edge_ai` is split into a small **core** package plus
+Since **1.0** (then `flutter_gemma`), the plugin is split into a small **core** package plus
 **opt-in** packages for each engine / backend, so your app only pulls the native
 weight it actually uses. Add the core package, then the packages for the model
 formats and features you need.
@@ -168,8 +168,8 @@ and/or `flutter_edge_ai_builtin_ai`.
 
 **Set the minimum iOS version to 15.0** — or **16.0** if your app depends on
 `flutter_edge_ai_mediapipe`, which needs MediaPipe GenAI. Core, `flutter_edge_ai_litertlm`,
-built-in AI and embeddings build from 15.0. (Requires `flutter_gemma` 1.6.4 or newer;
-earlier versions declared 16.0.)
+built-in AI and embeddings build from 15.0. (`flutter_gemma` before 1.6.4 declared
+16.0.)
 
 **Where you set it depends on the dependency manager.** Swift Package Manager is the
 default since Flutter 3.44 (opt-in before that), and an SPM-only app has no `Podfile` at all — set **iOS
@@ -400,7 +400,7 @@ module is loaded locally:
 ```
 
 The WASM runtime underneath comes from a pinned CDN copy by default
-(`flutter_gemma_litertlm` 1.8.0+) — nothing else to install. To serve it
+(`flutter_edge_ai_litertlm`) — nothing else to install. To serve it
 yourself, copy `node_modules/@litertjs/core/wasm/` into `web/wasm/` and set
 `LiteRtWebRuntime.wasmPath = '/wasm/';` before the first embedding. See
 [`flutter_edge_ai_litertlm`'s embeddings on web](https://pub.dev/packages/flutter_edge_ai_litertlm#embeddings-on-web).

@@ -3,8 +3,8 @@ import 'dart:developer' as developer;
 import 'dart:ffi';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_gemma/core/domain/platform_types.dart';
-import 'package:flutter_gemma/core/utils/gemma_log.dart';
 
 /// Whether this host ships an NPU dispatch stack at all.
 ///
@@ -20,10 +20,21 @@ import 'package:flutter_gemma/core/utils/gemma_log.dart';
 /// `InferenceModel.activeBackend` promises to "reflect any fallback the plugin
 /// performed internally", so that was a false report: a benchmark asking for
 /// NPU attributed its CPU or GPU numbers to an NPU the machine does not have.
-bool get hostShipsNpuDispatch => npuDispatchShipsFor(
-  Platform.operatingSystem,
-  androidHasFastRpc: _androidHasFastRpc,
-);
+bool get hostShipsNpuDispatch {
+  final os = Platform.operatingSystem;
+  // `&&`, so the probe runs on Android only. As a plain argument it was
+  // evaluated on every host that asked for npu: a dlopen of a Qualcomm library
+  // on macOS, Linux and iOS, and on Windows a LoadLibrary that walks PATH.
+  return npuDispatchShipsFor(
+    os,
+    androidHasFastRpc: os == 'android' && _androidHasFastRpc,
+  );
+}
+
+/// Whether the FastRPC probe has run in this isolate. Lets a test prove it did
+/// not run on a host where its answer is irrelevant.
+@visibleForTesting
+bool get fastRpcProbed => _fastRpcProbe != null;
 
 /// The rule behind [hostShipsNpuDispatch], as a pure function.
 ///
@@ -42,6 +53,11 @@ bool npuDispatchShipsFor(
 
 bool? _fastRpcProbe;
 
+/// Why the probe failed, kept for the notice: "no Hexagon DSP" and "the library
+/// is not visible to this app's linker namespace" are different answers, and
+/// only the error text tells them apart.
+String? _fastRpcProbeError;
+
 /// Whether Qualcomm's FastRPC bridge resolves in this process.
 ///
 /// The OS is the wrong granularity on Android. The Qualcomm stack ships in every
@@ -50,25 +66,42 @@ bool? _fastRpcProbe;
 /// costs a 55.1 MiB zip extraction out of the APK into `codeCacheDir` — measured
 /// on the native-v0.17.1 bundle, of which 44 MiB is the four per-SoC Skels — and
 /// that extraction runs on the platform thread inside a `MethodChannel` handler,
-/// so it stalls input dispatch and the Choreographer. Then `engine_create` fails
-/// anyway. `codeCacheDir` is cache-class storage, so "Clear cache" and every app
+/// so it stalls input dispatch and the Choreographer. `codeCacheDir` is
+/// cache-class storage, so "Clear cache" and every app
 /// upgrade make it happen again.
 ///
 /// `libcdsprpc.so` is the precondition for the chain: the per-SoC `QnnHtp*Stub`
 /// libraries carry it as a `DT_NEEDED`, and the core plugin's manifest declares
 /// it `required="false"` so it resolves in the app's namespace where it exists.
-/// So one `dlopen` answers the silicon question, before the gate lets anything
-/// reach the channel that does the extracting.
+/// So one `dlopen` answers whether there is a Hexagon DSP at all, before the
+/// gate lets anything reach the channel that does the extracting. Necessary,
+/// not sufficient: a Snapdragon whose Hexagon version has no Skel in the bundle
+/// (only V73/V75/V79/V81 ship) passes this probe too.
 ///
 /// Probed once: the answer cannot change within a process.
 bool get _androidHasFastRpc => _fastRpcProbe ??= () {
   try {
     DynamicLibrary.open('libcdsprpc.so');
     return true;
-  } on Object {
+  } on Object catch (e) {
+    _fastRpcProbeError = '$e';
     return false;
   }
 }();
+
+/// Why npu is not on offer here, worded per platform.
+///
+/// Android is its own case: the stack DOES ship there, in every arm64 build —
+/// what is missing is the device's FastRPC. Saying "no NPU dispatch stack ships
+/// for android" and then "NPU is available on Android" in one line was the
+/// shape this replaced.
+@visibleForTesting
+String npuUnavailableReason(String operatingSystem, {String? fastRpcError}) =>
+    operatingSystem == 'android'
+    ? 'this device has no Qualcomm FastRPC (libcdsprpc.so did not open'
+          '${fastRpcError == null ? '' : ': $fastRpcError'}), so the bundled '
+          'NPU stack cannot run here'
+    : 'no NPU dispatch stack ships for $operatingSystem';
 
 /// The backends to try, in order, for a [preferredBackend] request.
 ///
@@ -189,21 +222,25 @@ Future<({T client, PreferredBackend activeBackend})> initializeFfiRuntime<T>({
   // a caller who reads `activeBackend` will see gpu or cpu with no explanation
   // of why the thing they asked for is absent.
   //
-  // Through `gemmaLog`, not `developer.log`, even though the attempt failures
-  // below use the latter. flutter_tools never subscribes to the VM-service
-  // `Logging` stream, so `developer.log` reaches DevTools and an IDE console but
-  // NOT a `flutter run` terminal — and this is a message for whoever typed the
-  // backend name. `clampLitertlmContextTokens` reports the same kind of thing
-  // ("you asked for X, you are getting Y") the same way, one file over.
+  // `print`, the one channel that reaches both a release build and a
+  // `flutter run` terminal: `gemmaLog` returns early in release, and
+  // flutter_tools never subscribes to the VM-service `Logging` stream that
+  // `developer.log` writes to. An explicit request overridden is an abnormal
+  // state, so this costs nothing in the normal case — the same reasoning as
+  // `_warn` in litert_default_scope.dart.
   if (preferredBackend == PreferredBackend.npu &&
       !backends.contains(PreferredBackend.npu)) {
-    gemmaLog(
-      '⚠️  $logTag npu was requested, but no NPU dispatch stack ships for '
-      '${Platform.operatingSystem} — trying '
-      '${backends.map(ffiBackendWireName).join(" -> ")} instead. '
-      'NPU is available on Android (Qualcomm) and Windows (Intel '
-      'LunarLake/PantherLake). Read InferenceModel.activeBackend for what '
-      'actually ran; it survives a release build, this line does not.',
+    final reason = npuUnavailableReason(
+      Platform.operatingSystem,
+      fastRpcError: _fastRpcProbeError,
+    );
+    // ignore: avoid_print
+    print(
+      '[flutter_gemma] WARNING: $logTag npu was requested, but $reason — '
+      'trying ${backends.map(ffiBackendWireName).join(" -> ")} instead. NPU '
+      'runs on Qualcomm Snapdragon Android and on Windows (Intel '
+      'LunarLake/PantherLake). InferenceModel.activeBackend names what '
+      'actually ran.',
     );
   }
 
@@ -222,11 +259,9 @@ Future<({T client, PreferredBackend activeBackend})> initializeFfiRuntime<T>({
       );
       await shutdownClient(client);
       // Both, for two readers. `developer.log` carries the structured error and
-      // stack trace to DevTools, which is where they are useful. But
-      // flutter_tools never subscribes to the VM-service `Logging` stream, so on
-      // its own that made every GPU→CPU fallback invisible in a `flutter run`
-      // terminal — the same silent-fallback defect the NPU notice above exists
-      // to prevent, one branch away. `gemmaLog` reaches the terminal.
+      // stack trace to DevTools, which is where they are useful. `print` is the
+      // line a person sees — in a `flutter run` terminal and in a release
+      // build's logcat — for the same reason as the npu notice above.
       developer.log(
         '$logTag ${ffiBackendWireName(backend)} backend failed: $error',
         name: 'flutter_gemma',
@@ -234,10 +269,13 @@ Future<({T client, PreferredBackend activeBackend})> initializeFfiRuntime<T>({
         error: error,
         stackTrace: stackTrace,
       );
-      gemmaLog(
-        '⚠️  $logTag ${ffiBackendWireName(backend)} backend failed, trying the '
-        'next candidate: $error. InferenceModel.activeBackend reports what '
-        'actually ran, in release builds too.',
+      final next = backend == backends.last
+          ? 'no candidates are left'
+          : 'trying the next candidate';
+      // ignore: avoid_print
+      print(
+        '[flutter_gemma] WARNING: $logTag ${ffiBackendWireName(backend)} '
+        'backend failed, $next: $error',
       );
     }
   }

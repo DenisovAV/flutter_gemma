@@ -1,6 +1,32 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter_gemma_litertlm/src/ffi/backend_preference.dart';
 import 'package:flutter_gemma/core/domain/platform_types.dart';
+import 'package:flutter_gemma/core/utils/gemma_log.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+/// Runs [body] and returns everything it `print`ed, with `gemmaLog` muted — so
+/// a line that shows up here reached `print` itself, the one channel a release
+/// build keeps.
+Future<List<String>> _printedWithGemmaLogMuted(
+  Future<void> Function() body,
+) async {
+  final printed = <String>[];
+  final level = gemmaLogLevel;
+  gemmaLogLevel = GemmaLogLevel.none;
+  try {
+    await runZoned(
+      body,
+      zoneSpecification: ZoneSpecification(
+        print: (_, _, _, line) => printed.add(line),
+      ),
+    );
+  } finally {
+    gemmaLogLevel = level;
+  }
+  return printed;
+}
 
 void main() {
   group('ffiBackendFallbackOrder', () {
@@ -64,13 +90,31 @@ void main() {
       },
     );
 
-    test('the host getter agrees with the rule it delegates to', () {
+    test('the FastRPC probe runs on Android only', () {
+      // As an eagerly evaluated argument it ran on every host that asked for
+      // npu — including Windows, where LoadLibrary walks PATH.
       expect(
-        ffiBackendFallbackOrder(
-          PreferredBackend.npu,
-        ).contains(PreferredBackend.npu),
         hostShipsNpuDispatch,
+        npuDispatchShipsFor(Platform.operatingSystem, androidHasFastRpc: false),
       );
+      expect(fastRpcProbed, isFalse);
+    }, skip: Platform.isAndroid ? 'the probe is the point on Android' : false);
+
+    test('the reason npu is missing is worded per platform', () {
+      final android = npuUnavailableReason(
+        'android',
+        fastRpcError: 'dlopen failed: library "libcdsprpc.so" not found',
+      );
+      expect(android, contains('libcdsprpc.so'));
+      expect(android, contains('not found'), reason: 'the probe error is kept');
+      expect(
+        android,
+        isNot(contains('ships')),
+        reason: 'the stack does ship on Android; the device lacks FastRPC',
+      );
+
+      expect(npuUnavailableReason('macos'), contains('no NPU dispatch stack'));
+      expect(npuUnavailableReason('macos'), isNot(contains('FastRPC')));
     });
 
     test('tries GPU, then CPU for a GPU preference', () {
@@ -175,6 +219,48 @@ void main() {
 
       expect(clients, hasLength(3));
       expect(clients.every((client) => client.isShutdown), isTrue);
+    });
+
+    test(
+      'an npu request that cannot be honoured is printed, not only logged',
+      () async {
+        final printed = await _printedWithGemmaLogMuted(() async {
+          await initializeFfiRuntime<_FakeClient>(
+            preferredBackend: PreferredBackend.npu,
+            npuDispatchAvailable: false,
+            logTag: '[Test]',
+            createClient: _FakeClient.new,
+            initializeClient: (_, _) async {},
+            shutdownClient: (client) => client.shutdown(),
+          );
+        });
+        expect(printed, hasLength(1));
+        expect(printed.single, contains('npu was requested'));
+        expect(printed.single, contains('gpu -> cpu'));
+      },
+    );
+
+    test('a failed backend is printed, and the last one does not promise a '
+        'next', () async {
+      final printed = await _printedWithGemmaLogMuted(() async {
+        await expectLater(
+          initializeFfiRuntime<_FakeClient>(
+            preferredBackend: PreferredBackend.gpu,
+            logTag: '[Test]',
+            createClient: _FakeClient.new,
+            initializeClient: (_, backend) async =>
+                throw Exception('${ffiBackendWireName(backend)} failed'),
+            shutdownClient: (client) => client.shutdown(),
+          ),
+          throwsA(isA<BackendInitException>()),
+        );
+      });
+      expect(printed, hasLength(2));
+      expect(printed.first, contains('gpu backend failed, trying the next'));
+      expect(
+        printed.last,
+        contains('cpu backend failed, no candidates are left'),
+      );
     });
 
     test('requires at least one failed backend attempt', () {

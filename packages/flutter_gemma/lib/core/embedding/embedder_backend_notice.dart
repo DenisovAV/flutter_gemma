@@ -44,6 +44,28 @@ void noticeEmbedderBackendIgnored(PreferredBackend? requested) {
   );
 }
 
+/// The web counterpart of [noticeEmbedderBackendIgnored], with a different
+/// rule as well as different words.
+///
+/// On web NO value of `preferredBackend` reaches an embedder — `cpu`
+/// included, which the native rule rightly stays quiet about because native
+/// embeddings do run on CPU. Here the runtime chooses: LiteRT.js asks for
+/// WebGPU and falls back to WASM, and onnxruntime-web tries `webgpu` then
+/// `wasm`. The native line said "Embeddings run on CPU" to a caller whose
+/// embeddings were running on WebGPU — a backend reported that did not run.
+void noticeWebEmbedderBackendIgnored(PreferredBackend? requested) {
+  if (requested == null || _warned) return;
+  if (!kDebugMode || gemmaLogLevel == GemmaLogLevel.none) return;
+  _warned = true;
+  gemmaLog(
+    'ℹ️  preferredBackend ${requested.name} is not applied to embeddings on '
+    'web: the runtime picks the accelerator (WebGPU first, WASM as the '
+    'fallback). EmbeddingModel.activeBackend is null on web; with LiteRT, '
+    'window.getLiteRtEmbeddingAccelerator() names it after the first '
+    'embedding.',
+  );
+}
+
 /// Lets a test assert from a known state. The flag is private and per-isolate
 /// otherwise, which is what forces one test to carry every case in order.
 @visibleForTesting

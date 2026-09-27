@@ -178,6 +178,27 @@ void main() {
       expect(printed, hasLength(2));
       expect(printed.last, contains('npu'));
     });
+
+    test('on web every requested backend is reported as not applied, cpu '
+        'included, and none of them as CPU', () {
+      // Web embeddings run where the runtime puts them — WebGPU first — so a
+      // request for cpu is ignored too, and "run on CPU" would name a backend
+      // that did not run.
+      noticeWebEmbedderBackendIgnored(null);
+      expect(printed, isEmpty, reason: 'nothing was asked for');
+
+      noticeWebEmbedderBackendIgnored(PreferredBackend.cpu);
+      expect(printed, hasLength(1));
+      expect(printed.single, contains('cpu'));
+      expect(printed.single, isNot(contains('CPU')));
+      expect(printed.single, contains('activeBackend'));
+    });
+
+    test('the web and native lines share the one shot', () {
+      noticeWebEmbedderBackendIgnored(PreferredBackend.gpu);
+      noticeEmbedderBackendIgnored(PreferredBackend.gpu);
+      expect(printed, hasLength(1));
+    });
   });
 
   test(

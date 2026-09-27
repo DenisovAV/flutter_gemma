@@ -173,7 +173,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     // branch is what made it unreachable twice: once behind the singleton
     // cache, once behind "only on reuse". The ordinary shape is a single call
     // held for the app's lifetime; if it does not speak here it never speaks.
-    noticeEmbedderBackendIgnored(preferredBackend);
+    noticeWebEmbedderBackendIgnored(preferredBackend);
 
     // Serialised, so that resolving paths, comparing them and constructing the
     // model are one step — which is what stops two concurrent first callers from

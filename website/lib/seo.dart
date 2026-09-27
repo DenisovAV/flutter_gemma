@@ -5,7 +5,7 @@ import 'package:jaspr/jaspr.dart';
 
 /// Canonical production origin. SEO tags point here (NOT the *.web.app URL) so
 /// indexing stays clean on the custom domain.
-const String kSiteOrigin = 'https://fluttergemma.dev';
+const String kSiteOrigin = 'https://flutteredge.ai';
 
 /// Builds the `<head>` SEO components (Open Graph, Twitter Card, canonical,
 /// robots, theme-color, and JSON-LD structured data) for a page.
@@ -42,7 +42,7 @@ List<Component> seoHead({
     meta('theme-color', '#0B2351'),
     // Open Graph
     meta('og:type', type, property: true),
-    meta('og:site_name', 'flutter_gemma', property: true),
+    meta('og:site_name', 'flutter_edge_ai', property: true),
     meta('og:locale', 'en_US', property: true),
     meta('og:title', title, property: true),
     meta('og:description', description, property: true),
@@ -52,7 +52,7 @@ List<Component> seoHead({
     meta('og:image:type', 'image/png', property: true),
     meta('og:image:width', '1200', property: true),
     meta('og:image:height', '630', property: true),
-    meta('og:image:alt', 'flutter_gemma — On-device LLMs for Flutter', property: true),
+    meta('og:image:alt', 'flutter_edge_ai — On-device LLMs for Flutter', property: true),
     // Twitter Card
     meta('twitter:card', 'summary_large_image'),
     meta('twitter:title', title),
@@ -69,12 +69,12 @@ List<Component> seoHead({
   ];
 }
 
-/// JSON-LD `SoftwareApplication` describing the flutter_gemma package, used for
+/// JSON-LD `SoftwareApplication` describing the flutter_edge_ai package, used for
 /// rich results in search. Plain `Map`/`List` so it serializes deterministically.
 Map<String, Object?> _softwareApplicationSchema() => {
   '@context': 'https://schema.org',
   '@type': 'SoftwareApplication',
-  'name': 'flutter_gemma',
+  'name': 'flutter_edge_ai',
   'description':
       'A Flutter plugin to run Gemma and other LLMs on-device — '
       'Android, iOS, Web, and Desktop. Multimodal vision & audio, '
@@ -95,7 +95,7 @@ Map<String, Object?> _softwareApplicationSchema() => {
   },
   'codeRepository': 'https://github.com/DenisovAV/flutter_gemma',
   'sameAs': [
-    'https://pub.dev/packages/flutter_gemma',
+    'https://pub.dev/packages/flutter_edge_ai',
     'https://github.com/DenisovAV/flutter_gemma',
   ],
 };

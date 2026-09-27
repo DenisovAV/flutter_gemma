@@ -1,4 +1,4 @@
-# Flutter Gemma Core - Modern Architecture
+# Flutter Edge AI Core - Modern Architecture
 
 This directory contains the refactored core architecture following SOLID principles and dependency injection patterns.
 
@@ -11,7 +11,7 @@ lib/core/
 ├── infrastructure/   # Service implementations
 ├── handlers/         # Source-specific model installation handlers
 ├── di/              # Dependency injection container
-├── api/             # Modern API facade (FlutterGemma)
+├── api/             # Modern API facade (FlutterEdgeAi)
 └── legacy/          # Legacy adapter (backward compatibility)
 ```
 
@@ -22,10 +22,10 @@ lib/core/
 Initialize once at app startup:
 
 ```dart
-import 'package:flutter_gemma/core/api/flutter_gemma.dart';
+import 'package:flutter_edge_ai/core/api/flutter_edge_ai.dart';
 
 void main() {
-  FlutterGemma.initialize(
+  FlutterEdgeAi.initialize(
     huggingFaceToken: 'hf_...', // Optional for HuggingFace models
   );
   runApp(MyApp());
@@ -37,7 +37,7 @@ void main() {
 #### From Network (HTTP/HTTPS)
 
 ```dart
-final installation = await FlutterGemma.installModel()
+final installation = await FlutterEdgeAi.installModel()
   .fromNetwork('https://huggingface.co/.../model.bin')
   .withProgress((progress) => print('Progress: $progress%'))
   .install();
@@ -46,7 +46,7 @@ final installation = await FlutterGemma.installModel()
 #### From Flutter Asset
 
 ```dart
-await FlutterGemma.installModel()
+await FlutterEdgeAi.installModel()
   .fromAsset('models/gemma-2b-it.bin')
   .install();
 ```
@@ -54,7 +54,7 @@ await FlutterGemma.installModel()
 #### From Bundled Native Resource
 
 ```dart
-await FlutterGemma.installModel()
+await FlutterEdgeAi.installModel()
   .fromBundled('gemma.bin')
   .install();
 ```
@@ -63,7 +63,7 @@ await FlutterGemma.installModel()
 
 ```dart
 // User-provided file via file picker
-await FlutterGemma.installModel()
+await FlutterEdgeAi.installModel()
   .fromFile('/path/to/model.bin')
   .install();
 ```
@@ -72,14 +72,14 @@ await FlutterGemma.installModel()
 
 ```dart
 // Check if installed
-final isInstalled = await FlutterGemma.isModelInstalled('gemma-2b-it.bin');
+final isInstalled = await FlutterEdgeAi.isModelInstalled('gemma-2b-it.bin');
 
 // List all installed models
-final models = await FlutterGemma.listInstalledModels();
+final models = await FlutterEdgeAi.listInstalledModels();
 print('Installed: $models');
 
 // Uninstall model
-await FlutterGemma.uninstallModel('gemma-2b-it.bin');
+await FlutterEdgeAi.uninstallModel('gemma-2b-it.bin');
 ```
 
 ## Architecture Patterns
@@ -213,14 +213,14 @@ test('NetworkSourceHandler downloads file', () async {
 
 ```dart
 test('Full installation flow', () async {
-  FlutterGemma.initialize();
+  FlutterEdgeAi.initialize();
 
-  final installation = await FlutterGemma.installModel()
+  final installation = await FlutterEdgeAi.installModel()
     .fromNetwork('https://example.com/test.bin')
     .install();
 
   expect(installation.modelId, 'test.bin');
-  expect(await FlutterGemma.isModelInstalled('test.bin'), isTrue);
+  expect(await FlutterEdgeAi.isModelInstalled('test.bin'), isTrue);
 });
 ```
 
@@ -229,7 +229,7 @@ test('Full installation flow', () async {
 ### Legacy (Deprecated)
 
 ```dart
-import 'package:flutter_gemma/core/legacy/legacy_model_manager.dart';
+import 'package:flutter_edge_ai/core/legacy/legacy_model_manager.dart';
 
 final spec = InferenceModelSpec(
   name: 'gemma-2b',
@@ -242,9 +242,9 @@ await LegacyModelManager.downloadModel(spec);  // DEPRECATED
 ### Modern (Recommended)
 
 ```dart
-import 'package:flutter_gemma/core/api/flutter_gemma.dart';
+import 'package:flutter_edge_ai/core/api/flutter_edge_ai.dart';
 
-await FlutterGemma.installModel()
+await FlutterEdgeAi.installModel()
   .fromNetwork('https://...')
   .withProgress((p) => print(p))
   .install();

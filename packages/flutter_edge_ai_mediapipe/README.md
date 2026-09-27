@@ -1,6 +1,6 @@
-# flutter_gemma_mediapipe
+# flutter_edge_ai_mediapipe
 
-MediaPipe (`.task`) on-device inference engine for [`flutter_gemma`](https://pub.dev/packages/flutter_gemma). Opt-in package — add it only if you run MediaPipe `.task` models. Android, iOS, and Web.
+MediaPipe (`.task`) on-device inference engine for [`flutter_edge_ai`](https://pub.dev/packages/flutter_edge_ai). Opt-in package — add it only if you run MediaPipe `.task` models. Android, iOS, and Web.
 
 ## Teach your AI assistant this package
 
@@ -8,20 +8,20 @@ MediaPipe (`.task`) on-device inference engine for [`flutter_gemma`](https://pub
 dart run skills@ get --all
 ```
 
-Installs the agent skills `flutter_gemma` bundles — this package depends on it, so they come with it. One of them, `flutter-gemma-mediapipe`, covers `.task` and `.bin` models on Android, iOS and web.
+Installs the agent skills `flutter_edge_ai` bundles — this package depends on it, so they come with it. One of them, `flutter-edge-ai-mediapipe`, covers `.task` and `.bin` models on Android, iOS and web.
 
 ## Usage
 
 ```dart
-import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
+import 'package:flutter_edge_ai_mediapipe/flutter_edge_ai_mediapipe.dart';
 
-await FlutterGemma.initialize(
+await FlutterEdgeAi.initialize(
   inferenceEngines: [MediaPipeEngine()],
 );
 ```
 
-`MediaPipeEngine` handles `ModelFileType.task` / `.bin` models; pass it alongside other engines (e.g. `LiteRtLmEngine` from `flutter_gemma_litertlm`) if your app uses both formats.
+`MediaPipeEngine` handles `ModelFileType.task` / `.bin` models; pass it alongside other engines (e.g. `LiteRtLmEngine` from `flutter_edge_ai_litertlm`) if your app uses both formats.
 
 ## Web setup
 
@@ -40,13 +40,13 @@ window.LlmInference = LlmInference;
 ## iOS setup
 
 **iOS needs a 16.0 minimum.** MediaPipe GenAI requires it, and this is the only
-flutter_gemma package that does — core, `flutter_gemma_litertlm`, built-in AI and
+flutter_edge_ai package that does — core, `flutter_edge_ai_litertlm`, built-in AI and
 embeddings build from 15.0 (#441).
 
 This package ships no `Package.swift`, so even an app on Swift Package Manager gets a
 `Podfile` for it. Set the floor in BOTH places: `platform :ios, '16.0'` in the `Podfile`,
 and **iOS Deployment Target** on the Runner target in Xcode. Below 16, `pod install`
-reports that specs satisfying the `flutter_gemma_mediapipe` dependency "required a higher
+reports that specs satisfying the `flutter_edge_ai_mediapipe` dependency "required a higher
 minimum deployment target".
 
 MediaPipe ships static xcframeworks, so the `Podfile` also needs
@@ -61,4 +61,4 @@ statically linked binaries".
 | Android  | ✅ `com.google.mediapipe:tasks-genai` (Gradle) |
 | iOS      | ✅ `MediaPipeTasksGenAI` (CocoaPods) — **requires iOS 16.0+** |
 | Web      | ✅ `@mediapipe/tasks-genai` (CDN, see above) |
-| Desktop  | ❌ (MediaPipe `.task` not supported on desktop — use `flutter_gemma_litertlm`) |
+| Desktop  | ❌ (MediaPipe `.task` not supported on desktop — use `flutter_edge_ai_litertlm`) |

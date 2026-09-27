@@ -1,3 +1,6 @@
+## 0.6.0
+- Renamed from `flutter_gemma_onnx`.
+
 ## 0.5.0
 - Native inference `activeBackend` reports null instead of echoing the requested backend.
 

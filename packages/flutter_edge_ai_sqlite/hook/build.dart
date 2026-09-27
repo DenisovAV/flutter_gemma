@@ -69,7 +69,7 @@ const _assetName = 'src/native/vec0';
 const _bundleVersion = '0.1.9';
 
 const _releaseTag = 'native-sqlite-vec-v$_bundleVersion';
-const _markerFileName = '.flutter_edge_ai_sqlite_vec_version';
+const _markerFileName = '.flutter_gemma_sqlite_vec_version';
 const _releaseBase =
     'https://github.com/DenisovAV/flutter_gemma/releases/download/$_releaseTag';
 

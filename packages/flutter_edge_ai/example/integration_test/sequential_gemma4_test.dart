@@ -12,7 +12,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 import 'inference_test_helpers.dart' show registerTestEngines;
 
-const _modelPath = '/data/local/tmp/flutter_edge_ai_test/gemma-4-E2B-it.litertlm';
+const _modelPath = '/data/local/tmp/flutter_gemma_test/gemma-4-E2B-it.litertlm';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();

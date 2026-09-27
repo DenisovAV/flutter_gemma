@@ -1,8 +1,8 @@
 // Benchmark comparison: Gemma 3 Nano E2B vs Gemma 4 E2B on Android (LiteRT-LM)
 //
 // Prerequisites:
-//   adb push /path/to/gemma-3n-E2B-it-int4.litertlm /data/local/tmp/flutter_edge_ai_test/
-//   adb push /path/to/gemma-4-E2B-it.litertlm /data/local/tmp/flutter_edge_ai_test/
+//   adb push /path/to/gemma-3n-E2B-it-int4.litertlm /data/local/tmp/flutter_gemma_test/
+//   adb push /path/to/gemma-4-E2B-it.litertlm /data/local/tmp/flutter_gemma_test/
 //
 // Run:
 //   cd example
@@ -20,7 +20,7 @@ import 'inference_test_helpers.dart';
 
 // --- Model configs ---
 
-const _deviceDir = '/data/local/tmp/flutter_edge_ai_test';
+const _deviceDir = '/data/local/tmp/flutter_gemma_test';
 
 const _models = <_BenchmarkModelConfig>[
   _BenchmarkModelConfig(

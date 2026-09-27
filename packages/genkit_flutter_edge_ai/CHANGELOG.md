@@ -1,3 +1,6 @@
+## 0.7.0
+- Renamed from `genkit_flutter_gemma`: model ids are now `flutter-edge-ai/<name>`, old Dart names deprecated.
+
 ## 0.6.2
 - README: register `embeddingTokenizers:`, and pins for the 1.9.0 release.
 

@@ -34,7 +34,7 @@
 #      `_checksums` map in hook/build.dart.
 #   4. Create the tag and upload all seven archives PLUS a
 #      checksums_sqlite_vec.txt carrying the same sums:
-#        gh release create native-sqlite-vec-v<X> --repo DenisovAV/flutter_edge_ai \
+#        gh release create native-sqlite-vec-v<X> --repo DenisovAV/flutter_gemma \
 #          dist/sqlite-vec-*.tar.gz dist/checksums_sqlite_vec.txt
 #   5. NEVER re-upload assets on an existing tag. tar is not reproducible, so
 #      the published SHA256 cannot be recovered, and every consumer already

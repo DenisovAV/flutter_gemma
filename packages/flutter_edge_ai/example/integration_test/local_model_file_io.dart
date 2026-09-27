@@ -11,7 +11,7 @@ import 'dart:io' as io;
 /// from the network instead.
 String? localModelFile(String fileName) {
   if (io.Platform.isAndroid) {
-    return _existing('/data/local/tmp/flutter_edge_ai_test/$fileName');
+    return _existing('/data/local/tmp/flutter_gemma_test/$fileName');
   }
   if (io.Platform.isMacOS) {
     final home = io.Platform.environment['HOME'];

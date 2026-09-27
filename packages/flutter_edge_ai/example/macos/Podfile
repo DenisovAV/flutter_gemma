@@ -39,19 +39,19 @@ post_install do |installer|
     flutter_additional_macos_build_settings(target)
   end
 
-  # flutter_edge_ai: stage the upstream Apple companion dylibs into the built
+  # flutter_gemma: stage the upstream Apple companion dylibs into the built
   # .app. `hook/build.dart` deliberately skips them from Native Assets on macOS
   # (#247 — Google ships them without `-Wl,-headerpad_max_install_names`, so the
   # JIT bundling path cannot rewrite their install_name), which leaves this
   # build phase to stage them.
   #
   # The phase only LOCATES and RUNS a script; the staging logic itself lives in
-  # flutter_edge_ai_litertlm and is delivered next to the dylibs it stages. That
+  # flutter_gemma_litertlm and is delivered next to the dylibs it stages. That
   # is deliberate: this block is frozen into your Xcode project, and a copy of
   # the logic frozen there cannot be fixed by upgrading the package.
   installer.aggregate_targets.each do |aggregate_target|
     aggregate_target.user_targets.each do |user_target|
-      phase_name = '[flutter_edge_ai] Setup LiteRT-LM macOS'
+      phase_name = '[flutter_gemma] Setup LiteRT-LM macOS'
 
       # Only the app target embeds the Frameworks/ this phase patches.
       # RunnerTests inherits Runner's framework search paths and has no
@@ -79,12 +79,12 @@ post_install do |installer|
       # A declared output lets Xcode order the phase in its dependency graph
       # instead of treating it as "runs every build with no outputs" — the other
       # half of the cycle warning (#300). The script touches this file.
-      phase.output_paths = ['$(DERIVED_FILE_DIR)/flutter_edge_ai_litertlm_macos.stamp']
+      phase.output_paths = ['$(DERIVED_FILE_DIR)/flutter_gemma_litertlm_macos.stamp']
       phase.shell_script = <<~SHELL
         set -e
         STAGER="${HOME}/Library/Caches/flutter_gemma/native/macos_arm64/stage_macos_companions.sh"
         if [ ! -f "${STAGER}" ]; then
-          echo "[flutter_edge_ai] ERROR: ${STAGER} not found." >&2
+          echo "[flutter_gemma] ERROR: ${STAGER} not found." >&2
           echo "  flutter_gemma_litertlm 1.6.2+ installs it there from its build hook." >&2
           echo "  Upgrade the package, then: flutter clean && flutter pub get" >&2
           exit 1

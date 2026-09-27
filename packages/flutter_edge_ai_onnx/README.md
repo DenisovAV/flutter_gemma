@@ -1,6 +1,6 @@
-# flutter_gemma_onnx
+# flutter_edge_ai_onnx
 
-ONNX Runtime engines for [flutter_gemma](https://pub.dev/packages/flutter_gemma):
+ONNX Runtime engines for [flutter_edge_ai](https://pub.dev/packages/flutter_edge_ai):
 **text generation** via ORT-GenAI (`OnnxEngine`) and **embeddings** via plain
 ONNX Runtime (`OnnxEmbeddingBackend`). On **native** platforms (macOS, Linux,
 Windows, Android, iOS), both are pure `dart:ffi` — no JVM, no gRPC — and both
@@ -15,23 +15,23 @@ behind the same public API.
 dart run skills@ get --all
 ```
 
-Installs the agent skills `flutter_gemma` bundles — this package depends on it, so they come with it. One of them, `flutter-gemma-onnx`, covers ORT-GenAI generation and ONNX embeddings, native and through Transformers.js.
+Installs the agent skills `flutter_edge_ai` bundles — this package depends on it, so they come with it. One of them, `flutter-edge-ai-onnx`, covers ORT-GenAI generation and ONNX embeddings, native and through Transformers.js.
 
 ## Register
 
-Embeddings also need `flutter_gemma_embeddings`, which supplies the tokenizers
+Embeddings also need `flutter_edge_ai_embeddings`, which supplies the tokenizers
 this package asks core for:
 
 ```bash
-flutter pub add flutter_gemma_embeddings
+flutter pub add flutter_edge_ai_embeddings
 ```
 
 ```dart
-import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
-import 'package:flutter_gemma_onnx/flutter_gemma_onnx.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
+import 'package:flutter_edge_ai_embeddings/flutter_edge_ai_embeddings.dart';
+import 'package:flutter_edge_ai_onnx/flutter_edge_ai_onnx.dart';
 
-await FlutterGemma.initialize(
+await FlutterEdgeAi.initialize(
   inferenceEngines: [OnnxEngine()],
   embeddingBackends: [OnnxEmbeddingBackend()],
   embeddingTokenizers: [GemmaEmbeddingTokenizers()],
@@ -60,7 +60,7 @@ embeddings) on macOS (~54 tok/s, M4 Pro), Linux (~5.3-5.8 tok/s), Windows
 3.8B int4 model). On iOS the framework-embedding/dlopen path builds, signs,
 installs and launches on a real iPhone, and generation runs (the
 `@executable_path`-anchored dlopen resolves the single self-contained genai
-xcframework — the same proven pattern as `flutter_gemma_litertlm`'s iOS
+xcframework — the same proven pattern as `flutter_edge_ai_litertlm`'s iOS
 path). On an unsupported native host (macOS Intel, or any other native ABI)
 `OnnxEngine` politely declines (logs why, lets another registered engine —
 or core's own "no engine can handle this" error — take over) instead of
@@ -130,9 +130,9 @@ whole ORT-GenAI bundle. The resolver rides on `OnnxEngine` via
 `HuggingFaceResolverSource`, so registering the engine is enough:
 
 ```dart
-await FlutterGemma.initialize(inferenceEngines: [OnnxEngine()]);
+await FlutterEdgeAi.initialize(inferenceEngines: [OnnxEngine()]);
 
-final install = await FlutterGemma.installModel(
+final install = await FlutterEdgeAi.installModel(
   // ONNX repos declare no model family — the caller's modelType is used as-is.
   modelType: ModelType.general,
   fileType: ModelFileType.onnx, // selects the ONNX resolver
@@ -152,7 +152,7 @@ flagged in `notes` as one the CPU-only runtime may fail to load.
 directory you pre-populate), point `fromFile` at its `genai_config.json`:
 
 ```dart
-await FlutterGemma.installModel(
+await FlutterEdgeAi.installModel(
   modelType: ModelType.general,
   fileType: ModelFileType.onnx,
 ).fromFile('/path/to/my-model/genai_config.json').install();
@@ -232,8 +232,8 @@ WordPiece/SentencePiece handling. See [Web setup](#web-setup).
 
 ## Web setup
 
-Web needs a small `web/index.html` shim before `FlutterGemma.initialize()`
-runs — the same readiness-handshake pattern `flutter_gemma_litertlm` uses for
+Web needs a small `web/index.html` shim before `FlutterEdgeAi.initialize()`
+runs — the same readiness-handshake pattern `flutter_edge_ai_litertlm` uses for
 `@litert-lm/core`. Add the shim for whichever arm(s) you register:
 
 ```
@@ -263,8 +263,8 @@ Flutter app boots (i.e. in `<head>`, ahead of `flutter_bootstrap.js`).
 
 ## See also
 
-- [`flutter_gemma`](https://pub.dev/packages/flutter_gemma) — the core
+- [`flutter_edge_ai`](https://pub.dev/packages/flutter_edge_ai) — the core
   package this engine plugs into.
-- [`flutter_gemma_litertlm`](https://pub.dev/packages/flutter_gemma_litertlm) /
-  [`flutter_gemma_embeddings`](https://pub.dev/packages/flutter_gemma_embeddings) —
+- [`flutter_edge_ai_litertlm`](https://pub.dev/packages/flutter_edge_ai_litertlm) /
+  [`flutter_edge_ai_embeddings`](https://pub.dev/packages/flutter_edge_ai_embeddings) —
   the LiteRT-LM equivalents, with broader platform support today.

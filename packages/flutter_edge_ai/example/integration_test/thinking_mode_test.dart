@@ -3,8 +3,8 @@
 //
 // Prerequisites:
 //   Push models to device:
-//     adb push deepseek_q8_ekv1280.task /data/local/tmp/flutter_edge_ai_test/
-//     adb push gemma-4-E2B-it.litertlm /data/local/tmp/flutter_edge_ai_test/
+//     adb push deepseek_q8_ekv1280.task /data/local/tmp/flutter_gemma_test/
+//     adb push gemma-4-E2B-it.litertlm /data/local/tmp/flutter_gemma_test/
 //
 // Tests per model:
 //   - install: model loads from device file
@@ -18,7 +18,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 import 'inference_test_helpers.dart' show registerTestEngines;
 
-const _deviceModelDir = '/data/local/tmp/flutter_edge_ai_test';
+const _deviceModelDir = '/data/local/tmp/flutter_gemma_test';
 
 /// Test model configuration for thinking mode tests.
 class ThinkingTestModel {

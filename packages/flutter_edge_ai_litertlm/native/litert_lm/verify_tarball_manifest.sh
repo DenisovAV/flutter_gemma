@@ -26,7 +26,7 @@ set -euo pipefail
 
 DIST_DIR="${1:?usage: verify_tarball_manifest.sh <DIST_DIR> <PREV_TAG>}"
 PREV_TAG="${2:?usage: verify_tarball_manifest.sh <DIST_DIR> <PREV_TAG>}"
-REPO="${FLUTTER_GEMMA_REPO:-DenisovAV/flutter_edge_ai}"
+REPO="${FLUTTER_GEMMA_REPO:-DenisovAV/flutter_gemma}"
 
 # Allow-list of files that are INTENTIONALLY removed in this release.
 # Format: "<platform>:<basename>" (e.g. "android_arm64:libQnnHtp.so").

@@ -1,3 +1,6 @@
+## 2.3.0
+- Renamed from `flutter_gemma_embeddings`.
+
 ## 2.2.1
 - README: engine authors pass `activeBackend:` to `ForwardPassDescriptor`.
 

@@ -1,7 +1,7 @@
 name: flutter_edge_ai_sqlite
 description: "SQLite vector search (sqlite-vec) on-device RAG vector store for flutter_edge_ai. Opt-in package; implements flutter_edge_ai's VectorStoreRepository."
 version: 1.5.0
-homepage: https://fluttergemma.dev
+homepage: https://flutteredge.ai
 repository: https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_edge_ai_sqlite
 topics: [rag, sqlite, vector-search, embeddings, web]
 

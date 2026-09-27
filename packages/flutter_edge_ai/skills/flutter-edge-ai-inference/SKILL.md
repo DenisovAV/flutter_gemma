@@ -1,14 +1,14 @@
 ---
-name: flutter-gemma-inference
-description: Use when adding on-device LLM inference to a Flutter app with flutter_gemma — offline chat, running Gemma, Qwen or Phi locally, installing a model from Hugging Face (gated repos included), streaming replies, a system prompt, thinking or reasoning output, image or audio prompts, picking a CPU, GPU or NPU backend, stopping generation — or setting up the recommended .litertlm engine (ModelFileType.litertlm) on Android, iOS, macOS, Windows, Linux or web, including the Android minSdk and internet permission, the Apple entitlements and Podfile, and the web index.html script tags. Also use when a reply comes back empty, the model answers identically every time, maxTokens does not shorten replies, FlutterGemma is an undefined name, getActiveModel throws "No inference engine can handle this model", a session throws "Session is closed", numbers come back wrong on the GPU, or .litertlm fails to load on Android. For .task or .bin models (ModelFileType.task or ModelFileType.binary), use flutter-gemma-mediapipe.
+name: flutter-edge-ai-inference
+description: Use when adding on-device LLM inference to a Flutter app with flutter_edge_ai — offline chat, running Gemma, Qwen or Phi locally, installing a model from Hugging Face (gated repos included), streaming replies, a system prompt, thinking or reasoning output, image or audio prompts, picking a CPU, GPU or NPU backend, stopping generation — or setting up the recommended .litertlm engine (ModelFileType.litertlm) on Android, iOS, macOS, Windows, Linux or web, including the Android minSdk and internet permission, the Apple entitlements and Podfile, and the web index.html script tags. Also use when a reply comes back empty, the model answers identically every time, maxTokens does not shorten replies, FlutterEdgeAi is an undefined name, getActiveModel throws "No inference engine can handle this model", a session throws "Session is closed", numbers come back wrong on the GPU, or .litertlm fails to load on Android. For .task or .bin models (ModelFileType.task or ModelFileType.binary), use flutter-edge-ai-mediapipe.
 ---
 
-# Running a model with flutter_gemma
+# Running a model with flutter_edge_ai
 
 ## Rules
 
-1. Depend on `flutter_gemma` and an engine package, and import both. Engine packages do not re-export core.
-2. Register the engine in `FlutterGemma.initialize(inferenceEngines: [...])`. Core ships none.
+1. Depend on `flutter_edge_ai` and an engine package, and import both. Engine packages do not re-export core.
+2. Register the engine in `FlutterEdgeAi.initialize(inferenceEngines: [...])`. Core ships none.
 3. Declare `fileType` on `installModel`. It defaults to `ModelFileType.task`, and the declaration — never the file name — picks the engine.
 4. `maxTokens` is the context window. Cap the reply with `maxOutputTokens` on the session or chat.
 5. Pass `isUser: true` on every user `Message`.
@@ -20,16 +20,16 @@ description: Use when adding on-device LLM inference to a Flutter app with flutt
 ## Setup — the recommended engine (.litertlm)
 
 ```sh
-flutter pub add flutter_gemma flutter_gemma_litertlm
+flutter pub add flutter_edge_ai flutter_edge_ai_litertlm
 ```
 
 ```dart
-import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
+import 'package:flutter_edge_ai_litertlm/flutter_edge_ai_litertlm.dart';
 
-await FlutterGemma.initialize(inferenceEngines: [LiteRtLmEngine()]);
+await FlutterEdgeAi.initialize(inferenceEngines: [LiteRtLmEngine()]);
 
-await FlutterGemma.installModel(
+await FlutterEdgeAi.installModel(
   modelType: ModelType.gemma4,
   fileType: ModelFileType.litertlm,
 )
@@ -39,7 +39,7 @@ await FlutterGemma.installModel(
     .withProgress((int percent) => print('downloading: $percent%'))
     .install();
 
-final InferenceModel model = await FlutterGemma.getActiveModel(maxTokens: 1024);
+final InferenceModel model = await FlutterEdgeAi.getActiveModel(maxTokens: 1024);
 ```
 
 Gemma 4 E2B is 2.6 GB and needs no token. On web use `gemma-4-E2B-it-web.litertlm` from the same repo (2.0 GB).
@@ -51,7 +51,7 @@ A gated repo needs a token, given once:
 ```dart
 const hfToken = String.fromEnvironment('HUGGINGFACE_TOKEN');
 
-await FlutterGemma.initialize(
+await FlutterEdgeAi.initialize(
   inferenceEngines: [LiteRtLmEngine()],
   huggingFaceToken: hfToken.isEmpty ? null : hfToken,
 );
@@ -62,40 +62,40 @@ Build with `--dart-define=HUGGINGFACE_TOKEN=hf_...`.
 When a Hugging Face repo publishes a deployment manifest, one call picks the variant and its tested runtime settings. The engine carries its own resolver, so registering `LiteRtLmEngine` is enough:
 
 ```dart
-final install = await FlutterGemma.installModel(
+final install = await FlutterEdgeAi.installModel(
   modelType: ModelType.general,
   fileType: ModelFileType.litertlm,
 ).fromHuggingFace('litert-community/LFM2.5-230M').install();
 
-final model = await FlutterGemma.getActiveModel(defaults: install.runtime);
+final model = await FlutterEdgeAi.getActiveModel(defaults: install.runtime);
 ```
 
 Other sources on the same builder: `.fromAsset(path)` for a model bundled in the app, `.fromFile(path)` for one already on disk, `.fromBundled(name)` for a platform-bundled resource.
 
-`modelType` tells flutter_gemma how the model writes tool calls and reasoning, and on some engines it also picks the prompt format. Gemma 3 and Gemma 3n are `ModelType.gemmaIt` — there is no `gemma3`. The full set: `ModelType.general`, `ModelType.gemmaIt`, `ModelType.gemma4`, `ModelType.deepSeek`, `ModelType.qwen`, `ModelType.qwen3`, `ModelType.llama`, `ModelType.hammer`, `ModelType.functionGemma`, `ModelType.phi`. A wrong type still generates text; tool calls and reasoning then arrive as raw text.
+`modelType` tells flutter_edge_ai how the model writes tool calls and reasoning, and on some engines it also picks the prompt format. Gemma 3 and Gemma 3n are `ModelType.gemmaIt` — there is no `gemma3`. The full set: `ModelType.general`, `ModelType.gemmaIt`, `ModelType.gemma4`, `ModelType.deepSeek`, `ModelType.qwen`, `ModelType.qwen3`, `ModelType.llama`, `ModelType.hammer`, `ModelType.functionGemma`, `ModelType.phi`. A wrong type still generates text; tool calls and reasoning then arrive as raw text.
 
 ## Traps
 
 **Core not imported**
-- Symptom: `Undefined name 'FlutterGemma'`, `Undefined class 'InferenceModel'`, with only the engine package imported.
-- Fix: `import 'package:flutter_gemma/flutter_gemma.dart';` as well.
+- Symptom: `Undefined name 'FlutterEdgeAi'`, `Undefined class 'InferenceModel'`, with only the engine package imported.
+- Fix: `import 'package:flutter_edge_ai/flutter_edge_ai.dart';` as well.
 
 **No engine registered**
-- Symptom: `StateError: No inference engine can handle this model (ModelFileType.litertlm). Add the engine package to pubspec.yaml and pass it in inferenceEngines: of FlutterGemma.initialize(...)`
+- Symptom: `StateError: No inference engine can handle this model (ModelFileType.litertlm). Add the engine package to pubspec.yaml and pass it in inferenceEngines: of FlutterEdgeAi.initialize(...)`
 - Fix: add the engine package and register its provider — or fix `fileType` if the wrong engine is registered.
 
 **`maxTokens` used as a reply length**
 
 ```dart
 // WRONG — asks for a 100-token context, not a 100-token reply
-final model = await FlutterGemma.getActiveModel(maxTokens: 100);
+final model = await FlutterEdgeAi.getActiveModel(maxTokens: 100);
 ```
 
 - Symptom: replies are as long as ever. On native `.litertlm` the value is raised to 1024, the smallest context those models support, and only a debug-mode log says so. The web `.litertlm` engine does not take the value at all; on MediaPipe it is the real limit.
 - Fix:
 
 ```dart
-final model = await FlutterGemma.getActiveModel(maxTokens: 1024);
+final model = await FlutterEdgeAi.getActiveModel(maxTokens: 1024);
 final session = await model.createSession(maxOutputTokens: 100);
 ```
 
@@ -211,7 +211,7 @@ await chat.close();
 ## Images
 
 ```dart
-final model = await FlutterGemma.getActiveModel(maxTokens: 4096, supportImage: true);
+final model = await FlutterEdgeAi.getActiveModel(maxTokens: 4096, supportImage: true);
 final chat = await model.createChat(supportImage: true);
 await chat.addQueryChunk(
   Message(text: 'What is in this photo?', isUser: true, imageBytes: bytes),
@@ -221,7 +221,7 @@ await chat.addQueryChunk(
 ## Audio
 
 ```dart
-final model = await FlutterGemma.getActiveModel(maxTokens: 4096, supportAudio: true);
+final model = await FlutterEdgeAi.getActiveModel(maxTokens: 4096, supportAudio: true);
 final chat = await model.createChat(supportAudio: true);
 await chat.addQueryChunk(
   Message(text: 'What is said in this recording?', isUser: true, audioBytes: bytes),
@@ -237,7 +237,7 @@ await chat.addQueryChunk(
 ## Backends
 
 ```dart
-final model = await FlutterGemma.getActiveModel(
+final model = await FlutterEdgeAi.getActiveModel(
   maxTokens: 1024,
   preferredBackend: PreferredBackend.gpu,
 );
@@ -257,7 +257,7 @@ On NPU, run a **Gemma 4** bundle. A Gemma 3 bundle on either vendor's NPU drops 
 On GPU, Gemma 4 can copy numbers wrongly from a long prompt: `2026/06/23` comes back as `20226/12/17`, the same way on every run (LiteRT-LM#3012 on Adreno, #2814 on Metal). The published Gemma 4 `.litertlm` files ask for half-precision activations. Ask for full precision when the answers carry figures, dates or amounts:
 
 ```dart
-final model = await FlutterGemma.getActiveModel(
+final model = await FlutterEdgeAi.getActiveModel(
   preferredBackend: PreferredBackend.gpu,
   activationDataType: ActivationDataType.float32,
 );

@@ -1,16 +1,16 @@
-# flutter_gemma_litertlm
+# flutter_edge_ai_litertlm
 
-LiteRT-LM (`.litertlm`) on-device inference engine for [flutter_gemma](https://pub.dev/packages/flutter_gemma),
+LiteRT-LM (`.litertlm`) on-device inference engine for [flutter_edge_ai](https://pub.dev/packages/flutter_edge_ai),
 via `dart:ffi`. Opt-in package — add it only if you run `.litertlm` models.
 Android, iOS, macOS, Linux, Windows.
 
 This package **owns** the shared LiteRT-LM native library (`libLiteRtLm`) and
 exposes the LiteRt interpreter FFI (`LiteRtBindings`); both are shared by
-[flutter_gemma_speech](https://pub.dev/packages/flutter_gemma_speech). As of
+[flutter_edge_ai_speech](https://pub.dev/packages/flutter_edge_ai_speech). As of
 1.5.0 this package also ships the LiteRT C API embedding backend
 (`LiteRtEmbeddingBackend`) — see [Embeddings](#embeddings) below — over the
-runtime-agnostic embedding pipeline in `flutter_gemma`. Tokenizers come from
-[flutter_gemma_embeddings](https://pub.dev/packages/flutter_gemma_embeddings),
+runtime-agnostic embedding pipeline in `flutter_edge_ai`. Tokenizers come from
+[flutter_edge_ai_embeddings](https://pub.dev/packages/flutter_edge_ai_embeddings),
 which the app registers; this package does not depend on it.
 
 ## Teach your AI assistant this package
@@ -19,21 +19,21 @@ which the app registers; this package does not depend on it.
 dart run skills@ get --all
 ```
 
-Installs the agent skills `flutter_gemma` bundles — this package depends on it, so they come with it. One of them, `flutter-gemma-inference`, covers the `.litertlm` engine, installing a model from Hugging Face, sessions, streaming, and the platform setup for all six targets.
+Installs the agent skills `flutter_edge_ai` bundles — this package depends on it, so they come with it. One of them, `flutter-edge-ai-inference`, covers the `.litertlm` engine, installing a model from Hugging Face, sessions, streaming, and the platform setup for all six targets.
 
 ## Usage
 
 ```dart
-import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
+import 'package:flutter_edge_ai_litertlm/flutter_edge_ai_litertlm.dart';
 
-await FlutterGemma.initialize(
+await FlutterEdgeAi.initialize(
   inferenceEngines: [LiteRtLmEngine()],
 );
 ```
 
 `LiteRtLmEngine` handles `ModelFileType.litertlm` models; pass it alongside
-other engines (e.g. `MediaPipeEngine` from `flutter_gemma_mediapipe`) if your app
+other engines (e.g. `MediaPipeEngine` from `flutter_edge_ai_mediapipe`) if your app
 uses both formats.
 
 ## Install from a Hugging Face repo (`litertlm_manifest.json`)
@@ -51,18 +51,18 @@ import 'dart:math' show max;
 // LiteRtLmEngine carries this resolver, so registering the engine registers
 // it too. Pass huggingFaceResolvers: only to override — e.g.
 // [LitertlmManifestResolver(revision: 'abc123')] to pin a commit.
-await FlutterGemma.initialize(inferenceEngines: [LiteRtLmEngine()]);
+await FlutterEdgeAi.initialize(inferenceEngines: [LiteRtLmEngine()]);
 
-final r = await FlutterGemma.resolveHuggingFace(
+final r = await FlutterEdgeAi.resolveHuggingFace(
     'litert-community/Qwen3-4B-Thinking-2507',
     fileType: ModelFileType.litertlm);
-await FlutterGemma.installModel(
+await FlutterEdgeAi.installModel(
       modelType: r.modelType ?? ModelType.general,
       fileType: r.fileType,
     )
     .fromNetwork(r.url) // authoritative: carries the resolver's revision pin
     .install();
-final model = await FlutterGemma.getActiveModel(defaults: r.runtime);
+final model = await FlutterEdgeAi.getActiveModel(defaults: r.runtime);
 final session = await model.createSession(
   enableThinking: r.runtime.isThinking ?? false,
   // minOutputTokens is a floor, not a cap: keep the app's own budget unless
@@ -85,23 +85,23 @@ on every install, because the variant's filename is only known after the fetch.
 ## Embeddings
 
 ```dart
-import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
-import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
+import 'package:flutter_edge_ai_embeddings/flutter_edge_ai_embeddings.dart';
+import 'package:flutter_edge_ai_litertlm/flutter_edge_ai_litertlm.dart';
 
-await FlutterGemma.initialize(
+await FlutterEdgeAi.initialize(
   embeddingBackends: [LiteRtEmbeddingBackend()],
   embeddingTokenizers: [GemmaEmbeddingTokenizers()],
 );
 ```
 
 Both lists, and both packages: this one brings the backend, and
-`flutter_gemma_embeddings` brings the tokenizers it asks core for. On web the
+`flutter_edge_ai_embeddings` brings the tokenizers it asks core for. On web the
 tokenizer list is unused — the LiteRT.js bundle tokenizes in JS.
 
 `LiteRtEmbeddingBackend` runs Gecko / EmbeddingGemma `.tflite` models via the
 LiteRT C API. The pipeline it plugs into — the forward-pass seam, the worker
-isolate and the pooling — lives in `flutter_gemma`; the tokenizers come from
-`flutter_gemma_embeddings`, which your app registers via
+isolate and the pooling — lives in `flutter_edge_ai`; the tokenizers come from
+`flutter_edge_ai_embeddings`, which your app registers via
 `embeddingTokenizers:`. This package depends on neither beyond core.
 On web it runs via LiteRT.js instead; see
 [Embeddings on web](#embeddings-on-web) below for the four files and the
@@ -117,7 +117,7 @@ recompiled a WebGPU request for WASM.
 
 ## Embeddings on web
 
-On web, `flutter_gemma_litertlm`'s embedding backend runs via LiteRT.js. Copy
+On web, `flutter_edge_ai_litertlm`'s embedding backend runs via LiteRT.js. Copy
 all four files from this package's `web/` into your app's `web/`, next to
 `index.html` — `litert_embeddings.js` imports the other three by relative path,
 so they have to sit together:
@@ -129,7 +129,7 @@ litert_embeddings.js  sentencepiece.js  litert.js  tensorflow.js
 They are four pieces of one bundle (the entry plus three vendor chunks), built
 together by `tool/web_build`, so never mix them across package versions. Find
 this package's directory with
-`grep -A1 '"name": "flutter_gemma_litertlm"' .dart_tool/package_config.json`,
+`grep -A1 '"name": "flutter_edge_ai_litertlm"' .dart_tool/package_config.json`,
 then load the entry module from `web/index.html`:
 
 ```html
@@ -138,7 +138,7 @@ then load the entry module from `web/index.html`:
 
 Upgrading from an earlier version: delete the copies in your app's `web/` and
 re-copy all four from this package. Before 1.8.0 they came from
-`flutter_gemma_embeddings`, and the copies you have are built against an older
+`flutter_edge_ai_embeddings`, and the copies you have are built against an older
 `@litertjs/core` than the runtime this version loads. If you built your own
 `web/wasm/`, either delete it and take the CDN default or rebuild it from the
 version in `LiteRtWebRuntime.pinnedVersion`.
@@ -162,7 +162,7 @@ third-party script), copy `node_modules/@litertjs/core/wasm/` into your app's
 `web/wasm/` and point the package at it before the first embedding:
 
 ```dart
-import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
+import 'package:flutter_edge_ai_litertlm/flutter_edge_ai_litertlm.dart';
 
 LiteRtWebRuntime.wasmPath = '/wasm/';
 ```
@@ -192,7 +192,7 @@ Whatever host you use must send `Access-Control-Allow-Origin` (LiteRT.js sets
 `application/wasm`.
 
 Native platforms need no setup — the LiteRT native library is bundled at build
-time by `flutter_gemma_litertlm`'s Native-Assets hook.
+time by `flutter_edge_ai_litertlm`'s Native-Assets hook.
 
 ## Web setup (early preview)
 
@@ -305,14 +305,14 @@ core decides that it should.
 
 ### Windows: embeddings or speech fail with `status=3` (fixed in 1.7.0)
 
-Symptom: on Windows only, `LiteRtEmbeddingBackend` and `flutter_gemma_speech`
+Symptom: on Windows only, `LiteRtEmbeddingBackend` and `flutter_edge_ai_speech`
 fail with `LiteRT call failed: CreateTensorBufferFromHostMemory(...) (status=3)`
 in 1.4.0–1.6.4. Text generation is unaffected.
 
 Cause: LiteRT made `LiteRtLayout` one layout on every compiler; this package
 still wrote tensor shapes in the old MSVC layout on Windows.
 
-Fix: upgrade to 1.7.0 (and `flutter_gemma_speech` to 0.5.1).
+Fix: upgrade to 1.7.0 (and `flutter_edge_ai_speech` to 0.5.1).
 
 ### Garbled or empty streams on Android (fixed in 1.5.2)
 
@@ -330,7 +330,7 @@ stream-callback ABI probe unable to see the library — and the probe read that
 as "old library" and registered the wrong callback shape.
 
 Fix: upgrade to 1.5.2. If you load `libLiteRtLm` yourself from app or
-third-party code, load it before flutter_gemma does and with `RTLD_GLOBAL`.
+third-party code, load it before flutter_edge_ai does and with `RTLD_GLOBAL`.
 1.5.2 cannot repair that case — bionic never promotes an already-loaded library
 — but it no longer generates corrupt text: a `.litertlm` generation raises a
 `StateError` naming the condition, and embeddings or speech (which resolve
@@ -340,9 +340,9 @@ See [#447](https://github.com/DenisovAV/flutter_gemma/issues/447).
 
 ### `dlopen` / "library not found" (`libLiteRtLm`)
 
-`flutter_gemma_litertlm` is the sole owner of the shared native library
+`flutter_edge_ai_litertlm` is the sole owner of the shared native library
 (`libLiteRtLm`) and bundles it via its build hook — this package's own
-`LiteRtEmbeddingBackend` and `flutter_gemma_speech` both use it directly. A
+`LiteRtEmbeddingBackend` and `flutter_edge_ai_speech` both use it directly. A
 stale Native-Assets cache after a
 native version bump can leave the library unbundled, surfacing as an opaque
 `dlopen` "no such file" on the first inference. Fix with a clean rebuild:

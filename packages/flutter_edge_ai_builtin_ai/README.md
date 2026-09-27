@@ -1,6 +1,6 @@
-# flutter_gemma_builtin_ai
+# flutter_edge_ai_builtin_ai
 
-Built-in OS AI engine for [flutter_gemma](https://pub.dev/packages/flutter_gemma): runs inference
+Built-in OS AI engine for [flutter_edge_ai](https://pub.dev/packages/flutter_edge_ai): runs inference
 against the **system/browser-provided** on-device model instead of a bundled Gemma checkpoint —
 Gemini Nano via ML Kit GenAI (AICore) on Android, Apple Foundation Models on iOS/macOS, and Gemini
 Nano via the Chrome **Prompt API** on Web. Opt-in package: add it only if you want your app to use
@@ -16,7 +16,7 @@ turned on (and downloaded, the first time it's used).
 dart run skills@ get --all
 ```
 
-Installs the agent skills `flutter_gemma` bundles — this package depends on it, so they come with it. One of them, `flutter-gemma-builtin-ai`, covers availability, the user gesture the web arm needs, and falling back to a downloaded model.
+Installs the agent skills `flutter_edge_ai` bundles — this package depends on it, so they come with it. One of them, `flutter-edge-ai-builtin-ai`, covers availability, the user gesture the web arm needs, and falling back to a downloaded model.
 
 ## Supported devices & OS floors
 
@@ -39,7 +39,7 @@ guarantee at build time — always probe it with `BuiltInAi.availability()` or
 
 ## Web setup
 
-Unlike `flutter_gemma_litertlm`'s web arm, there is **no CDN `<script>` tag to add to
+Unlike `flutter_edge_ai_litertlm`'s web arm, there is **no CDN `<script>` tag to add to
 `web/index.html`** — the Chrome Prompt API is a bare global (`self.LanguageModel`) the browser
 itself exposes; there is nothing to load. What you need instead is for the browser to have the
 feature **enabled**:
@@ -64,11 +64,11 @@ before creating a model rather than assuming it's available.
 Register the engine at startup, alongside any other engines your app uses:
 
 ```dart
-import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma_builtin_ai/flutter_gemma_builtin_ai.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
+import 'package:flutter_edge_ai_builtin_ai/flutter_edge_ai_builtin_ai.dart';
 
 void main() async {
-  await FlutterGemma.initialize(
+  await FlutterEdgeAi.initialize(
     inferenceEngines: const [BuiltInAiEngine()],
   );
   runApp(MyApp());
@@ -80,7 +80,7 @@ the identity — pass `fileType: ModelFileType.builtIn` and use `.fromBundled(..
 ready-made specs' `name`:
 
 ```dart
-await FlutterGemma.installModel(
+await FlutterEdgeAi.installModel(
   modelType: ModelType.general,
   fileType: ModelFileType.builtIn,
 ).fromBundled(BuiltInAiModels.geminiNano.name).install();
@@ -104,10 +104,10 @@ await BuiltInAi.ensureReady(
 );
 ```
 
-Then load and use the model exactly like any other flutter_gemma engine:
+Then load and use the model exactly like any other flutter_edge_ai engine:
 
 ```dart
-final model = await FlutterGemma.getActiveModel(maxTokens: 4096);
+final model = await FlutterEdgeAi.getActiveModel(maxTokens: 4096);
 final session = await model.createSession();
 await session.addQueryChunk(const Message(text: 'Hello!', isUser: true));
 final response = await session.getResponse();
@@ -145,7 +145,7 @@ accepted behind `chrome://flags/#enable-experimental-web-platform-features`, the
 accepted the model does not reliably route to the declared tools (it falls back to a built-in
 `google_search` pattern or answers as plain text). Function calling therefore goes through the
 prompt-based path, which Gemini Nano handles for single-turn calls. Multi-turn agent chaining is
-not supported on Web (see `flutter_gemma_agent`).
+not supported on Web (see `flutter_edge_ai_agent`).
 
 ## Troubleshooting
 

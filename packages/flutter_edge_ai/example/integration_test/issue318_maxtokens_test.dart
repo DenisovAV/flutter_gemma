@@ -27,7 +27,7 @@ const _gemma4Url =
     'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm';
 const _token = String.fromEnvironment('HUGGINGFACE_TOKEN');
 
-String get _androidDir => '/data/local/tmp/flutter_edge_ai_test';
+String get _androidDir => '/data/local/tmp/flutter_gemma_test';
 
 String? _localPath(String filename) {
   if (Platform.isAndroid) return '$_androidDir/$filename';

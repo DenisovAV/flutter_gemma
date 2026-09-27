@@ -1,4 +1,4 @@
-# `flutter_gemma_rag_sqlite` — vec0 build & keystone gates
+# `flutter_edge_ai_sqlite` — vec0 build & keystone gates
 
 Tooling for the single-engine **sqlite-vec / vec0** RAG store. These scripts
 build the custom web wasm and run the two load-bearing proofs the migration
@@ -29,7 +29,7 @@ resolve the library through `test/vec0_locator.dart`
 (the `loadable` asset, e.g. `vec0.dylib` / `vec0.so` / `vec0.dll`), then:
 
 ```bash
-cd packages/flutter_gemma_rag_sqlite
+cd packages/flutter_edge_ai_sqlite
 VEC0_DYLIB=/path/to/vec0.dylib flutter test test/vec0_text_pk_test.dart
 ```
 

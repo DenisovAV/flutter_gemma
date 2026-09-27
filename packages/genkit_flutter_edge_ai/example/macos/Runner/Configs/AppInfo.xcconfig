@@ -5,7 +5,7 @@
 // 'flutter create' template.
 
 // The application's name. By default this is also the title of the Flutter window.
-PRODUCT_NAME = genkit_flutter_gemma_example
+PRODUCT_NAME = genkit_flutter_edge_ai_example
 
 // The application's bundle identifier
 PRODUCT_BUNDLE_IDENTIFIER = dev.flutterberlin.genkitFlutterGemmaExample

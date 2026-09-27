@@ -26,7 +26,7 @@ not a subset of ...` unless the HOST APP declares `FOREGROUND_SERVICE_DATA_SYNC`
 `tools:node="merge"` override of `foregroundServiceType="dataSync"` on WorkManager's
 `SystemForegroundService` in its own manifest — see the README's Foreground Service section
 and `example/android/app/src/main/AndroidManifest.xml`. This is host-app responsibility, not
-something flutter_gemma adds automatically. None of these fixes change the 9-minute
+something flutter_edge_ai adds automatically. None of these fixes change the 9-minute
 `TaskRunner` limit described above.)
 
 ### Why `allowPause` doesn't help

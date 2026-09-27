@@ -7,7 +7,7 @@
 // stopped at "a call was parsed" passed the whole time.
 //
 // Stage the models in the app documents dir (desktop/iOS) or
-// /data/local/tmp/flutter_edge_ai_test/ (Android):
+// /data/local/tmp/flutter_gemma_test/ (Android):
 //   functiongemma-270M-it.litertlm      sasha-denisov/function-gemma-270M-it
 //   mobile_actions_q8_ekv1024.litertlm  litert-community/functiongemma-270m-ft-mobile-actions
 //   tiny_garden.litertlm                google/functiongemma-270m-it
@@ -320,7 +320,7 @@ Future<InferenceModel> _load(
     isNotNull,
     reason:
         'stage $file in the app documents dir (desktop/iOS), in '
-        '/data/local/tmp/flutter_edge_ai_test/ (Android), or pass its directory '
+        '/data/local/tmp/flutter_gemma_test/ (Android), or pass its directory '
         'as --dart-define=IOS_TEST_DOCS_DIR on the iOS Simulator',
   );
   await FlutterEdgeAi.installModel(

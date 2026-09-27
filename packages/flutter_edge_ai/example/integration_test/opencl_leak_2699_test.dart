@@ -16,8 +16,8 @@
 /// KV cache. It showed no growth, which said nothing about the reported bug.
 ///
 /// Model is pushed by Firebase Test Lab via
-///   --other-files /data/local/tmp/flutter_edge_ai_test/Qwen3-0.6B.litertlm=<local>
-/// Locally: adb push Qwen3-0.6B.litertlm /data/local/tmp/flutter_edge_ai_test/
+///   --other-files /data/local/tmp/flutter_gemma_test/Qwen3-0.6B.litertlm=<local>
+/// Locally: adb push Qwen3-0.6B.litertlm /data/local/tmp/flutter_gemma_test/
 library;
 
 import 'dart:io';
@@ -26,7 +26,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 import 'inference_test_helpers.dart' show registerTestEngines;
 
-const _dir = '/data/local/tmp/flutter_edge_ai_test';
+const _dir = '/data/local/tmp/flutter_gemma_test';
 const _qwen3 = '$_dir/Qwen3-0.6B.litertlm';
 
 const _turns = 8;

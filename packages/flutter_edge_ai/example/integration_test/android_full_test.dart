@@ -1,5 +1,5 @@
 /// Full Android FFI integration tests — models pre-pushed to /data/local/tmp/
-/// Push models: adb push <model>.litertlm /data/local/tmp/flutter_edge_ai_test/
+/// Push models: adb push <model>.litertlm /data/local/tmp/flutter_gemma_test/
 /// Run: cd example && flutter test integration_test/android_full_test.dart -d <device>
 import 'dart:io';
 import 'dart:typed_data';
@@ -9,7 +9,7 @@ import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 import 'package:flutter_edge_ai/core/model.dart';
 import 'inference_test_helpers.dart' show registerTestEngines;
 
-const _dir = '/data/local/tmp/flutter_edge_ai_test';
+const _dir = '/data/local/tmp/flutter_gemma_test';
 const _gemma3_1b = '$_dir/Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm';
 const _qwen3_06 = '$_dir/Qwen3-0.6B.litertlm';
 const _gemma3n = '$_dir/gemma-3n-E2B-it-int4.litertlm';

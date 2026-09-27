@@ -11,11 +11,11 @@ import 'package:path_provider/path_provider.dart';
 /// convention [voice_loop_test.dart]'s `_stagedLlmPath` uses, so these tests run
 /// on every platform, not just Android. Desktop/iOS read it from the app
 /// documents dir; Android (Firebase Test Lab) reads it from
-/// `/data/local/tmp/flutter_edge_ai_test/` (pushed via `--other-files`). Returns
+/// `/data/local/tmp/flutter_gemma_test/` (pushed via `--other-files`). Returns
 /// null when no staged file is present.
 Future<String?> stagedModelPath(String filename) async {
   if (Platform.isAndroid) {
-    final p = '/data/local/tmp/flutter_edge_ai_test/$filename';
+    final p = '/data/local/tmp/flutter_gemma_test/$filename';
     return File(p).existsSync() ? p : null;
   }
   final docs = await getApplicationDocumentsDirectory();

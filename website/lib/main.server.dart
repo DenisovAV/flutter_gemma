@@ -50,7 +50,7 @@ const String _codelabsDescription =
 const Map<String, Object?> _codelabsCollectionSchema = {
   '@context': 'https://schema.org',
   '@type': 'CollectionPage',
-  'name': 'flutter_gemma Codelabs',
+  'name': 'flutter_edge_ai Codelabs',
   'description': _codelabsDescription,
   'url': '$kSiteOrigin/codelabs',
 };
@@ -103,7 +103,7 @@ void main() {
           // Out-of-the-box layout for documentation sites.
           DocsLayout(
             header: Header(
-              title: 'flutter_gemma',
+              title: 'flutter_edge_ai',
               logo: '/images/logo.svg',
               items: [
                 // Enables switching between light and dark mode.
@@ -220,11 +220,11 @@ void main() {
             // glyphs (emoji, em-dashes) render as mojibake. `head:` adds the
             // Open Graph / Twitter Card / canonical tags (see seo.dart).
             builder: (context, state) => Document(
-              title: 'flutter_gemma — On-device LLMs for Flutter',
+              title: 'flutter_edge_ai — On-device LLMs for Flutter',
               lang: 'en',
               meta: const {'description': _landingDescription},
               head: seoHead(
-                title: 'flutter_gemma — On-device LLMs for Flutter',
+                title: 'flutter_edge_ai — On-device LLMs for Flutter',
                 description: _landingDescription,
                 path: '/',
               ),
@@ -239,11 +239,11 @@ void main() {
           Route(
             path: '/codelabs',
             builder: (context, state) => Document(
-              title: 'Codelabs — flutter_gemma',
+              title: 'Codelabs — flutter_edge_ai',
               lang: 'en',
               meta: const {'description': _codelabsDescription},
               head: seoHead(
-                title: 'Codelabs — flutter_gemma',
+                title: 'Codelabs — flutter_edge_ai',
                 description: _codelabsDescription,
                 path: '/codelabs',
                 structuredData: _codelabsCollectionSchema,

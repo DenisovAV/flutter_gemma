@@ -1,10 +1,10 @@
 ---
 name: review-pr
-description: Comprehensive PR review for flutter_gemma. Runs 10 specialized reviewers in parallel (4 platform-specific + 6 general). Use when reviewing PRs or before merging.
+description: Comprehensive PR review for flutter_edge_ai. Runs 10 specialized reviewers in parallel (4 platform-specific + 6 general). Use when reviewing PRs or before merging.
 user_invocable: true
 ---
 
-# Flutter Gemma PR Review
+# Flutter Edge AI PR Review
 
 Run comprehensive PR review with 10 parallel agents — 4 platform-specific + 6 general-purpose.
 
@@ -42,24 +42,24 @@ This is a **Dart pub workspace monorepo** — all code lives under `packages/<pk
 From the diff, detect which package(s)/area(s) are affected:
 
 **Packages (`packages/<pkg>/`):**
-- `flutter_gemma/` — core: registry, contracts, shells, ModelSource, slim native plugin (its `android/` `ios/` host only the bundled channel)
-- `flutter_gemma_litertlm/` — `.litertlm` FFI engine; `native/litert_lm/` build scripts, `lib/src/ffi/`, `hook/build.dart`
-- `flutter_gemma_embeddings/` — embedding tokenizers (pure Dart; the app registers them)
-- `flutter_gemma_mediapipe/` — `.task` MediaPipe; owns pigeon (`lib/pigeon.g.dart`) + Kotlin/Swift + web JS
-- `flutter_gemma_rag_qdrant/` — native RAG over the official `qdrant_edge`
+- `flutter_edge_ai/` — core: registry, contracts, shells, ModelSource, slim native plugin (its `android/` `ios/` host only the bundled channel)
+- `flutter_edge_ai_litertlm/` — `.litertlm` FFI engine; `native/litert_lm/` build scripts, `lib/src/ffi/`, `hook/build.dart`
+- `flutter_edge_ai_embeddings/` — embedding tokenizers (pure Dart; the app registers them)
+- `flutter_edge_ai_mediapipe/` — `.task` MediaPipe; owns pigeon (`lib/pigeon.g.dart`) + Kotlin/Swift + web JS
+- `flutter_edge_ai_qdrant/` — native RAG over the official `qdrant_edge`
   UniFFI SDK. Since 2.0.0 the package owns NO native code and NO hook: the
   engine and its Native Assets hook live in the SDK. `lib/src/` only.
-- `flutter_gemma_rag_sqlite/` — sqlite-vec `vec0` KNN on all six platforms; native via `package:sqlite3` FFI, web via `package:sqlite3/wasm.dart` (wa-sqlite was dropped in 1.1.0)
-- `flutter_gemma_speech/` — opt-in STT (moonshine / Whisper / Parakeet) + TTS (Matcha / Qwen3 / Inflect) over the LiteRT C API; shares the litertlm bundle
-- `flutter_gemma_agent/` — opt-in SKILL.md agent skills over the function-calling loop (no Web)
-- `flutter_gemma_builtin_ai/` — OS models: Gemini Nano via ML Kit GenAI (Android, `minSdk 26`), Apple Foundation Models (iOS/macOS, `sharedDarwinSource`). Owns its own pigeon.
-- `genkit_flutter_gemma/`, `genkit_hybrid/` — Genkit integration packages (Dart; no native)
-- `flutter_gemma/example/` — example app + `integration_test/` E2E
+- `flutter_edge_ai_sqlite/` — sqlite-vec `vec0` KNN on all six platforms; native via `package:sqlite3` FFI, web via `package:sqlite3/wasm.dart` (wa-sqlite was dropped in 1.1.0)
+- `flutter_edge_ai_speech/` — opt-in STT (moonshine / Whisper / Parakeet) + TTS (Matcha / Qwen3 / Inflect) over the LiteRT C API; shares the litertlm bundle
+- `flutter_edge_ai_agent/` — opt-in SKILL.md agent skills over the function-calling loop (no Web)
+- `flutter_edge_ai_builtin_ai/` — OS models: Gemini Nano via ML Kit GenAI (Android, `minSdk 26`), Apple Foundation Models (iOS/macOS, `sharedDarwinSource`). Owns its own pigeon.
+- `genkit_flutter_edge_ai/`, `genkit_hybrid/` — Genkit integration packages (Dart; no native)
+- `flutter_edge_ai/example/` — example app + `integration_test/` E2E
 
 **Native (per package):** `packages/<pkg>/android/`, `ios/`, `windows/`, `native/`, `hook/build.dart`
 **Web:** `packages/*/lib/src/web/`, `packages/*/web/` (JS interop, WASM)
-**Desktop:** `packages/*/lib/desktop/` + FFI in `flutter_gemma_litertlm`
-**Site:** `website/` — Jaspr landing + docs (deployed to fluttergemma.dev; CI `.github/workflows/firebase-hosting-merge.yml`)
+**Desktop:** `packages/*/lib/desktop/` + FFI in `flutter_edge_ai_litertlm`
+**Site:** `website/` — Jaspr landing + docs (deployed to flutteredge.ai; CI `.github/workflows/firebase-hosting-merge.yml`)
 **Repo-level:** `.github/workflows/`, `.claude/skills/`, root `pubspec.yaml` (workspace + melos)
 
 ### Ground rules for every agent — REVIEWERS DO NOT WRITE
@@ -163,22 +163,22 @@ an agent pointed at a missing directory returns a clean report.
 **subagent_type:** `android-architect`
 
 ```
-You are reviewing the Android native layer of flutter_gemma, a Dart pub workspace
+You are reviewing the Android native layer of flutter_edge_ai, a Dart pub workspace
 monorepo. Inference itself is NOT in Kotlin — `.litertlm` runs through Dart FFI.
 Kotlin exists in exactly three packages; confirm with
 `find packages -path '*/android/src/main/kotlin' -name '*.kt'` before you start.
 
-- packages/flutter_gemma/android/.../FlutterGemmaPlugin.kt — SLIM. Hosts only the
+- packages/flutter_edge_ai/android/.../FlutterEdgeAiPlugin.kt — SLIM. Hosts only the
   `flutter_gemma_bundled` channel: file ops plus the litertlm NPU
   `getNativeLibraryDir`. If a change adds inference logic here, that is the
   finding.
-- packages/flutter_gemma_mediapipe/android/ — the only real engine layer:
+- packages/flutter_edge_ai_mediapipe/android/ — the only real engine layer:
   own pigeon (PigeonInterface.g.kt), PlatformServiceImpl, InferenceModel, and
   engines/{InferenceEngine,EngineFactory,InferenceSession,EngineConfig}.kt plus
   engines/mediapipe/. EngineFactory handles `.task`/`.bin`/`.tflite` ONLY — it
   throws on `.litertlm` with a message pointing at the Dart FFI client. That
   throw is correct behaviour, not a bug.
-- packages/flutter_gemma_builtin_ai/android/ — ML Kit GenAI / AICore. Declares
+- packages/flutter_edge_ai_builtin_ai/android/ — ML Kit GenAI / AICore. Declares
   `minSdkVersion 26`; an app on a lower floor fails the manifest merger.
 
 CHECKLIST
@@ -213,15 +213,15 @@ Report CRITICAL / IMPORTANT / MINOR with file:line. Skip style nits.
 **subagent_type:** `swift-reviewer`
 
 ```
-You are reviewing the Apple native layer of flutter_gemma. Note the layouts
+You are reviewing the Apple native layer of flutter_edge_ai. Note the layouts
 differ per package — verify with `find packages -name '*.swift' | grep -v example`
 rather than assuming a single convention:
 
-- packages/flutter_gemma/{ios,macos}/flutter_gemma/Sources/flutter_gemma/ —
+- packages/flutter_edge_ai/{ios,macos}/flutter_edge_ai/Sources/flutter_edge_ai/ —
   SwiftPM layout (NOT ios/Classes/). Slim plugin: bundled channel only.
-- packages/flutter_gemma_mediapipe/ios/Classes/ — classic layout, real engine:
-  FlutterGemmaMediaPipePlugin, PlatformServiceImpl, InferenceModel, pigeon .g.swift
-- packages/flutter_gemma_builtin_ai/darwin/ — one source tree for iOS + macOS via
+- packages/flutter_edge_ai_mediapipe/ios/Classes/ — classic layout, real engine:
+  FlutterEdgeAiMediaPipePlugin, PlatformServiceImpl, InferenceModel, pigeon .g.swift
+- packages/flutter_edge_ai_builtin_ai/darwin/ — one source tree for iOS + macOS via
   `sharedDarwinSource: true`. Apple Foundation Models.
 
 CHECKLIST
@@ -231,7 +231,7 @@ CHECKLIST
    core ios, core macos, mediapipe ios, builtin_ai darwin. Each must match its
    OWN package version.
 3. iOS floor since #441: core and builtin_ai declare 15.0; only
-   flutter_gemma_mediapipe declares 16.0. A litertlm-only app is NOT held to 16 —
+   flutter_edge_ai_mediapipe declares 16.0. A litertlm-only app is NOT held to 16 —
    that was the bug. Both the podspec and the Package.swift must carry the same
    number for a package that has both (mediapipe has no Package.swift).
 4. Entitlements: iOS needs extended-virtual-addressing and increased-memory-limit
@@ -254,16 +254,16 @@ Report CRITICAL / IMPORTANT / MINOR with file:line.
 **subagent_type:** `general-purpose`
 
 ```
-You are reviewing the web layer of flutter_gemma. Two independent engines have
+You are reviewing the web layer of flutter_edge_ai. Two independent engines have
 web arms, plus embeddings and RAG:
 
-- packages/flutter_gemma_mediapipe/lib/src/web/ — `.task` via @mediapipe/tasks-genai
-- packages/flutter_gemma_litertlm/lib/src/web/ — `.litertlm` via @litert-lm/core.
+- packages/flutter_edge_ai_mediapipe/lib/src/web/ — `.task` via @mediapipe/tasks-genai
+- packages/flutter_edge_ai_litertlm/lib/src/web/ — `.litertlm` via @litert-lm/core.
   EARLY PREVIEW: text only. No vision, audio, thinking, function calling or LoRA.
-- packages/flutter_gemma_litertlm/ web embedding arm — LiteRT.js bundle in its own web/
-- packages/flutter_gemma_rag_sqlite/ — package:sqlite3/wasm.dart + a custom
+- packages/flutter_edge_ai_litertlm/ web embedding arm — LiteRT.js bundle in its own web/
+- packages/flutter_edge_ai_sqlite/ — package:sqlite3/wasm.dart + a custom
   sqlite3.wasm with vec0 linked in, which the APP copies into its own web/ dir
-- packages/flutter_gemma/lib/web/ — the shared web shells and model source
+- packages/flutter_edge_ai/lib/web/ — the shared web shells and model source
 
 CHECKLIST
 1. CONDITIONAL IMPORT / STUB DRIFT — the highest-value check here. FFI clients
@@ -273,8 +273,8 @@ CHECKLIST
    This is how a web break shipped in 0.15.0 with green analyze and green tests.
 2. dart:io / dart:ffi must not reach the web graph. Check the conditional export.
 3. The six required web/ assets are not auto-injected — the app copies them:
-   cache_api.js and opfs_helper.js from `flutter_gemma`, and the four-file
-   LiteRT.js bundle from `flutter_gemma_litertlm` (litert_embeddings.js plus
+   cache_api.js and opfs_helper.js from `flutter_edge_ai`, and the four-file
+   LiteRT.js bundle from `flutter_edge_ai_litertlm` (litert_embeddings.js plus
    its three vendor chunks). A change that needs a new global must
    document the script tag.
 4. Storage modes: cacheApi (default, <2GB), streaming (OPFS, large models),
@@ -293,19 +293,19 @@ Report CRITICAL / IMPORTANT / MINOR with file:line.
 
 ```
 You are reviewing desktop inference and the native-asset pipeline of
-flutter_gemma. Desktop is Dart FFI directly into the LiteRT-LM C API — there is
+flutter_edge_ai. Desktop is Dart FFI directly into the LiteRT-LM C API — there is
 NO JVM, NO gRPC, NO separate server process and no proto layer. If the diff or a
 task description mentions any of those, it predates 0.14.0.
 
-- packages/flutter_gemma_litertlm/lib/src/ffi/ — the FFI client, generated
+- packages/flutter_edge_ai_litertlm/lib/src/ffi/ — the FFI client, generated
   bindings, and the inference model
-- packages/flutter_gemma_litertlm/hook/build.dart — the SOLE hook that owns the
+- packages/flutter_edge_ai_litertlm/hook/build.dart — the SOLE hook that owns the
   shared libLiteRtLm bundle. embeddings and speech consume it transitively and
   have no hook of their own.
-- packages/flutter_gemma_litertlm/native/litert_lm/ — build_*.sh, patch_c_api.sh,
+- packages/flutter_edge_ai_litertlm/native/litert_lm/ — build_*.sh, patch_c_api.sh,
   stream_proxy.c
-- packages/flutter_gemma/{linux,windows}/ — thin plugin registration C++
-- packages/flutter_gemma/lib/desktop/ — the registry-dispatch shell
+- packages/flutter_edge_ai/{linux,windows}/ — thin plugin registration C++
+- packages/flutter_edge_ai/lib/desktop/ — the registry-dispatch shell
 
 CHECKLIST
 1. HOOK CHECKSUMS: a bundle `version:` bump requires all seven per-platform
@@ -336,13 +336,13 @@ Report CRITICAL / IMPORTANT / MINOR with file:line.
 
 **subagent_type:** `flutter-architect`
 
-**Prompt:** Review the PR diff for flutter_gemma — a multi-platform Flutter plugin for on-device AI inference. Focus on: plugin architecture (platform channels via Pigeon), SOLID principles, ModelSource sealed class design, handler chain pattern (NetworkSourceHandler, AssetSourceHandler), dependency injection (ServiceRegistry), platform abstraction layer. Check separation of concerns between install-time identity (modelType, fileType) and runtime configuration (maxTokens, preferredBackend). Read CLAUDE.md for project conventions.
+**Prompt:** Review the PR diff for flutter_edge_ai — a multi-platform Flutter plugin for on-device AI inference. Focus on: plugin architecture (platform channels via Pigeon), SOLID principles, ModelSource sealed class design, handler chain pattern (NetworkSourceHandler, AssetSourceHandler), dependency injection (ServiceRegistry), platform abstraction layer. Check separation of concerns between install-time identity (modelType, fileType) and runtime configuration (maxTokens, preferredBackend). Read CLAUDE.md for project conventions.
 
 ### Agent 6: Flutter Coder
 
 **subagent_type:** `flutter-coder`
 
-**Prompt:** Review the changed Dart files in flutter_gemma for code quality. Check: null safety, proper async/await patterns, Stream handling (no leaks, proper cancellation), Message class usage (isUser: true for user messages), PreferencesKeys constants (no inline string keys), proper close()/dispose() in finally blocks, type safety with ModelSource sealed classes. Read CLAUDE.md for coding standards — especially "No Inline String Keys" rule.
+**Prompt:** Review the changed Dart files in flutter_edge_ai for code quality. Check: null safety, proper async/await patterns, Stream handling (no leaks, proper cancellation), Message class usage (isUser: true for user messages), PreferencesKeys constants (no inline string keys), proper close()/dispose() in finally blocks, type safety with ModelSource sealed classes. Read CLAUDE.md for coding standards — especially "No Inline String Keys" rule.
 
 ### Agent 7: Codex Review (Second Opinion)
 
@@ -356,7 +356,7 @@ this skill called it and lost a whole review round to that.
 **Prompt:**
 
 ```
-Second-opinion review of PR #{number} for flutter_gemma. Read the diff with
+Second-opinion review of PR #{number} for flutter_edge_ai. Read the diff with
 `gh pr diff {number}` (or `git diff main...HEAD` if no PR), and read CLAUDE.md
 for the project's conventions.
 
@@ -368,9 +368,9 @@ If you want something verified by execution, DESCRIBE the experiment precisely
 and stop; the caller will run it and hand you the output.
 
 Key project context:
-- A Dart pub workspace monorepo: core flutter_gemma plus opt-in packages under
+- A Dart pub workspace monorepo: core flutter_edge_ai plus opt-in packages under
   packages/. Core registers no engine; engines and backends are passed to
-  FlutterGemma.initialize().
+  FlutterEdgeAi.initialize().
 - .litertlm inference is Dart FFI into the LiteRT-LM C API on every native
   platform, desktop included. There is NO JVM, NO gRPC, no separate server
   process and no proto layer — removed at 0.14.0. Kotlin exists only in the
@@ -386,7 +386,7 @@ Key project context:
   .litertlm KV cache allocation fails; the engine clamps up with a warning. To
   cap a reply use maxOutputTokens on the session.
 - Error handling: NO silent fallbacks. Throw or return an error; never swallow
-  in a catch. gemmaLog is debug-only, so anything reported only through it is
+  in a catch. edgeAiLog is debug-only, so anything reported only through it is
   unreported in release builds.
 - No inline string keys — use PreferencesKeys constants.
 - Generated files are never hand-edited: pigeon *.g.dart / *.g.kt / *.g.swift,

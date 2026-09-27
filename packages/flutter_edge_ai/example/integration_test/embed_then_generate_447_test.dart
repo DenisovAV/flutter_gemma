@@ -13,7 +13,7 @@
 // it and never has been.
 //
 // Needs both models pushed to the device:
-//   adb push gemma-4-E2B-it.litertlm  /data/local/tmp/flutter_edge_ai_test/
+//   adb push gemma-4-E2B-it.litertlm  /data/local/tmp/flutter_gemma_test/
 //   adb push embeddinggemma-300M_seq256_mixed-precision.tflite  ...
 //   adb push sentencepiece.model  ...
 //
@@ -27,7 +27,7 @@ import 'package:integration_test/integration_test.dart';
 import 'inference_test_helpers.dart' show registerTestEngines;
 import 'loader_order_447_support.dart';
 
-String _p(String name) => '/data/local/tmp/flutter_edge_ai_test/$name';
+String _p(String name) => '/data/local/tmp/flutter_gemma_test/$name';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();

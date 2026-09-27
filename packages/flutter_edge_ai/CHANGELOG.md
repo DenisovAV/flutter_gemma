@@ -1,3 +1,6 @@
+## 1.12.0
+- Renamed from `flutter_gemma`; the old Dart names remain as deprecated aliases.
+
 ## 1.11.0
 - New `EmbeddingModel.activeBackend`: `getActiveEmbedder(preferredBackend:)` no longer goes unremarked.
 - **Breaking for `implements EmbeddingModel`:** add `activeBackend` and `isClosed`; `extends` inherits defaults.

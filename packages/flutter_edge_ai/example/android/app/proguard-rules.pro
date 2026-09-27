@@ -10,7 +10,7 @@
 -keep class com.google.android.play.core.** { *; }
 -dontwarn com.google.android.play.core.**
 
-# MediaPipe and protobuf: nothing here, on purpose. flutter_gemma_mediapipe's
+# MediaPipe and protobuf: nothing here, on purpose. flutter_edge_ai_mediapipe's
 # consumer rules cover them, and this app's release build is what proves those
 # rules are enough — an app-side copy would hide a gap in them (#514).
 

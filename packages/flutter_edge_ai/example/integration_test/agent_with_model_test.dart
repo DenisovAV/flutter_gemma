@@ -44,7 +44,7 @@ const _gemma4File = 'gemma-4-E2B-it.litertlm';
 const _token = String.fromEnvironment('HUGGINGFACE_TOKEN');
 
 // ── Local model dirs (same layout as litertlm_ffi_test.dart) ──
-String get _androidDir => '/data/local/tmp/flutter_edge_ai_test';
+String get _androidDir => '/data/local/tmp/flutter_gemma_test';
 String get _macosDir =>
     '${Platform.environment['HOME']}/Library/Containers/dev.flutterberlin.flutterGemmaExample55/Data/Documents';
 String get _linuxDir => '${Platform.environment['HOME']}/models';

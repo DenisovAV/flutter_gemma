@@ -1,4 +1,4 @@
-# Platform setup for flutter_gemma
+# Platform setup for flutter_edge_ai
 
 Entries each platform needs before a model will load. Without them the app
 builds and then fails at model load, or is killed for memory.
@@ -38,19 +38,19 @@ backend needs are merged in by the plugin; nothing to add.
 
 ## iOS
 
-Minimum iOS 15.0 — 16.0 if the app includes `flutter_gemma_mediapipe`.
+Minimum iOS 15.0 — 16.0 if the app includes `flutter_edge_ai_mediapipe`.
 
 With CocoaPods, in `ios/Podfile`, declared once:
 
 ```ruby
-platform :ios, '15.0'   # '16.0' if the app includes flutter_gemma_mediapipe
+platform :ios, '15.0'   # '16.0' if the app includes flutter_edge_ai_mediapipe
 use_frameworks! :linkage => :static
 ```
 
 With Swift Package Manager — the default since Flutter 3.44 — there is no
 Podfile. Set **iOS Deployment Target** on the Runner target in Xcode instead, or
 the build fails with `requires minimum platform version 15.0`.
-`flutter_gemma_mediapipe` has no `Package.swift`, so an app using it gets a
+`flutter_edge_ai_mediapipe` has no `Package.swift`, so an app using it gets a
 Podfile as well; set the platform there too.
 
 In Xcode, under **Signing & Capabilities**, add **Extended Virtual Addressing**
@@ -102,7 +102,7 @@ With CocoaPods, paste this into `macos/Podfile`, replacing any existing
 
 **A Swift Package Manager app has no `macos/Podfile` to paste into.** SPM is the
 default since Flutter 3.44, and an app whose plugins all ship a `Package.swift` —
-core does, and `flutter_gemma_litertlm` is not a plugin at all — never gets one
+core does, and `flutter_edge_ai_litertlm` is not a plugin at all — never gets one
 generated. Either turn SPM off for the project
 (`flutter config --no-enable-swift-package-manager`, then
 `flutter build macos --config-only`, which writes the Podfile), or add the same
@@ -208,7 +208,7 @@ window.litertLmReady = (async () => {
 ```
 
 Model storage helpers. Copy `cache_api.js` and `opfs_helper.js` from the
-`flutter_gemma` package's `web/` directory into the app's `web/`, then:
+`flutter_edge_ai` package's `web/` directory into the app's `web/`, then:
 
 ```html
 <script src="cache_api.js"></script>
@@ -216,9 +216,9 @@ Model storage helpers. Copy `cache_api.js` and `opfs_helper.js` from the
 ```
 
 Find the package directory with
-`grep -A1 '"name": "flutter_gemma"' .dart_tool/package_config.json`.
+`grep -A1 '"name": "flutter_edge_ai"' .dart_tool/package_config.json`.
 
-Storage mode, set in `FlutterGemma.initialize(webStorageMode: ...)`:
+Storage mode, set in `FlutterEdgeAi.initialize(webStorageMode: ...)`:
 
 | `WebStorageMode` | Use for |
 | --- | --- |

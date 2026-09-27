@@ -4,7 +4,7 @@
 // Prerequisites: push models to device before running tests:
 //   ./scripts/prepare_test_models.sh [device_id]
 //
-// Models are loaded from /data/local/tmp/flutter_edge_ai_test/ on device.
+// Models are loaded from /data/local/tmp/flutter_gemma_test/ on device.
 
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_edge_ai/flutter_edge_ai.dart';
@@ -45,7 +45,7 @@ Future<void> registerTestEngines({int maxDownloadRetries = 3}) {
 }
 
 /// Device path where models are pushed via adb.
-const _deviceModelDir = '/data/local/tmp/flutter_edge_ai_test';
+const _deviceModelDir = '/data/local/tmp/flutter_gemma_test';
 
 /// Platform-aware model configuration for inference tests.
 /// Models loaded from device filesystem (pushed via adb).

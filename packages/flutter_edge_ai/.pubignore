@@ -20,7 +20,7 @@ node_modules/
 package-lock.json
 # Top-level package.json / vite.config.js (none in current repo, but
 # protect against future accidental add). The web bundle is no longer built
-# here: its source moved to flutter_gemma_litertlm/tool/web_build, next to
+# here: its source moved to flutter_edge_ai_litertlm/tool/web_build, next to
 # the web/ directory that ships its output.
 /package.json
 /vite.config.js
@@ -30,7 +30,7 @@ web/*.js
 web/*.js.map
 # But keep cache_api.js (hand-written, runtime needs window.cacheHas/Put/Get)
 !web/cache_api.js
-# And opfs_helper.js — defines window.flutterGemmaOPFS, which web streaming
+# And opfs_helper.js — defines window.flutterEdgeAiOPFS, which web streaming
 # storage (WebStorageMode.streaming) binds to. Without this line it never
 # reached pub, so the documented copy-from-the-package step had nothing to copy.
 !web/opfs_helper.js
@@ -69,7 +69,7 @@ example/web/*.js
 example/web/*.wasm
 # ...and the wasm one level deeper: the `*` above does not cross a `/`, so this
 # 800 KB binary rode along in every release. It belongs to
-# flutter_gemma_rag_sqlite — which ships its own copy, and is where the docs
+# flutter_edge_ai_sqlite — which ships its own copy, and is where the docs
 # send you — and here it is read only by example/integration_test/, which this
 # file already excludes.
 example/web/rag/
@@ -125,7 +125,7 @@ tables.html
 test_audio.txt
 
 # Reference clone of google-ai-edge/gallery used during research — this
-# is third-party Apache 2.0 source (Google's), not part of flutter_gemma.
+# is third-party Apache 2.0 source (Google's), not part of flutter_edge_ai.
 # Should never be in the pub package.
 ai-edge-gallery/
 

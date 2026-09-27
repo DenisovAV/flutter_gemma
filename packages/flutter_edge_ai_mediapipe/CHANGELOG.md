@@ -1,3 +1,6 @@
+## 1.1.0
+- Renamed from `flutter_gemma_mediapipe`.
+
 ## 1.0.7
 - README: the Android dependency is `com.google.mediapipe:tasks-genai`.
 

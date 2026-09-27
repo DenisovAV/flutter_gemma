@@ -1,3 +1,6 @@
+## 0.6.0
+- Renamed from `flutter_gemma_speech`.
+
 ## 0.5.2
 - Inflect TTS: speech was garbled — the encoder now gets the blank tokens it was trained with.
 

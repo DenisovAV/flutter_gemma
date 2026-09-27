@@ -1,13 +1,13 @@
 ---
-name: flutter-gemma-speech
-description: Use when adding speech to a flutter_gemma app — speech-to-text (transcribe a voice note, dictation, Whisper, moonshine, Parakeet), text-to-speech (Matcha, Qwen3-TTS, Inflect), or a push-to-talk voice assistant with VoiceSession. Also use when transcripts come back in English for non-English audio, a WAV file has to become 16 kHz PCM, synthesized audio plays at the wrong pitch, or getActiveTts throws a StateError about the language. For audio sent straight to Gemma in a chat, use flutter-gemma-inference.
+name: flutter-edge-ai-speech
+description: Use when adding speech to a flutter_edge_ai app — speech-to-text (transcribe a voice note, dictation, Whisper, moonshine, Parakeet), text-to-speech (Matcha, Qwen3-TTS, Inflect), or a push-to-talk voice assistant with VoiceSession. Also use when transcripts come back in English for non-English audio, a WAV file has to become 16 kHz PCM, synthesized audio plays at the wrong pitch, or getActiveTts throws a StateError about the language. For audio sent straight to Gemma in a chat, use flutter-edge-ai-inference.
 ---
 
-# Speech with flutter_gemma_speech
+# Speech with flutter_edge_ai_speech
 
 ## Rules
 
-1. Depend on `flutter_gemma` and `flutter_gemma_speech`, and import both. The speech package does not re-export core.
+1. Depend on `flutter_edge_ai` and `flutter_edge_ai_speech`, and import both. The speech package does not re-export core.
 2. `transcribe` takes raw PCM — 16 kHz, mono, 16-bit little-endian, as a `Uint8List` — and returns the text. Not a WAV file, not 44.1 or 48 kHz: nothing resamples or converts it.
 3. Play synthesized audio at `synth.sampleRate`. It differs per model.
 4. Only Whisper has a selectable output language. moonshine-tiny and Parakeet are English-only, and passing a language to them throws `ArgumentError`.
@@ -19,33 +19,33 @@ description: Use when adding speech to a flutter_gemma app — speech-to-text (t
 ## Setup
 
 ```sh
-flutter pub add flutter_gemma flutter_gemma_speech
+flutter pub add flutter_edge_ai flutter_edge_ai_speech
 ```
 
 ```dart
-import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma_speech/flutter_gemma_speech.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
+import 'package:flutter_edge_ai_speech/flutter_edge_ai_speech.dart';
 
-await FlutterGemma.initialize(
+await FlutterEdgeAi.initialize(
   sttBackends: [LiteRtSttBackend()],
   ttsBackends: [LiteRtTtsBackend()],
 );
 ```
 
-Speech runs on the same native libraries as the `.litertlm` engine. Its build setup — Android `minSdk 30`, the Apple entries — is in the flutter-gemma-inference skill's [platform setup](../flutter-gemma-inference/references/platform-setup.md), installed alongside this one.
+Speech runs on the same native libraries as the `.litertlm` engine. Its build setup — Android `minSdk 30`, the Apple entries — is in the flutter-edge-ai-inference skill's [platform setup](../flutter-edge-ai-inference/references/platform-setup.md), installed alongside this one.
 
 ## Speech-to-text
 
 An STT model is two files — the model and its tokenizer — usually from different repos. `install()` skips files already on disk.
 
 ```dart
-await FlutterGemma.installStt()
+await FlutterEdgeAi.installStt()
     .modelFromNetwork('https://huggingface.co/litert-community/whisper-tiny/resolve/main/whisper_tiny_30s_f32.tflite')
     .tokenizerFromNetwork('https://huggingface.co/openai/whisper-tiny/resolve/main/tokenizer.json')
     .ofType(SttModelType.whisper)
     .install();
 
-final SpeechRecognizer recognizer = await FlutterGemma.getActiveStt(language: 'de');
+final SpeechRecognizer recognizer = await FlutterEdgeAi.getActiveStt(language: 'de');
 try {
   final String german = await recognizer.transcribe(germanPcm);
   final String french = await recognizer.transcribe(frenchPcm, language: 'fr');
@@ -136,12 +136,12 @@ A file recorded at another rate or channel count — 44.1 kHz stereo, say — ha
 ## Text-to-speech
 
 ```dart
-await FlutterGemma.installTts()
+await FlutterEdgeAi.installTts()
     .fromNetwork('https://huggingface.co/litert-community/Matcha-TTS/resolve/main/')
     .ofType(TtsModelType.matcha)
     .install();
 
-final SpeechSynthesizer synth = await FlutterGemma.getActiveTts();
+final SpeechSynthesizer synth = await FlutterEdgeAi.getActiveTts();
 try {
   final audio = await synth.synthesize('Hello world.'); // 16-bit PCM
   final rate = synth.sampleRate;                        // 22050 for Matcha
@@ -161,9 +161,9 @@ try {
 Switching the Qwen3 language — full lowercase names, not ISO codes, and only with the Qwen3 bundle installed (Matcha still throws the same `StateError` but the language changes nothing):
 
 ```dart
-final english = await FlutterGemma.getActiveTts(language: 'english');
+final english = await FlutterEdgeAi.getActiveTts(language: 'english');
 await english.close();
-final german = await FlutterGemma.getActiveTts(language: 'german');
+final german = await FlutterEdgeAi.getActiveTts(language: 'german');
 ```
 
 Without the `close()`, the second call throws `StateError: Active TTS synthesizer was created for language 'english'; call close() before requesting 'german'.`
@@ -177,9 +177,9 @@ Wrap the loop in `try`/`catch`: a failed stage — transcribe, generate or synth
 ```dart
 final reply = StringBuffer();
 final voice = VoiceSession.fromChat(
-  recognizer: await FlutterGemma.getActiveStt(language: 'de'),
+  recognizer: await FlutterEdgeAi.getActiveStt(language: 'de'),
   chat: chat,
-  synthesizer: await FlutterGemma.getActiveTts(),
+  synthesizer: await FlutterEdgeAi.getActiveTts(),
 );
 
 await for (final event in voice.runTurn(pcm16kMono)) {
@@ -200,4 +200,4 @@ await for (final event in voice.runTurn(pcm16kMono)) {
 }
 ```
 
-`chat` is an `InferenceChat` from the flutter-gemma-inference skill. A chat created with tools also needs `onToolCall:` — without it `fromChat` throws.
+`chat` is an `InferenceChat` from the flutter-edge-ai-inference skill. A chat created with tools also needs `onToolCall:` — without it `fromChat` throws.

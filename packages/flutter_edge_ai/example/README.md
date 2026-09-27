@@ -1,4 +1,4 @@
-# Flutter Gemma Example App
+# Flutter Edge AI Example App
 
 ## Setup
 

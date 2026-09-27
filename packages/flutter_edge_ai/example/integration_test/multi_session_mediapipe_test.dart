@@ -7,7 +7,7 @@
 /// contexts, serialized inference, same model as the .litertlm FFI path.
 ///
 /// Model: gemma3-1b-it-int4.task (small, instruction-tuned, recalls a name).
-/// Push first: adb push gemma3-1b-it-int4.task /data/local/tmp/flutter_edge_ai_test/
+/// Push first: adb push gemma3-1b-it-int4.task /data/local/tmp/flutter_gemma_test/
 ///
 /// Run:
 ///   Android: cd example && flutter test integration_test/multi_session_mediapipe_test.dart -d <android-id>
@@ -20,7 +20,7 @@ import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 import 'package:path_provider/path_provider.dart';
 import 'inference_test_helpers.dart' show registerTestEngines;
 
-const _androidDir = '/data/local/tmp/flutter_edge_ai_test';
+const _androidDir = '/data/local/tmp/flutter_gemma_test';
 const _taskFilename = 'gemma3-1b-it-int4.task';
 
 Future<String> _localTaskPath() async {

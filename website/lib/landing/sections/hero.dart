@@ -39,7 +39,7 @@ class Hero extends StatelessComponent {
             ]),
             div(classes: 'hero-install', [
               span(classes: 'install-prompt', [Component.text('\$')]),
-              span(classes: 'install-cmd', [Component.text(' flutter pub add flutter_gemma')]),
+              span(classes: 'install-cmd', [Component.text(' flutter pub add flutter_edge_ai')]),
             ]),
           ]),
           // Right column
@@ -47,7 +47,7 @@ class Hero extends StatelessComponent {
             div(classes: 'hero-phone-frame', [
               img(
                 src: '/images/gemma.gif',
-                alt: 'flutter_gemma demo running on a device',
+                alt: 'flutter_edge_ai demo running on a device',
                 classes: 'hero-gif',
               ),
               div(classes: 'hero-demo-overlay', [

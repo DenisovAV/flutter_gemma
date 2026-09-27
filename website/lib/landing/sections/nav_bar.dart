@@ -31,7 +31,7 @@ class NavBar extends StatelessComponent {
     ),
     (
       text: 'pub.dev',
-      href: 'https://pub.dev/packages/flutter_gemma',
+      href: 'https://pub.dev/packages/flutter_edge_ai',
       external: true,
       cta: true,
     ),
@@ -44,10 +44,10 @@ class NavBar extends StatelessComponent {
         a(href: '/', classes: 'navbar-brand', [
           img(
             src: '/images/logo-gemma.png',
-            alt: 'flutter_gemma logo',
+            alt: 'flutter_edge_ai logo',
             classes: 'navbar-logo',
           ),
-          span(classes: 'navbar-wordmark', [Component.text('flutter_gemma')]),
+          span(classes: 'navbar-wordmark', [Component.text('flutter_edge_ai')]),
         ]),
         // Hidden checkbox drives the mobile menu open/closed state — pure CSS,
         // no JS. The <label> below is the visible hamburger; clicking it toggles

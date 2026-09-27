@@ -1,6 +1,6 @@
 ---
-name: flutter-gemma-builtin-ai
-description: Use when running the device's own model with flutter_gemma_builtin_ai — Gemini Nano on Android or in desktop Chrome, Phi-4-mini in Microsoft Edge, Apple Foundation Models on iPhone, iPad and Mac — with nothing to download or bundle, or when falling back to a downloaded model where it is missing. Also use when BuiltInAiUnavailableException or a TimeoutException is thrown, availability reports "downloadable", web throws NotAllowedError about a user gesture, the Android build fails the manifest merge on minSdk, or the model is missing in Chrome. For models the app downloads itself, use flutter-gemma-inference.
+name: flutter-edge-ai-builtin-ai
+description: Use when running the device's own model with flutter_edge_ai_builtin_ai — Gemini Nano on Android or in desktop Chrome, Phi-4-mini in Microsoft Edge, Apple Foundation Models on iPhone, iPad and Mac — with nothing to download or bundle, or when falling back to a downloaded model where it is missing. Also use when BuiltInAiUnavailableException or a TimeoutException is thrown, availability reports "downloadable", web throws NotAllowedError about a user gesture, the Android build fails the manifest merge on minSdk, or the model is missing in Chrome. For models the app downloads itself, use flutter-edge-ai-inference.
 ---
 
 # The built-in OS model
@@ -17,18 +17,18 @@ description: Use when running the device's own model with flutter_gemma_builtin_
 ## Setup with a fallback
 
 ```sh
-flutter pub add flutter_gemma flutter_gemma_builtin_ai flutter_gemma_litertlm
+flutter pub add flutter_edge_ai flutter_edge_ai_builtin_ai flutter_edge_ai_litertlm
 ```
 
 ```dart
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma_builtin_ai/flutter_gemma_builtin_ai.dart';
-import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
+import 'package:flutter_edge_ai_builtin_ai/flutter_edge_ai_builtin_ai.dart';
+import 'package:flutter_edge_ai_litertlm/flutter_edge_ai_litertlm.dart';
 
-await FlutterGemma.initialize(
+await FlutterEdgeAi.initialize(
   inferenceEngines: [BuiltInAiEngine(), LiteRtLmEngine()],
 );
 
@@ -40,14 +40,14 @@ final spec = kIsWeb || defaultTargetPlatform == TargetPlatform.android
         : null; // Windows and Linux have no built-in model
 
 Future<InferenceModel> downloadGemma() async {
-  await FlutterGemma.installModel(
+  await FlutterEdgeAi.installModel(
     modelType: ModelType.gemma4,
     fileType: ModelFileType.litertlm,
   ).fromNetwork(
     // 2.6 GB — ask first. On web: gemma-4-E2B-it-web.litertlm
     'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm',
   ).install();
-  return FlutterGemma.getActiveModel(maxTokens: 1024);
+  return FlutterEdgeAi.getActiveModel(maxTokens: 1024);
 }
 
 InferenceModel model;
@@ -55,14 +55,14 @@ if (spec == null) {
   model = await downloadGemma();
 } else {
   try {
-    await FlutterGemma.installModel(
+    await FlutterEdgeAi.installModel(
       modelType: ModelType.general,
       fileType: ModelFileType.builtIn,
     ).fromBundled(spec.name).install();
     // onProgress reports real percentages on web only: ML Kit gives no byte
     // total on Android, and Apple downloads nothing — ensureReady just waits.
     await BuiltInAi.ensureReady(onProgress: (int percent) => print('$percent%'));
-    model = await FlutterGemma.getActiveModel(maxTokens: 4096);
+    model = await FlutterEdgeAi.getActiveModel(maxTokens: 4096);
   } on BuiltInAiUnavailableException {
     model = await downloadGemma();
   } on TimeoutException {
@@ -71,7 +71,7 @@ if (spec == null) {
 }
 ```
 
-The latest install is the one `getActiveModel` loads, so the fallback replaces the built-in model. Sessions and chats then work as in the flutter-gemma-inference skill.
+The latest install is the one `getActiveModel` loads, so the fallback replaces the built-in model. Sessions and chats then work as in the flutter-edge-ai-inference skill.
 
 ## Checking before offering the feature
 

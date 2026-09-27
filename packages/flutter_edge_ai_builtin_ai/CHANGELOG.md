@@ -1,3 +1,6 @@
+## 0.3.0
+- Renamed from `flutter_gemma_builtin_ai`.
+
 ## 0.2.2
 - Windows/Linux: `availability()` reports `unavailableDeviceUnsupported` instead of throwing.
 

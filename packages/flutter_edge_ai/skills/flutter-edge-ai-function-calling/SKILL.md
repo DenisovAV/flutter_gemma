@@ -1,11 +1,11 @@
 ---
-name: flutter-gemma-function-calling
-description: Use when adding function calling (tool calling) to a flutter_gemma chat — letting an on-device model call the app's own Dart functions, declaring Tool objects, handling FunctionCallResponse or ParallelFunctionCallResponse, returning results with Message.toolResponse, or running the built-in tool loop generateChatResponseWithTools. Also use when the model describes an action in prose instead of calling the tool, raw tool-call markers appear in the reply text, or a switch over ModelResponse fails to compile. For plain chat, use flutter-gemma-inference. Not for flutter_gemma_agent, which gives the on-device model SKILL.md skills of its own.
+name: flutter-edge-ai-function-calling
+description: Use when adding function calling (tool calling) to a flutter_edge_ai chat — letting an on-device model call the app's own Dart functions, declaring Tool objects, handling FunctionCallResponse or ParallelFunctionCallResponse, returning results with Message.toolResponse, or running the built-in tool loop generateChatResponseWithTools. Also use when the model describes an action in prose instead of calling the tool, raw tool-call markers appear in the reply text, or a switch over ModelResponse fails to compile. For plain chat, use flutter-edge-ai-inference. Not for flutter_edge_ai_agent, which gives the on-device model SKILL.md skills of its own.
 ---
 
-# Function calling with flutter_gemma
+# Function calling with flutter_edge_ai
 
-Packages, engine and model install are in the flutter-gemma-inference skill. This one starts from a loaded `InferenceModel`.
+Packages, engine and model install are in the flutter-edge-ai-inference skill. This one starts from a loaded `InferenceModel`.
 
 ## Rules
 
@@ -21,7 +21,7 @@ Packages, engine and model install are in the flutter-gemma-inference skill. Thi
 `parameters` is a JSON Schema object. The model matches the user's intent against `description`, so write it as an action and describe every parameter.
 
 ```dart
-import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 
 const changeColor = Tool(
   name: 'change_color',

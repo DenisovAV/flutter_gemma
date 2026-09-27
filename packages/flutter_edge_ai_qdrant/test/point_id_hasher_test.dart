@@ -61,7 +61,7 @@ void main() {
       // Computed via `uuid` package v5 with namespace
       // 6ba7b810-9dad-11d1-80b4-00c04fd430c8 and name "flutter_edge_ai".
       expect(
-        PointIdHasher.hash('flutter_edge_ai'),
+        PointIdHasher.hash('flutter_gemma'),
         equals('7911b3a2-96cc-561e-bb23-faaa00421558'),
       );
     });

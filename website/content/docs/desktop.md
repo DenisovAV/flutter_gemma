@@ -1,19 +1,19 @@
 ---
 title: Desktop Support
-description: Setup and reference for running flutter_gemma on macOS, Windows, and Linux via dart:ffi.
-image: https://fluttergemma.dev/images/og-image.png
+description: Setup and reference for running flutter_edge_ai on macOS, Windows, and Linux via dart:ffi.
+image: https://flutteredge.ai/images/og-image.png
 ---
 
-Detailed setup and reference for running flutter_gemma on **macOS, Windows, and
+Detailed setup and reference for running flutter_edge_ai on **macOS, Windows, and
 Linux**. Desktop platforms run LiteRT-LM **directly via `dart:ffi`** — no
 Kotlin/JVM gRPC server, no Java required, no separate process, no IPC overhead.
 Engine startup is ~2 s instead of ~10–15 s.
 
 LiteRT-LM (`.litertlm`) is the **primary, default** desktop engine — but not the
-only one. **`flutter_gemma_onnx`** ([ONNX Runtime](/docs/onnx) — ORT-GenAI
+only one. **`flutter_edge_ai_onnx`** ([ONNX Runtime](/docs/onnx) — ORT-GenAI
 generation + ORT embeddings) also runs on all three desktop OSes
 (macOS/Windows/Linux), and on **macOS** the OS built-in model is available through
-**`flutter_gemma_builtin_ai`** ([Apple Foundation Models](/docs/builtin-ai),
+**`flutter_edge_ai_builtin_ai`** ([Apple Foundation Models](/docs/builtin-ai),
 macOS only — not Windows/Linux). What holds across all of desktop is the narrower
 statement: **there is no MediaPipe engine on desktop.** See
 [Installation](/docs/installation) and [Packages](/docs/packages).
@@ -25,10 +25,10 @@ statement: **there is no MediaPipe engine on desktop.** See
 │              Flutter Desktop App                     │
 │                                                      │
 │   ┌──────────────────────────────────────────────┐ │
-│   │  FlutterGemmaDesktop (lib/desktop/)           │ │
+│   │  FlutterEdgeAiDesktop (lib/desktop/)           │ │
 │   │           ↓                                    │ │
 │   │  LiteRtLmFfiClient                            │ │
-│   │  (flutter_gemma_litertlm/lib/src/ffi/)        │ │
+│   │  (flutter_edge_ai_litertlm/lib/src/ffi/)        │ │
 │   │           ↓ dart:ffi                           │ │
 │   │  ───────────────────────────────────           │ │
 │   │  libLiteRtLm.{dylib,dll,so}                    │ │
@@ -100,11 +100,11 @@ No Java/JVM/JRE required.
 ## Quick Start
 
 ```dart
-import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 
 Future<void> chat() async {
   // Install model (downloads on first run, cached after).
-  await FlutterGemma.installModel(
+  await FlutterEdgeAi.installModel(
     modelType: ModelType.gemma4,
     fileType: ModelFileType.litertlm,
   ).fromNetwork(
@@ -113,7 +113,7 @@ Future<void> chat() async {
   ).install();
 
   // Create model with full capabilities — keep it for the app's lifetime.
-  final model = await FlutterGemma.getActiveModel(
+  final model = await FlutterEdgeAi.getActiveModel(
     maxTokens: 4096,
     preferredBackend: PreferredBackend.gpu,
     supportImage: true,
@@ -241,7 +241,7 @@ drops them. A `.litertlm` model loads on macOS without them.
 
 ### Windows
 
-`flutter_gemma_litertlm` bundles every required DLL — no manual setup. The bundle
+`flutter_edge_ai_litertlm` bundles every required DLL — no manual setup. The bundle
 includes:
 
 - `LiteRtLm.dll`, `LiteRt.dll`, `libGemmaModelConstraintProvider.dll`, `StreamProxy.dll`
@@ -320,7 +320,7 @@ The recommended (and only well-supported) pattern:
 
 ```dart
 // At app startup, ONCE:
-final model = await FlutterGemma.getActiveModel(
+final model = await FlutterEdgeAi.getActiveModel(
   maxTokens: 4096,
   preferredBackend: PreferredBackend.gpu,
   supportImage: true,
@@ -399,7 +399,7 @@ re-applied either — the sampler keeps its RNG state across sessions, so two
 identical requests on one engine produce different text.
 
 **Workaround:** close and recreate the engine when you need different sampler
-settings — `model.close()` then `FlutterGemma.getActiveModel(...)` — at the cost
+settings — `model.close()` then `FlutterEdgeAi.getActiveModel(...)` — at the cost
 of a model reload. If your app uses one fixed configuration throughout, as most
 chat apps do, this never surfaces: the first session already set the values you
 wanted.
@@ -460,13 +460,13 @@ runtime linked statically. Fixed in 1.4.0. See
 
 On desktop the model is downloaded to the platform's standard "app support"
 directory (see [Troubleshooting → desktop storage](/docs/troubleshooting)). Use
-`FlutterGemma.installModel(...).fromNetwork(...).install()` to download, or
+`FlutterEdgeAi.installModel(...).fromNetwork(...).install()` to download, or
 `.fromFile(absolutePath)` if you already have it locally.
 
 ### Pre-cached engine + new code = stale cache
 
 LiteRT-LM caches compiled GPU shaders in the app's support directory (what
-`getApplicationSupportDirectory()` returns — not the `flutter_gemma/` folder the
+`getApplicationSupportDirectory()` returns — not the `flutter_edge_ai/` folder the
 model sits in), as `<model>.litertlm_<mtime>_<size>_mldrift_program_cache.bin`.
 The name is keyed on the model file's timestamp and size, so a new model build
 gets a fresh cache by itself (the old file stays behind). After upgrading the

@@ -1,10 +1,10 @@
 ---
 title: LiteRT-LM
 description: The primary .litertlm engine — on-device inference over dart:ffi (LiteRT-LM C API) on all five native platforms plus a text-only web preview, with CPU / GPU / NPU acceleration and a LiteRT embedding backend.
-image: https://fluttergemma.dev/images/og-image.png
+image: https://flutteredge.ai/images/og-image.png
 ---
 
-`flutter_gemma_litertlm` is the **primary `.litertlm` engine**. (Core registers
+`flutter_edge_ai_litertlm` is the **primary `.litertlm` engine**. (Core registers
 no engine by default — you opt in by registering `LiteRtLmEngine()`.) It runs
 `.litertlm` models through `dart:ffi` straight onto the **LiteRT-LM C API** — no
 JVM, no gRPC — and it is the **primary desktop engine** (macOS, Windows, Linux);
@@ -37,21 +37,21 @@ engines your app uses:
 
 ```
 dependencies:
-  flutter_gemma: latest_version
-  flutter_gemma_litertlm: latest_version   # .litertlm inference engine
+  flutter_edge_ai: latest_version
+  flutter_edge_ai_litertlm: latest_version   # .litertlm inference engine
 ```
 
 ```dart
-import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
+import 'package:flutter_edge_ai_litertlm/flutter_edge_ai_litertlm.dart';
 
-await FlutterGemma.initialize(
+await FlutterEdgeAi.initialize(
   inferenceEngines: const [LiteRtLmEngine()],
 );
 ```
 
 `LiteRtLmEngine` claims models whose declared `ModelFileType` is `litertlm`; pass
-it alongside `MediaPipeEngine` (from `flutter_gemma_mediapipe`) if your app also
+it alongside `MediaPipeEngine` (from `flutter_edge_ai_mediapipe`) if your app also
 uses `.task` models.
 
 ## Install a `.litertlm` model
@@ -62,7 +62,7 @@ uses `.task` models.
 > MediaPipe instead of this engine.
 
 ```dart
-await FlutterGemma.installModel(
+await FlutterEdgeAi.installModel(
   modelType: ModelType.gemma4,
   fileType: ModelFileType.litertlm,
 ).fromNetwork(
@@ -71,7 +71,7 @@ await FlutterGemma.installModel(
 ).install();
 
 // Create the model once and keep it for the app's lifetime.
-final model = await FlutterGemma.getActiveModel(
+final model = await FlutterEdgeAi.getActiveModel(
   maxTokens: 4096,
   preferredBackend: PreferredBackend.gpu,
 );
@@ -164,7 +164,7 @@ the NPU warning above).
 To cap **generation length**, use `maxOutputTokens` on the session:
 
 ```dart
-final model = await FlutterGemma.getActiveModel(maxTokens: 4096); // context
+final model = await FlutterEdgeAi.getActiveModel(maxTokens: 4096); // context
 final session = await model.createSession(maxOutputTokens: 100);  // reply cap
 ```
 

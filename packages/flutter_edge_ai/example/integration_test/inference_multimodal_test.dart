@@ -15,7 +15,7 @@ import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 
 import 'inference_test_helpers.dart';
 
-const _deviceModelDir = '/data/local/tmp/flutter_edge_ai_test';
+const _deviceModelDir = '/data/local/tmp/flutter_gemma_test';
 const _gemma3nPath = '$_deviceModelDir/gemma-3n-E2B-it-int4.task';
 
 /// Load test image from bundled assets.

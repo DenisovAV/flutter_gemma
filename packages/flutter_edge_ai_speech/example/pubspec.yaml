@@ -34,7 +34,7 @@ dependencies:
 # local path (resolves the path-vs-hosted conflict — every package resolves core +
 # litertlm from source). Ignored for published packages.
 # litertlm 1.5.0 (embedder decoupling) also hosted-depends on
-# flutter_edge_ai_embeddings ^2.0.0, which is not yet published — override to
+# flutter_gemma_embeddings ^2.0.0, which was not yet published — override to
 # local path too, or pub falls back to the (nonexistent) hosted version.
 dependency_overrides:
   flutter_edge_ai:

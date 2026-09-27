@@ -56,13 +56,13 @@ final _hfToken = _hfTokenStandard.isNotEmpty
 /// Prefer a device-local staged model file (no network, no token) — the
 /// convention the other integration tests use. Desktop and iOS read it from the
 /// app documents dir as `gemma3-1b-it-int4.litertlm`; Android (Firebase Test
-/// Lab) reads it from `/data/local/tmp/flutter_edge_ai_test/`.
+/// Lab) reads it from `/data/local/tmp/flutter_gemma_test/`.
 /// Returns null when no staged file is present (CI → network install).
 Future<String?> _stagedLlmPath() async {
   // Android (Firebase Test Lab): the model is pushed to the device via
-  // `--other-files /data/local/tmp/flutter_edge_ai_test/...` — no network/token.
+  // `--other-files /data/local/tmp/flutter_gemma_test/...` — no network/token.
   if (Platform.isAndroid) {
-    const p = '/data/local/tmp/flutter_edge_ai_test/gemma3-1b-it-int4.litertlm';
+    const p = '/data/local/tmp/flutter_gemma_test/gemma3-1b-it-int4.litertlm';
     return File(p).existsSync() ? p : null;
   }
   if (!(Platform.isMacOS ||
@@ -131,7 +131,7 @@ void main() {
               'No device-local staged LLM and no HuggingFace token, so the '
               'gated network fallback cannot authenticate. Stage the model '
               '(Android: --other-files '
-              '/data/local/tmp/flutter_edge_ai_test/gemma3-1b-it-int4.litertlm; '
+              '/data/local/tmp/flutter_gemma_test/gemma3-1b-it-int4.litertlm; '
               'desktop/iOS: app documents dir) or pass '
               '--dart-define=HUGGINGFACE_TOKEN=...',
         );

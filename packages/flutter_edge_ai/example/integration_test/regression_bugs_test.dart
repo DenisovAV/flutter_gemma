@@ -28,7 +28,7 @@ String get _macosDir =>
     '${Platform.environment['HOME']}/Library/Containers/dev.flutterberlin.flutterGemmaExample55/Data/Documents';
 String get _linuxDir => '${Platform.environment['HOME']}/models';
 String get _windowsDir => '${Platform.environment['USERPROFILE']}\\models';
-const String _androidDir = '/data/local/tmp/flutter_edge_ai_test';
+const String _androidDir = '/data/local/tmp/flutter_gemma_test';
 
 Future<void> _installGemma4() async {
   final candidates = [

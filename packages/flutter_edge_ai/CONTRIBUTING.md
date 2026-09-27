@@ -1,6 +1,6 @@
-# Contributing to flutter_gemma
+# Contributing to flutter_edge_ai
 
-First off, **thank you** for considering contributing to `flutter_gemma`! 🎉
+First off, **thank you** for considering contributing to `flutter_edge_ai`! 🎉
 
 This project brings on-device LLM capabilities (Gemma, DeepSeek, Qwen, Phi, etc.) to Flutter applications across mobile, web, and desktop platforms. Your contributions help make AI more accessible and privacy-preserving for everyone.
 
@@ -54,7 +54,7 @@ If you experience or witness unacceptable behavior, please open an issue or cont
 1. **Clone the repository:**
    ```bash
    git clone https://github.com/DenisovAV/flutter_gemma.git
-   cd flutter_gemma
+   cd flutter_edge_ai
    flutter pub get
    ```
 
@@ -173,10 +173,10 @@ Use conventional commit messages:
 Understanding the codebase layout will help you contribute effectively:
 
 ```
-flutter_gemma/
+flutter_edge_ai/
 ├── lib/
 │   ├── core/                    # Core functionality
-│   │   ├── api/                 # Public API (FlutterGemma class)
+│   │   ├── api/                 # Public API (FlutterEdgeAi class)
 │   │   ├── handlers/            # Model source handlers
 │   │   ├── infrastructure/      # Download, storage, web services
 │   │   ├── model_management/    # Model installation & management
@@ -184,7 +184,7 @@ flutter_gemma/
 │   ├── mobile/                  # Mobile platform implementation
 │   ├── web/                     # Web platform implementation
 │   ├── desktop/                 # Desktop platform implementation
-│   └── flutter_gemma.dart       # Main entry point
+│   └── flutter_edge_ai.dart       # Main entry point
 ├── example/                     # Example application
 │   ├── lib/                     # Example app code
 │   └── integration_test/        # Integration tests
@@ -199,11 +199,11 @@ flutter_gemma/
 ```
 
 **Key Files to Know:**
-- `lib/flutter_gemma.dart` - Main public API
-- `lib/core/api/flutter_gemma.dart` - Modern API implementation
-- `lib/mobile/flutter_gemma_mobile.dart` - Mobile implementation
-- `lib/web/flutter_gemma_web.dart` - Web implementation
-- `lib/desktop/flutter_gemma_desktop.dart` - Desktop implementation
+- `lib/flutter_edge_ai.dart` - Main public API
+- `lib/core/api/flutter_edge_ai.dart` - Modern API implementation
+- `lib/mobile/flutter_edge_ai_mobile.dart` - Mobile implementation
+- `lib/web/flutter_edge_ai_web.dart` - Web implementation
+- `lib/desktop/flutter_edge_ai_desktop.dart` - Desktop implementation
 
 ---
 
@@ -226,9 +226,9 @@ Any changes to public APIs should:
 - Be tested thoroughly
 
 **Public API locations:**
-- `lib/flutter_gemma.dart`
-- `lib/core/api/flutter_gemma.dart`
-- `lib/flutter_gemma_interface.dart`
+- `lib/flutter_edge_ai.dart`
+- `lib/core/api/flutter_edge_ai.dart`
+- `lib/flutter_edge_ai_interface.dart`
 
 ### Error Handling
 
@@ -256,8 +256,8 @@ If you're working on desktop support:
 
 2. **Understand the architecture:**
    - Since 0.14.0 desktop runs LiteRT-LM directly via `dart:ffi` against the C API. No JVM/JRE/gRPC.
-   - The FFI client lives in `flutter_gemma_litertlm/lib/src/ffi/litert_lm_client.dart` (used by all five platforms)
-   - Native libs are downloaded by `flutter_gemma_litertlm/hook/build.dart` (the sole hook) at build time from the `native-v0.17.1` GitHub release; SHA256-verified and bundled by Native Assets
+   - The FFI client lives in `flutter_edge_ai_litertlm/lib/src/ffi/litert_lm_client.dart` (used by all five platforms)
+   - Native libs are downloaded by `flutter_edge_ai_litertlm/hook/build.dart` (the sole hook) at build time from the `native-v0.17.1` GitHub release; SHA256-verified and bundled by Native Assets
 
 3. **Test your changes:**
    - Test on macOS (Apple Silicon) and/or Windows x64 / Linux x86_64
@@ -284,7 +284,7 @@ If you're working on mobile:
 
 1. **Test on both platforms:**
    - Android (various API levels)
-   - iOS (15.0+; 16.0+ when `flutter_gemma_mediapipe` is in the app)
+   - iOS (15.0+; 16.0+ when `flutter_edge_ai_mediapipe` is in the app)
 
 2. **Consider memory constraints:**
    - Large models may not work on low-end devices
@@ -434,7 +434,7 @@ By contributing, you agree that your contributions will be licensed under the sa
 
 ---
 
-**Thank you for contributing to flutter_gemma!** 🙌
+**Thank you for contributing to flutter_edge_ai!** 🙌
 
 Every contribution, no matter how small, makes a difference. We appreciate your time and effort!
 

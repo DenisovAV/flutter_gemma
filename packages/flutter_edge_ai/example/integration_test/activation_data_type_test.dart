@@ -63,7 +63,7 @@
 /// Prerequisites (otherwise the model is downloaded: E2B 2.59 GB, E4B 3.66 GB,
 /// E2B web 2.01 GB):
 ///   macOS:   gemma-4-E2B-it.litertlm in ~/Library/Containers/.../Documents/
-///   Android: adb push gemma-4-E4B-it.litertlm /data/local/tmp/flutter_edge_ai_test/
+///   Android: adb push gemma-4-E4B-it.litertlm /data/local/tmp/flutter_gemma_test/
 ///   iOS, web: downloaded via FlutterEdgeAi.installModel()
 ///
 /// Run, native:

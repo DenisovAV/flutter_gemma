@@ -3,7 +3,7 @@
 //
 // Prerequisites:
 //   Push models to device: ./scripts/prepare_test_models.sh [device_id]
-//   Models loaded from /data/local/tmp/flutter_edge_ai_test/ on device.
+//   Models loaded from /data/local/tmp/flutter_gemma_test/ on device.
 //
 // Tests per model:
 //   - install: model loads from device file
@@ -20,7 +20,7 @@ import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 import 'package:flutter_edge_ai/core/function_call_parser.dart';
 import 'inference_test_helpers.dart' show registerTestEngines;
 
-const _deviceModelDir = '/data/local/tmp/flutter_edge_ai_test';
+const _deviceModelDir = '/data/local/tmp/flutter_gemma_test';
 
 /// Test model configuration for tool calling tests.
 class ToolCallingTestModel {

@@ -1,32 +1,32 @@
-# flutter_gemma_rag_sqlite example
+# flutter_edge_ai_sqlite example
 
-`flutter_gemma_rag_sqlite` is an opt-in vector store for
-[`flutter_gemma`](https://pub.dev/packages/flutter_gemma) that works on every
+`flutter_edge_ai_sqlite` is an opt-in vector store for
+[`flutter_edge_ai`](https://pub.dev/packages/flutter_edge_ai) that works on every
 platform: in-SQLite `sqlite-vec`/`vec0` KNN on native (`sqlite3` via dart:ffi)
 and web (`package:sqlite3/wasm` + a custom `sqlite3.wasm`).
 Register it once at startup, then use the unchanged RAG API on
-`FlutterGemmaPlugin.instance`.
+`FlutterEdgeAiPlugin.instance`.
 
 ```dart
 import 'package:flutter/widgets.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma_rag_sqlite/flutter_gemma_rag_sqlite.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
+import 'package:flutter_edge_ai_sqlite/flutter_edge_ai_sqlite.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Native uses SqliteVectorStore; web uses WebSqliteVectorStore.
-  await FlutterGemma.initialize(
+  await FlutterEdgeAi.initialize(
     vectorStore: kIsWeb ? WebSqliteVectorStore() : SqliteVectorStore(),
   );
 
-  final gemma = FlutterGemmaPlugin.instance;
+  final gemma = FlutterEdgeAiPlugin.instance;
 
   await gemma.initializeVectorStore('rag_store.db');
 
   // Add a document with a pre-computed embedding (e.g. from
-  // flutter_gemma_embeddings).
+  // flutter_edge_ai_embeddings).
   await gemma.addDocumentWithEmbedding(
     id: 'doc-1',
     content: 'Gemma runs fully on-device.',
@@ -43,8 +43,8 @@ Future<void> main() async {
 
 On web, the custom `sqlite3.wasm` (with `sqlite-vec` linked in) is served as a
 web asset — no CDN `<script>` is needed; see the
-[package README](https://pub.dev/packages/flutter_gemma_rag_sqlite) for the
+[package README](https://pub.dev/packages/flutter_edge_ai_sqlite) for the
 wasm wiring. Native platforms need no setup (`sqlite3` bundles its own library;
 the `vec0` extension is bundled via the package's Native Assets hook). A full runnable app wiring every engine and RAG store together lives
 in the
-[`flutter_gemma` example](https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_gemma/example).
+[`flutter_edge_ai` example](https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_edge_ai/example).

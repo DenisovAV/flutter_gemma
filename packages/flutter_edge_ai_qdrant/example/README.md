@@ -1,29 +1,29 @@
-# flutter_gemma_rag_qdrant example
+# flutter_edge_ai_qdrant example
 
-`flutter_gemma_rag_qdrant` is an opt-in vector store for
-[`flutter_gemma`](https://pub.dev/packages/flutter_gemma). Register it once at
-startup, then use the unchanged RAG API on `FlutterGemmaPlugin.instance`.
+`flutter_edge_ai_qdrant` is an opt-in vector store for
+[`flutter_edge_ai`](https://pub.dev/packages/flutter_edge_ai). Register it once at
+startup, then use the unchanged RAG API on `FlutterEdgeAiPlugin.instance`.
 
 ```dart
 import 'package:flutter/widgets.dart';
-import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma_rag_qdrant/flutter_gemma_rag_qdrant.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
+import 'package:flutter_edge_ai_qdrant/flutter_edge_ai_qdrant.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Opt into the qdrant-edge native vector store.
-  await FlutterGemma.initialize(
+  await FlutterEdgeAi.initialize(
     vectorStore: QdrantVectorStore(),
   );
 
-  final gemma = FlutterGemmaPlugin.instance;
+  final gemma = FlutterEdgeAiPlugin.instance;
 
   // `path` is a shard DIRECTORY (qdrant creates files under it), not a .db file.
   await gemma.initializeVectorStore('rag_store');
 
   // Add documents with pre-computed embeddings (e.g. from
-  // flutter_gemma_embeddings). `metadata` is a raw JSON string.
+  // flutter_edge_ai_embeddings). `metadata` is a raw JSON string.
   await gemma.addDocumentWithEmbedding(
     id: 'doc-1',
     content: 'Gemma runs fully on-device.',
@@ -47,7 +47,7 @@ Future<void> main() async {
 }
 ```
 
-See the [package README](https://pub.dev/packages/flutter_gemma_rag_qdrant) for
+See the [package README](https://pub.dev/packages/flutter_edge_ai_qdrant) for
 platform support and behavior notes. A full runnable app that wires every engine
 and RAG store together lives in the
-[`flutter_gemma` example](https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_gemma/example).
+[`flutter_edge_ai` example](https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_edge_ai/example).

@@ -1,10 +1,10 @@
-# flutter_gemma_agent
+# flutter_edge_ai_agent
 
-On-device agentic **skills** for [flutter_gemma](https://pub.dev/packages/flutter_gemma).
+On-device agentic **skills** for [flutter_edge_ai](https://pub.dev/packages/flutter_edge_ai).
 
 This opt-in satellite package turns the inference core into an on-device agent:
 the model is given a set of *skills* (`SKILL.md`), decides which to invoke via
-flutter_gemma's existing function-calling, runs them, and feeds the results back
+flutter_edge_ai's existing function-calling, runs them, and feeds the results back
 — fully offline.
 
 It is reverse-engineered from [google-ai-edge/gallery](https://github.com/google-ai-edge/gallery)
@@ -53,14 +53,14 @@ WebView), verified on hardware. On web the skill runs in a sandboxed `<iframe>`.
   `parseSkillMd` parser (YAML frontmatter + markdown body).
 - `SkillRegistry` — holds available/selected skills and builds the cheap
   name+description discovery string for the system prompt (two-stage discovery).
-- `SkillExecutor` probe-chain (mirrors flutter_gemma's engine registry) + sealed
+- `SkillExecutor` probe-chain (mirrors flutter_edge_ai's engine registry) + sealed
   `SkillResult` (`TextResult` / `ImageResult` / `WidgetResult` / `WebviewResult`
   / `ErrorResult`).
 - Concrete executors: `TextSkillExecutor` (0 deps), `JsSkillExecutor`
   (sandboxed headless webview — `flutter_inappwebview` on native, a `package:web`
   iframe on web), `NativeIntentExecutor` (whitelisted OS intents behind user/OS
   confirm), `McpSkillExecutor` (MCP tools over Streamable HTTP).
-- `AgentLoop` + `AgentSession` — the orchestrator over flutter_gemma's existing
+- `AgentLoop` + `AgentSession` — the orchestrator over flutter_edge_ai's existing
   function-calling, emitting a `Stream<AgentEvent>` (skill loads, tool calls,
   inline results, streamed text).
 - Cross-platform UI: `AgentChatView`, adaptive `SkillManagerView` /
@@ -72,7 +72,7 @@ WebView), verified on hardware. On web the skill runs in a sandboxed `<iframe>`.
 ## Bundled starter skills
 
 These are skills the **on-device model** runs at inference time — not the
-[package skills](https://pub.dev/packages/flutter_gemma) `flutter_gemma` bundles
+[package skills](https://pub.dev/packages/flutter_edge_ai) `flutter_edge_ai` bundles
 for your *coding assistant*. They ship under `assets/skills/`, which the `skills`
 CLI does not scan, so `dart run skills@ get --all` never installs them.
 
@@ -104,22 +104,22 @@ final js = JsSkillExecutor(sourceFor: source.jsSkillSourceFor);
 
 ```dart
 import 'package:flutter/material.dart';
-import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma_agent/flutter_gemma_agent.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
+import 'package:flutter_edge_ai_agent/flutter_edge_ai_agent.dart';
 
 // 1. Register the inference engine at app start. (Skill executors can also be
 //    registered here via `skillExecutors:` — see "Registering executors" below;
 //    this example passes them to the AgentSession instead.)
-await FlutterGemma.initialize(
+await FlutterEdgeAi.initialize(
   inferenceEngines: [LiteRtLmEngine()],
 );
 
 // 2. Install + load a function-calling model (Gemma 4 E2B/E4B recommended).
-await FlutterGemma
+await FlutterEdgeAi
     .installModel(modelType: ModelType.gemma4, fileType: ModelFileType.litertlm)
     .fromNetwork(gemma4E2BUrl)
     .install();
-final model = await FlutterGemma.getActiveModel(maxTokens: 4096);
+final model = await FlutterEdgeAi.getActiveModel(maxTokens: 4096);
 
 // 3. Load the bundled skills and build the agent session.
 final source = AssetSkillSource();
@@ -141,7 +141,7 @@ final session = await AgentSession.fromModel(
 // e.g. "Calculate the hash of hello" or "Show Paris on interactive map".
 ```
 
-See `packages/flutter_gemma/example` (the **Agent Skills** screen) for a
+See `packages/flutter_edge_ai/example` (the **Agent Skills** screen) for a
 runnable demo.
 
 ## Asking about a photo
@@ -204,7 +204,7 @@ AgentSession.fromModel(model, registry: registry, executors: [...]);
 
 // B) Register them globally once, then omit `executors:` — fromModel reads the
 //    core registry (mirrors how inference engines are registered):
-await FlutterGemma.initialize(
+await FlutterEdgeAi.initialize(
   inferenceEngines: [LiteRtLmEngine()],
   skillExecutors: [TextSkillExecutor(), JsSkillExecutor(sourceFor: ...), NativeIntentExecutor()],
 );

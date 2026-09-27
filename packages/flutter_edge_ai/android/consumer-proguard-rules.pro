@@ -1,11 +1,11 @@
 # MediaPipe (.task) + protobuf proguard rules moved to the
-# flutter_gemma_mediapipe package (android/consumer-proguard-rules.pro).
+# flutter_edge_ai_mediapipe package (android/consumer-proguard-rules.pro).
 
 # Kotlinx coroutines — deliberately NOT kept wholesale here.
 #
 # A `-keep class kotlinx.coroutines.** { *; }` used to sit on this line, labelled
 # "used by .litertlm FFI dispatch". That was already untrue: .litertlm runs
-# through Dart FFI, and this plugin's Kotlin (FlutterGemmaPlugin.kt, the bundled
+# through Dart FFI, and this plugin's Kotlin (FlutterEdgeAiPlugin.kt, the bundled
 # channel) references no coroutine at all. It came across from the pre-monorepo
 # monolith and never got re-examined.
 #
@@ -19,8 +19,8 @@
 # (META-INF/com.android.tools/r8/coroutines.pro), which R8 applies on its own:
 # the volatile fields updated through AtomicFieldUpdater, SafeContinuation, and
 # the Job GC anchors in ReadonlySharedFlow/ReadonlyStateFlow. That is the
-# complete set upstream declares necessary. flutter_gemma_mediapipe and
-# flutter_gemma_builtin_ai DO use coroutines heavily and keep none of them
+# complete set upstream declares necessary. flutter_edge_ai_mediapipe and
+# flutter_edge_ai_builtin_ai DO use coroutines heavily and keep none of them
 # either, for the same reason.
 #
 # The -dontwarn stays: it costs nothing at shrink time and only silences

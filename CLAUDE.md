@@ -1,4 +1,4 @@
-# Flutter Gemma - Claude Code Documentation
+# Flutter Edge AI - Claude Code Documentation
 
 # 🚨 CRITICAL RULES 🚨
 
@@ -46,19 +46,19 @@
 
 ## Project Overview
 
-**Flutter Gemma** — multi-platform Flutter plugin for running Gemma and other on-device LLMs (Qwen, DeepSeek, Phi, FastVLM, SmolLM, …) on Android, iOS, Web, macOS, Windows, Linux. Supports multimodal vision, function calling, thinking mode, GPU acceleration, LoRA weights.
+**Flutter Edge AI** — multi-platform Flutter plugin for running Gemma and other on-device LLMs (Qwen, DeepSeek, Phi, FastVLM, SmolLM, …) on Android, iOS, Web, macOS, Windows, Linux. Supports multimodal vision, function calling, thinking mode, GPU acceleration, LoRA weights.
 
 ## Architecture Quick Reference
 
 ### Core Principles
-- **1.0 six-package split** (monorepo, Dart pub workspace): core `flutter_gemma` (no engine) + opt-in `flutter_gemma_litertlm` (.litertlm FFI), `flutter_gemma_embeddings` (LiteRT embeddings), `flutter_gemma_mediapipe` (.task), `flutter_gemma_rag_qdrant` (native RAG), `flutter_gemma_rag_sqlite` (web RAG). **Packages → core, never to each other.** Core never depends on an opt-in package, and no opt-in package depends on another. Contracts AND the mechanism that picks an implementation live in core; the implementation lives in a package and the app wires it in `initialize()`. When nothing is wired, core fails loudly and names the package to add (`UnconfiguredVectorStore`). A sibling import looks like reuse and is really a release-cadence coupling: it is how litertlm 1.8.0 came to delete two web files its own `flutter_gemma_embeddings: ^2.0.0` floor still promised — resolvable, compilable, and 404 at first use. Engines/backends register via `FlutterGemma.initialize(inferenceEngines:, embeddingBackends:, vectorStore:)`; core registers none by default.
-- **`flutter_gemma_builtin_ai`** (new, opt-in): OS built-in AI engine — Gemini Nano via ML Kit GenAI/AICore (Android) and Apple Foundation Models (iOS/macOS). Registers via `inferenceEngines: [BuiltInAiEngine()]`; models use `ModelFileType.builtIn` (core has no file to install — the OS owns the weights).
-- **`flutter_gemma_onnx`** (new, opt-in): ONNX Runtime engines — text generation via ORT-GenAI (`OnnxEngine`) + embeddings via plain ORT (`OnnxEmbeddingBackend`), both `dart:ffi` worker-isolate. `hook/build.dart` bundles native archives for macOS arm64, linux_x64, windows_x64, android_arm64 (ORT from Maven `onnxruntime-android`, genai from the `onnxruntime-genai` GitHub release), and iOS arm64 (device + Apple-Silicon sim slices from the single self-contained `onnxruntime-genai-ios` xcframework — ORT statically linked in, one binary exporting both `Oga*` and `OrtGetApiBase`, so no separate ORT and no co-location problem); `OnnxEngine.canHandle`/`OnnxEmbeddingBackend._isSupportedHost` are gated to **macOS arm64 + linux x64 + windows x64 + android arm64 + iOS arm64** (in lockstep with the hook table). All five arm/x64 hosts are **device-verified**: ORT-GenAI generation + embeddings run end-to-end (macOS ~54 tok/s M4 Pro, **Android ~10.4 tok/s Pixel 8 Pro FTL**, Linux ~5.3-5.8, Windows ~3.3 tok/s on the CPU test VMs; Phi-3.5-mini 3.8B int4 ≈3.74 GB peak RSS → needs a 6GB+ phone). On **iOS** the app builds, signs, installs and launches on a real iPhone, and the `@executable_path`-anchored dlopen resolves the framework + generation runs. **Co-location** (genai's bare-name `dlopen("libonnxruntime")` resolving to the sibling CodeAsset): macOS+Linux via the `ORT_LIB_PATH`/`dladdr` export in `gen_ai_client.dart` (`_exportOrtLibPath`, mac/linux only), **Windows + Android resolve on their own** (genai's self-directory dlopen finds the co-located lib under Flutter's flat CodeAsset layout), **iOS has no second lib** (ORT static in genai; the Dart loader opens the one framework via the `@executable_path/Frameworks/…framework/…` anchor iOS dyld 4 requires — bare `.framework` names don't resolve). `OnnxEngine.canHandle` declines + logs off-host; `OnnxEmbeddingBackend.canHandle` stays extension-based on every platform (so LiteRT's catch-all can't silently claim an `.onnx` file) and gates in `createModel` instead. ORT-GenAI model installs are a DIRECTORY (`genai_config.json` + `.onnx`[+`.onnx_data`] + tokenizer) — single-file network install doesn't cover this yet.
+- **1.0 six-package split** (monorepo, Dart pub workspace): core `flutter_edge_ai` (no engine) + opt-in `flutter_edge_ai_litertlm` (.litertlm FFI), `flutter_edge_ai_embeddings` (LiteRT embeddings), `flutter_edge_ai_mediapipe` (.task), `flutter_edge_ai_qdrant` (native RAG), `flutter_edge_ai_sqlite` (web RAG). **Packages → core, never to each other.** Core never depends on an opt-in package, and no opt-in package depends on another. Contracts AND the mechanism that picks an implementation live in core; the implementation lives in a package and the app wires it in `initialize()`. When nothing is wired, core fails loudly and names the package to add (`UnconfiguredVectorStore`). A sibling import looks like reuse and is really a release-cadence coupling: it is how litertlm 1.8.0 came to delete two web files its own `flutter_edge_ai_embeddings: ^2.3.0` floor still promised — resolvable, compilable, and 404 at first use. Engines/backends register via `FlutterEdgeAi.initialize(inferenceEngines:, embeddingBackends:, vectorStore:)`; core registers none by default.
+- **`flutter_edge_ai_builtin_ai`** (new, opt-in): OS built-in AI engine — Gemini Nano via ML Kit GenAI/AICore (Android) and Apple Foundation Models (iOS/macOS). Registers via `inferenceEngines: [BuiltInAiEngine()]`; models use `ModelFileType.builtIn` (core has no file to install — the OS owns the weights).
+- **`flutter_edge_ai_onnx`** (new, opt-in): ONNX Runtime engines — text generation via ORT-GenAI (`OnnxEngine`) + embeddings via plain ORT (`OnnxEmbeddingBackend`), both `dart:ffi` worker-isolate. `hook/build.dart` bundles native archives for macOS arm64, linux_x64, windows_x64, android_arm64 (ORT from Maven `onnxruntime-android`, genai from the `onnxruntime-genai` GitHub release), and iOS arm64 (device + Apple-Silicon sim slices from the single self-contained `onnxruntime-genai-ios` xcframework — ORT statically linked in, one binary exporting both `Oga*` and `OrtGetApiBase`, so no separate ORT and no co-location problem); `OnnxEngine.canHandle`/`OnnxEmbeddingBackend._isSupportedHost` are gated to **macOS arm64 + linux x64 + windows x64 + android arm64 + iOS arm64** (in lockstep with the hook table). All five arm/x64 hosts are **device-verified**: ORT-GenAI generation + embeddings run end-to-end (macOS ~54 tok/s M4 Pro, **Android ~10.4 tok/s Pixel 8 Pro FTL**, Linux ~5.3-5.8, Windows ~3.3 tok/s on the CPU test VMs; Phi-3.5-mini 3.8B int4 ≈3.74 GB peak RSS → needs a 6GB+ phone). On **iOS** the app builds, signs, installs and launches on a real iPhone, and the `@executable_path`-anchored dlopen resolves the framework + generation runs. **Co-location** (genai's bare-name `dlopen("libonnxruntime")` resolving to the sibling CodeAsset): macOS+Linux via the `ORT_LIB_PATH`/`dladdr` export in `gen_ai_client.dart` (`_exportOrtLibPath`, mac/linux only), **Windows + Android resolve on their own** (genai's self-directory dlopen finds the co-located lib under Flutter's flat CodeAsset layout), **iOS has no second lib** (ORT static in genai; the Dart loader opens the one framework via the `@executable_path/Frameworks/…framework/…` anchor iOS dyld 4 requires — bare `.framework` names don't resolve). `OnnxEngine.canHandle` declines + logs off-host; `OnnxEmbeddingBackend.canHandle` stays extension-based on every platform (so LiteRT's catch-all can't silently claim an `.onnx` file) and gates in `createModel` instead. ORT-GenAI model installs are a DIRECTORY (`genai_config.json` + `.onnx`[+`.onnx_data`] + tokenizer) — single-file network install doesn't cover this yet.
 - **Probe-chain registry**: `EngineRegistry`/`EmbeddingRegistry` select a provider by `canHandle(spec)` + `priority` (descending priority, ascending registration index). Engines are pure factories; core owns singleton lifecycle via `CloseNotifier`/`addCloseListener`.
-- **ModelSource**: Type-safe sealed class (`NetworkSource`, `AssetSource`, `BundledSource`, `FileSource`). See `packages/flutter_gemma/lib/core/domain/`
+- **ModelSource**: Type-safe sealed class (`NetworkSource`, `AssetSource`, `BundledSource`, `FileSource`). See `packages/flutter_edge_ai/lib/core/domain/`
 - **Install vs Runtime separation**: Installation stores identity (modelType + fileType), runtime accepts config (maxTokens, backend, etc.) via `RuntimeConfig`
 - **Engine selection by declared `ModelFileType`** (via `canHandle(spec)` — NOT by sniffing the file name): `task`/`binary` → MediaPipe, `litertlm` → LiteRT-LM, `builtIn` → BuiltInAi. `installModel` defaults `fileType` to `task`, so `.litertlm` must be declared explicitly or it is routed to MediaPipe
-- **All five platforms (Android/iOS/macOS/Linux/Windows)**: Dart → `dart:ffi` → LiteRT-LM C API (inference, in `flutter_gemma_litertlm`) + LiteRT C API (embeddings, in `flutter_gemma_embeddings`). Native prebuilts fetched at build time from GitHub release `native-v0.17.1-a` (Native Assets). `flutter_gemma_litertlm/hook/build.dart` is the **sole** hook carrying the LiteRT native version; `flutter_gemma_embeddings` and `flutter_gemma_speech` have no hook of their own and consume the bundle transitively. The cycle-fix `stage()` in the hooks is **Apple-only** (Xcode `directoryTreeSignature` cycle; staging on Windows splits companion DLLs and hangs cancel/close).
+- **All five platforms (Android/iOS/macOS/Linux/Windows)**: Dart → `dart:ffi` → LiteRT-LM C API (inference, in `flutter_edge_ai_litertlm`) + LiteRT C API (embeddings, in `flutter_edge_ai_embeddings`). Native prebuilts fetched at build time from GitHub release `native-v0.17.1-a` (Native Assets). `flutter_edge_ai_litertlm/hook/build.dart` is the **sole** hook carrying the LiteRT native version; `flutter_edge_ai_embeddings` and `flutter_edge_ai_speech` have no hook of their own and consume the bundle transitively. The cycle-fix `stage()` in the hooks is **Apple-only** (Xcode `directoryTreeSignature` cycle; staging on Windows splits companion DLLs and hangs cancel/close).
 
 ### Supported Models
 
@@ -104,13 +104,13 @@
 
 ### ⚠️ maxTokens = CONTEXT window, not output length (#318)
 `maxTokens` (on `getActiveModel`/`createModel`) is the whole **context window** — input (system + history + message) **plus** generated output, i.e. the KV-cache budget. It is **NOT** the response length. `.litertlm` models bake a `kv_cache_max_len` (1024 for every supported model — Gemma 4 E2B, FunctionGemma, …); a `maxTokens` below it underflows the native magic-number KV-cache resize and `DYNAMIC_UPDATE_SLICE` fails to allocate tensors at generation (cryptic `Stream error: INTERNAL: …executor.cc:734`). Verified on Pixel 8a (CPU): 100/256/512 crash, 1024/4096 work.
-- The litertlm engine now **clamps `maxTokens` up to 1024** with a `gemmaLog` warning (`clampLitertlmContextTokens` in `flutter_gemma_litertlm/lib/src/litert_lm_engine.dart`). MediaPipe `.task` tolerates small values and is not clamped.
+- The litertlm engine now **clamps `maxTokens` up to 1024** with a `gemmaLog` warning (`clampLitertlmContextTokens` in `flutter_edge_ai_litertlm/lib/src/litert_lm_engine.dart`). MediaPipe `.task` tolerates small values and is not clamped.
 - To cap **generation length**, use the new **`maxOutputTokens`** on `createSession`/`openSession` → native `set_max_output_tokens` (litertlm only; MediaPipe has no session-level output cap and logs that it's ignored).
 ```dart
 // ❌ WRONG - meant "100-token reply", actually shrinks the context → crash on .litertlm
-await FlutterGemma.getActiveModel(maxTokens: 100);
+await FlutterEdgeAi.getActiveModel(maxTokens: 100);
 // ✅ CORRECT - context stays 1024+, output is capped at 100
-final model = await FlutterGemma.getActiveModel(maxTokens: 1024);
+final model = await FlutterEdgeAi.getActiveModel(maxTokens: 1024);
 final session = await model.createSession(maxOutputTokens: 100);
 ```
 
@@ -136,39 +136,39 @@ await inferenceModel.close();
 Exception: Migration files may use inline strings for deprecated keys.
 
 ### ⚠️ Always read SDK before implementing
-Check `lib/flutter_gemma_interface.dart`, implementation files, and `example/` before making changes.
+Check `lib/flutter_edge_ai_interface.dart`, implementation files, and `example/` before making changes.
 
-### ⚠️ Generated pigeon is `flutter_gemma_mediapipe/lib/pigeon.g.dart` — DO NOT EDIT MANUALLY
-Core has NO pigeon (dropped at the 1.0 cut; its value types are hand-written in `lib/core/domain/platform_types.dart`). Only `flutter_gemma_mediapipe` still uses pigeon (it owns the `PlatformService` HostApi).
+### ⚠️ Generated pigeon is `flutter_edge_ai_mediapipe/lib/pigeon.g.dart` — DO NOT EDIT MANUALLY
+Core has NO pigeon (dropped at the 1.0 cut; its value types are hand-written in `lib/core/domain/platform_types.dart`). Only `flutter_edge_ai_mediapipe` still uses pigeon (it owns the `PlatformService` HostApi).
 
 ## Versions & Dependencies
 
 - **Flutter**: `>=3.44.0` (raised at the 1.0 cut: `large_file_handler` 0.5.0 + dart2wasm need it).
-  **Exception: `flutter_gemma_rag_sqlite` declares `>=3.47.0`** — sqlite3 3.6.0, the first
+  **Exception: `flutter_edge_ai_sqlite` declares `>=3.47.0`** — sqlite3 3.6.0, the first
   release whose web `flush()` awaits an in-flight write batch, requires `hooks ^2.2.0` →
   `record_use` → `meta ^1.19.0`, and every Flutter 3.44.x pins `meta` to 1.18.0 exactly.
   Consumers on 3.44 resolve to rag_sqlite 1.3.2 instead. The **workspace dev floor is
   therefore 3.47** (`.fvmrc`, and the two `flutter-version`-pinned website workflows)
 - **Dart SDK**: `>=3.12.0 <4.0.0`
-- **iOS**: Minimum 15.0; **16.0 only with `flutter_gemma_mediapipe`** (MediaPipe GenAI). Core, litertlm, built-in AI and embeddings build from 15 (#441)
+- **iOS**: Minimum 15.0; **16.0 only with `flutter_edge_ai_mediapipe`** (MediaPipe GenAI). Core, litertlm, built-in AI and embeddings build from 15 (#441)
 - **MediaPipe Web**: v0.10.27, Android/iOS: v0.10.33
 - **LiteRT-LM**: native libs from `native-v0.17.1-a` GitHub Release (= `native-v0.17.1` plus the two Android GPU accelerators patched with `libandroid.so` in `DT_NEEDED` — without it Mali GPUs SIGSEGV at `engine_create`, #545; `build_android.sh` step 8d lints every import against its NEEDED chain). LiteRT-LM pin `5e58e9a0` = upstream v0.17.1, LiteRT pin `9fe5be45` unchanged since v0.17.0, companion prebuilts from upstream main `4453b286` — the v0.17.x tags carry a `libGemmaModelConstraintProvider` built against the pre-`ComputeMask` `Constraint`, so with a runtime built from their own source every tool call segfaults in `CompositeLogitMask::Apply`). v0.17.1: a tool-call argument declared `"type": "integer"` reaches the app as an integer instead of `1000.0`; the Android tarball's four Qualcomm Skel blobs are raised to `p_align=0x4000`, because at 4 KB Google Play rejects every app that ships them (#529). v0.17.0: the GPU samplers' `Create` gained a leading `runtime_c_api` argument (upstream refreshed the prebuilt samplers); `LiteRtLayout` has been one layout on every compiler since LiteRT `d84656955` (already in the v0.16.0 pin) — our Windows-only MSVC mirror broke Windows embeddings and speech from native-v0.16.0 until litertlm 1.7.0 dropped it. Android tarball bundles the Qualcomm QNN dispatch stack and Windows tarball bundles Intel NPU dispatch (`LiteRtDispatch.dll` + OpenVino runtime + TBB) for `PreferredBackend.npu` (Qualcomm Snapdragon / Intel LunarLake/PantherLake) — both dispatch libs are **rebuilt from the pin every release**; carrying them forward is what silently broke NPU on both platforms (see the `build-native` skill). v0.16.0: fixes the Android OpenCL per-turn memory leak (LiteRT-LM #2699, #348/#402); v0.15.0 **broke the stream-callback ABI** (4-arg → 2-arg chunk object) with no compat path, handled by a runtime probe in `stream_proxy.c`. Windows discrete GPU works again — the crash was our own dead `litert_link_capi_so` Bazel define, not an upstream regression (#2957 retracted).
-- **sqlite-vec**: `flutter_gemma_rag_sqlite` fetches the per-platform `vec0` loadable from the `native-sqlite-vec-v<X>` GitHub Release (`sqlite-vec-<target>.tar.gz` + `checksums_sqlite_vec.txt`), SHA256-verified by its `hook/build.dart`. `<X>` names the **upstream sqlite-vec release** the bytes were built from; a letter suffix (`0.1.9-a`) is only for RE-releasing changed bytes under an already-published number. The loadables are NOT committed — `native/sqlite_vec/prebuilt/` is a maintainer override produced by `build_local.sh`, gitignored and `.pubignore`d.
+- **sqlite-vec**: `flutter_edge_ai_sqlite` fetches the per-platform `vec0` loadable from the `native-sqlite-vec-v<X>` GitHub Release (`sqlite-vec-<target>.tar.gz` + `checksums_sqlite_vec.txt`), SHA256-verified by its `hook/build.dart`. `<X>` names the **upstream sqlite-vec release** the bytes were built from; a letter suffix (`0.1.9-a`) is only for RE-releasing changed bytes under an already-published number. The loadables are NOT committed — `native/sqlite_vec/prebuilt/` is a maintainer override produced by `build_local.sh`, gitignored and `.pubignore`d.
 - **large_file_handler**: `^0.5.0` (core dep; 0.5.0 declares all 6 platforms — needed for pana platform support + the dart2wasm-clean web graph)
-- **Current Version**: core `flutter_gemma` `1.11.0`, `flutter_gemma_rag_sqlite` `1.4.0`, `flutter_gemma_rag_qdrant` `1.3.2`; `flutter_gemma_litertlm` `1.8.4`, `flutter_gemma_mediapipe` `1.0.7`, `flutter_gemma_embeddings` `2.2.1`, `flutter_gemma_speech` `0.5.2`; `flutter_gemma_agent` `0.2.6`, `flutter_gemma_builtin_ai` `0.2.2`, `flutter_gemma_onnx` `0.5.0`; `genkit_flutter_gemma` `0.6.2`, `genkit_hybrid` `0.2.1`
+- **Current Version**: core `flutter_edge_ai` `1.11.0`, `flutter_edge_ai_sqlite` `1.4.0`, `flutter_edge_ai_qdrant` `1.3.2`; `flutter_edge_ai_litertlm` `1.8.4`, `flutter_edge_ai_mediapipe` `1.0.7`, `flutter_edge_ai_embeddings` `2.2.1`, `flutter_edge_ai_speech` `0.5.2`; `flutter_edge_ai_agent` `0.2.6`, `flutter_edge_ai_builtin_ai` `0.2.2`, `flutter_edge_ai_onnx` `0.5.0`; `genkit_flutter_edge_ai` `0.6.2`, `genkit_hybrid` `0.2.1`
 - **0.15.2**: embedding unified on LiteRT C API via Dart FFI on all native platforms (Android + iOS + Desktop). Drops `localagents-rag` JVM dep on Android and the separate TFLite C 0.12.7 tarball on Desktop; `TensorFlowLiteC` pod no longer needed on iOS. Single source of truth for `TaskType.prefix` in Dart, fixes cross-platform embedding drift (#264).
 
 ## Platform-Specific Setup
 
 ### iOS
 ```ruby
-platform :ios, '15.0'   # 16.0 if the app uses flutter_gemma_mediapipe
+platform :ios, '15.0'   # 16.0 if the app uses flutter_edge_ai_mediapipe
 use_frameworks! :linkage => :static
 ```
 Entitlements needed: `extended-virtual-addressing`, `increased-memory-limit`
 
 ### Android
-The core plugin manifest (`packages/flutter_gemma/android/src/main/AndroidManifest.xml`) declares these, plus `libcdsprpc.so` for the Qualcomm NPU, and the manifest merger folds them into every consumer app — apps add nothing (verified in the example's merged manifest):
+The core plugin manifest (`packages/flutter_edge_ai/android/src/main/AndroidManifest.xml`) declares these, plus `libcdsprpc.so` for the Qualcomm NPU, and the manifest merger folds them into every consumer app — apps add nothing (verified in the example's merged manifest):
 ```xml
 <!-- libvndksupport.so is required for the GPU backend on Android 12+: the
      v0.13.x OpenCL loader uses its android_load_sphal_library() to dlopen the
@@ -180,8 +180,8 @@ The core plugin manifest (`packages/flutter_gemma/android/src/main/AndroidManife
 <uses-native-library android:name="libOpenCL-pixel.so" android:required="false"/>
 ```
 
-- **The plugins do NOT apply KGP** (#440). `flutter_gemma`, `flutter_gemma_mediapipe` and
-  `flutter_gemma_builtin_ai` declare no `kotlin-android`, no `ext.kotlin_version`, no KGP
+- **The plugins do NOT apply KGP** (#440). `flutter_edge_ai`, `flutter_edge_ai_mediapipe` and
+  `flutter_edge_ai_builtin_ai` declare no `kotlin-android`, no `ext.kotlin_version`, no KGP
   classpath. Flutter's own Gradle plugin applies `kotlin-android` to any plugin subproject
   that doesn't (`FlutterPluginUtils.detectApplyingKotlinGradlePlugin`), which is what makes
   `flutter: '>=3.44.0'` load-bearing rather than cosmetic. Re-adding a version guard is the
@@ -189,7 +189,7 @@ The core plugin manifest (`packages/flutter_gemma/android/src/main/AndroidManife
   that still has a plugin applying KGP itself — today nearly every app
   (`shared_preferences`, `background_downloader`). A bare `flutter create` app with no
   plugins builds fine. Not ours to fix; `false` is what Flutter's own migrator writes.
-- **`flutter_gemma_builtin_ai` requires `minSdk 26`** (ML Kit GenAI / AICore floor) — apps using that package must raise their `android/app/build.gradle(.kts)` `minSdk` to 26 or the manifest merger fails (`uses-sdk:minSdkVersion` conflict).
+- **`flutter_edge_ai_builtin_ai` requires `minSdk 26`** (ML Kit GenAI / AICore floor) — apps using that package must raise their `android/app/build.gradle(.kts)` `minSdk` to 26 or the manifest merger fails (`uses-sdk:minSdkVersion` conflict).
 
 ### Web
 ```html
@@ -202,7 +202,7 @@ window.LlmInference = LlmInference;
 
 ### Desktop (macOS/Windows/Linux)
 - Architecture: Dart → `dart:ffi` → LiteRT-LM C API (no JVM, no gRPC)
-- Native libs fetched at build time by `flutter_gemma_litertlm/hook/build.dart` (the only hook that carries the version) from the `native-v0.17.1-a` GitHub release; SHA256-verified, bundled via Native Assets
+- Native libs fetched at build time by `flutter_edge_ai_litertlm/hook/build.dart` (the only hook that carries the version) from the `native-v0.17.1-a` GitHub release; SHA256-verified, bundled via Native Assets
 - Desktop uses `.litertlm` format only (not `.task`)
 - Windows GPU requires `dxil.dll` + `dxcompiler.dll` (DirectXShaderCompiler runtime) — bundled in the Windows native archive
 - Windows NPU (`PreferredBackend.npu`) requires Intel LunarLake/PantherLake silicon — `LiteRtDispatch.dll` + OpenVino runtime + TBB bundled in the Windows native archive (0.15.1+)
@@ -212,7 +212,7 @@ macOS entitlements: `network.client` (model download) and `cs.disable-library-va
 ## Code Quality
 
 ```bash
-flutter analyze packages/   # every workspace package (not website/ — it is
+flutter analyze packages/ shims/   # every workspace package (not website/ — it is
                             # outside the workspace, so its deps are unresolved)
 dart format .
 tool/test_all.sh     # every package, each from its own directory
@@ -220,7 +220,7 @@ tool/test_all.sh     # every package, each from its own directory
 
 > `flutter test` at the root tests **nothing** (the workspace root has no
 > `test/`), and `flutter test packages/<pkg>` runs from the wrong working
-> directory — 20 of `flutter_gemma_agent`'s suites read fixtures by a path
+> directory — 20 of `flutter_edge_ai_agent`'s suites read fixtures by a path
 > relative to the package and fail on a missing file. `tool/test_all.sh` is
 > what CI runs, so local green and CI green mean the same thing.
 
@@ -243,34 +243,34 @@ flutter analyze && dart format . && tool/test_all.sh
 ## Key Files
 
 > **1.0 monorepo:** paths below are under `packages/<pkg>/`. The repo is a Dart
-> pub workspace (root `pubspec.yaml` `workspace:` list); core = `flutter_gemma`,
+> pub workspace (root `pubspec.yaml` `workspace:` list); core = `flutter_edge_ai`,
 > engines/RAG = opt-in sibling packages.
 
-**Core (`packages/flutter_gemma/`):**
+**Core (`packages/flutter_edge_ai/`):**
 
 | File | Purpose |
 |------|---------|
-| `lib/flutter_gemma_interface.dart` | Abstract InferenceModel / EmbeddingModel / Session + CloseNotifier seam |
-| `lib/core/api/flutter_gemma.dart` | `FlutterGemma.initialize/getActiveModel/installModel/installEmbedder/reset/dispose` |
+| `lib/flutter_edge_ai_interface.dart` | Abstract InferenceModel / EmbeddingModel / Session + CloseNotifier seam |
+| `lib/core/api/flutter_edge_ai.dart` | `FlutterEdgeAi.initialize/getActiveModel/installModel/installEmbedder/reset/dispose` |
 | `lib/core/message.dart` | Message class (isUser gotcha) |
 | `lib/core/domain/` | ModelSource sealed classes |
 | `lib/core/registry/{inference_engine_provider,embedding_backend_provider,engine_registry,embedding_registry,runtime_config}.dart` | Probe-chain registry contracts engines/backends implement |
 | `lib/core/lifecycle/close_notifier.dart` | `CloseNotifier` mixin (addCloseListener / fireCloseListeners) |
-| `lib/core/embedding/` | The embedding seam engines implement: `EmbeddingForwardPass` + `ForwardResult` + `ForwardPassDescriptor`, the `EmbeddingTokenizer` adapter, `meanPoolAndNormalize`, and the isolate worker behind `CommonEmbeddingModel` — tokenizer IMPLEMENTATIONS stay in `flutter_gemma_embeddings`. Plus two pieces core OWNS rather than exposes: `EmbedderCache` (cached embedder + its params as one field, the reuse rule, and the lane serialising the entry point — each shell holds one instead of its own hand-rolled model/params bookkeeping) and `noticeEmbedderBackendIgnored` (says once per isolate that `preferredBackend` reached nothing; debug-only, so `EmbeddingModel.activeBackend` is the release answer) |
+| `lib/core/embedding/` | The embedding seam engines implement: `EmbeddingForwardPass` + `ForwardResult` + `ForwardPassDescriptor`, the `EmbeddingTokenizer` adapter, `meanPoolAndNormalize`, and the isolate worker behind `CommonEmbeddingModel` — tokenizer IMPLEMENTATIONS stay in `flutter_edge_ai_embeddings`. Plus two pieces core OWNS rather than exposes: `EmbedderCache` (cached embedder + its params as one field, the reuse rule, and the lane serialising the entry point — each shell holds one instead of its own hand-rolled model/params bookkeeping) and `noticeEmbedderBackendIgnored` (says once per isolate that `preferredBackend` reached nothing; debug-only, so `EmbeddingModel.activeBackend` is the release answer) |
 | `lib/core/registry/embedding_tokenizer_{provider,registry}.dart` | Probe chain for tokenizers, so an engine asks for one instead of naming one (which is what made it depend on a sibling package) |
 | `lib/core/services/vector_store_filter.dart` | Sealed `Condition` + `Filter` envelope (must/should/mustNot) |
 | `lib/core/infrastructure/unconfigured_vector_store.dart` | Default `VectorStoreRepository` sentinel — throws "add a RAG package" |
-| `lib/mobile/flutter_gemma_mobile.dart` | Mobile shell — registry-dispatch createModel + EmbeddingModelSpec |
-| `lib/web/flutter_gemma_web.dart` | Web shell — registry-dispatch |
-| `lib/desktop/flutter_gemma_desktop.dart` | Desktop shell — registry-dispatch |
+| `lib/mobile/flutter_edge_ai_mobile.dart` | Mobile shell — registry-dispatch createModel + EmbeddingModelSpec |
+| `lib/web/flutter_edge_ai_web.dart` | Web shell — registry-dispatch |
+| `lib/desktop/flutter_edge_ai_desktop.dart` | Desktop shell — registry-dispatch |
 | `lib/web/web_model_source.dart`, `web_model_manager.dart` | Public shared web infra (imported by litertlm-web + mediapipe-web) |
 | `lib/core/domain/platform_types.dart` | Plain-Dart `PreferredBackend` enum + RAG value types (RetrievalResult/VectorStoreStats/DocumentWithEmbedding). Core has NO pigeon/PlatformService — these were hand-written off pigeon at the 1.0 cut so the public graph stays dart:io/wasm-clean |
 | `hook/build.dart` | Native Assets hook — empty bundle list (core owns no native lib) |
-| `android/src/.../FlutterGemmaPlugin.kt`, `ios/Classes/FlutterGemmaPlugin.swift` | Slim native plugin — hosts only the `flutter_gemma_bundled` channel (file-ops + litertlm NPU `getNativeLibraryDir`) |
+| `android/src/.../FlutterEdgeAiPlugin.kt`, `ios/Classes/FlutterEdgeAiPlugin.swift` | Slim native plugin — hosts only the `flutter_gemma_bundled` channel (file-ops + litertlm NPU `getNativeLibraryDir`) |
 | `example/lib/gemma_bootstrap.dart` | Single source of truth for the example's engine/backend lists + RAG switcher |
 | `example/lib/models/model.dart` | Model configurations & URLs |
 
-**`packages/flutter_gemma_litertlm/` (.litertlm FFI inference; owns the shared libLiteRtLm bundle):**
+**`packages/flutter_edge_ai_litertlm/` (.litertlm FFI inference; owns the shared libLiteRtLm bundle):**
 
 | File | Purpose |
 |------|---------|
@@ -283,26 +283,26 @@ flutter analyze && dart format . && tool/test_all.sh
 | `hook/build.dart` | Native Assets hook — OWNS the litertlm bundle; `stage()` is **Apple-only** (Xcode cycle) |
 | `native/litert_lm/{build_ios.sh,patch_c_api.sh,stream_proxy.c}` | iOS dylib rebuild + C API patcher + preload helper |
 
-**`packages/flutter_gemma_embeddings/` (tokenizer implementations — 2.2.0; depends ONLY on core, and NOTHING depends on it: engines get a tokenizer from core's registry, which the app fills from here):**
+**`packages/flutter_edge_ai_embeddings/` (tokenizer implementations — 2.2.0; depends ONLY on core, and NOTHING depends on it: engines get a tokenizer from core's registry, which the app fills from here):**
 
 | File | Purpose |
 |------|---------|
 | `lib/src/tokenizer_provider.dart` | `GemmaEmbeddingTokenizers` — the registrable `EmbeddingTokenizerProvider` an app passes to `initialize(embeddingTokenizers:)` |
-| `lib/src/tokenizer_router.dart` | `resolveEmbeddingTokenizer` — sniffs the tokenizer file and routes WordPiece / SigLIP2-refusal / SentencePiece (moved from `flutter_gemma_onnx`; never was ONNX-specific) |
+| `lib/src/tokenizer_router.dart` | `resolveEmbeddingTokenizer` — sniffs the tokenizer file and routes WordPiece / SigLIP2-refusal / SentencePiece (moved from `flutter_edge_ai_onnx`; never was ONNX-specific) |
 | `lib/src/wordpiece_tokenizer_json.dart` | The WordPiece `tokenizer.json` parse step, split out so it carries no `dart:js_interop` and stays VM-testable |
 | `lib/src/embedding_tokenizer.dart` | Gemma SentencePiece tokenize + BOS=2/EOS=1 + TaskType prefix (`.json`/`.model` loader) |
-| *(no engine dep, no `hook/build.dart`, no `web/`)* | The seam, worker, pooling and facade moved to core’s `lib/core/embedding/` in 1.9.0; the LiteRT.js web bundle moved to `flutter_gemma_litertlm` in its 1.8.0 |
+| *(no engine dep, no `hook/build.dart`, no `web/`)* | The seam, worker, pooling and facade moved to core’s `lib/core/embedding/` in 1.9.0; the LiteRT.js web bundle moved to `flutter_edge_ai_litertlm` in its 1.8.0 |
 
-**`packages/flutter_gemma_mediapipe/` (.task MediaPipe; mobile + web, NO desktop):**
+**`packages/flutter_edge_ai_mediapipe/` (.task MediaPipe; mobile + web, NO desktop):**
 
 | File | Purpose |
 |------|---------|
 | `lib/src/mediapipe_engine*.dart` | `MediaPipeEngine` (io/mobile + web arms); `_mapBackend` core↔package PreferredBackend |
 | `pigeon.dart` | Package pigeon: `PlatformService` HostApi + redeclared `PreferredBackend` |
-| `android/src/.../FlutterGemmaMediaPipePlugin.kt`, `PlatformServiceImpl.kt`, `engines/*` | Android MediaPipe (own pluginClass + channel) |
-| `ios/Classes/FlutterGemmaMediaPipePlugin.swift`, `PlatformServiceImpl.swift`, `InferenceModel.swift` | iOS MediaPipe |
+| `android/src/.../FlutterEdgeAiMediaPipePlugin.kt`, `PlatformServiceImpl.kt`, `engines/*` | Android MediaPipe (own pluginClass + channel) |
+| `ios/Classes/FlutterEdgeAiMediaPipePlugin.swift`, `PlatformServiceImpl.swift`, `InferenceModel.swift` | iOS MediaPipe |
 
-**`packages/flutter_gemma_rag_qdrant/` (native RAG via the official `qdrant_edge` UniFFI SDK; no web):**
+**`packages/flutter_edge_ai_qdrant/` (native RAG via the official `qdrant_edge` UniFFI SDK; no web):**
 
 | File | Purpose |
 |------|---------|
@@ -310,7 +310,7 @@ flutter analyze && dart format . && tool/test_all.sh
 | `lib/src/{qdrant_edge_client,point_id_hasher,filter_codec}.dart` | thin wrapper over the `qdrant_edge` SDK + UUIDv5 hasher + Filter codec |
 | *(no `hook/build.dart`, no `native/`)* | 2.0.0: the engine and its Native Assets hook live in the `qdrant_edge` SDK |
 
-**`packages/flutter_gemma_rag_sqlite/` (first-class SQLite vector store — in-SQLite `sqlite-vec`/`vec0` KNN on all 6 platforms):**
+**`packages/flutter_edge_ai_sqlite/` (first-class SQLite vector store — in-SQLite `sqlite-vec`/`vec0` KNN on all 6 platforms):**
 
 | File | Purpose |
 |------|---------|
@@ -319,7 +319,7 @@ flutter analyze && dart format . && tool/test_all.sh
 | `hook/build.dart` | Native Assets hook — fetches the per-platform `vec0` loadable extension |
 | `web/rag/sqlite3.wasm` | custom `sqlite3.wasm` with `sqlite-vec`/`vec0` statically linked (app copies to its web root) |
 
-**`packages/flutter_gemma_builtin_ai/` (OS built-in AI; Gemini Nano on Android and desktop Chrome via the Prompt API, Apple Foundation Models on iOS/macOS; no Windows/Linux):**
+**`packages/flutter_edge_ai_builtin_ai/` (OS built-in AI; Gemini Nano on Android and desktop Chrome via the Prompt API, Apple Foundation Models on iOS/macOS; no Windows/Linux):**
 
 | File | Purpose |
 |------|---------|
@@ -332,7 +332,7 @@ flutter analyze && dart format . && tool/test_all.sh
 | `android/src/.../` | Android ML Kit GenAI (AICore) native layer; declares `minSdk 26` |
 | `darwin/Classes/` (shared iOS+macOS source via `sharedDarwinSource: true`) | Apple Foundation Models native layer |
 
-**`packages/flutter_gemma_onnx/` (ONNX Runtime — ORT-GenAI inference + plain-ORT embeddings on macOS arm64 / Linux x64 / Windows x64 / Android arm64 / iOS arm64; web via Transformers.js + onnxruntime-web):**
+**`packages/flutter_edge_ai_onnx/` (ONNX Runtime — ORT-GenAI inference + plain-ORT embeddings on macOS arm64 / Linux x64 / Windows x64 / Android arm64 / iOS arm64; web via Transformers.js + onnxruntime-web):**
 
 | File | Purpose |
 |------|---------|
@@ -347,24 +347,24 @@ flutter analyze && dart format . && tool/test_all.sh
 ## Project Structure
 
 ```
-flutter_gemma/                       # Dart pub workspace (monorepo root)
+flutter_edge_ai/                       # Dart pub workspace (monorepo root)
 ├── pubspec.yaml                     # root: workspace: [packages/*] + melos config
 ├── packages/
-│   ├── flutter_gemma/               # CORE — no engine; registry, contracts, shells, slim native plugin
+│   ├── flutter_edge_ai/               # CORE — no engine; registry, contracts, shells, slim native plugin
 │   │   ├── lib/{core,mobile,web,desktop}/   # registry-dispatch shells + contracts
 │   │   ├── android/ ios/ windows/   # slim native plugin (bundled channel only)
 │   │   ├── hook/build.dart          # empty bundle list
 │   │   └── example/                 # example app + integration tests + MIGRATION.md/README.md
-│   ├── flutter_gemma_litertlm/      # .litertlm FFI (owns libLiteRtLm) + native/litert_lm/ build scripts
-│   ├── flutter_gemma_embeddings/    # LiteRT embeddings (shares libLiteRtLm; isolate worker)
-│   ├── flutter_gemma_mediapipe/     # .task MediaPipe (own pigeon + Kotlin + Swift + web JS)
-│   ├── flutter_gemma_rag_qdrant/    # native RAG (official qdrant_edge UniFFI SDK)
-│   ├── flutter_gemma_rag_sqlite/    # SQLite RAG — in-SQLite vec0 KNN (native sqlite3 FFI + web wasm)
-│   ├── flutter_gemma_builtin_ai/    # OS built-in AI — Gemini Nano (Android) / Apple Foundation Models (iOS/macOS)
-│   ├── flutter_gemma_onnx/          # ONNX Runtime — ORT-GenAI inference + plain-ORT embeddings (macOS arm64 v1)
-│   ├── flutter_gemma_speech/        # opt-in on-device STT (moonshine) + TTS (Matcha) via LiteRT C API (shares libLiteRtLm)
-│   ├── flutter_gemma_agent/         # opt-in on-device agent skills (SKILL.md: text/JS/native-intent/MCP) over the function-calling loop
-│   ├── genkit_flutter_gemma/        # Firebase Genkit integration (flutter_gemma runtime + converters)
+│   ├── flutter_edge_ai_litertlm/      # .litertlm FFI (owns libLiteRtLm) + native/litert_lm/ build scripts
+│   ├── flutter_edge_ai_embeddings/    # LiteRT embeddings (shares libLiteRtLm; isolate worker)
+│   ├── flutter_edge_ai_mediapipe/     # .task MediaPipe (own pigeon + Kotlin + Swift + web JS)
+│   ├── flutter_edge_ai_qdrant/    # native RAG (official qdrant_edge UniFFI SDK)
+│   ├── flutter_edge_ai_sqlite/    # SQLite RAG — in-SQLite vec0 KNN (native sqlite3 FFI + web wasm)
+│   ├── flutter_edge_ai_builtin_ai/    # OS built-in AI — Gemini Nano (Android) / Apple Foundation Models (iOS/macOS)
+│   ├── flutter_edge_ai_onnx/          # ONNX Runtime — ORT-GenAI inference + plain-ORT embeddings (macOS arm64 v1)
+│   ├── flutter_edge_ai_speech/        # opt-in on-device STT (moonshine) + TTS (Matcha) via LiteRT C API (shares libLiteRtLm)
+│   ├── flutter_edge_ai_agent/         # opt-in on-device agent skills (SKILL.md: text/JS/native-intent/MCP) over the function-calling loop
+│   ├── genkit_flutter_edge_ai/        # Firebase Genkit integration (flutter_edge_ai runtime + converters)
 │   └── genkit_hybrid/               # Genkit hybrid on-device + cloud helpers
 └── docs/                            # design docs, testing, benchmarks
 ```
@@ -372,6 +372,6 @@ flutter_gemma/                       # Dart pub workspace (monorepo root)
 ## Repository
 
 - **GitHub**: https://github.com/DenisovAV/flutter_gemma
-- **Pub.dev**: https://pub.dev/packages/flutter_gemma
+- **Pub.dev**: https://pub.dev/packages/flutter_edge_ai
 - **Issues**: `gh issue list --repo DenisovAV/flutter_gemma --state open`
 - **Changelog**: See `CHANGELOG.md`

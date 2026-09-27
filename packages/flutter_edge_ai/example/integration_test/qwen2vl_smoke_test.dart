@@ -18,7 +18,7 @@ const _url =
     'https://huggingface.co/litert-community/Qwen2-VL-2B/resolve/main/Qwen2-VL-2B.litertlm';
 
 String _docsDir() {
-  if (Platform.isAndroid) return '/data/local/tmp/flutter_edge_ai_test';
+  if (Platform.isAndroid) return '/data/local/tmp/flutter_gemma_test';
   if (Platform.isMacOS) {
     return '${Platform.environment['HOME']}/Library/Containers/dev.flutterberlin.flutterGemmaExample55/Data/Documents';
   }

@@ -1,6 +1,6 @@
-# flutter_gemma_rag_sqlite
+# flutter_edge_ai_sqlite
 
-First-class SQLite vector store for [flutter_gemma](https://pub.dev/packages/flutter_gemma).
+First-class SQLite vector store for [flutter_edge_ai](https://pub.dev/packages/flutter_edge_ai).
 KNN runs **inside SQLite** via [`sqlite-vec`](https://github.com/asg017/sqlite-vec)
 (`vec0` virtual table) — no Dart brute-force, no in-memory index.
 
@@ -20,16 +20,16 @@ PRIMARY KEY`, so KNN returns the document id directly — no JOIN, no rowid brid
 dart run skills@ get --all
 ```
 
-Installs the agent skills `flutter_gemma` bundles — this package depends on it, so they come with it. One of them, `flutter-gemma-rag`, covers embedding models, both vector stores, and the metadata filters — including the `filterSchema` trap that silently returns unfiltered results.
+Installs the agent skills `flutter_edge_ai` bundles — this package depends on it, so they come with it. One of them, `flutter-edge-ai-rag`, covers embedding models, both vector stores, and the metadata filters — including the `filterSchema` trap that silently returns unfiltered results.
 
 ## Usage
 
 ```dart
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma_rag_sqlite/flutter_gemma_rag_sqlite.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
+import 'package:flutter_edge_ai_sqlite/flutter_edge_ai_sqlite.dart';
 
-await FlutterGemma.initialize(
+await FlutterEdgeAi.initialize(
   vectorStore: kIsWeb ? WebSqliteVectorStore() : SqliteVectorStore(),
 );
 ```
@@ -38,7 +38,7 @@ await FlutterGemma.initialize(
 sorted descending, filtered by `threshold` — the same contract as the qdrant
 store (vec0 returns distance; the store converts `1 - distance` at the boundary).
 
-`flush()` (`FlutterGemma.rag.flush()`) is a no-op on native: the connection
+`flush()` (`FlutterEdgeAi.rag.flush()`) is a no-op on native: the connection
 autocommits, so a statement that returned is on disk. On web it drains the
 IndexedDB storage and waits for it. `sqlite3` 3.4.0 through 3.5.2 returned
 early over a write batch already in flight (upstream
@@ -55,7 +55,7 @@ promotes those fields out of each document's metadata JSON into real columns and
 translates `Filter` (`must`/`should`/`mustNot`) into a vec0 `WHERE`:
 
 ```dart
-await FlutterGemma.initialize(
+await FlutterEdgeAi.initialize(
   vectorStore: kIsWeb ? WebSqliteVectorStore() : SqliteVectorStore(),
   filterSchema: const FilterSchema(fields: [
     FilterField(name: 'lang', type: FilterFieldType.string),
@@ -140,7 +140,7 @@ db.close();
 Dropping the table is what makes the block a no-op on later launches. There is
 no built-in migration call — this is a one-time fix for an upgrade that has
 already happened. Full write-up in the
-[migration guide](https://fluttergemma.dev/docs/migration).
+[migration guide](https://flutteredge.ai/docs/migration).
 
 ## Setup
 
@@ -154,7 +154,7 @@ one of them. They now come from this repository's `native-sqlite-vec-v*` GitHub
 Release, which means the **first** build of each platform needs `github.com`
 reachable; the library is cached under `~/.cache/flutter_gemma/native/`
 (`~/Library/Caches/…` on macOS, `%LOCALAPPDATA%\…` on Windows) and later builds
-do not go out again. `flutter_gemma_litertlm` has always worked this way. If you
+do not go out again. `flutter_edge_ai_litertlm` has always worked this way. If you
 build in an air-gapped environment, pre-populate that cache directory.
 
 **Web** ships the custom `sqlite3.wasm` (with `sqlite-vec` linked in) as the
@@ -165,7 +165,7 @@ sits next to `index.html` at `rag/sqlite3.wasm` — that's the URL
 
 ```sh
 mkdir -p web/rag
-# <pkg> = the flutter_gemma_rag_sqlite directory in your pub cache / workspace
+# <pkg> = the flutter_edge_ai_sqlite directory in your pub cache / workspace
 cp <pkg>/web/rag/sqlite3.wasm web/rag/sqlite3.wasm
 ```
 

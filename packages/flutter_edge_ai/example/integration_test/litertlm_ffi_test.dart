@@ -2,7 +2,7 @@
 ///
 /// Prerequisites:
 ///   macOS:   models in ~/Library/Containers/.../Documents/
-///   Android: adb push models to /data/local/tmp/flutter_edge_ai_test/
+///   Android: adb push models to /data/local/tmp/flutter_gemma_test/
 ///   iOS:     models downloaded via FlutterEdgeAi.installModel()
 ///
 /// Run:
@@ -26,7 +26,7 @@ const _gemma4Url =
 const _token = String.fromEnvironment('HUGGINGFACE_TOKEN');
 
 // ── Local paths ──
-String get _androidDir => '/data/local/tmp/flutter_edge_ai_test';
+String get _androidDir => '/data/local/tmp/flutter_gemma_test';
 String get _macosDir =>
     '${Platform.environment['HOME']}/Library/Containers/dev.flutterberlin.flutterGemmaExample55/Data/Documents';
 String get _linuxDir => '${Platform.environment['HOME']}/models';

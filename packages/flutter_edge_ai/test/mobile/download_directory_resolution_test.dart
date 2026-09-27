@@ -4,7 +4,7 @@
 // for a target that is NOT under one of its recognized bases, and on Windows the
 // `BaseDirectory.root` base reconstructs against '' (= $CWD). So a fresh download
 // to `%LOCALAPPDATA%\flutter_edge_ai` landed at `<cwd>\Users\..\AppData\Local\
-// flutter_edge_ai\` while getReadTargetPath/validateModelFiles looked at the
+// flutter_gemma\` while getReadTargetPath/validateModelFiles looked at the
 // absolute path — `install()` "succeeded" but `isModelInstalled()` was false and
 // `getActiveStt()`/createModel threw "file paths not found".
 //
@@ -24,8 +24,8 @@ void main() {
         'drive-stripped split directory (Windows %LOCALAPPDATA%)', () {
       // What Task.split yields for a target not under a recognized base: root +
       // the directory with the leading root/drive stripped (relative).
-      final target = p.join(p.separator, 'x', 'flutter_edge_ai', 'model.bin');
-      final strippedDir = p.join('x', 'flutter_edge_ai');
+      final target = p.join(p.separator, 'x', 'flutter_gemma', 'model.bin');
+      final strippedDir = p.join('x', 'flutter_gemma');
 
       final dir = resolveDownloadDirectory(
         BaseDirectory.root,
@@ -46,11 +46,11 @@ void main() {
       // computeTaskId). Only the root-fallback case is rewritten.
       final dir = resolveDownloadDirectory(
         BaseDirectory.applicationSupport,
-        'flutter_edge_ai',
-        p.join('anywhere', 'flutter_edge_ai', 'model.bin'),
+        'flutter_gemma',
+        p.join('anywhere', 'flutter_gemma', 'model.bin'),
       );
 
-      expect(dir, 'flutter_edge_ai');
+      expect(dir, 'flutter_gemma');
     });
 
     // Host-independent reproduction of the exact Windows landing bug via an
@@ -62,7 +62,7 @@ void main() {
     test('Windows root-fallback lands at the ABSOLUTE target; the raw split dir '
         r'would land $CWD-relative', () {
       final win = p.Context(style: p.Style.windows);
-      const target = r'C:\Users\me\AppData\Local\flutter_edge_ai\model.bin';
+      const target = r'C:\Users\me\AppData\Local\flutter_gemma\model.bin';
       // What Task.split yields on Windows: root base + drive-stripped directory.
       final strippedDir = win.relative(win.dirname(target), from: r'C:\');
       final filename = win.basename(target);

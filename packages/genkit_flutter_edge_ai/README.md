@@ -1,16 +1,16 @@
-# genkit_flutter_gemma
+# genkit_flutter_edge_ai
 
-Genkit Dart plugin for [flutter_gemma](https://pub.dev/packages/flutter_gemma) — local, on-device LLM inference (Gemma, Qwen, Phi, DeepSeek, and more), fully offline.
+Genkit Dart plugin for [flutter_edge_ai](https://pub.dev/packages/flutter_edge_ai) — local, on-device LLM inference (Gemma, Qwen, Phi, DeepSeek, and more), fully offline.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/DenisovAV/flutter_gemma/main/packages/genkit_flutter_gemma/assets/cover.jpeg" alt="genkit_flutter_gemma_cover">
+  <img src="https://raw.githubusercontent.com/DenisovAV/flutter_gemma/main/packages/genkit_flutter_edge_ai/assets/cover.jpeg" alt="genkit_flutter_edge_ai_cover">
 </p>
 
 ## Features
 
-- Wraps `flutter_gemma` as a Genkit model provider
+- Wraps `flutter_edge_ai` as a Genkit model provider
 - Supports text generation (blocking and streaming)
-- Embeddings via `FlutterGemmaEmbedder`
+- Embeddings via `FlutterEdgeAiEmbedder`
 - Multimodal input (images, audio) — supports `data:` URIs, `file://` paths, and `http(s)://` URLs
 - Function calling / tool use with `toolChoice` control (`auto`, `required`, `none`) — honors Genkit's native top-level `toolChoice`
 - Parallel tool calls — multiple function calls in a single model response
@@ -33,31 +33,31 @@ Genkit Dart plugin for [flutter_gemma](https://pub.dev/packages/flutter_gemma) �
 
 ## Setup
 
-`genkit_flutter_gemma` depends only on the **core** `flutter_gemma` package — it
+`genkit_flutter_edge_ai` depends only on the **core** `flutter_edge_ai` package — it
 stays engine-agnostic. As of flutter_gemma 1.0.0 the inference engines and
 embedding backends ship as **separate, opt-in packages**, and the core
 registers none of them by default. Your app must add the packages it needs and
-register their providers in `await FlutterGemma.initialize()`.
+register their providers in `await FlutterEdgeAi.initialize()`.
 
 | Package | Provider | Add it when you use… |
 |---|---|---|
-| `flutter_gemma_litertlm` | `LiteRtLmEngine()`, `LiteRtEmbeddingBackend()` | `.litertlm` models (Gemma 4, desktop) and/or text embeddings (EmbeddingGemma) |
-| `flutter_gemma_mediapipe` | `MediaPipeEngine()` | `.task` / `.bin` models (Gemma 3, mobile/web) |
-| `flutter_gemma_embeddings` | `GemmaEmbeddingTokenizers()` | text embeddings — required beside any embedding backend |
+| `flutter_edge_ai_litertlm` | `LiteRtLmEngine()`, `LiteRtEmbeddingBackend()` | `.litertlm` models (Gemma 4, desktop) and/or text embeddings (EmbeddingGemma) |
+| `flutter_edge_ai_mediapipe` | `MediaPipeEngine()` | `.task` / `.bin` models (Gemma 3, mobile/web) |
+| `flutter_edge_ai_embeddings` | `GemmaEmbeddingTokenizers()` | text embeddings — required beside any embedding backend |
 
 ```yaml
 # pubspec.yaml (your app)
 dependencies:
-  genkit_flutter_gemma: ^0.6.1
-  flutter_gemma: ^1.9.0
-  flutter_gemma_litertlm: ^1.8.0   # only the engines/backends you actually use
-  flutter_gemma_embeddings: ^2.2.0  # the tokenizers an embedding backend needs
-  flutter_gemma_mediapipe: ^1.0.6
+  genkit_flutter_edge_ai: ^0.7.0
+  flutter_edge_ai: ^1.12.0
+  flutter_edge_ai_litertlm: ^1.9.0   # only the engines/backends you actually use
+  flutter_edge_ai_embeddings: ^2.3.0  # the tokenizers an embedding backend needs
+  flutter_edge_ai_mediapipe: ^1.1.0
 ```
 
 ```dart
 // main() — register the providers from the packages you added above.
-await FlutterGemma.initialize(
+await FlutterEdgeAi.initialize(
   inferenceEngines: const [LiteRtLmEngine(), MediaPipeEngine()],
   embeddingBackends: const [LiteRtEmbeddingBackend()],
   embeddingTokenizers: const [GemmaEmbeddingTokenizers()],
@@ -70,42 +70,42 @@ await FlutterGemma.initialize(
 ## Quick Start
 
 ```dart
-import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
+import 'package:flutter_edge_ai_embeddings/flutter_edge_ai_embeddings.dart';
 // Engines/backends are opt-in (see Setup) — register the ones you need.
-import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
-import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
+import 'package:flutter_edge_ai_litertlm/flutter_edge_ai_litertlm.dart';
+import 'package:flutter_edge_ai_mediapipe/flutter_edge_ai_mediapipe.dart';
 import 'package:genkit/genkit.dart';
-import 'package:genkit_flutter_gemma/genkit_flutter_gemma.dart';
+import 'package:genkit_flutter_edge_ai/genkit_flutter_edge_ai.dart';
 
 // Initialize and install model (host app responsibility)
-await FlutterGemma.initialize(
+await FlutterEdgeAi.initialize(
   inferenceEngines: const [LiteRtLmEngine(), MediaPipeEngine()],
   embeddingBackends: const [LiteRtEmbeddingBackend()],
   embeddingTokenizers: const [GemmaEmbeddingTokenizers()],
 );
-await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
+await FlutterEdgeAi.installModel(modelType: ModelType.gemmaIt)
     .fromAsset('assets/gemma-3-1b-it-int4.task')
     .install();
 
 // Create Genkit with plugin
 final ai = Genkit(plugins: [
-  GenkitFlutterGemmaPlugin(
+  GenkitFlutterEdgeAiPlugin(
     models: [
-      FlutterGemmaModelConfig(
+      FlutterEdgeAiModelConfig(
         name: 'gemma-3-nano',
         modelType: ModelType.gemmaIt,
       ),
     ],
     embedders: [
-      FlutterGemmaEmbedderConfig(name: 'embedding-gemma-300m'),
+      FlutterEdgeAiEmbedderConfig(name: 'embedding-gemma-300m'),
     ],
   ),
 ]);
 
 // Generate
 final response = await ai.generate(
-  model: flutterGemma.model('gemma-3-nano'),
+  model: flutterEdgeAi.model('gemma-3-nano'),
   prompt: 'Hello!',
 );
 print(response.text);
@@ -113,13 +113,13 @@ print(response.text);
 
 ## Configuration
 
-Pass `FlutterGemmaModelOptions` to customize inference:
+Pass `FlutterEdgeAiModelOptions` to customize inference:
 
 ```dart
 final response = await ai.generate(
-  model: flutterGemma.model('gemma-3-nano'),
+  model: flutterEdgeAi.model('gemma-3-nano'),
   prompt: 'Hello!',
-  config: FlutterGemmaModelOptions(
+  config: FlutterEdgeAiModelOptions(
     maxTokens: 2048,
     temperature: 0.5,
     topK: 40,
@@ -150,7 +150,7 @@ final response = await ai.generate(
 
 ```dart
 final stream = ai.generateStream(
-  model: flutterGemma.model('gemma-3-nano'),
+  model: flutterEdgeAi.model('gemma-3-nano'),
   prompt: 'Write a story.',
 );
 
@@ -163,7 +163,7 @@ await for (final chunk in stream) {
 
 ```dart
 final response = await ai.generate(
-  model: flutterGemma.model('gemma-3-nano'),
+  model: flutterEdgeAi.model('gemma-3-nano'),
   prompt: 'What is the weather in Paris?',
   tools: [weatherTool],
 );
@@ -179,7 +179,7 @@ read the parsed object:
 
 ```dart
 final response = await ai.generate(
-  model: flutterGemma.model('gemma-3-nano'),
+  model: flutterEdgeAi.model('gemma-3-nano'),
   prompt: 'Give me a pancake recipe.',
   outputSchema: Recipe.$schema, // any @Schema()-annotated type
 );
@@ -197,7 +197,7 @@ call, always keeping every system message and the most recent message:
 
 ```dart
 final response = await ai.generate(
-  model: flutterGemma.model('gemma-3-nano'),
+  model: flutterEdgeAi.model('gemma-3-nano'),
   prompt: 'Continue our conversation…',
   messages: longHistory,
   use: [trimContext(maxInputTokens: 800)],
@@ -213,14 +213,14 @@ kept, never a gap.
 
 ```dart
 // Install embedding model + tokenizer (host app responsibility)
-await FlutterGemma.installEmbedder()
+await FlutterEdgeAi.installEmbedder()
     .modelFromNetwork('https://huggingface.co/.../embeddinggemma-300M.tflite')
     .tokenizerFromNetwork('https://huggingface.co/.../sentencepiece.model')
     .install();
 
 // Generate embeddings
 final embeddings = await ai.embed(
-  embedder: flutterGemma.embedder('embedding-gemma-300m'),
+  embedder: flutterEdgeAi.embedder('embedding-gemma-300m'),
   documents: [
     DocumentData(content: [TextPart(text: 'Flutter is a UI toolkit.')]),
     DocumentData(content: [TextPart(text: 'Dart is a programming language.')]),
@@ -235,7 +235,7 @@ for (final embedding in embeddings) {
 
 ## Known Limitations
 
-- **Engine registration**: With flutter_gemma 1.0.0+ the inference engines and embedding backends are opt-in. The host app must add the relevant packages (`flutter_gemma_litertlm` for `.litertlm`, `flutter_gemma_mediapipe` for `.task`/`.bin`, `flutter_gemma_embeddings` plus a backend such as `flutter_gemma_litertlm`'s `LiteRtEmbeddingBackend` for embeddings) and register their providers in `await FlutterGemma.initialize()` before using the plugin.
-- **Model installation**: The plugin does NOT manage model installation. The host app must install models via `FlutterGemma.installModel()` and embedders via `FlutterGemma.installEmbedder()` before using the plugin.
+- **Engine registration**: With flutter_gemma 1.0.0+ the inference engines and embedding backends are opt-in. The host app must add the relevant packages (`flutter_edge_ai_litertlm` for `.litertlm`, `flutter_edge_ai_mediapipe` for `.task`/`.bin`, `flutter_edge_ai_embeddings` plus a backend such as `flutter_edge_ai_litertlm`'s `LiteRtEmbeddingBackend` for embeddings) and register their providers in `await FlutterEdgeAi.initialize()` before using the plugin.
+- **Model installation**: The plugin does NOT manage model installation. The host app must install models via `FlutterEdgeAi.installModel()` and embedders via `FlutterEdgeAi.installEmbedder()` before using the plugin.
 - **System role**: System messages are passed natively via `createChat(systemInstruction:)` (requires flutter_gemma ^0.13.0). Only text content is supported in system messages.
 - **Thinking mode**: Requires `.litertlm` model format. Supported on Android, iOS, and Desktop. Not supported on Web.

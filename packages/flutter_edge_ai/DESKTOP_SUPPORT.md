@@ -1,6 +1,6 @@
-# Flutter Gemma Desktop Support
+# Flutter Edge AI Desktop Support
 
-Detailed setup and reference for running Flutter Gemma on **macOS, Windows, and Linux**.
+Detailed setup and reference for running Flutter Edge AI on **macOS, Windows, and Linux**.
 
 > **FFI architecture**: desktop platforms run LiteRT-LM **directly via `dart:ffi`**. The previous Kotlin/JVM gRPC server (`litertlm-server.jar` + Azul Zulu JRE) is gone — no Java required, no separate process, no IPC overhead. Engine startup is ~2 s instead of ~10–15 s.
 
@@ -26,10 +26,10 @@ Detailed setup and reference for running Flutter Gemma on **macOS, Windows, and 
 │              Flutter Desktop App                     │
 │                                                      │
 │   ┌──────────────────────────────────────────────┐ │
-│   │  FlutterGemmaDesktop (lib/desktop/)           │ │
+│   │  FlutterEdgeAiDesktop (lib/desktop/)           │ │
 │   │           ↓                                    │ │
 │   │  LiteRtLmFfiClient                            │ │
-│   │  (flutter_gemma_litertlm/lib/src/ffi/)        │ │
+│   │  (flutter_edge_ai_litertlm/lib/src/ffi/)        │ │
 │   │           ↓ dart:ffi                           │ │
 │   │  ───────────────────────────────────           │ │
 │   │  libLiteRtLm.{dylib,dll,so}                    │ │
@@ -99,20 +99,20 @@ No Java/JVM/JRE required.
 ```yaml
 # pubspec.yaml
 dependencies:
-  flutter_gemma: ^1.9.0            # core
-  flutter_gemma_litertlm: ^1.8.0   # .litertlm engine — required on desktop
+  flutter_edge_ai: ^1.12.0            # core
+  flutter_edge_ai_litertlm: ^1.9.0   # .litertlm engine — required on desktop
 ```
 
 ```dart
-import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
+import 'package:flutter_edge_ai_litertlm/flutter_edge_ai_litertlm.dart';
 
 Future<void> chat() async {
   // Register the LiteRT-LM engine (desktop is .litertlm only).
-  await FlutterGemma.initialize(inferenceEngines: const [LiteRtLmEngine()]);
+  await FlutterEdgeAi.initialize(inferenceEngines: const [LiteRtLmEngine()]);
 
   // Install model (downloads on first run, cached after).
-  await FlutterGemma.installModel(
+  await FlutterEdgeAi.installModel(
     modelType: ModelType.gemma4,
     fileType: ModelFileType.litertlm,
   ).fromNetwork(
@@ -121,7 +121,7 @@ Future<void> chat() async {
   ).install();
 
   // Create model with full capabilities — keep it for the app's lifetime.
-  final model = await FlutterGemma.getActiveModel(
+  final model = await FlutterEdgeAi.getActiveModel(
     maxTokens: 4096,
     preferredBackend: PreferredBackend.gpu,
     supportImage: true,
@@ -185,7 +185,7 @@ drops them. A `.litertlm` model loads on macOS without them.
 
 ### Windows
 
-`flutter_gemma_litertlm` bundles every required DLL — no manual setup. The
+`flutter_edge_ai_litertlm` bundles every required DLL — no manual setup. The
 bundle includes:
 
 - `LiteRtLm.dll`, `LiteRt.dll`, `libGemmaModelConstraintProvider.dll`, `StreamProxy.dll`
@@ -260,7 +260,7 @@ The recommended (and only well-supported) pattern is:
 
 ```dart
 // At app startup, ONCE:
-final model = await FlutterGemma.getActiveModel(
+final model = await FlutterEdgeAi.getActiveModel(
   maxTokens: 4096,
   preferredBackend: PreferredBackend.gpu,
   supportImage: true,
@@ -292,7 +292,7 @@ Linux/Windows).
 
 The plugin avoids this by:
 
-1. Reusing the same `InferenceModel` whenever requested params match (built-in singleton in `FlutterGemmaDesktop.createModel`).
+1. Reusing the same `InferenceModel` whenever requested params match (built-in singleton in `FlutterEdgeAiDesktop.createModel`).
 2. Disabling GPU sampler preload on Linux so the upstream sampler factory falls back to a CPU sampler — eliminates the `wgpu::Instance` conflict and re-enables runtime model swap on Linux GPU.
 
 If you do need to swap models at runtime, call `model.close()` first, then
@@ -365,7 +365,7 @@ The seed is not re-applied either. The sampler keeps its RNG state across
 sessions, so two byte-identical requests on one engine produce different text.
 
 **Workaround:** close and recreate the engine when you need different sampler
-settings. `model.close()` followed by `FlutterGemma.getActiveModel(...)` gives a
+settings. `model.close()` followed by `FlutterEdgeAi.getActiveModel(...)` gives a
 fresh engine that honors its first session, at the cost of a model reload. If
 your app uses one fixed configuration throughout — as most chat apps do — this
 never surfaces, because the first session already set the values you wanted.
@@ -445,13 +445,13 @@ On all desktop platforms the model is downloaded to the platform's standard
 - Windows: `%USERPROFILE%\AppData\Roaming\<app-name>\`
 - Linux: `~/.local/share/<bundle-id>/`
 
-Use `FlutterGemma.installModel(...).fromNetwork(...).install()` to download,
+Use `FlutterEdgeAi.installModel(...).fromNetwork(...).install()` to download,
 or `.fromFile(absolutePath)` if you already have it locally.
 
 ### Pre-cached engine + new code = stale cache
 
 LiteRT-LM caches compiled GPU shaders in the app's support directory (what
-`getApplicationSupportDirectory()` returns — not the `flutter_gemma/` folder the
+`getApplicationSupportDirectory()` returns — not the `flutter_edge_ai/` folder the
 model sits in), as `<model>.litertlm_<mtime>_<size>_mldrift_program_cache.bin`.
 The name is keyed on the model file's timestamp and size, so a new model build
 gets a fresh cache by itself (the old file stays behind). After upgrading the
@@ -461,10 +461,10 @@ plugin, delete the file and the engine rebuilds the cache on first run.
 
 ## API Reference
 
-`FlutterGemma`, `InferenceModel`, `InferenceModelSession`, `InferenceChat` —
-all platform-agnostic. See `lib/flutter_gemma_interface.dart` and the
+`FlutterEdgeAi`, `InferenceModel`, `InferenceModelSession`, `InferenceChat` —
+all platform-agnostic. See `lib/flutter_edge_ai_interface.dart` and the
 [example app](example/) for usage patterns.
 
 For native debugging on iOS / Linux, see comments in
-`flutter_gemma_litertlm/lib/src/ffi/litert_lm_client.dart` (search for `stream_proxy_redirect_stderr`
+`flutter_edge_ai_litertlm/lib/src/ffi/litert_lm_client.dart` (search for `stream_proxy_redirect_stderr`
 and `_dumpNativeLog`).

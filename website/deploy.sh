@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build + deploy the flutter_gemma website to Firebase Hosting.
+# Build + deploy the flutter_edge_ai website to Firebase Hosting.
 #
 # Ships two artifacts on one hosting site:
 #   /  + /docs/*  + /codelabs -> Jaspr static site (this package); the Jaspr
@@ -12,8 +12,8 @@
 set -euo pipefail
 
 WEBSITE_DIR="$(cd "$(dirname "$0")" && pwd)"
-EXAMPLE_DIR="$WEBSITE_DIR/../packages/flutter_gemma/example"
-DOMAIN="https://fluttergemma.dev"
+EXAMPLE_DIR="$WEBSITE_DIR/../packages/flutter_edge_ai/example"
+DOMAIN="https://flutteredge.ai"
 PROJECT="aichat-c0c27"
 TARGET="fluttergemma"
 

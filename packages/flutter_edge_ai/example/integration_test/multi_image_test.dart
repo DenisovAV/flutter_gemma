@@ -7,7 +7,7 @@
 ///
 /// Prerequisites:
 ///   macOS:   gemma-4-E2B-it.litertlm in ~/Library/Containers/.../Documents/
-///   Android: adb push gemma-4-E2B-it.litertlm /data/local/tmp/flutter_edge_ai_test/
+///   Android: adb push gemma-4-E2B-it.litertlm /data/local/tmp/flutter_gemma_test/
 ///   iOS:     downloaded via FlutterEdgeAi.installModel()
 ///
 /// Run: flutter test integration_test/multi_image_test.dart -d <device>
@@ -26,7 +26,7 @@ const _gemma4Url =
     'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm';
 const _token = String.fromEnvironment('HUGGINGFACE_TOKEN');
 
-String get _androidDir => '/data/local/tmp/flutter_edge_ai_test';
+String get _androidDir => '/data/local/tmp/flutter_gemma_test';
 String get _macosDir =>
     '${Platform.environment['HOME']}/Library/Containers/dev.flutterberlin.flutterGemmaExample55/Data/Documents';
 String get _linuxDir => '${Platform.environment['HOME']}/models';

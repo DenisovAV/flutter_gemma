@@ -1,7 +1,7 @@
 ---
 title: Function Calling
 description: Let on-device models call external functions and integrate with other services.
-image: https://fluttergemma.dev/images/og-image.png
+image: https://flutteredge.ai/images/og-image.png
 ---
 
 Function calling lets a model request that your app run an external function —
@@ -112,7 +112,7 @@ the wire format, the engine sends it.
 
 Where a call comes back as text rather than structured `tool_calls` — the web
 SDK, or a `.litertlm` exported without the FunctionGemma model type, whose
-runtime opens no tool-call channel — flutter_gemma parses that text itself, so
+runtime opens no tool-call channel — flutter_edge_ai parses that text itself, so
 your code still receives a `FunctionCallResponse`.
 
 Two consequences worth knowing:
@@ -216,7 +216,7 @@ Function calling is supported on **Android, iOS, Web, and Desktop**. For Gemma 4
 the native function-call tokens are routed through the LiteRT-LM SDK chat-template
 path (use `ModelType.gemma4`).
 
-With the [Built-in AI](/docs/builtin-ai) engine (`flutter_gemma_builtin_ai`)
+With the [Built-in AI](/docs/builtin-ai) engine (`flutter_edge_ai_builtin_ai`)
 function calling is prompt-based rather than a native tool API — Gemini Nano
 (Android) and Apple Foundation Models (iOS/macOS) handle single-turn tool calls;
 on Web (Chrome Prompt API) multi-turn agent chaining is not supported.
@@ -231,4 +231,4 @@ is not grammar-enforced. See [Troubleshooting](/docs/troubleshooting).
 See [Models](/docs/models#modeltype-reference) for the correct `ModelType` per
 model family.
 
-**Writing this with a coding assistant?** `dart run skills@ get --all` installs [`flutter-gemma-function-calling`](/docs/package-skills), the skill that teaches it declaring tools, handling `FunctionCallResponse`, and the built-in tool loop.
+**Writing this with a coding assistant?** `dart run skills@ get --all` installs [`flutter-edge-ai-function-calling`](/docs/package-skills), the skill that teaches it declaring tools, handling `FunctionCallResponse`, and the built-in tool loop.

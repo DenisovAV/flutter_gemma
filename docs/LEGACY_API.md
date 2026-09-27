@@ -20,9 +20,9 @@ The updated API splits the functionality into two main parts:
 * Import and access the plugin:
 
 ```dart
-import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 
-final gemma = FlutterGemmaPlugin.instance;
+final gemma = FlutterEdgeAiPlugin.instance;
 ```
 
 * Managing Model Files with ModelFileManager
@@ -144,7 +144,7 @@ Before performing any inference, you need to create a model instance. This ensur
 
 **Text-Only Models:**
 ```dart
-final inferenceModel = await FlutterGemmaPlugin.instance.createModel(
+final inferenceModel = await FlutterEdgeAiPlugin.instance.createModel(
   modelType: ModelType.gemmaIt, // Required, model type to create
   preferredBackend: PreferredBackend.gpu, // Optional, backend type, default is PreferredBackend.gpu
   maxTokens: 512, // Optional, default is 1024
@@ -154,7 +154,7 @@ final inferenceModel = await FlutterGemmaPlugin.instance.createModel(
 
 **🖼️ Multimodal Models:**
 ```dart
-final inferenceModel = await FlutterGemmaPlugin.instance.createModel(
+final inferenceModel = await FlutterEdgeAiPlugin.instance.createModel(
   modelType: ModelType.gemmaIt, // Required, model type to create
   preferredBackend: PreferredBackend.gpu, // Optional, backend type
   maxTokens: 4096, // Recommended for multimodal models
@@ -517,14 +517,14 @@ Ready-to-use `.task` files:
 
 ```dart
 // Install FunctionGemma
-await FlutterGemma.installModel(
+await FlutterEdgeAi.installModel(
   modelType: ModelType.functionGemma,
 ).fromNetwork(
   'https://huggingface.co/sasha-denisov/function-gemma-270M-it/resolve/main/functiongemma-270M-it.task',
 ).install();
 
 // Create model
-final model = await FlutterGemma.getActiveModel(
+final model = await FlutterEdgeAi.getActiveModel(
   maxTokens: 1024,
   preferredBackend: PreferredBackend.gpu,
 );
@@ -574,7 +574,7 @@ FunctionGemma uses a special format (different from JSON-based function calling)
 <start_function_call>call:change_background_color{color:<escape>red<escape>}<end_function_call>
 ```
 
-The `flutter_gemma` plugin handles this format automatically via `FunctionCallParser`.
+The `flutter_edge_ai` plugin handles this format automatically via `FunctionCallParser`.
 This is the `.task` (MediaPipe) path. Since `flutter_gemma` 1.8.4 a `.litertlm`
 FunctionGemma goes through LiteRT-LM's own tool path instead: the runtime renders the
 declarations and returns the call already parsed, and results go back as role-`tool`
@@ -677,7 +677,7 @@ Generate vector embeddings from text and perform semantic search with local vect
 
 ```dart
 // Install from network with progress tracking
-await FlutterGemma.installEmbedder()
+await FlutterEdgeAi.installEmbedder()
   .modelFromNetwork(
     'https://huggingface.co/litert-community/embeddinggemma-300m/resolve/main/embeddinggemma-300M_seq1024_mixed-precision.tflite',
     token: 'hf_your_token_here',  // Required for gated models
@@ -690,7 +690,7 @@ await FlutterGemma.installEmbedder()
   .install();
 
 // Or from assets
-await FlutterGemma.installEmbedder()
+await FlutterEdgeAi.installEmbedder()
   .modelFromAsset('models/embeddinggemma.tflite')
   .tokenizerFromAsset('models/sentencepiece.model')
   .install();
@@ -706,7 +706,7 @@ Pre-converted tokenizer files are available on GitHub CDN (hosted on the v0.12.5
 - **Gecko:** `https://github.com/DenisovAV/flutter_gemma/releases/download/v0.12.5/gecko_tokenizer.json`
 
 ```dart
-await FlutterGemma.installEmbedder()
+await FlutterEdgeAi.installEmbedder()
   .modelFromNetwork(modelUrl, token: hfToken)
   .tokenizerFromNetwork(
     'https://huggingface.co/.../sentencepiece.model',
@@ -732,7 +732,7 @@ python tools/convert_sentencepiece_to_json.py --input path/to/sentencepiece.mode
 // Create embedding model instance
 // `preferredBackend` is accepted but not applied to embeddings: native runs on
 // CPU and web lets the runtime pick. Read embeddingModel.activeBackend.
-final embeddingModel = await FlutterGemma.getActiveEmbedder();
+final embeddingModel = await FlutterEdgeAi.getActiveEmbedder();
 
 // Generate query embedding (for search)
 final queryEmb = await embeddingModel.generateEmbedding('What is Flutter?');
@@ -785,13 +785,13 @@ await embeddingModel.close();
 **Full cross-platform support:** VectorStore uses SQLite on mobile (Android/iOS) and SQLite WASM (wa-sqlite + OPFS) on web with identical API and behavior.
 
 ```dart
-import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 import 'package:path_provider/path_provider.dart';
 
 // Step 1: Initialize VectorStore
 final appDir = await getApplicationDocumentsDirectory();
 final dbPath = '${appDir.path}/my_vector_store.db';
-await FlutterGemmaPlugin.instance.initializeVectorStore(dbPath);
+await FlutterEdgeAiPlugin.instance.initializeVectorStore(dbPath);
 
 // Step 2: Add documents with embeddings
 final documents = [
@@ -808,7 +808,7 @@ for (final doc in documents) {
   );
 
   // Add to vector store
-  await FlutterGemmaPlugin.instance.addDocumentWithEmbedding(
+  await FlutterEdgeAiPlugin.instance.addDocumentWithEmbedding(
     id: 'doc_${documents.indexOf(doc)}',
     content: doc,
     embedding: embedding,
@@ -820,7 +820,7 @@ for (final doc in documents) {
 final query = 'What is Flutter?';
 final queryEmbedding = await embeddingModel.generateEmbedding(query);
 
-final results = await FlutterGemmaPlugin.instance.searchSimilar(
+final results = await FlutterEdgeAiPlugin.instance.searchSimilar(
   queryEmbedding: queryEmbedding,
   topK: 3,              // Return top 3 results
   threshold: 0.7,       // Minimum similarity score (0.0-1.0)
@@ -837,7 +837,7 @@ for (final result in results) {
 final context = results.map((r) => r.content).join('\n');
 final prompt = 'Context:\n$context\n\nQuestion: $query';
 
-final inferenceModel = await FlutterGemma.getActiveModel();
+final inferenceModel = await FlutterEdgeAi.getActiveModel();
 final session = await inferenceModel.createSession();
 await session.addQueryChunk(Message.text(text: prompt, isUser: true));
 final answer = await session.getResponse();
@@ -862,13 +862,13 @@ Add script tags to your `index.html`:
 
 **Option 2: Build locally (For development or customization)**
 
-1. Navigate to the `web/rag` directory in the flutter_gemma package
+1. Navigate to the `web/rag` directory in the flutter_edge_ai package
 2. Follow the detailed setup guide: [`web/rag/README.md`](web/rag/README.md)
 
 **Quick steps:**
 ```bash
 # Navigate to web/rag directory
-cd <flutter_gemma_package_path>/web/rag
+cd <flutter_edge_ai_package_path>/web/rag
 
 # Install dependencies
 npm install
@@ -900,7 +900,7 @@ final embeddingSpec = MobileModelManager.createEmbeddingSpec(
 );
 
 // Download with progress tracking
-final mobileManager = FlutterGemmaPlugin.instance.modelManager as MobileModelManager;
+final mobileManager = FlutterEdgeAiPlugin.instance.modelManager as MobileModelManager;
 mobileManager.downloadModelWithProgress(embeddingSpec, token: 'your_hf_token').listen(
   (progress) => print('Download progress: ${progress.overallProgress}%'),
   onError: (error) => print('Download error: $error'),
@@ -908,7 +908,7 @@ mobileManager.downloadModelWithProgress(embeddingSpec, token: 'your_hf_token').l
 );
 
 // Create embedding model instance
-final embeddingModel = await FlutterGemmaPlugin.instance.createEmbeddingModel(
+final embeddingModel = await FlutterEdgeAiPlugin.instance.createEmbeddingModel(
   modelPath: '/path/to/embeddinggemma-300M_seq1024_mixed-precision.tflite',
   tokenizerPath: '/path/to/sentencepiece.model',
   preferredBackend: PreferredBackend.gpu,
@@ -932,7 +932,7 @@ VectorStore stores embeddings as binary BLOBs in SQLite, auto-detects embedding 
 
 ```dart
 // HNSW is enabled by default. To disable for small datasets:
-FlutterGemmaPlugin.instance.enableHnsw = false;
+FlutterEdgeAiPlugin.instance.enableHnsw = false;
 ```
 
 See [CHANGELOG.md](CHANGELOG.md) for the full performance history.

@@ -11,7 +11,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   FlutterEdgeAiMobile platform = FlutterEdgeAiMobile();
-  const MethodChannel channel = MethodChannel('flutter_edge_ai');
+  const MethodChannel channel = MethodChannel('flutter_gemma');
 
   setUp(() {
     // Mock SharedPreferences

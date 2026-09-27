@@ -1,12 +1,12 @@
-# flutter_gemma_embeddings
+# flutter_edge_ai_embeddings
 
 The **embedding tokenizers** for
-[flutter_gemma](https://pub.dev/packages/flutter_gemma): Gemma SentencePiece
+[flutter_edge_ai](https://pub.dev/packages/flutter_edge_ai): Gemma SentencePiece
 and BERT-family WordPiece, plus the task-type prefixing and the routing that
 picks between them. Android, iOS, macOS, Linux, Windows, Web.
 
 Since 2.2.0 this is all it is. The seam an engine implements, the
-background-isolate worker and the pooling moved into `flutter_gemma` itself, so
+background-isolate worker and the pooling moved into `flutter_edge_ai` itself, so
 an engine package can implement embeddings without depending on this one — and
 no engine does. What lives here is the part that cannot move: the tokenizer
 implementations, which pull `dart_sentencepiece_tokenizer` and must stay out of
@@ -15,7 +15,7 @@ core's dart2wasm-clean graph.
 Your app registers them, beside the backend that consumes them:
 
 ```dart
-await FlutterGemma.initialize(
+await FlutterEdgeAi.initialize(
   embeddingBackends: [LiteRtEmbeddingBackend()],   // from an engine package
   embeddingTokenizers: [GemmaEmbeddingTokenizers()],
 );
@@ -27,16 +27,16 @@ await FlutterGemma.initialize(
 dart run skills@ get --all
 ```
 
-Installs the agent skills `flutter_gemma` bundles — this package depends on it, so they come with it. One of them, `flutter-gemma-rag`, covers embedding models, the vector stores, and metadata filters.
+Installs the agent skills `flutter_edge_ai` bundles — this package depends on it, so they come with it. One of them, `flutter-edge-ai-rag`, covers embedding models, the vector stores, and metadata filters.
 
 ## Usage
 
 ```dart
-import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
-import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
+import 'package:flutter_edge_ai_embeddings/flutter_edge_ai_embeddings.dart';
+import 'package:flutter_edge_ai_litertlm/flutter_edge_ai_litertlm.dart';
 
-await FlutterGemma.initialize(
+await FlutterEdgeAi.initialize(
   embeddingBackends: [LiteRtEmbeddingBackend()],
   embeddingTokenizers: [GemmaEmbeddingTokenizers()],
 );
@@ -55,14 +55,14 @@ convention.
 
 `LiteRtEmbeddingBackend` provides the embedding model used by the auto-embedding
 RAG methods (`addDocument` / `searchSimilar`) and by `createEmbeddingModel`. Pair
-it with a vector store from `flutter_gemma_rag_sqlite` or
-`flutter_gemma_rag_qdrant`.
+it with a vector store from `flutter_edge_ai_sqlite` or
+`flutter_edge_ai_qdrant`.
 
 ## Web setup
 
-The web embedding bundle moved to `flutter_gemma_litertlm` in its 1.8.0 — it is
+The web embedding bundle moved to `flutter_edge_ai_litertlm` in its 1.8.0 — it is
 LiteRT.js, and it belongs with the package named after it. See
-[flutter_gemma_litertlm's web setup](https://pub.dev/packages/flutter_gemma_litertlm#embeddings-on-web).
+[flutter_edge_ai_litertlm's web setup](https://pub.dev/packages/flutter_edge_ai_litertlm#embeddings-on-web).
 
 This package has no web assets of its own: on web its tokenizers run only for
 backends that tokenize in Dart (WordPiece), while the LiteRT web arm tokenizes
@@ -72,9 +72,9 @@ inside `sentencepiece.js`.
 
 | Platform | Support |
 |----------|---------|
-| Android / iOS | ✅ (via flutter_gemma_litertlm's FFI backend) |
-| macOS / Linux / Windows | ✅ (via flutter_gemma_litertlm's FFI backend) |
-| Web | ✅ (via flutter_gemma_litertlm's LiteRT.js backend, CDN) |
+| Android / iOS | ✅ (via flutter_edge_ai_litertlm's FFI backend) |
+| macOS / Linux / Windows | ✅ (via flutter_edge_ai_litertlm's FFI backend) |
+| Web | ✅ (via flutter_edge_ai_litertlm's LiteRT.js backend, CDN) |
 
 This package itself is pure Dart with no native/FFI code — the concrete
 backend (and its native library) is owned by whichever engine package you add.
@@ -116,7 +116,7 @@ Until a profile selector lands, reach the adapter by building the
 `loadSiglipSentencePieceEmbeddingTokenizer` as its tokenizer factory:
 
 ```dart
-import 'package:flutter_gemma_embeddings/embedding_tokenizer.dart'
+import 'package:flutter_edge_ai_embeddings/embedding_tokenizer.dart'
     show loadSiglipSentencePieceEmbeddingTokenizer;
 ```
 
@@ -127,7 +127,7 @@ That library is native-only, which is why it sits outside the package barrel.
 `"padding": {"strategy": {"Fixed": 64}, "pad_id": 0}` and a `post_processor` of
 `[Sequence A, <eos>]`, while a Gemma tokenizer has `"padding": null` and
 `[<bos>, Sequence A]`. `isSiglip2TokenizerJson`
-(`package:flutter_gemma_embeddings/tokenizer_convention.dart` — web-safe, so an
+(`package:flutter_edge_ai_embeddings/tokenizer_convention.dart` — web-safe, so an
 engine's web arm can apply the same rule) reads exactly those two blocks, and
 requires both: plenty of models declare one alone.
 
@@ -174,13 +174,13 @@ Pass `activeBackend:` too — the backend your forward pass really runs on. It i
 optional, so nothing will make you, but it is what `EmbeddingModel.activeBackend`
 reports to the app, and omitting it answers `null`. Never default it to CPU for
 an engine that might use an accelerator: that reports a guess as a fact.
-See `flutter_gemma_litertlm`'s `lib/src/embedding/` for a worked example.
+See `flutter_edge_ai_litertlm`'s `lib/src/embedding/` for a worked example.
 
 ## Troubleshooting
 
 ### `dlopen` / "library not found" (`libLiteRtLm`)
 
-`flutter_gemma_litertlm` is the sole owner of the shared native library and
+`flutter_edge_ai_litertlm` is the sole owner of the shared native library and
 bundles it via its build hook. A stale Native-Assets cache after a native
 version bump can leave the library unbundled, surfacing as an opaque `dlopen`
 "no such file" on the first embedding call. Fix with a clean rebuild:

@@ -26,7 +26,7 @@ Future<String> _modelPath() async {
     final dir = await getApplicationDocumentsDirectory();
     return '${dir.path}/$_modelFilename';
   }
-  return '/data/local/tmp/flutter_edge_ai_test/$_modelFilename';
+  return '/data/local/tmp/flutter_gemma_test/$_modelFilename';
 }
 
 Future<void> _waitForModel(String path) async {

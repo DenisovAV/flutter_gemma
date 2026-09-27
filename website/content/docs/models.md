@@ -1,17 +1,17 @@
 ---
 title: Models
 description: Supported models, file formats, capabilities, ModelType reference, and download URLs.
-image: https://fluttergemma.dev/images/og-image.png
+image: https://flutteredge.ai/images/og-image.png
 ---
 
-flutter_gemma supports Gemma 4, Gemma3n, FastVLM, Qwen2-VL, SmolVLM2,
+flutter_edge_ai supports Gemma 4, Gemma3n, FastVLM, Qwen2-VL, SmolVLM2,
 LLaVA-OneVision, Gemma 3, FunctionGemma, Qwen3, Qwen 2.5, Phi-4 (incl. Phi-4 Mini
 Reasoning), DeepSeek R1, SmolLM, SmolLM3 and more. Desktop platforms (macOS,
 Windows, Linux) require the `.litertlm` model format.
 
 ## Model file types
 
-Flutter Gemma supports different model file formats, grouped into **two types**
+Flutter Edge AI supports different model file formats, grouped into **two types**
 based on how chat templates are handled.
 
 ### Type 1: SDK-managed templates
@@ -37,7 +37,7 @@ Both formats require **manual chat template formatting** in your code.
 (iOS 26+/macOS), and **Gemini Nano via the Chrome Prompt API** (Web — desktop
 Chrome/Edge) are **built into the OS/browser** — there is no model file to bundle
 or download; the platform owns the weights. Add
-[`flutter_gemma_builtin_ai`](/docs/packages), register `BuiltInAiEngine()`, and use
+[`flutter_edge_ai_builtin_ai`](/docs/packages), register `BuiltInAiEngine()`, and use
 `ModelFileType.builtIn`. Availability is device-gated — Gemini Nano needs Pixel
 9+/Galaxy S25+, and Apple FM needs Apple Intelligence enabled on iPhone
 15 Pro+/M-series. On Android the package requires **`minSdk 26`**.
@@ -100,7 +100,7 @@ MediaPipe `.task` build.
 
 ¹ Gemma 4 **Thinking Mode** needs the native `extraContext` channel: Android, iOS
 and Desktop only. Qwen3 and DeepSeek R1 reasoning is split out of the text by
-flutter_gemma itself, so it works on every platform including Web.
+flutter_edge_ai itself, so it works on every platform including Web.
 
 ‡ **Reasons, but emits no `ThinkingResponse`.** These models run as
 `ModelType.general`, which has no reasoning parser — their thinking blocks
@@ -160,22 +160,22 @@ When installing models, specify the correct `ModelType`:
 Gemma 4 (`ModelType.gemma4`) and FunctionGemma on a `.litertlm` route their native
 tool-call tokens through the LiteRT-LM SDK's chat-template path. For Gemma 3 and
 earlier, keep `ModelType.gemmaIt`; a `.task` FunctionGemma keeps the text format
-flutter_gemma renders itself.
+flutter_edge_ai renders itself.
 </Info>
 
 **Usage example:**
 
 ```dart
 // Gemma models
-await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
+await FlutterEdgeAi.installModel(modelType: ModelType.gemmaIt)
   .fromNetwork(url).install();
 
 // DeepSeek models
-await FlutterGemma.installModel(modelType: ModelType.deepSeek)
+await FlutterEdgeAi.installModel(modelType: ModelType.deepSeek)
   .fromNetwork(url).install();
 
 // Phi-4 (its own type — parses Phi's tool-call markers)
-await FlutterGemma.installModel(modelType: ModelType.phi)
+await FlutterEdgeAi.installModel(modelType: ModelType.phi)
   .fromNetwork(url).install();
 ```
 
@@ -210,7 +210,7 @@ await FlutterGemma.installModel(modelType: ModelType.phi)
 // Network — .litertlm is the cross-platform default (Android/iOS/Desktop).
 // For mobile-only or web-only apps you can substitute a .task URL — and drop
 // the fileType, which defaults to ModelFileType.task.
-await FlutterGemma.installModel(
+await FlutterEdgeAi.installModel(
   modelType: ModelType.gemmaIt,
   fileType: ModelFileType.litertlm,
 )
@@ -218,7 +218,7 @@ await FlutterGemma.installModel(
   .install();
 
 // Flutter assets
-await FlutterGemma.installModel(
+await FlutterEdgeAi.installModel(
   modelType: ModelType.gemmaIt,
   fileType: ModelFileType.litertlm,
 )
@@ -226,7 +226,7 @@ await FlutterGemma.installModel(
   .install();
 
 // Native bundle
-await FlutterGemma.installModel(
+await FlutterEdgeAi.installModel(
   modelType: ModelType.gemmaIt,
   fileType: ModelFileType.litertlm,
 )
@@ -234,7 +234,7 @@ await FlutterGemma.installModel(
   .install();
 
 // External file (native only)
-await FlutterGemma.installModel(
+await FlutterEdgeAi.installModel(
   modelType: ModelType.gemmaIt,
   fileType: ModelFileType.litertlm,
 )
@@ -250,16 +250,16 @@ Install a model straight from a Hugging Face repo. The resolver that reads a rep
 
 ```dart
 // The engine carries its resolver — nothing else to register.
-await FlutterGemma.initialize(inferenceEngines: [LiteRtLmEngine()]);
+await FlutterEdgeAi.initialize(inferenceEngines: [LiteRtLmEngine()]);
 
-final install = await FlutterGemma.installModel(
+final install = await FlutterEdgeAi.installModel(
   modelType: ModelType.general,     // fallback — the manifest overrides it
   fileType: ModelFileType.litertlm, // selects the litertlm resolver
 )
   .fromHuggingFace('litert-community/Qwen3-4B-Thinking-2507')
   .install();
 
-final model = await FlutterGemma.getActiveModel(defaults: install.runtime);
+final model = await FlutterEdgeAi.getActiveModel(defaults: install.runtime);
 // `minOutputTokens` is a FLOOR, not a cap — leave `maxOutputTokens` unset (or
 // keep it >= `install.runtime?.minOutputTokens`). Passing the floor as the cap
 // would truncate a reasoning model mid-thought.
@@ -273,7 +273,7 @@ final session = await model.createSession(
 **Explicit file** — pass `file`, and `fromHuggingFace(repo, file:)` resolves `…/resolve/<revision>/<file>` and installs it directly, for any `fileType` (no manifest needed; the HF token is applied to `huggingface.co` automatically):
 
 ```dart
-await FlutterGemma.installModel(
+await FlutterEdgeAi.installModel(
   modelType: ModelType.gemmaIt,
   fileType: ModelFileType.litertlm,
 )
@@ -284,12 +284,12 @@ await FlutterGemma.installModel(
 **Inspect first** — `resolveHuggingFace(repo, fileType:)` returns the resolved identity plus overridable runtime defaults WITHOUT installing, so you can inspect the variant, its notes, and defaults before committing:
 
 ```dart
-final r = await FlutterGemma.resolveHuggingFace(
+final r = await FlutterEdgeAi.resolveHuggingFace(
   'litert-community/Qwen3-4B-Thinking-2507',
   fileType: ModelFileType.litertlm,
 );
 // … inspect r.file / r.notes / r.runtime …
-await FlutterGemma.installModel(
+await FlutterEdgeAi.installModel(
   modelType: r.modelType ?? ModelType.general,
   fileType: r.fileType,
 )
@@ -297,7 +297,7 @@ await FlutterGemma.installModel(
   .install();
 ```
 
-The resolver lives in the engine package — `LitertlmManifestResolver` in `flutter_gemma_litertlm` reads `litertlm_manifest.json` — and rides on the engine via `HuggingFaceResolverSource`, so `initialize(inferenceEngines: […])` auto-registers it. Pass `initialize(huggingFaceResolvers: [...])` only to override an engine's default (e.g. `LitertlmManifestResolver(revision: 'abc123')` to pin a commit).
+The resolver lives in the engine package — `LitertlmManifestResolver` in `flutter_edge_ai_litertlm` reads `litertlm_manifest.json` — and rides on the engine via `HuggingFaceResolverSource`, so `initialize(inferenceEngines: […])` auto-registers it. Pass `initialize(huggingFaceResolvers: [...])` only to override an engine's default (e.g. `LitertlmManifestResolver(revision: 'abc123')` to pin a commit).
 
 ### Source capabilities
 
@@ -310,7 +310,7 @@ The resolver lives in the engine package — `LitertlmManifestResolver` in `flut
 
 <Info>
 Resume after interruption is server-dependent and **not supported by the
-HuggingFace CDN** — flutter_gemma uses smart retry logic with exponential
+HuggingFace CDN** — flutter_edge_ai uses smart retry logic with exponential
 backoff and automatic restart instead. See [Troubleshooting](/docs/troubleshooting).
 </Info>
 
@@ -323,12 +323,12 @@ will not start the service without one, so file size alone changes nothing:
 
 ```dart
 // DEFAULT — no foreground service; pass foreground: true to get one
-await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
+await FlutterEdgeAi.installModel(modelType: ModelType.gemmaIt)
   .fromNetwork(url)  // foreground: null
   .install();
 
 // Force foreground mode
-await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
+await FlutterEdgeAi.installModel(modelType: ModelType.gemmaIt)
   .fromNetwork(url, foreground: true)
   .install();
 ```
@@ -339,11 +339,11 @@ foreground service needed.
 ### Cancelling downloads
 
 ```dart
-import 'package:flutter_gemma/core/model_management/cancel_token.dart';
+import 'package:flutter_edge_ai/core/model_management/cancel_token.dart';
 
 final cancelToken = CancelToken();
 
-final future = FlutterGemma.installModel(modelType: ModelType.gemmaIt)
+final future = FlutterEdgeAi.installModel(modelType: ModelType.gemmaIt)
   .fromNetwork(url)
   .withCancelToken(cancelToken)
   .withProgress((progress) => print('Progress: $progress%'))
@@ -366,7 +366,7 @@ tokenizer), works on mobile + web, and throws `DownloadCancelledException`.
 
 ## Speech models
 
-On-device speech via the opt-in [`flutter_gemma_speech`](/docs/speech) package —
+On-device speech via the opt-in [`flutter_edge_ai_speech`](/docs/speech) package —
 selectable, profile-driven pipelines (you pick the model with `SttModelType` /
 `TtsModelType`). **moonshine-tiny**, **Whisper**, and **Parakeet** (STT) and
 **Matcha**, **Qwen3-TTS** (multilingual), and **Inflect-Nano-v2** (fast) TTS work
@@ -389,7 +389,7 @@ for the recognizer, override it per transcription, or both:
 
 ```dart
 // Default for every transcription on this recognizer.
-final stt = await FlutterGemma.getActiveStt(language: 'de');
+final stt = await FlutterEdgeAi.getActiveStt(language: 'de');
 final german = await stt.transcribe(germanPcm);
 
 // One call in another language — same recognizer, nothing reloaded.
@@ -442,7 +442,7 @@ model-dependent — e.g. all-MiniLM-L6-v2 is 384-dim.) See
 
 ### SigLIP 2 text tower (ONNX, manual wiring)
 
-`flutter_gemma_embeddings` ships a **SigLIP 2** text profile, for putting text
+`flutter_edge_ai_embeddings` ships a **SigLIP 2** text profile, for putting text
 into the same space as SigLIP's vision tower — image↔text retrieval rather than
 document RAG. It is the only embedding profile here that is **not** installed
 through `installEmbedder()`.
@@ -483,12 +483,12 @@ wrong vector this section warns about.
 Wire it yourself:
 
 ```dart
-import 'package:flutter_gemma_embeddings/embedding_tokenizer.dart'
+import 'package:flutter_edge_ai_embeddings/embedding_tokenizer.dart'
     show loadSiglipSentencePieceEmbeddingTokenizer;
 ```
 
 and pass that as the tokenizer factory of the `ForwardPassDescriptor` you give
 to `CommonEmbeddingModel.create`. That library is native-only. See the
-[`flutter_gemma_embeddings` README](https://pub.dev/packages/flutter_gemma_embeddings)
+[`flutter_edge_ai_embeddings` README](https://pub.dev/packages/flutter_edge_ai_embeddings)
 for the full profile, and [ONNX Runtime](/docs/onnx) for why the factory
 declines to guess.

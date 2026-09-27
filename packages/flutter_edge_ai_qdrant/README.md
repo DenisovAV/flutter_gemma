@@ -1,6 +1,6 @@
-# flutter_gemma_rag_qdrant
+# flutter_edge_ai_qdrant
 
-qdrant-edge on-device RAG vector store for [flutter_gemma](https://pub.dev/packages/flutter_gemma).
+qdrant-edge on-device RAG vector store for [flutter_edge_ai](https://pub.dev/packages/flutter_edge_ai).
 Opt-in package implementing `VectorStoreRepository` on top of the official
 [`qdrant_edge`](https://pub.dev/packages/qdrant_edge) UniFFI Dart SDK
 (a binding over the `qdrant-edge` Rust crate). qdrant's HNSW index makes it the fastest **native** RAG store —
@@ -9,10 +9,10 @@ roughly **5–11× faster search** than the in-SQLite `sqlite-vec`/`vec0` store 
 [benchmark](https://github.com/DenisovAV/flutter_gemma/blob/main/docs/benchmarks/rag_sqlite_vec_vs_qdrant.md)).
 (The earlier "~75×" figure was against the now-deleted Dart brute-force store.)
 For web, or when exact KNN with identical results across platforms matters more
-than peak speed, use `flutter_gemma_rag_sqlite`.
+than peak speed, use `flutter_edge_ai_sqlite`.
 
 **Native only** (Android, iOS, macOS, Linux, Windows). For web, use
-[`flutter_gemma_rag_sqlite`](https://pub.dev/packages/flutter_gemma_rag_sqlite)
+[`flutter_edge_ai_sqlite`](https://pub.dev/packages/flutter_edge_ai_sqlite)
 (`WebSqliteVectorStore`).
 
 ## Teach your AI assistant this package
@@ -21,15 +21,15 @@ than peak speed, use `flutter_gemma_rag_sqlite`.
 dart run skills@ get --all
 ```
 
-Installs the agent skills `flutter_gemma` bundles — this package depends on it, so they come with it. One of them, `flutter-gemma-rag`, covers embedding models, both vector stores, and the metadata filters — including the `filterSchema` trap that silently returns unfiltered results.
+Installs the agent skills `flutter_edge_ai` bundles — this package depends on it, so they come with it. One of them, `flutter-edge-ai-rag`, covers embedding models, both vector stores, and the metadata filters — including the `filterSchema` trap that silently returns unfiltered results.
 
 ## Usage
 
 ```dart
-import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma_rag_qdrant/flutter_gemma_rag_qdrant.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
+import 'package:flutter_edge_ai_qdrant/flutter_edge_ai_qdrant.dart';
 
-await FlutterGemma.initialize(
+await FlutterEdgeAi.initialize(
   vectorStore: QdrantVectorStore(),
 );
 ```
@@ -37,10 +37,10 @@ await FlutterGemma.initialize(
 Then use the unchanged RAG API:
 
 ```dart
-await FlutterGemmaPlugin.instance.initializeVectorStore('rag_store'); // a directory
-await FlutterGemmaPlugin.instance.addDocument(/* ... */);
-final hits = await FlutterGemmaPlugin.instance.searchSimilar(query: query, topK: 5);
-await FlutterGemmaPlugin.instance.flushVectorStore(); // after indexing — see below
+await FlutterEdgeAiPlugin.instance.initializeVectorStore('rag_store'); // a directory
+await FlutterEdgeAiPlugin.instance.addDocument(/* ... */);
+final hits = await FlutterEdgeAiPlugin.instance.searchSimilar(query: query, topK: 5);
+await FlutterEdgeAiPlugin.instance.flushVectorStore(); // after indexing — see below
 ```
 
 `QdrantVectorStore` also honors the payload-aware `Filter` DSL on
@@ -58,7 +58,7 @@ refuses; if a schema must work on both, keep it inside sqlite's narrower set.
 
 ## Behavior notes
 
-- **Call `flushVectorStore()` (or `FlutterGemma.rag.flush()`) after indexing.**
+- **Call `flushVectorStore()` (or `FlutterEdgeAi.rag.flush()`) after indexing.**
   New points stay in the shard's in-memory segment until it is flushed or
   closed. A process that ends without either — an Android app killed in the
   background — loses them, and the corpus is embedded again on the next launch
@@ -87,7 +87,7 @@ a 1.x shard owns (`edge_config.json`, `wal/`, `segments/`); remove those from
 the directory yourself, then re-index.
 
 ```dart
-import 'package:flutter_gemma_rag_qdrant/flutter_gemma_rag_qdrant.dart';
+import 'package:flutter_edge_ai_qdrant/flutter_edge_ai_qdrant.dart';
 
 final store = QdrantVectorStore();
 try {
@@ -120,7 +120,7 @@ that is not a store you want to act destructively on.
 | macOS (arm64) | ✅ |
 | Linux | ✅ |
 | Windows (x64) | ✅ |
-| Web | ❌ — use `flutter_gemma_rag_sqlite` (`WebSqliteVectorStore`) |
+| Web | ❌ — use `flutter_edge_ai_sqlite` (`WebSqliteVectorStore`) |
 
 An unsupported native target (e.g. Intel macOS, Windows arm64, 32-bit Android)
 has no prebuilt archive for the SDK's hook to fetch. The hook prints a warning

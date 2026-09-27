@@ -81,7 +81,7 @@ void main() {
   // getModelPath resolves to them and uninstall deletes them.
   Future<EmbeddingModelSpec> installEmbedder() async {
     final managedDir = Directory(
-      path.join(fakeAppSupport.path, 'flutter_edge_ai'),
+      path.join(fakeAppSupport.path, 'flutter_gemma'),
     );
     await managedDir.create(recursive: true);
 

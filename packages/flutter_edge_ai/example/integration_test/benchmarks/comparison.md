@@ -1,7 +1,7 @@
 # Vector store benchmarks: qdrant-edge vs legacy Dart HNSW
 
 Apples-to-apples comparison of the two vector store backends shipped by
-flutter_gemma:
+flutter_edge_ai:
 
 * **`qdrant`** — `QdrantVectorStoreRepository` (new default in 0.16, FFI
   shim over qdrant-edge 0.6.1)

@@ -22,8 +22,8 @@ import 'package:meta/meta.dart' show immutable;
 ///   LunarLake/PantherLake). Asking for it elsewhere falls back rather than
 ///   throwing; read `InferenceModel.activeBackend` for what actually ran.
 ///
-/// If the selected backend is unavailable, the engine falls back to GPU, then
-/// CPU.
+/// [gpu] and [npu] fall back if unavailable — GPU, then CPU. [cpu] does not
+/// fall back: it is the last resort already.
 enum PreferredBackend {
   cpu,
   gpu,

@@ -4,7 +4,7 @@ import { S as x } from "./sentencepiece.js";
 const _ = "task: search result | query: ", D = "title: none | text: ", L = 2, R = 1, A = 0;
 let c = 256;
 const w = 768;
-let l = null, d = null, u = !1, p = !1, T = null, f = null, m = null, y = null;
+let l = null, d = null, f = !1, p = !1, T = null, u = null, m = null, y = null;
 async function I(t) {
   try {
     const o = await fetch(t);
@@ -37,16 +37,16 @@ async function W(t, o = "/node_modules/@litertjs/core/wasm/") {
   try {
     console.log(`[LiteRT] Loading model from: ${t}`), console.log(`[LiteRT] WASM loaded flag: ${p}`), await $("webgl"), await z(), p ? console.log("[LiteRT] WASM runtime already loaded, reusing") : (console.log(`[LiteRT] Loading WASM runtime from: ${o}`), await C(o), p = !0, console.log("[LiteRT] WASM runtime loaded successfully"));
     try {
-      console.log("[LiteRT] Attempting to compile model with WebGPU..."), f = "webgpu", l = await b(t, {
+      console.log("[LiteRT] Attempting to compile model with WebGPU..."), u = "webgpu", l = await b(t, {
         accelerator: "webgpu"
       }), console.log("[LiteRT] Model compiled, accelerator confirmed on first run");
     } catch (r) {
-      console.warn("[LiteRT] WebGPU not available, falling back to WASM:", r.message), f = "wasm", l = await b(t, {
+      console.warn("[LiteRT] WebGPU not available, falling back to WASM:", r.message), u = "wasm", l = await b(t, {
         accelerator: "wasm"
       }), console.log("[LiteRT] Model compiled with WASM successfully");
     }
-    m = l.options?.accelerator ?? null, m && m !== f && console.warn(
-      `[LiteRT] Compiled for ${m}, not the requested ${f}. LiteRT recompiled without raising.`
+    m = l.options?.accelerator ?? null, m && m !== u && console.warn(
+      `[LiteRT] Compiled for ${m}, not the requested ${u}. LiteRT recompiled without raising.`
     ), v(l);
     try {
       const r = l.getInputDetails();
@@ -134,33 +134,34 @@ function v(t) {
   } catch {
     return;
   }
-  o === !1 ? (y = !1, console.warn(
-    `[LiteRT] Model is not fully accelerated on ${m ?? f}. Unsupported ops run in WASM, so the accelerator reported after the first embedding is where the output buffer lives, not where every op ran.`
-  )) : o === !0 && (y = !0);
+  const r = m ?? u;
+  r !== "wasm" && (o === !1 ? (y = !1, console.warn(
+    `[LiteRT] Model is not fully accelerated on ${r}. Unsupported ops run in WASM, so the accelerator reported after the first embedding is where the output buffer lives, not where every op ran.`
+  )) : o === !0 && (y = m === u));
 }
 function S(t) {
-  T !== null || !t || (T = t, f && t !== f ? console.warn(
-    `[LiteRT] Running on ${t}, not the requested ${f}. LiteRT fell back without raising — the model was not fully accelerated.`
+  T !== null || !t || (T = t, u && t !== u ? console.warn(
+    `[LiteRT] Running on ${t}, not the requested ${u}. LiteRT fell back without raising — the model was not fully accelerated.`
   ) : console.log(`[LiteRT] Running on ${t}`));
 }
 window.loadLiteRtEmbeddings = async function(t, o, r) {
   try {
-    if (u) {
+    if (f) {
       console.log("[LiteRT] Cleaning up previous model before reinitialization (hot restart detected)");
       try {
         await window.cleanupLiteRtEmbeddings();
       } catch (e) {
-        console.warn("[LiteRT] Non-fatal cleanup error (will reinitialize anyway):", e), l = null, d = null, p = !1, u = !1;
+        console.warn("[LiteRT] Non-fatal cleanup error (will reinitialize anyway):", e), l = null, d = null, p = !1, f = !1;
       }
     }
     const n = r ?? "/node_modules/@litertjs/core/wasm/";
-    await I(o), await W(t, n), u = !0;
+    await I(o), await W(t, n), f = !0;
   } catch (n) {
-    throw u = !1, new Error("Failed to initialize LiteRT embeddings: " + n.message);
+    throw f = !1, new Error("Failed to initialize LiteRT embeddings: " + n.message);
   }
 };
 window.generateEmbedding = async function(t) {
-  if (!u)
+  if (!f)
     throw new Error("LiteRT embeddings not initialized. Call loadLiteRtEmbeddings first.");
   if (typeof t != "string" || t.trim().length === 0)
     throw new Error("Text must be a non-empty string");
@@ -168,7 +169,7 @@ window.generateEmbedding = async function(t) {
   return new Float32Array(o);
 };
 window.generateDocumentEmbedding = async function(t) {
-  if (!u)
+  if (!f)
     throw new Error("LiteRT embeddings not initialized. Call loadLiteRtEmbeddings first.");
   if (typeof t != "string" || t.trim().length === 0)
     throw new Error("Text must be a non-empty string");
@@ -176,7 +177,7 @@ window.generateDocumentEmbedding = async function(t) {
   return new Float32Array(o);
 };
 window.generateEmbeddings = async function(t) {
-  if (!u)
+  if (!f)
     throw new Error("LiteRT embeddings not initialized. Call loadLiteRtEmbeddings first.");
   if (!Array.isArray(t))
     throw new Error("texts must be an array");
@@ -199,7 +200,7 @@ window.getLiteRtEmbeddingDimension = function() {
   return w;
 };
 window.cleanupLiteRtEmbeddings = async function() {
-  if (T = null, f = null, m = null, y = null, console.log("[LiteRT] ========================================"), console.log("[LiteRT] Starting cleanup..."), console.log("[LiteRT] ========================================"), l)
+  if (T = null, u = null, m = null, y = null, console.log("[LiteRT] ========================================"), console.log("[LiteRT] Starting cleanup..."), console.log("[LiteRT] ========================================"), l)
     try {
       typeof l.delete == "function" && !l.deleted && (l.delete(), console.log("[LiteRT] ✅ Model deleted"));
     } catch (t) {
@@ -218,9 +219,9 @@ window.cleanupLiteRtEmbeddings = async function() {
   } catch (t) {
     console.warn("[LiteRT] ⚠️  Error disposing tensors (non-fatal):", t);
   }
-  console.log("[LiteRT] ✅ Keeping WASM runtime (reusable across models)"), c = 256, console.log("[LiteRT] ✅ Reset MAX_SEQUENCE_LENGTH to default"), u = !1, console.log("[LiteRT] ========================================"), console.log("[LiteRT] ✅ Cleanup completed"), console.log("[LiteRT] ========================================");
+  console.log("[LiteRT] ✅ Keeping WASM runtime (reusable across models)"), c = 256, console.log("[LiteRT] ✅ Reset MAX_SEQUENCE_LENGTH to default"), f = !1, console.log("[LiteRT] ========================================"), console.log("[LiteRT] ✅ Cleanup completed"), console.log("[LiteRT] ========================================");
 };
 window.isLiteRtEmbeddingsInitialized = function() {
-  return u;
+  return f;
 };
 console.log("LiteRT Embeddings module loaded successfully");

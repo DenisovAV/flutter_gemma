@@ -378,15 +378,25 @@ function reportFullAcceleration(model) {
     // truthful to report about one.
     return;
   }
+  // A wasm compile is not a question about acceleration: every op runs in WASM
+  // by construction, there is no buffer-vs-execution distinction to report, and
+  // LiteRT itself only consults this flag for webgpu/webnn — so whatever it
+  // answers for wasm is unspecified and we say nothing rather than guess.
+  const target = compiledAccelerator ?? askedAccelerator;
+  if (target === 'wasm') return;
+
   if (full === false) {
     fullyAccelerated = false;
     console.warn(
-      `[LiteRT] Model is not fully accelerated on ${compiledAccelerator ?? askedAccelerator}. ` +
+      `[LiteRT] Model is not fully accelerated on ${target}. ` +
       `Unsupported ops run in WASM, so the accelerator reported after the ` +
       `first embedding is where the output buffer lives, not where every op ran.`,
     );
   } else if (full === true) {
-    fullyAccelerated = true;
+    // Answers the question the getter documents — "did the graph land entirely
+    // on the accelerator that was ASKED for" — which is false when LiteRT
+    // silently recompiled for something else, however complete that compile is.
+    fullyAccelerated = compiledAccelerator === askedAccelerator;
   }
 }
 
@@ -526,9 +536,13 @@ window.getLiteRtEmbeddingAccelerator = function() {
 };
 
 /**
- * False when the graph did not land entirely on the requested accelerator, true
- * when it did, null before the model is compiled. Separate from the accelerator
- * because a partially delegated model still reports WebGPU buffers.
+ * False when the graph did not land entirely on the REQUESTED accelerator, true
+ * when it did. Separate from the accelerator because a partially delegated model
+ * still reports WebGPU buffers.
+ *
+ * Null both before a compile and after a plain WASM one: on wasm there is no
+ * acceleration question to answer, and LiteRT only consults the underlying flag
+ * for webgpu/webnn, so its value there is unspecified.
  */
 window.getLiteRtEmbeddingFullyAccelerated = function() {
   return fullyAccelerated;

@@ -235,6 +235,37 @@ void main() {
     await closing;
   });
 
+  test('a throwing close listener does not cancel the teardown', () async {
+    // `addCloseListener` is public on `EmbeddingModel`, and
+    // `CloseNotifier.fireCloseListeners` calls each listener bare. Unguarded,
+    // one throw exited `close()` before `_worker.close()` was ever sent, while
+    // `_isClosed` was already true — so the isolate and its native weights
+    // leaked with no way back through the public API. `onClose` runs in the
+    // `finally` after the worker teardown, so its firing is the proof.
+    var tornDown = false;
+    final model = await CommonEmbeddingModel.create(
+      descriptor: ForwardPassDescriptor(
+        engineTag: 'fake',
+        modelPath: 'fake',
+        factory: buildFakePass,
+        tokenizerFactory: buildFakeTokenizer,
+        outputContract: EmbeddingOutputContract.pooledFinal,
+        activeBackend: PreferredBackend.cpu,
+      ),
+      tokenizerPath: 'fake',
+      onClose: () => tornDown = true,
+    );
+    model.addCloseListener(() => throw StateError('listener failed'));
+
+    await model.close();
+
+    expect(
+      tornDown,
+      isTrue,
+      reason: 'a listener must not be able to strand the worker isolate',
+    );
+  });
+
   test('EmbeddingModel.activeBackend defaults to null, not to a guess', () {
     // Defaulted rather than abstract so an existing SUBCLASS keeps compiling.
     // `implements` does not inherit a default body, so those still break — this

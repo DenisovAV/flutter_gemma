@@ -223,6 +223,36 @@ void main() {
         },
       );
 
+      test(
+        '${shell.name}: a model the cache refuses is closed, not orphaned',
+        () async {
+          // `addCloseListener` is abstract on the published interface, so a
+          // third-party model can throw from it. The shell built the model, so it
+          // owns it until the cache accepts custody — dropping it here would
+          // strand a live worker isolate nobody can reach, which is the very
+          // failure this branch exists to end.
+          final plugin = shell.create();
+          backend.hostileListener = true;
+          addTearDown(() => backend.hostileListener = false);
+
+          await expectLater(
+            plugin.createEmbeddingModel(
+              modelPath: '/a.tflite',
+              tokenizerPath: '/a.json',
+            ),
+            throwsStateError,
+            reason: 'the refusal belongs to the caller',
+          );
+
+          expect(
+            backend.lastModel?.closed,
+            isTrue,
+            reason: 'a model the cache cannot track must not be left open',
+          );
+          expect(plugin.initializedEmbeddingModel, isNull);
+        },
+      );
+
       test('${shell.name}: a failed build leaves no baseline behind', () async {
         final plugin = shell.create();
         addTearDown(() => plugin.initializedEmbeddingModel?.close());
@@ -247,9 +277,11 @@ void main() {
     }
 
     test('desktop names the call, not whatever embedder is active', () async {
-      // The label only differs when an UNRELATED embedder is installed: this
-      // shell used to read its name off the active spec, so a caller passing
-      // explicit paths saw another model's name in the reuse log.
+      // The label only differs when an UNRELATED embedder is installed. It
+      // names the call rather than whatever is active — the shell's own reuse
+      // log is new in this branch, and an earlier revision of it read the name
+      // off the active spec, which would have reported another model's name to
+      // a caller who passed explicit paths.
       final plugin = FlutterGemmaDesktop.instance;
       addTearDown(() => plugin.initializedEmbeddingModel?.close());
       // `FlutterGemmaDesktop.instance` is a process singleton and its manager
@@ -337,6 +369,13 @@ class _CountingBackend implements EmbeddingBackendProvider {
   /// remembering a model it never got.
   bool failNext = false;
 
+  /// Builds a model that refuses a close listener, the way a third-party
+  /// implementation not mixing in `CloseNotifier` might.
+  bool hostileListener = false;
+
+  /// The last model handed out, so a test can ask whether the shell closed it.
+  _InertEmbeddingModel? lastModel;
+
   @override
   String get name => 'counting';
 
@@ -357,8 +396,17 @@ class _CountingBackend implements EmbeddingBackendProvider {
       failNext = false;
       throw StateError('backend refused to build');
     }
-    return _InertEmbeddingModel();
+    return lastModel = hostileListener
+        ? _HostileListenerModel()
+        : _InertEmbeddingModel();
   }
+}
+
+/// Refuses to register a close listener, so the cache cannot take custody.
+class _HostileListenerModel extends _InertEmbeddingModel {
+  @override
+  void addCloseListener(void Function() listener) =>
+      throw StateError('this model does not support close listeners');
 }
 
 class _InertEmbeddingModel extends EmbeddingModel with CloseNotifier {

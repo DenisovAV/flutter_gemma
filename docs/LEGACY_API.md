@@ -172,7 +172,7 @@ final inferenceModel = await FlutterGemmaPlugin.instance.createModel(
 | `gpu` | ✅ | ✅ | ✅ (required) | ✅ |
 | `npu` | ✅ (.litertlm) | ❌ | ❌ | ❌ |
 
-- **NPU**: Qualcomm AI Engine, MediaTek NeuroPilot, Google Tensor. Up to 25x faster than CPU.
+- **NPU**: Qualcomm Snapdragon only — the Android archive ships the Qualcomm QNN dispatch stack and nothing for MediaTek or Google Tensor.
 - **Web**: GPU only (MediaPipe limitation). CPU models will fail to initialize.
 - **Desktop**: GPU uses Metal (macOS), DirectX 12 (Windows), Vulkan (Linux).
 

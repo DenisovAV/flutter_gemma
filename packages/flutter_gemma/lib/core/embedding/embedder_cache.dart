@@ -102,8 +102,20 @@ class EmbedderCache {
     // depends on this succeeding — the bookkeeping is already cleared above.
     try {
       await cached.model.close();
-    } catch (e) {
-      gemmaLog('Old embedder close() failed, continuing with rebuild: $e');
+    } catch (e, st) {
+      // `print`, not `gemmaLog`, for the reason `_warn` in
+      // flutter_gemma_litertlm's litert_default_scope.dart already documents:
+      // gemmaLog opens with `if (!kDebugMode) return`, so it is silent in
+      // release — and release is the build where a leaked worker isolate gets
+      // debugged. A teardown that throws leaves that isolate and its native
+      // model alive, so this is worth a line that reaches logcat. It fires only
+      // in an abnormal state, so it costs nothing in the normal case.
+      // ignore: avoid_print
+      print(
+        '[flutter_gemma] WARNING: the old embedder\'s close() threw while '
+        'rebuilding for $label; its worker isolate and native model may be '
+        'leaked: $e\n$st',
+      );
     }
     return null;
   }

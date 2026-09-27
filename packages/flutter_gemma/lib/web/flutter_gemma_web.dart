@@ -178,10 +178,11 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     // model are one step — which is what stops two concurrent first callers from
     // each building one, the defect this shell actually had.
     //
-    // Note what this does NOT cover on the LiteRT web arm: `WebEmbeddingModel`'s
-    // constructor is trivial and the WASM/WebGPU compile happens lazily on the
-    // first `generateEmbedding`, outside this lane. Concurrent first embeddings
-    // are guarded by that model, not by this.
+    // Note what this does NOT cover on either web arm: the model constructors
+    // are trivial and the WASM/WebGPU compile happens lazily on the first
+    // `generateEmbedding`, outside this lane. Concurrent first embeddings are
+    // deduped by each model's own single in-flight init future — this lane only
+    // guarantees one MODEL, not one compile.
     return _embedderCache.serialize(
       () => _reuseOrBuildEmbedder(
         modelPath: modelPath,
@@ -301,7 +302,16 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
               ),
         embConfig,
       );
-      _embedderCache.record(model, requestedParams);
+      try {
+        _embedderCache.record(model, requestedParams);
+      } catch (_) {
+        // The cache could not take custody — a third-party model may throw from
+        // `addCloseListener`, which is abstract on the interface. This shell
+        // built the model, so it owns it until the cache accepts it: close it
+        // rather than drop a live worker isolate nobody can reach.
+        await model.close();
+        rethrow;
+      }
       return model;
     } catch (_) {
       _embedderCache.invalidate();

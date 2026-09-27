@@ -92,8 +92,10 @@ print(embedder.activeBackend); // PreferredBackend.cpu on native
 ```
 
 That answer survives a release build, which the log line does not. It is `null` on
-web, where the runtime picks for itself and does not report back synchronously —
-see the LiteRT web getters below.
+web, where the runtime picks for itself and does not report back synchronously; the
+LiteRT web bundle exposes `window.getLiteRtEmbeddingAccelerator()` and
+`window.getLiteRtEmbeddingFullyAccelerated()` for that, and the ONNX web arm has
+no equivalent.
 
 ## On-device RAG / vector store
 

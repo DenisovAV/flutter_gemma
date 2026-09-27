@@ -27,6 +27,17 @@ class WebEmbeddingModel extends EmbeddingModel with CloseNotifier {
   bool _isClosed = false;
   bool _isInitialized = false;
 
+  /// The one in-flight initialisation, shared by every caller.
+  ///
+  /// A bare `if (_isInitialized) return;` followed by awaits let two concurrent
+  /// FIRST `generateEmbedding` calls both pass the guard — and `loadLiteRt`
+  /// throws synchronously when a load is already in flight, so one of the two
+  /// failed outright with "LiteRT is already loading / loaded". A `Future.wait`
+  /// over two `rag.addDocument` calls is enough to reach it, which is usually
+  /// the first embedding an app ever makes. The ONNX web arm already dedupes
+  /// this way.
+  Future<void>? _initFuture;
+
   // Public getters for parameter comparison
   String? get modelPath => _modelPath;
   String? get tokenizerPath => _tokenizerPath;
@@ -39,10 +50,20 @@ class WebEmbeddingModel extends EmbeddingModel with CloseNotifier {
     }
   }
 
-  /// Initialize the LiteRT model if not already initialized
-  Future<void> _ensureInitialized() async {
-    if (_isInitialized) return;
+  /// Initialize the LiteRT model if not already initialized.
+  ///
+  /// Cleared on failure rather than a plain `??=`, so a failed init does not
+  /// poison every later call — the previous code retried, and that is worth
+  /// keeping.
+  Future<void> _ensureInitialized() {
+    if (_isInitialized) return Future<void>.value();
+    return _initFuture ??= _doInitialize().onError<Object>((e, st) {
+      _initFuture = null;
+      Error.throwWithStackTrace(e, st);
+    });
+  }
 
+  Future<void> _doInitialize() async {
     if (_modelPath == null || _tokenizerPath == null) {
       throw StateError(
         'Model and tokenizer paths must be provided. Use createEmbeddingModel with modelPath and tokenizerPath parameters.',
@@ -152,6 +173,17 @@ class WebEmbeddingModel extends EmbeddingModel with CloseNotifier {
     if (_isClosed) return;
 
     _isClosed = true;
+
+    // Awaited, not just gated on the flag: a close arriving while the init is
+    // still in flight used to skip dispose entirely and leak the JS model.
+    final inFlight = _initFuture;
+    if (inFlight != null) {
+      try {
+        await inFlight;
+      } catch (_) {
+        // Its failure belongs to whoever asked for the embedding.
+      }
+    }
 
     // Cleanup LiteRT resources
     if (_isInitialized) {

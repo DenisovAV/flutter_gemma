@@ -19,6 +19,7 @@ import 'embedding_worker.dart';
 import 'forward_pass.dart';
 import 'package:flutter_gemma/core/domain/platform_types.dart'
     show PreferredBackend;
+import 'package:flutter_gemma/core/utils/gemma_log.dart';
 
 /// Signature for the `onClose` callback. Same name Flutter uses.
 typedef VoidCallback = void Function();
@@ -114,7 +115,18 @@ class CommonEmbeddingModel extends EmbeddingModel with CloseNotifier {
     // the worker meant up to the worker's own five-second cap during which the
     // cache still matched this model on params and handed it to a new caller,
     // whose first `generateEmbedding` then threw.
-    fireCloseListeners();
+    // Guarded, because `CloseNotifier.fireCloseListeners` calls each listener
+    // bare. An app may register one (the method is public on `EmbeddingModel`),
+    // and before this guard a single throw from one of them exited `close()`
+    // above the try — so `_worker.close()` was never sent, `onClose()` never
+    // ran, and `_isClosed` was already true, making a retry a no-op. The isolate
+    // and its native weights leaked for the process lifetime. Firing early is
+    // worth doing; letting it cancel the teardown is not.
+    try {
+      fireCloseListeners();
+    } catch (e, st) {
+      gemmaLog('A close listener threw; continuing teardown anyway: $e\n$st');
+    }
     try {
       await _worker.close();
     } finally {

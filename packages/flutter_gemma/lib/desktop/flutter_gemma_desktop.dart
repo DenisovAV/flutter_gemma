@@ -552,7 +552,16 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
 
       // Core owns the singleton lifecycle: the cache tracks the model, resets
       // on close (identity-guarded) and records what it was built from.
-      _embedderCache.record(model, requestedParams);
+      try {
+        _embedderCache.record(model, requestedParams);
+      } catch (_) {
+        // The cache could not take custody — a third-party model may throw from
+        // `addCloseListener`, which is abstract on the interface. This shell
+        // built the model, so it owns it until the cache accepts it: close it
+        // rather than drop a live worker isolate nobody can reach.
+        await model.close();
+        rethrow;
+      }
       return model;
     } catch (_) {
       _embedderCache.invalidate();

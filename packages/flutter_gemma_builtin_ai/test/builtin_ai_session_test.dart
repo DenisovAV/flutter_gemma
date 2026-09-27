@@ -61,6 +61,22 @@ void main() {
     return await model.createSession() as BuiltInAiSession;
   }
 
+  test('a failed close can be retried', () async {
+    final model =
+        await const BuiltInAiEngine().createModel(builtInSpec(), builtInConfig)
+            as BuiltInAiModel;
+    addTearDown(model.close);
+    final session = await model.createSession();
+    host.closeSessionError = StateError('teardown failed');
+
+    await expectLater(session.close(), throwsStateError);
+    expect(model.session, same(session));
+
+    host.closeSessionError = null;
+    await session.close();
+    expect(model.session, isNull);
+  });
+
   test('getResponse returns the host string', () async {
     host.response = 'Hello from Nano';
     final session = await newSession();

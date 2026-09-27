@@ -97,7 +97,9 @@ class BuiltInAiSession extends InferenceModelSession {
 
   @override
   Future<void> close() async {
-    _onClose();
+    // Only once the native session is gone: a failed close leaves it open and
+    // owned by the model, so it can be retried.
     await _session.close();
+    _onClose();
   }
 }

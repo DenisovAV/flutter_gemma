@@ -1,8 +1,10 @@
 ## 0.3.0
 - **Breaking:** now a thin adapter over `flutter_local_ai`, which supplies every OS backend.
-- Require `flutter_local_ai` 0.2.0 for session-scoped token counting,
+- Require `flutter_local_ai` 0.2.1 for session-scoped token counting,
   immediate web user-activation errors, non-throwing availability reasons,
-  complete native tool schemas and the published `FakeLocalAiHost` (#19).
+  complete native tool schemas, the published `FakeLocalAiHost` (#19),
+  retryable `close()` and one busy-session error type on every platform (#26).
+- A failed session `close()` leaves the session open and can be retried.
 - **Breaking:** require Flutter 3.44 / Dart 3.12, matching the upstream package.
 - **Breaking:** no longer a Flutter plugin — registrants and `Podfile.lock` regenerate; re-lock frozen CI.
 - **Breaking:** macOS deployment floor raised from 10.15 to 12.0.

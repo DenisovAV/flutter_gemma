@@ -135,7 +135,7 @@ final response = await session.getResponse();
 | Function calling | ✅ (prompt-based) | ✅ (prompt-based) | ✅ (prompt-based) | ✅ (prompt-based) |
 | Thinking mode | ❌ | ❌ | ❌ | ❌ |
 | `sizeInTokens` | ✅ native token count | ✅ on OS 26.4+, built with Xcode 26.4+ (estimate otherwise) | ❌ estimate | ✅ `measureContextUsage` |
-| `maxOutputTokens` | ✅ | ✅ | ❌ ignored | ❌ ignored |
+| `maxOutputTokens` | ✅ | ✅ | ❌ ignored | ❌ ignored (warns once) |
 | LoRA weights | ❌ | ❌ | ❌ | ❌ |
 | Concurrent sessions (`openSession`) | ✅ | ✅ | ✅ | ✅ |
 

@@ -1,7 +1,10 @@
-## 1.8.2
+## 1.8.3
 - Web logs the accelerator it ran on, and whether it was fully accelerated, to the console.
 - `activeBackend` no longer claims NPU where no NPU dispatch stack ships.
 - A non-Qualcomm Android phone no longer unpacks 55 MiB of NPU libraries it cannot use.
+
+## 1.8.2
+- The Android GPU backend no longer crashes on Mali GPUs (#545).
 
 ## 1.8.1
 - A chat stopped mid-reply answered every later message with nothing (#325).

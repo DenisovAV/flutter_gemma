@@ -248,10 +248,48 @@ def publishes_handshake(html: str) -> bool:
     return False
 
 
+# Packages whose web export is a stub: an app that depends on one cannot run in
+# a browser, so its codelab must not tell readers it does.
+NATIVE_ONLY = {"flutter_gemma_speech"}
+
+
+def check_platform_claim(app: Path, deps: set[str]) -> None:
+    """The codelab's claat header must not promise the web to a native-only app.
+
+    `environments:` in `website/codelabs/<id>/index.md` is what the codelab page
+    shows readers. This makes it a checked claim: an app that depends on a
+    package with no web implementation belongs to a codelab that leaves `web`
+    out. Fails closed when the header or the line cannot be read.
+    """
+    native_only = deps & NATIVE_ONLY
+    if not native_only:
+        return
+    header = root / "website" / "codelabs" / app.parent.name / "index.md"
+    try:
+        text = header.read_text(encoding="utf-8")
+    except OSError:
+        fail(f"{rel(header)} is missing or unreadable — cannot check that "
+             f"{rel(app)} ({', '.join(sorted(native_only))}) is not promised on web")
+        return
+    match = re.search(r"^environments:[ \t]*(.*)$", text, re.MULTILINE)
+    if match is None:
+        fail(f"{rel(header)} has no environments: line — cannot check that "
+             f"{rel(app)} is not promised on web")
+        return
+    # claat writes a bare comma list; a trailing `#` comment, brackets, quotes
+    # or case must not hide `web` from this check.
+    listed = match.group(1).split("#", 1)[0]
+    listed = re.sub(r"[\[\]\"']", "", listed).lower()
+    if "web" in {e.strip() for e in listed.split(",")}:
+        fail(f"{rel(header)} lists web, but {rel(app)} depends on "
+             f"{', '.join(sorted(native_only))}, which has no web implementation")
+
+
 def check_app(app: Path) -> None:
     deps = dependencies(app)
     if deps is None:
         return
+    check_platform_claim(app, deps)
     uses_gemma = "flutter_gemma" in deps
 
     index = app / "web" / "index.html"

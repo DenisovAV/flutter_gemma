@@ -570,6 +570,34 @@ asserts it for every ELF object inside every tarball. Read its output:
 A run that reports 0 objects inspected has found nothing, not proven anything.
 Google's own `check_elf_alignment.sh` is the second opinion if you want one.
 
+### 9c. Every Android import is reachable through its own NEEDED
+
+Bionic resolves a library's undefined symbols only through that library's own
+`DT_NEEDED` chain — never through whatever else is already loaded in the
+process, so preloading from the app cannot fix it. A `GLOBAL` import that misses
+fails `dlopen`, which at least is loud. A `WEAK` one fails nothing: it binds to
+NULL, `dlopen` succeeds, and the process jumps to address 0 the first time a
+code path calls it — which may be one GPU vendor's path only.
+
+That is #545. Upstream v0.17.0's `libLiteRtOpenClAccelerator.so` and
+`libLiteRtGpuAccelerator.so` import `AHardwareBuffer_allocate/_release` weakly
+with no `libandroid.so` in NEEDED. Adreno never calls them; Mali does, and
+`engine_create` SIGSEGVs at pc 0. We shipped those bytes unchanged in three
+releases, because the only Android GPU run was on an Adreno phone. #270 was the
+same rule broken by a sampler (GLOBAL `LiteRtCreateEnvironment` without
+`libLiteRtLm.so`), fixed then as a one-off — which is why it came back.
+
+`check_android_needed.py` asserts the rule for every aarch64 library: each
+import that some NDK platform stub or bundle library provides must have a
+provider in the importer's NEEDED closure. `build_android.sh` runs it as step
+8d, `verify_tarball_manifest.sh` runs it on the packed tarball. The fix, when it
+fails, is `patchelf --add-needed` on the importer (steps 8b/8c), never an
+allowlist. patchelf missing is a build error, not a warning.
+
+```
+  [ok]   15 aarch64 libraries checked against API 35 stubs
+```
+
 ### 10. NPU on real silicon — the only check that covers the dispatch libraries
 
 Nothing in checks 1–8 touches NPU. Both dispatch libraries load only when `PreferredBackend.npu` is requested on matching hardware, so they need real devices:
@@ -659,7 +687,7 @@ Where and how, with the traps that cost time in the v0.17.0 cycle:
 
 - **macOS** — local. The example's Podfile stager copies companions from the **cache** (`~/Library/Caches/flutter_gemma/native/macos_arm64/`), not from the build, so a maintainer machine runs a 0.16/0.17 mix. For the run, move the cache's `libGemmaModelConstraintProvider.dylib` aside (the stager picks its source by that one file and falls back to `prebuilt/`), restore it in a `trap`.
 - **iOS device** — USB only (`ioreg -p IOUSB` must show `iPhone@…`; `transportType: localNetwork` ⇒ "Cannot start app on wirelessly tethered iOS device"). On Xcode 26+ `enable-lldb-debugging` must be `true`, otherwise flutter never sees the VM Service URL and hangs at "not discovered" (memory `project_ios_device_xcode26_lldb`). The simulator is CPU-only by design.
-- **Android** — GPU/OpenCL needs a real device (Galaxy S24 via FTL, memory `project_ftl_flutter_integration_test_build`); the `gemma_api36_arm64` emulator is enough for CPU speech.
+- **Android** — GPU/OpenCL needs real devices, and **at least one Adreno and one Mali**: Adreno and Mali take different paths through the same accelerator (#545 crashed only on Mali). On FTL: `e1q` (Galaxy S24, Adreno 750), `akita` (Pixel 8a, Mali-G715), `a34x` (Galaxy A34, Mali-G68 — the #545 device). Write codename + GPU per row in the PR body; "Galaxy S24" alone does not say which GPU ran. The `gemma_api36_arm64` emulator is enough for CPU speech.
 - **Linux** — GCE `flutter-gemma-linux` (T4) and `flutter-gemma-linux-gpu` (L4, often stocked out in `us-central1-b`). The T4 box boots a mainline 6.16 kernel without the NVIDIA module (Vulkan falls back to `llvmpipe`); for GPU runs `kexec` once into `6.8.0-*-gcp`. Prove the GPU was used from throughput (T4: ~42 chunks/s GPU vs ~2.4 CPU), not from test names.
 - **Windows** — Tiber for NPU + Arc; GCE `flutter-gemma-gpu` (T4) covers CPU, discrete-GPU WebGPU, embeddings and speech when Tiber is down. On GCE: Scheduled Task (`S4U`) + log polling, `powershell -EncodedCommand` for anything with `$`.
 
@@ -687,6 +715,7 @@ Put a worktree of the branch on each VM instead of switching its checkout, drop 
 | 14 | Blanket copy of OpenVino `runtime\bin` ships debug DLLs (`openvinod.dll`) beside release | Explicit allow-list + `throw` on missing | caught pre-publish at v0.16.0 |
 | 15 | QNN runtime libs left at an old QAIRT while the dispatch moved — `Qnn System library version 1.8.0 is mismatched` | Check #9 on device; compare file sizes against the SDK | native-v0.12.0 → v0.16.0, **caught on device** |
 | 16 | Windows-only `LiteRtLayoutMsvc` mirror kept after LiteRT `d84656955` unified the layout — every host-memory tensor buffer got a shape 4 bytes off: `CreateTensorBufferFromHostMemory` `status=3` in embeddings and STT | Check #10 on Windows; struct diff at both `LITERT_REF`s | **native-v0.16.0 → fixed in `67b9857f`**; seen on Tiber 2026-08-10 and misread as a bad box cache |
+| 17 | Upstream companion imports a symbol its NEEDED cannot reach: sampler without `libLiteRtLm.so` (#270, silent CPU fallback); v0.17.0 accelerators without `libandroid.so` (#545, SIGSEGV on Mali only) | Check #9c (`check_android_needed.py`); Android GPU on Adreno **and** Mali | #270: 0.14.x; **#545: native-v0.17.0 → v0.17.1**, upstream #3575 open six days before our first release |
 
 Every one of those would have been caught by checks 1-10 before commit. **Run them all every time.**
 
@@ -702,6 +731,7 @@ Three patterns deserve emphasis because nothing in the build output hints at the
 
 We import some dylibs as-is from upstream LiteRT-LM (`libGemmaModelConstraintProvider.dylib`, `libLiteRtMetalAccelerator.dylib`, sampler dylibs). When upstream ships them with insufficient headerpad / wrong arch / broken exports:
 
+0. **Before adopting an upstream tag, read what is already reported against it.** `gh issue list --repo google-ai-edge/LiteRT-LM --search "created:>=<tag-date>"` and skim for crashes on platforms we ship. #545 was upstream #3575 — same crash, same BuildId, same `patchelf` workaround — open six days before our first release with those bytes.
 1. **Rule out our own frozen inputs first.** Before writing the issue, enumerate every input to the failing comparison — defines, SDK versions, pinned SHAs, carried-forward binaries — and confirm which ones actually moved between the working and broken versions. Two of our four most recent upstream reports (#2957, #3217) were our configuration and had to be retracted; in both the "regression" was upstream finally exercising something we had frozen years earlier. A bisection that lands on a version boundary tells you *when*, never *whose*.
 2. **File an issue with reproducer** — see `project_litertlm_upstream_*` memories for our open ones (#1990, #2072, #2073, #2080).
 3. **Don't ship them blindly.** Run check #4 (install_name_tool smoke) on every upstream-sourced dylib **before** copying to `prebuilt/`. If it fails, **don't publish** — find a workaround first (relink, or ship without that lib + change Dart code path).

@@ -1,3 +1,6 @@
+## 1.8.2
+- The Android GPU backend no longer crashes on Mali GPUs (#545).
+
 ## 1.8.1
 - A chat stopped mid-reply answered every later message with nothing (#325).
 

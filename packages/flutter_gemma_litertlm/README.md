@@ -258,6 +258,20 @@ image is loaded by the DSP rather than mapped by the kernel.
 Fix: upgrade to 1.8.0. Check your own build with Google's
 `check_elf_alignment.sh` against the APK, not against this package.
 
+### Android GPU crashes at engine_create on Mali (fixed in 1.8.2)
+
+Symptom: in 1.7.0–1.8.1, `PreferredBackend.gpu` on an Android phone with a Mali
+GPU (Samsung A-series, MediaTek, Google Tensor) kills the process while the
+model loads — `SIGSEGV` at `pc 0` inside `libLiteRtOpenClAccelerator.so`. The
+CPU backend and Adreno GPUs are unaffected.
+
+Cause: the OpenCL and GPU accelerators from LiteRT-LM v0.17.0 call
+`AHardwareBuffer_allocate` without declaring `libandroid.so` as a dependency, so
+Android binds the call to address 0. Only Mali takes that path.
+
+Fix: upgrade to 1.8.2 (`native-v0.17.1-a`). No app change is needed. See
+[#545](https://github.com/DenisovAV/flutter_gemma/issues/545).
+
 ### Any tool call kills the app (fixed in 1.7.1)
 
 Symptom: in 1.7.0, a chat or session created with `tools` dies on the first

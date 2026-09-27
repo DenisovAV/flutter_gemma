@@ -2052,6 +2052,8 @@ The full and complete example you can find in `example` folder
 - Pass `activationDataType: ActivationDataType.float32` to `getActiveModel`. Prefill is slower (about 3× on a Snapdragon 8 Elite and an iPhone 11, under 1.5× on an Apple M3 Max); decode speed barely changes
 - Native `.litertlm` only — **not on web**. The web engine ignores the value, and so do MediaPipe, ONNX and built-in AI. It reaches the text decoder; the vision and audio encoders keep what the model file asks for
 - `float32` activations need more GPU memory, and when the GPU engine cannot be created the model falls back to CPU without an error. Read `model.activeBackend == PreferredBackend.gpu` after loading instead of assuming the GPU ran
+- On Android the GPU shares system memory, so on a 4–6 GB phone running out of it can end the app instead. The compiled GPU cache is one file per model for both precisions: choose one per install rather than switching per request
+- Needs `flutter_gemma_litertlm` 1.8.3 or later; older versions ignore it
 
 **Memory Issues:**
 - **iOS**: Ensure `Runner.entitlements` contains memory entitlements (see iOS setup)

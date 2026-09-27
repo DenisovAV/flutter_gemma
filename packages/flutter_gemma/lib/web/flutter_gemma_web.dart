@@ -136,6 +136,12 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
       maxConcurrentSessions: maxConcurrentSessions,
       loraRanks: loraRanks,
     );
+    if (activationDataType != null) {
+      gemmaLog(
+        '[FlutterGemmaWeb] activationDataType (${activationDataType.name}) is '
+        'not supported on web — no web engine has the setting; ignoring.',
+      );
+    }
     final engine = EngineRegistry.instance.findFor(spec);
     if (engine == null) {
       throw StateError(

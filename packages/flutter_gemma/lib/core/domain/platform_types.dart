@@ -52,7 +52,13 @@ enum PreferredBackend {
 ///
 /// The CPU and NPU executors do not read the setting, and it reaches the text
 /// decoder only — the vision and audio encoders keep the model's own. MediaPipe,
-/// ONNX, built-in AI and the web engines ignore it.
+/// ONNX, built-in AI and the web engines ignore it, and so does any
+/// `flutter_gemma_litertlm` before 1.8.3.
+///
+/// On a phone the GPU shares system memory, so running out of it at [float32]
+/// can end the app rather than fall back to CPU. The compiled GPU cache is one
+/// file per model for both precisions: pick one per install instead of
+/// switching per request, which rebuilds gigabytes of cache every time.
 enum ActivationDataType { float32, float16 }
 
 /// A single retrieval hit from a vector store query.

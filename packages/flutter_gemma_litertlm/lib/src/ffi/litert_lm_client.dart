@@ -784,7 +784,11 @@ class LiteRtLmFfiClient {
           settings,
           activationDataType,
         );
-        gemmaLog('[LiteRtLmFfi] activation_data_type=$activationDataType');
+        gemmaLog(
+          '[LiteRtLmFfi] activation_data_type=$activationDataType '
+          '(${_activationName(activationDataType)}, backend=$backend; only the '
+          'GPU executor reads it)',
+        );
       }
 
       // Windows NPU: point LiteRT at the directory containing
@@ -926,7 +930,11 @@ class LiteRtLmFfiClient {
           );
         }
         throw Exception(
-          'Failed to create engine. Model may be invalid: $modelPath',
+          'Failed to create engine. Model may be invalid: $modelPath'
+          '${activationDataType == null ? '' : ' (requested activation type '
+                    '${_activationName(activationDataType)} on "$backend": '
+                    'float32 needs more GPU memory than the default — try '
+                    'without activationDataType, or a smaller maxTokens)'}',
         );
       }
 
@@ -2052,3 +2060,10 @@ class LiteRtLmFfiClient {
     }
   }
 }
+
+/// Name of a LiteRT-LM activation wire value, for logs and errors.
+String _activationName(int value) => switch (value) {
+  0 => 'float32',
+  1 => 'float16',
+  _ => 'type $value',
+};

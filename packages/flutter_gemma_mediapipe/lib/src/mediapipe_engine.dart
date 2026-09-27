@@ -1,4 +1,5 @@
 import 'package:flutter_gemma/core/model.dart' show ModelFileType;
+import 'package:flutter_gemma/core/utils/gemma_log.dart';
 import 'package:flutter_gemma/core/registry/inference_engine_provider.dart';
 import 'package:flutter_gemma/core/registry/runtime_config.dart';
 import 'package:flutter_gemma/flutter_gemma_interface.dart'
@@ -34,6 +35,13 @@ class MediaPipeEngine implements InferenceEngineProvider {
     InferenceModelSpec spec,
     RuntimeConfig config,
   ) async {
+    if (config.activationDataType != null) {
+      gemmaLog(
+        '[MediaPipe] activationDataType (${config.activationDataType!.name}) '
+        'is read only by the native .litertlm engine; ignoring. Declare '
+        'fileType: ModelFileType.litertlm when installing a .litertlm model.',
+      );
+    }
     await platformService.createModel(
       maxTokens: config.maxTokens,
       modelPath: config.modelPath,

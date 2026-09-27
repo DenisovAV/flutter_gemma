@@ -160,6 +160,14 @@ setting — and so do MediaPipe, ONNX and built-in AI. On the engines that read
 it, it reaches the text decoder only: the vision and audio encoders keep the
 type the model file asks for.
 
+It needs `flutter_gemma_litertlm` 1.8.3 or later; older versions accept the
+argument and ignore it.
+
+On Android the GPU shares system memory, so on a 4–6 GB phone running out of it
+at `float32` can end the app instead of falling back. The compiled GPU cache is
+one file per model for both precisions, so choose one precision per install
+rather than switching per request — every switch rebuilds gigabytes of cache.
+
 `float32` activations also need more GPU memory than `float16`. If the GPU
 engine cannot be created the model falls back to CPU **without an error** — the
 digits are then right and the model is far slower, which is easy to mistake for

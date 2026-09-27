@@ -62,6 +62,7 @@
 /// Run, native:
 ///   flutter test integration_test/activation_data_type_test.dart -d <device>
 ///   Android: add --dart-define=GEMMA4=E4B
+///   The iOS Simulator skips both tests: it has no GPU backend.
 ///
 /// Run, web — from `example/`, with `chromedriver --port=4444` up:
 ///   flutter drive \
@@ -110,6 +111,9 @@ Future<void> _install() => _installed ??= () async {
     modelType: ModelType.gemma4,
     fileType: ModelFileType.litertlm,
   );
+  // Say which file ran: a model pushed for another variant (Android wants
+  // E4B) is not found under this name, and the run downloads this one instead.
+  debugPrint('[setup] Gemma 4 $_variant from ${local ?? _url}');
   if (local != null) {
     await builder.fromFile(local).install();
   } else {
@@ -303,6 +307,9 @@ double _mean(List<double> values) =>
 /// Null when that test was skipped or never reported any.
 List<double>? _defaultTtftMs;
 
+/// Whether the default run showed the bug. Null when it did not run.
+bool? _defaultShowedBug;
+
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
@@ -312,6 +319,7 @@ void main() {
       await _install();
       final run = await _askAll(null);
       if (run.ttftMs.isNotEmpty) _defaultTtftMs = run.ttftMs;
+      _defaultShowedBug = run.bad.isNotEmpty;
       debugPrint(
         run.bad.isEmpty
             ? '[default] every answer copied figures, none of them invented: '
@@ -321,6 +329,8 @@ void main() {
                   '[default]   ${run.bad.join('\n[default]   ')}',
       );
     },
+    // The simulator has no GPU backend, so the GPU assertion would always fail.
+    skip: isIosSimulator,
     timeout: const Timeout(Duration(minutes: 30)),
   );
 
@@ -335,6 +345,27 @@ void main() {
       // the bug — or a build where the setter call was dropped — passes just as
       // green as a real fix.
       final before = _defaultTtftMs;
+      // A floor that was asked for must be checked: without one of these a
+      // single-test run, an early default failure or a typo would pass green.
+      if (_minPrefillRatio.isNotEmpty) {
+        expect(
+          double.tryParse(_minPrefillRatio),
+          isNotNull,
+          reason: 'MIN_PREFILL_RATIO="$_minPrefillRatio" is not a number',
+        );
+        expect(
+          before,
+          isNotNull,
+          reason:
+              'MIN_PREFILL_RATIO needs the default test to run first in the '
+              'same invocation and report its times to first token',
+        );
+        expect(
+          run.ttftMs,
+          isNotEmpty,
+          reason: 'the float32 run reported no time to first token',
+        );
+      }
       if (before != null && run.ttftMs.isNotEmpty) {
         final ratio = _mean(run.ttftMs) / _mean(before);
         debugPrint(
@@ -348,10 +379,17 @@ void main() {
       }
 
       expect(run.bad, isEmpty);
+      if (_defaultShowedBug == false && _minPrefillRatio.isEmpty) {
+        debugPrint(
+          '[float32] INCONCLUSIVE: the default precision was clean on this '
+          'GPU too, so this pass does not show that float32 fixed anything. '
+          'Rerun on a device that shows the bug, or pass MIN_PREFILL_RATIO.',
+        );
+      }
     },
     // The web engine does not read activationDataType, so this would run the
-    // default again.
-    skip: kIsWeb,
+    // default again; the simulator has no GPU backend.
+    skip: kIsWeb || isIosSimulator,
     timeout: const Timeout(Duration(minutes: 30)),
   );
 }

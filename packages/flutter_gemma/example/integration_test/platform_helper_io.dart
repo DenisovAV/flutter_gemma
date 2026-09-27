@@ -16,3 +16,11 @@ bool get isLinux => io.Platform.isLinux;
 /// is probe-proven on Windows WebView2 — only the test harness is incompatible —
 /// so the L2 real-webview scenarios are skipped here, not failed.
 bool get isWindows => io.Platform.isWindows;
+
+/// True on the iOS Simulator, which has no GPU backend for LiteRT-LM (Metal on
+/// the simulator caps a single allocation at 256 MB), so a GPU run there always
+/// falls back to CPU. CoreSimulator sets this variable in simulator processes
+/// only.
+bool get isIosSimulator =>
+    io.Platform.isIOS &&
+    io.Platform.environment.containsKey('SIMULATOR_DEVICE_NAME');

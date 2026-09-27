@@ -52,7 +52,14 @@ enum PreferredBackend {
 ///
 /// The CPU and NPU executors do not read the setting, and it reaches the text
 /// decoder only — the vision and audio encoders keep the model's own. MediaPipe,
-/// ONNX, built-in AI and the web engines ignore it.
+/// ONNX, built-in AI and the web engines ignore it, and so does any
+/// `flutter_gemma_litertlm` before 1.8.3.
+///
+/// On Android the GPU shares system memory, so on a 4–6 GB phone running out
+/// of it at [float32] can end the app rather than fall back to CPU. Both
+/// precisions share one compiled GPU program cache per model, so switching
+/// recompiles the GPU programs (about 600 MB for Gemma 4 E2B): pick one
+/// precision per install rather than per request.
 enum ActivationDataType { float32, float16 }
 
 /// A single retrieval hit from a vector store query.

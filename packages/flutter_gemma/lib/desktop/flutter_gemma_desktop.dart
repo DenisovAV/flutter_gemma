@@ -1,5 +1,7 @@
 import 'dart:async';
+
 import 'package:flutter_gemma/core/utils/gemma_log.dart';
+
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -107,8 +109,7 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
   // TTS model
   Completer<SpeechSynthesizer>? _initTtsCompleter;
   SpeechSynthesizer? _initializedTtsModel;
-  TtsModelSpec?
-  _lastActiveTtsSpec; // Track which spec was used to create _initializedTtsModel
+  TtsModelSpec? _lastActiveTtsSpec; // Track which spec was used to create _initializedTtsModel
   // The `language` the active singleton was built with, NORMALIZED
   // ([_normalizeTtsLanguage] — defaulted + lowercased) so a same-effective-
   // language request compared raw-to-raw (e.g. null vs. 'english', or
@@ -374,6 +375,14 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
           'Add the engine package to pubspec.yaml and pass it in inferenceEngines: '
           'of FlutterGemma.initialize(...). Registered engines: '
           '${EngineRegistry.instance.registered.map((e) => e.name).join(", ")}.',
+        );
+      }
+      if (activationDataType != null &&
+          spec.fileType != ModelFileType.litertlm) {
+        gemmaLog(
+          '[FlutterGemma] activationDataType (${activationDataType.name}) is '
+          'read only by the .litertlm engine; ${engine.name} ignores it for '
+          'ModelFileType.${spec.fileType.name}.',
         );
       }
       final model = await engine.createModel(spec, config);

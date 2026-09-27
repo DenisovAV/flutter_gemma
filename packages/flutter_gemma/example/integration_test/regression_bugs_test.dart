@@ -613,7 +613,9 @@ void main() {
     // Android-only on .litertlm". Both halves of that premise are now false.
     //
     //   * Windows NPU is supported (Intel LunarLake/PantherLake), with the
-    //     dispatch stack bundled in the Windows native archive since 0.15.1.
+    //     dispatch stack bundled in the Windows native archive since 0.15.1 —
+    //     on Intel NPU silicon. A Windows PC without one is still offered npu
+    //     and has been measured reporting it; see `hostShipsNpuDispatch`.
     //   * `PreferredBackend`'s own contract promises a fallback: "[gpu] and
     //     [npu] fall back if unavailable". `ffiBackendFallbackOrder(npu)` is
     //     [npu, gpu, cpu] where an NPU dispatch stack can run (Windows, and

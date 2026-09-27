@@ -20,6 +20,15 @@ import 'package:flutter_gemma/core/domain/platform_types.dart';
 /// `InferenceModel.activeBackend` promises to "reflect any fallback the plugin
 /// performed internally", so that was a false report: a benchmark asking for
 /// NPU attributed its CPU or GPU numbers to an NPU the machine does not have.
+///
+/// Windows is still gated per OS, and that is known to be too coarse.
+/// Measured 2026-09-27 on a Windows Server VM with no NPU (Xeon + T4): a
+/// generic Gemma 4 E2B requested on npu passed `engine_create`, answered
+/// correctly and reported `npu` — faster than explicit cpu, so it ran
+/// somewhere else. Android got a hardware probe ([_androidHasFastRpc]);
+/// Windows has none yet because its positive arm can only be verified on
+/// Intel NPU silicon, and a probe guessed without that could switch off the
+/// NPU on the machines that have one.
 bool get hostShipsNpuDispatch {
   final os = Platform.operatingSystem;
   // `&&`, so the probe runs on Android only. As a plain argument it was
@@ -46,7 +55,7 @@ bool npuDispatchShipsFor(
   String operatingSystem, {
   required bool androidHasFastRpc,
 }) => switch (operatingSystem) {
-  'windows' => true,
+  'windows' => true, // Per OS, knowingly too coarse — see hostShipsNpuDispatch.
   'android' => androidHasFastRpc,
   _ => false,
 };

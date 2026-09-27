@@ -21,6 +21,10 @@ import 'package:meta/meta.dart' show immutable;
 ///   nothing for MediaTek or Google Tensor) and Windows (Intel
 ///   LunarLake/PantherLake). Asking for it elsewhere falls back rather than
 ///   throwing; read `InferenceModel.activeBackend` for what actually ran.
+///   On Windows the check is per OS, not per device: a PC without an Intel
+///   NPU is still offered npu, and has been measured reporting
+///   `activeBackend == npu` while running elsewhere. There, npu is a request,
+///   not a proof.
 ///
 /// [gpu] and [npu] fall back if unavailable — GPU, then CPU. [cpu] does not
 /// fall back: it is the last resort already.

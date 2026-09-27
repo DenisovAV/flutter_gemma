@@ -21,6 +21,28 @@ class WebEmbeddingModel extends EmbeddingModel with CloseNotifier {
   /// Static because the runtime is one per page, not one per model.
   static String? _loadedWasmPath;
 
+  /// Every load and every dispose of the page's LiteRT.js embedding state, in
+  /// the order they were CALLED, across all instances.
+  ///
+  /// That state is one per page (`tfliteModel`, `tokenizer` and
+  /// `isInitialized` in litert_embeddings.js); `_isInitialized` is one per
+  /// instance. Without a page-wide order, a model closed during its first load
+  /// and a replacement built straight after raced: the old close waited for its
+  /// load, then disposed the state the NEW model had just loaded, and the new
+  /// model — still `_isInitialized` — never loaded again. `EmbedderCache`
+  /// builds that replacement as soon as the old model reports `isClosed`, and
+  /// cannot know the two share a page; only the owner of the state can.
+  static Future<void> _pageLane = Future<void>.value();
+
+  /// Same shape as `EmbedderCache.serialize`: the lane advances on a gate of
+  /// its own, so [op]'s failure still reaches whoever awaits it.
+  static Future<void> _onPage(Future<void> Function() op) {
+    final previous = _pageLane;
+    final gate = Completer<void>();
+    _pageLane = gate.future;
+    return previous.then((_) => op()).whenComplete(gate.complete);
+  }
+
   final VoidCallback onClose;
   final String? _modelPath;
   final String? _tokenizerPath;
@@ -60,13 +82,16 @@ class WebEmbeddingModel extends EmbeddingModel with CloseNotifier {
   /// keeping.
   Future<void> _ensureInitialized() {
     if (_isInitialized) return Future<void>.value();
-    return _initFuture ??= _doInitialize().onError<Object>((e, st) {
+    return _initFuture ??= _onPage(_doInitialize).onError<Object>((e, st) {
       _initFuture = null;
       Error.throwWithStackTrace(e, st);
     });
   }
 
   Future<void> _doInitialize() async {
+    // Closed while queued behind another model's load or dispose: loading now
+    // would only be disposed by the close already queued behind this.
+    if (_isClosed) return;
     if (_modelPath == null || _tokenizerPath == null) {
       throw StateError(
         'Model and tokenizer paths must be provided. Use createEmbeddingModel with modelPath and tokenizerPath parameters.',
@@ -109,6 +134,9 @@ class WebEmbeddingModel extends EmbeddingModel with CloseNotifier {
   }) async {
     _assertNotClosed();
     await _ensureInitialized();
+    // Re-checked: a close that landed during the load has queued a dispose, and
+    // a JS call made now would run on state that is about to be deleted.
+    _assertNotClosed();
 
     try {
       if (taskType == TaskType.retrievalDocument) {
@@ -130,6 +158,9 @@ class WebEmbeddingModel extends EmbeddingModel with CloseNotifier {
   }) async {
     _assertNotClosed();
     await _ensureInitialized();
+    // Re-checked: a close that landed during the load has queued a dispose, and
+    // a JS call made now would run on state that is about to be deleted.
+    _assertNotClosed();
 
     try {
       if (taskType == TaskType.retrievalDocument) {
@@ -177,19 +208,11 @@ class WebEmbeddingModel extends EmbeddingModel with CloseNotifier {
 
     _isClosed = true;
 
-    // Awaited, not just gated on the flag: a close arriving while the init is
-    // still in flight used to skip dispose entirely and leak the JS model.
-    final inFlight = _initFuture;
-    if (inFlight != null) {
-      try {
-        await inFlight;
-      } catch (_) {
-        // Its failure belongs to whoever asked for the embedding.
-      }
-    }
-
-    // Cleanup LiteRT resources
-    if (_isInitialized) {
+    // Queued NOW, not after awaiting this model's own load: behind any load
+    // already in flight — its own included, so that one is never leaked — and
+    // ahead of any load a replacement starts after this call.
+    await _onPage(() async {
+      if (!_isInitialized) return;
       try {
         await LiteRTWebEmbeddings.dispose();
         if (kDebugMode) {
@@ -200,7 +223,7 @@ class WebEmbeddingModel extends EmbeddingModel with CloseNotifier {
           gemmaLog('⚠️  Warning: Failed to dispose LiteRT embeddings: $e');
         }
       }
-    }
+    });
 
     onClose();
     fireCloseListeners();

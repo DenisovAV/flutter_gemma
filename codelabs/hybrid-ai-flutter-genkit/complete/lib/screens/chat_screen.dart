@@ -27,6 +27,10 @@ class _ChatScreenState extends State<ChatScreen> {
   String _statusMessage = 'Initializing...';
 
   bool _ragReady = false;
+  // Set on web only — on-device embeddings need LiteRT.js's WASM runtime,
+  // which no published package ships yet (see AiEngine.initialize). Read by
+  // the banner in build() so RAG shows as unavailable, not silently absent.
+  String? _ragUnavailableReason;
 
   late final AiEngine _engine;
   RagService? _ragService;
@@ -65,6 +69,11 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     if (_engine.localReady) {
+      // Web takes the same path as native now: flutter_gemma_litertlm 1.8.0
+      // ships the LiteRT.js bundle this app copies into web/, and the tokenizer
+      // comes from the `embeddingTokenizers:` AiEngine registers. A real
+      // failure still surfaces through the banner below rather than leaving
+      // RAG silently off.
       try {
         if (mounted) setState(() => _statusMessage = 'Setting up RAG...');
         final rag = RagService(
@@ -80,6 +89,7 @@ class _ChatScreenState extends State<ChatScreen> {
         _ragReady = true;
       } catch (e) {
         debugPrint('RAG init failed: $e');
+        _ragUnavailableReason = '$e';
       }
     }
 
@@ -302,6 +312,31 @@ class _ChatScreenState extends State<ChatScreen> {
               },
             ),
           ),
+          if (_ragUnavailableReason != null)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    size: 16,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'RAG unavailable: $_ragUnavailableReason',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           if (_lastRagSources.isNotEmpty)
             Container(
               width: double.infinity,

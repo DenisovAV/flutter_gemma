@@ -1,3 +1,6 @@
+## 0.4.0
+- No longer depends on `flutter_gemma_embeddings`; asks core for a tokenizer, so register `embeddingTokenizers:`.
+
 ## 0.3.3
 - Prefer `pooler_output` over `last_hidden_state`; re-index corpora from any graph exposing both.
 - Refuse a SigLIP2 `tokenizer.json` instead of embedding it with Gemma's convention.

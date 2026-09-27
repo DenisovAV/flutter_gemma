@@ -47,11 +47,15 @@ Web inference is an early preview — see the
 
 As of 1.5.0 this package also ships the LiteRT C API embedding backend
 (`LiteRtEmbeddingBackend`, Gecko / EmbeddingGemma `.tflite` — moved here from
-`flutter_gemma_embeddings`, which is now a runtime-agnostic pipeline with no
-concrete backend of its own):
+`flutter_gemma_embeddings`, which now supplies the tokenizers this backend asks
+core for):
 
 ```dart
+import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
+import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
+
 await FlutterGemma.initialize(
   embeddingBackends: [LiteRtEmbeddingBackend()],
+  embeddingTokenizers: [GemmaEmbeddingTokenizers()],
 );
 ```

@@ -24,7 +24,8 @@ want, and the platform owns the weights.
 > Microsoft's own model, Phi-4-mini: the same calls, a different model. **Windows and Linux have no OS
 > built-in model** (no ML Kit, no Apple Foundation Models, no browser Prompt API
 > in a Flutter desktop app) — there `availability()` reports
-> `unavailableDeviceUnsupported`, and you fall back to a downloaded model
+> `unavailableDeviceUnsupported` (0.2.2+; earlier versions throw a
+> `PlatformException`), and you fall back to a downloaded model
 > (see [the fallback pattern](#the-fallback-pattern)).
 
 Availability is a runtime property of the device/OS/browser — never assume it at
@@ -147,7 +148,7 @@ final response = await session.getResponse();
 |---------|------------------------|-------------------------|--------------------------|
 | Streaming | ✅ | ✅ | ✅ |
 | Function calling | ✅ prompt-based | ✅ prompt-based | ✅ prompt-based |
-| Vision (image input) | ✅ | ✅ on OS 27+ (text-only on OS 26) | ❌ (v1, tracked) |
+| Vision (image input) | ✅ | ❌ — image input needs the OS 27 SDK; this build targets OS 26 | ❌ (v1, tracked) |
 | Audio · Thinking · LoRA | ❌ | ❌ | ❌ |
 | `sizeInTokens` | ✅ native count | ✅ on OS 26.4+, built with Xcode 26.4+ (estimate otherwise) | ✅ `measureContextUsage` |
 

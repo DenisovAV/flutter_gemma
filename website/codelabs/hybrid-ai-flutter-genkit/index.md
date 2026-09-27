@@ -76,11 +76,15 @@ Six increments, each a directory you can open and run:
 - Flutter 3.44 or newer
 - A GEMINI_API_KEY from [aistudio.google.com](https://aistudio.google.com)
 - A HuggingFace account (for model downloads)
-- Any one of Flutter's six platforms: an Android device or emulator, an iOS
-  device or simulator, an Apple-silicon Mac, a Windows or Linux desktop, or
-  Chrome. The same code runs on all of them — Step 3 lists the handful of
-  things each one asks of you
-- ~1 GB free disk space (for the AI model)
+- Any one of Flutter's six platforms: an arm64 Android device or emulator
+  (libLiteRtLm is arm64-only — an Apple-silicon Mac's emulator qualifies), an
+  iOS device or simulator, an Apple-silicon Mac, a Windows or Linux desktop, or
+  Chrome. The same code runs on all of them through Step 4 — Step 3 lists the
+  handful of things each one asks of you — including Step 5's embeddings and
+  the RAG Step 6 builds on them, which run on Chrome too
+- ~1 GB free disk space for the on-device LLM plus EmbeddingGemma on native;
+  on web the LLM alone is a 2.0 GB build (Step 3 explains why it's a
+  different, larger model there), plus EmbeddingGemma on top
 
 ### Architecture
 
@@ -97,6 +101,12 @@ Six increments, each a directory you can open and run:
 │                  │    (kOnDevice)        │
 └──────────────────┴───────────────────────┘
 ```
+
+On the web, `kOnDevice` is a different, larger model — Gemma 3 1B has no
+browser build, so `AiEngine` installs Gemma 4 E2B's web export instead. Step 3
+covers why. EmbeddingGemma is part of that plugin only off web — Step 5
+explains why on-device embeddings, and the RAG built on them, don't run in a
+browser yet.
 
 `genkit_hybrid` composes both branches into one routable `Model` —
 `hybridModel()` / `cascadeModel()` — selected by a `PolicyMode`: cloud, local,
@@ -332,11 +342,12 @@ defaultConfig {
 	<true/>
 ```
 
-Point the Runner target at that file in Xcode's **Signing & Capabilities**
-editor. The keys lift the per-process memory ceiling iOS imposes: half a
-gigabyte of weights plus a KV cache is comfortably over the default jetsam
-limit on an older iPhone, and the kill that follows has no Dart-visible error —
-the app simply disappears.
+Every step app already ships that file with the Runner target pointed at it, so
+there is nothing to wire up here — in your own project you select it in Xcode's
+**Signing & Capabilities** editor. The keys lift the per-process memory ceiling
+iOS imposes: half a gigabyte of weights plus a KV cache is comfortably over the
+default jetsam limit on an older iPhone, and the kill that follows has no
+Dart-visible error — the app simply disappears.
 
 **macOS** — two entitlements and one build phase. The entitlements go in
 **both** `macos/Runner/DebugProfile.entitlements` and
@@ -372,20 +383,19 @@ and nothing is staged. Either turn SPM off with
 plugin in the app.
 
 **Windows** — nothing in the app, and x86_64 only: there is no Windows arm64
-build of the runtime. The machine needs the Microsoft Visual C++
-Redistributable (2019 or newer), which the DirectX shader compiler behind the
-GPU backend links against.
+build of the runtime. Nothing needs installing: nothing in the bundle needs a C++
+runtime the machine does not already have.
 
 **Linux** — nothing in the app either. glibc 2.34 or newer, which means Ubuntu
 22.04+, Debian 12+ or RHEL 9+; building a Flutter Linux app at all also wants
 `clang cmake ninja-build libgtk-3-dev lld`, and `flutter doctor` names whichever
 of those you are missing.
 
-**Web** — one script tag. The on-device arm loads the runtime from a CDN, and
-that ES module assigns no window globals — module scripts are deferred, so Dart
-would reach the engine before the constructor exists. `web/index.html`
-publishes a promise instead, and Dart awaits it. Every step app from this one
-on carries it in `<head>`:
+**Web** — three script tags, plus one line in `initialize()`. The on-device
+arm loads the runtime from a CDN, and that ES module assigns no window
+globals — module scripts are deferred, so Dart would reach the engine before
+the constructor exists. `web/index.html` publishes a promise instead, and
+Dart awaits it. Every step app from this one on carries it in `<head>`:
 
 ```html
 <script type="module">
@@ -395,7 +405,44 @@ window.litertLmReady = (async () => {
   return m.Engine;
 })();
 </script>
+
+  <!-- Cache API for persistent storage -->
+  <script src="cache_api.js"></script>
+
+  <!-- OPFS Helper for large model streaming (>2GB) -->
+  <script src="opfs_helper.js"></script>
 ```
+
+`cache_api.js` and `opfs_helper.js` are copied byte-for-byte from the
+`flutter_gemma` package's own `web/` directory — `installModel()` (and, in
+general, `installEmbedder()`) call into them (via `window.cachePut` and
+friends) to put model bytes into browser storage. Without them a web model
+install fails. Copy both files into your app's `web/` directory alongside
+`index.html`. Browser storage is not a permanent install, though: the bytes
+survive a reload, the app's in-memory handle on them does not, so a reloaded
+tab still reports the model installed and fetches it again. This app never
+calls `installEmbedder()` on web, though — Step 5 explains why.
+
+The matching Dart-side change is `webStorageMode: WebStorageMode.streaming`
+on `FlutterGemma.initialize()`, and size is the reason for it: streaming
+hands `@litert-lm/core` a ReadableStream out of OPFS instead of buffering the
+download into one blob, which browsers cap at roughly 2 GB — Chrome refuses
+past it with `ERR_BLOB_OUT_OF_MEMORY`. Native platforms ignore the option.
+
+The model itself changes on the web, and for a different reason than that
+size limit. `@litert-lm/core` only runs dedicated web builds, and Gemma 3
+1B — the model every native platform uses — has none: installing the native
+file and creating an engine from it fails with
+`Error: Streaming kTfLitePrefillDecode models is not supported yet.` So on
+the web this app installs Gemma 4 E2B's web build instead
+(`gemma-4-E2B-it-web.litertlm`, 2.0 GB — right on the ~2 GB blob limit that
+streaming mode exists to sidestep, which is why streaming earns its keep here
+and never had to on the ~0.6 GB native file), from the same ungated
+`litert-community/gemma-4-E2B-it-litert-lm` repository the
+[Multimodal](/codelabs/multimodal-flutter-gemma) codelab uses — no token
+required for it. `LocalAIService` and `AiEngine` below both switch `_hfRepo`,
+`_hfModelFile`, and the `ModelType` passed to `installModel` and
+`FlutterGemmaModelConfig` on `kIsWeb`; native keeps Gemma 3 1B unchanged.
 
 The web arm is an early preview: WebGPU, and text only. That matters for one
 policy in particular — an image on **Smart** still routes to the cloud, which
@@ -407,11 +454,14 @@ Add `genkit_flutter_gemma` and `flutter_gemma`:
 
 ```yaml
   # Step 3: On-device AI (LiteRT-LM engine)
-  genkit_flutter_gemma: ^0.6.0
-  flutter_gemma: ^1.8.1
+  genkit_flutter_gemma: ^0.6.1
+  flutter_gemma: ^1.9.0
   # flutter_gemma 1.x registers no engine by default — opt into LiteRT-LM
   # (.litertlm inference) here.
-  flutter_gemma_litertlm: ^1.6.3
+  flutter_gemma_litertlm: ^1.8.0
+  # Step 5 embeds your documents. The engine above runs the forward pass;
+  # this package supplies the tokenizers it needs.
+  flutter_gemma_embeddings: ^2.2.0
 ```
 
 Run `flutter pub get`.
@@ -419,13 +469,17 @@ Run `flutter pub get`.
 ### Get a HuggingFace token
 
 Go to [huggingface.co](https://huggingface.co), sign in, and create a
-read-access token at **Settings → Access Tokens**.
+read-access token at **Settings → Access Tokens**. Native platforms need it
+because `litert-community/Gemma3-1B-IT` is gated; on the web, the app
+installs Gemma 4 E2B's web build from an ungated repository instead (see the
+Web setup above), so the token is optional there.
 
 ### Create LocalAIService
 
 Create `lib/services/local_ai_service.dart`:
 
 ```dart
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 import 'package:genkit/genkit.dart';
@@ -433,14 +487,17 @@ import 'package:genkit_flutter_gemma/genkit_flutter_gemma.dart';
 
 import 'ai_service.dart';
 
-// The on-device LLM installs straight from Hugging Face by repo + file.
-const String _hfRepo = 'litert-community/Gemma3-1B-IT';
-const String _hfModelFile =
-    'Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm';
-const String _embeddingModelUrl =
-    'https://huggingface.co/litert-community/embeddinggemma-300m/resolve/main/embeddinggemma-300M_seq256_mixed-precision.tflite';
-const String _tokenizerUrl =
-    'https://huggingface.co/litert-community/embeddinggemma-300m/resolve/main/sentencepiece.model';
+// The on-device LLM installs straight from Hugging Face by repo + file. The
+// browser engine only runs dedicated web builds — Gemma 3 1B has none — so on
+// web this installs Gemma 4 E2B's public web build instead (~2.0 GB, vs
+// ~0.6 GB for the gated native file).
+const String _hfRepo = kIsWeb
+    ? 'litert-community/gemma-4-E2B-it-litert-lm'
+    : 'litert-community/Gemma3-1B-IT';
+const String _hfModelFile = kIsWeb
+    ? 'gemma-4-E2B-it-web.litertlm'
+    : 'Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm';
+const ModelType _modelType = kIsWeb ? ModelType.gemma4 : ModelType.gemmaIt;
 
 // Pass at build time: flutter run --dart-define=HF_TOKEN=hf_xxx
 const String _hfToken = String.fromEnvironment('HF_TOKEN');
@@ -468,11 +525,18 @@ class LocalAIService implements AIService {
     if (_isInitialized) return;
 
     // flutter_gemma 1.x registers no engine by default — opt into LiteRT-LM.
-    await FlutterGemma.initialize(inferenceEngines: [LiteRtLmEngine()]);
+    // `webStorageMode: streaming` (OPFS-backed) is what the size demands: the
+    // 2.0 GB web build sits right on the ~2 GB blob ceiling the default
+    // cacheApi mode would have to buffer it into, so the @litert-lm/core
+    // engine reads it from OPFS as a ReadableStream. Ignored on non-web.
+    await FlutterGemma.initialize(
+      webStorageMode: WebStorageMode.streaming,
+      inferenceEngines: [LiteRtLmEngine()],
+    );
 
     // Download the .litertlm model (skipped if already installed).
     await FlutterGemma.installModel(
-          modelType: ModelType.gemmaIt,
+          modelType: _modelType,
           fileType: ModelFileType.litertlm,
         )
         .fromHuggingFace(
@@ -483,16 +547,12 @@ class LocalAIService implements AIService {
         .withProgress((p) => onProgress?.call(p)) // p is int 0..100
         .install();
 
-    await FlutterGemma.installEmbedder()
-        .modelFromNetwork(
-          _embeddingModelUrl,
-          token: _hfToken.isNotEmpty ? _hfToken : null,
-        )
-        .tokenizerFromNetwork(
-          _tokenizerUrl,
-          token: _hfToken.isNotEmpty ? _hfToken : null,
-        )
-        .install();
+    // No installEmbedder() call here: this app never computes an embedding
+    // (RagService doesn't exist until Step 6, by which point this whole
+    // file is retired — see Step 4) and initialize() registers no embedding
+    // backend either, so downloading the ~300 MB model here would just be
+    // wasted bandwidth. embedderName/embedders below stay purely
+    // declarative, ready for Step 4's AiEngine to actually install it.
 
     // One Genkit instance for both inference and embeddings.
     _ai = Genkit(
@@ -501,7 +561,7 @@ class LocalAIService implements AIService {
           models: [
             FlutterGemmaModelConfig(
               name: _modelName,
-              modelType: ModelType.gemmaIt,
+              modelType: _modelType,
               fileType: ModelFileType.litertlm,
             ),
           ],
@@ -533,10 +593,13 @@ class LocalAIService implements AIService {
 }
 ```
 
-Four things in that file belong to Step 5 rather than to this one — the two
-embedding URLs, the `installEmbedder()` call, the `ai` getter and
-`embedderName`. They ship here so that the RAG step is a new file and not a
-second edit of this one; ignore them until then.
+Three things in that file run ahead of this step — the `ai` getter,
+`embedderName`, and the `embedders:` entry in `GenkitFlutterGemmaPlugin`.
+They ship here so that the RAG step is a new file and not a second edit of
+this one; ignore them until then. There's no `installEmbedder()` call to run
+ahead of, though: nothing in this app, now or later in its short life,
+computes an embedding, so there's nothing to gain from downloading one.
+Step 4's `AiEngine` installs it for real, once RAG is actually on the way.
 
 ### Run with HuggingFace token
 
@@ -544,7 +607,8 @@ second edit of this one; ignore them until then.
 flutter run --dart-define=GEMINI_API_KEY=your_key --dart-define=HF_TOKEN=hf_xxx
 ```
 
-The first run downloads ~550 MB. Subsequent runs use the cached model.
+The first run downloads ~550 MB (~2.0 GB on the web, for Gemma 4 E2B instead
+of Gemma 3 1B). Subsequent runs use the cached model.
 
 > **Key insight**: Notice that `generateResponseStream` looks identical to
 > `CloudAIService` — only the `model:` parameter changes. Genkit decouples
@@ -596,8 +660,10 @@ both plugins.
 Create `lib/services/ai_engine.dart`:
 
 ```dart
-import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
+import 'package:flutter/foundation.dart'
+    show debugPrint, kIsWeb, visibleForTesting;
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
 import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 import 'package:genkit/genkit.dart';
 import 'package:genkit/plugin.dart' show GenkitPlugin;
@@ -606,9 +672,17 @@ import 'package:genkit_google_genai/genkit_google_genai.dart';
 import 'package:genkit_hybrid/genkit_hybrid.dart';
 
 // Prod installs the on-device LLM straight from Hugging Face by repo + file
-// (the plugin applies the configured token to gated huggingface.co URLs).
-const _hfRepo = 'litert-community/Gemma3-1B-IT';
-const _hfModelFile = 'Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm';
+// (the plugin applies the configured token to gated huggingface.co URLs). The
+// browser engine only runs dedicated web builds — Gemma 3 1B has none — so on
+// web this installs Gemma 4 E2B's public web build instead (~2.0 GB, vs
+// ~0.6 GB for the gated native file).
+const _hfRepo = kIsWeb
+    ? 'litert-community/gemma-4-E2B-it-litert-lm'
+    : 'litert-community/Gemma3-1B-IT';
+const _hfModelFile = kIsWeb
+    ? 'gemma-4-E2B-it-web.litertlm'
+    : 'Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm';
+const _modelType = kIsWeb ? ModelType.gemma4 : ModelType.gemmaIt;
 const _embeddingModelUrl =
     'https://huggingface.co/litert-community/embeddinggemma-300m/resolve/main/embeddinggemma-300M_seq256_mixed-precision.tflite';
 const _tokenizerUrl =
@@ -720,6 +794,13 @@ class AiEngine {
     // Test seam: skip the embedder download when RAG isn't exercised.
     bool downloadEmbedder = true,
   }) async {
+    // RAG runs on every platform, web included. The four LiteRT.js files in
+    // web/ come from flutter_gemma_litertlm 1.8.0, which is where that bundle
+    // lives; the WASM runtime behind them is fetched from a CDN, so there is
+    // nothing else to host. The only thing left that can turn embeddings off
+    // here is the test seam.
+    final embeddingsSupported = downloadEmbedder;
+
     // Declarative plugin config — always includes the on-device plugin (its
     // models/embedders are looked up by name later, independent of whether
     // the install below actually succeeds).
@@ -729,11 +810,11 @@ class AiEngine {
         models: [
           FlutterGemmaModelConfig(
             name: kLocalModel,
-            modelType: ModelType.gemmaIt,
+            modelType: _modelType,
             fileType: ModelFileType.litertlm,
           ),
         ],
-        embedders: downloadEmbedder
+        embedders: embeddingsSupported
             ? [FlutterGemmaEmbedderConfig(name: kEmbedder)]
             : const [],
       ),
@@ -764,17 +845,28 @@ class AiEngine {
     // now lives inside this try/catch (not before Genkit is built) so an
     // engine-init failure only suppresses localReady, never cloud.
     try {
-      // Opt into LiteRT-LM (.litertlm inference) + its LiteRT embedding
-      // backend.
+      // Opt into LiteRT-LM (.litertlm inference) +, off web, its LiteRT
+      // embedding backend (see embeddingsSupported above). `webStorageMode:
+      // streaming` (OPFS-backed) is what the size demands: the 2.0 GB web
+      // build sits right on the ~2 GB blob ceiling the default cacheApi
+      // mode would have to buffer it into, so the @litert-lm/core engine
+      // reads it from OPFS as a ReadableStream. Ignored on non-web.
       await FlutterGemma.initialize(
+        webStorageMode: WebStorageMode.streaming,
         inferenceEngines: [LiteRtLmEngine()],
-        embeddingBackends: [LiteRtEmbeddingBackend()],
+        embeddingBackends: embeddingsSupported
+            ? [LiteRtEmbeddingBackend()]
+            : const [],
+        // Since flutter_gemma 1.9.0 a backend no longer carries a tokenizer:
+        // which one a model needs is a property of the model, so the app
+        // registers it. Without this the first embedding throws a StateError.
+        embeddingTokenizers: const [GemmaEmbeddingTokenizers()],
       );
 
       // fileType MUST be litertlm to match the LiteRT-LM engine registered
       // above.
       final llm = FlutterGemma.installModel(
-        modelType: ModelType.gemmaIt,
+        modelType: _modelType,
         fileType: ModelFileType.litertlm,
       );
       if (localModelPath != null) {
@@ -798,9 +890,9 @@ class AiEngine {
       localReady = false;
     }
 
-    // EMBEDDER (OPTIONAL): RAG-only, never blocks chat — a failure here must
-    // not flip localReady or rethrow.
-    if (downloadEmbedder && localReady) {
+    // EMBEDDER (OPTIONAL): RAG-only, never blocks chat — a
+    // failure here must not flip localReady or rethrow.
+    if (embeddingsSupported && localReady) {
       try {
         await FlutterGemma.installEmbedder()
             .modelFromNetwork(
@@ -1144,10 +1236,14 @@ if (_attachedImage != null) {
 final userMessage = Message(role: Role.user, content: content);
 ```
 
-`contentType` is the load-bearing detail: `CapabilityStrategy` (below) only
-recognizes a `MediaPart` as vision when its `Media.contentType` starts with
-`image/` — an `image_picker` file with no MIME type falls back to
-`'image/jpeg'` so it's never silently dropped.
+`contentType` is the load-bearing detail for the on-device converter:
+`genkit_flutter_gemma` drops any `MediaPart` whose `Media.contentType` isn't
+set, so an `image_picker` file with no MIME type falls back to
+`'image/jpeg'` rather than being silently dropped. `CapabilityStrategy`
+(below) is more forgiving — it also recognizes vision from a `data:image/…`
+URL or a recognized image file extension — but setting `contentType`
+explicitly is what the on-device plugin requires, so do it regardless of
+which strategy is routing.
 
 ### Smart, Cascade, and Budget
 
@@ -1295,10 +1391,44 @@ Duration: 20
 An embedding turns text into a vector of numbers that captures semantic meaning.
 Similar texts have similar vectors. EmbeddingGemma 300M runs entirely on-device.
 
+### Web setup for embeddings
+
+Copy four files into `web/`, the same way you copied `cache_api.js` and
+`opfs_helper.js` in Step 3:
+
+```
+litert.js   litert_embeddings.js   sentencepiece.js   tensorflow.js
+```
+
+They come from `flutter_gemma_litertlm/web/` — that package has owned the
+LiteRT.js bundle since 1.8.0. Then load the entry point in `web/index.html`:
+
+```html
+<script type="module" src="litert_embeddings.js"></script>
+```
+
+That is the whole web setup. The WASM runtime underneath is fetched from a
+CDN, so there is nothing else to host.
+
+> An earlier version of this codelab told you embeddings could not run in a
+> browser at all. That was true then: the bundle was split across two packages
+> and the WASM runtime it needs was not published anywhere, so the four files
+> loaded without error and had nothing to call underneath them. Both are fixed
+> as of `flutter_gemma_litertlm` 1.8.0.
+
+One thing the app must do on every platform, not just web: register a
+tokenizer. Since `flutter_gemma` 1.9.0 an embedding backend no longer carries
+one — which tokenizer a model needs is a property of the model, not of the
+engine that runs it — so `AiEngine.initialize()` passes
+`embeddingTokenizers: const [GemmaEmbeddingTokenizers()]` beside
+`embeddingBackends:`. Leave it out and the first embedding throws a
+`StateError` naming the package to add.
+
 ### Install the embedding model
 
 This already runs inside `AiEngine.initialize()`, in the optional block after
-the LLM install — a failure there disables RAG and never touches the chat:
+the LLM install, on every platform. A failure disables RAG and never touches
+the chat:
 
 ```dart
 await FlutterGemma.installEmbedder()
@@ -1317,18 +1447,18 @@ await FlutterGemma.installEmbedder()
 
 There's no second `Genkit` to build — `AiEngine` already declared the embedder
 back in Step 4, right next to the on-device model in the *same*
-`GenkitFlutterGemmaPlugin`:
+`GenkitFlutterGemmaPlugin`, gated by the same `embeddingsSupported`:
 
 ```dart
 GenkitFlutterGemmaPlugin(
   models: [
     FlutterGemmaModelConfig(
       name: kLocalModel,
-      modelType: ModelType.gemmaIt,
+      modelType: _modelType,
       fileType: ModelFileType.litertlm,
     ),
   ],
-  embedders: downloadEmbedder
+  embedders: embeddingsSupported
       ? [FlutterGemmaEmbedderConfig(name: kEmbedder)]
       : const [],
 ),
@@ -1406,6 +1536,21 @@ await rag.initialize(
 _ragService = rag;
 _ragReady = true;
 ```
+
+That block runs on every platform. If `RagService.initialize()` throws — a
+missing JS file on web, a failed embedder install on native — the catch records
+the reason instead of swallowing it:
+
+```dart
+} catch (e) {
+  debugPrint('RAG init failed: $e');
+  _ragUnavailableReason = '$e';
+}
+```
+
+`build()` reads `_ragUnavailableReason` and shows a one-line banner under the
+policy picker whenever it's set — RAG shows up as unavailable, with why,
+instead of the toggle just staying disabled with no explanation.
 
 ### Semantic search
 
@@ -1546,6 +1691,9 @@ In `chat_screen.dart`:
 1. Add a `Switch` in the `AppBar` to toggle RAG
 2. In `_sendMessage()`, if RAG is enabled call `searchAndBuildContext(text)` before generating
 3. Display `ragResult.sources` in a banner below the AppBar
+4. Display `_ragUnavailableReason`, when set, in a banner of its own — the
+   `Switch` alone (disabled, unlabeled) doesn't say *why* RAG is off, and on
+   web it always is
 
 ### Test it
 
@@ -1553,6 +1701,10 @@ Try these queries:
 - "What should I eat in Tokyo?" → sources: Tokyo (92%)
 - "Best European city for history?" → sources: Prague (78%), Istanbul (71%)
 - "Tell me about the Eiffel Tower" → sources: Paris (95%)
+
+If RAG fails to initialize on any platform, the `Switch` stays disabled and a
+banner reports the reason rather than leaving the toggle silently off; the
+rest of the app (all five policies, image input) keeps working.
 
 ## Step 7: Polish and Conclusion
 Duration: 10
@@ -1575,8 +1727,8 @@ Duration: 10
 | On-device inference | `genkit_flutter_gemma` → Gemma 3 1B |
 | Hybrid routing | `genkit_hybrid` — `hybridModel`/`cascadeModel` (cloud, local, smart, cascade, budget) |
 | Multimodal input | `image_picker` + `MediaPart`, routed by `CapabilityStrategy` |
-| On-device embeddings | `genkit_flutter_gemma` → EmbeddingGemma 300M |
-| RAG pipeline | Genkit `embed()` + in-memory cosine search |
+| On-device embeddings (native only) | `genkit_flutter_gemma` → EmbeddingGemma 300M |
+| RAG pipeline (native only) | Genkit `embed()` + in-memory cosine search |
 
 ### The Genkit advantage
 

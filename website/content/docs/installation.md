@@ -67,6 +67,7 @@ without this step `getActiveModel()` / `createEmbeddingModel()` throw a clear
 ```dart
 import 'package:flutter/widgets.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
 import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
 import 'package:flutter_gemma_builtin_ai/flutter_gemma_builtin_ai.dart';
@@ -85,7 +86,12 @@ void main() async {
     ],
     // Optional — embeddings (needed for RAG / generateEmbedding):
     embeddingBackends: const [
-      LiteRtEmbeddingBackend(), // flutter_gemma_litertlm (needs flutter_gemma_embeddings too)
+      LiteRtEmbeddingBackend(), // flutter_gemma_litertlm
+    ],
+    // The tokenizer is registered separately — which family a model needs is a
+    // property of the model, not of the engine that runs it.
+    embeddingTokenizers: const [
+      GemmaEmbeddingTokenizers(), // flutter_gemma_embeddings
     ],
     // Optional — on-device speech-to-text:
     sttBackends: const [
@@ -119,8 +125,9 @@ void main() async {
 | `inferenceEngines: [LiteRtLmEngine()]` | `flutter_gemma_litertlm` | `.litertlm` (mobile + desktop + web) |
 | `inferenceEngines: [MediaPipeEngine()]` | `flutter_gemma_mediapipe` | `.task` / `.bin` (mobile + web) |
 | `inferenceEngines: [OnnxEngine()]` | `flutter_gemma_onnx` | ONNX models — ORT-GenAI (FFI, macOS/Linux/Windows/Android/iOS arm64) or Transformers.js (Web) |
-| `embeddingBackends: [LiteRtEmbeddingBackend()]` | `flutter_gemma_litertlm` | text embeddings (needs `flutter_gemma_embeddings` too) |
-| `embeddingBackends: [OnnxEmbeddingBackend()]` | `flutter_gemma_onnx` | text embeddings from ONNX/ORT models (needs `flutter_gemma_embeddings` too) |
+| `embeddingBackends: [LiteRtEmbeddingBackend()]` | `flutter_gemma_litertlm` | text embeddings |
+| `embeddingBackends: [OnnxEmbeddingBackend()]` | `flutter_gemma_onnx` | text embeddings from ONNX/ORT models |
+| `embeddingTokenizers: [GemmaEmbeddingTokenizers()]` | `flutter_gemma_embeddings` | required by BOTH embedding backends above |
 | `sttBackends: [LiteRtSttBackend()]` | `flutter_gemma_speech` | speech-to-text (native only) |
 | `ttsBackends: [LiteRtTtsBackend()]` | `flutter_gemma_speech` | text-to-speech (native only) |
 | `vectorStore: QdrantVectorStore()` | `flutter_gemma_rag_qdrant` | native RAG |
@@ -283,8 +290,9 @@ classes), so it needs no ProGuard rules.
 #### Android architecture support
 
 MediaPipe text inference (`.task` / `.bin`) works on `arm64-v8a`, `x86_64`, and
-`armeabi-v7a`. Everything else (`.litertlm` FFI, embedding via LiteRT FFI, image
-generation) is **`arm64-v8a` only**:
+`armeabi-v7a`. Everything backed by `libLiteRtLm` (`.litertlm` inference,
+including its vision and audio input, embedding via LiteRT FFI, speech) is
+**`arm64-v8a` only**:
 
 | Android feature | arm64-v8a | x86_64 | armeabi-v7a |
 |---|:---:|:---:|:---:|
@@ -292,7 +300,6 @@ generation) is **`arm64-v8a` only**:
 | `.litertlm` (FFI) | ✅ | ❌ | ❌ |
 | Embedding (LiteRT FFI) | ✅ | ❌ | ❌ |
 | Speech STT + TTS (LiteRT FFI) | ✅ | ❌ | ❌ |
-| Image generation (vision) | ✅ | ❌ | ❌ |
 
 If your app uses only the arm64-only features, restrict the build to arm64 so the
 Play Store does not offer broken APKs to incompatible devices:
@@ -314,8 +321,21 @@ be shimmed on older devices. MediaPipe `.task` models work on lower API levels.
 
 ### Web
 
-Web runs on the GPU backend only (MediaPipe has no web CPU backend). Add the CDN
-script(s) for the **engine package(s) you use** to your `web/index.html`.
+On web, MediaPipe ignores `preferredBackend` and always runs on the GPU
+(WebGPU); ONNX honours `PreferredBackend.cpu` by pinning WASM.
+
+**Every web app** needs flutter_gemma's model storage helpers. Copy `cache_api.js`
+and `opfs_helper.js` from the `flutter_gemma` package's `web/` directory into
+your app's `web/` (find the package directory with
+`grep -A1 '"name": "flutter_gemma"' .dart_tool/package_config.json`), then load
+them in `web/index.html`:
+
+```
+<script src="cache_api.js"></script>
+<script src="opfs_helper.js"></script>
+```
+
+Then add the CDN script(s) for the **engine package(s) you use**.
 
 **`flutter_gemma_mediapipe`** (`.task` / `-web.task` models):
 
@@ -368,10 +388,32 @@ window.ortReady = (async () => {
 Only add the shim(s) for the arm(s) you use — `transformersReady` for
 `OnnxEngine`, `ortReady` for `OnnxEmbeddingBackend`.
 
-**`flutter_gemma_rag_sqlite`** (web RAG): add the sqlite-vec loader — a
-`sqlite3.wasm` with the `sqlite-vec` extension statically linked, loaded via
-`package:sqlite3/wasm.dart`. See that package's README for the exact `<script>` +
-Subresource-Integrity hash.
+**`LiteRtEmbeddingBackend`** (web embeddings, `flutter_gemma_litertlm`): runs on
+LiteRT.js, which needs the four files in `flutter_gemma_litertlm`'s `web/`
+copied into your app's `web/`: `litert_embeddings.js`, `sentencepiece.js`,
+`litert.js` and `tensorflow.js`. The first imports the other three by relative
+path — they are one bundle in four pieces — so they sit together and the entry
+module is loaded locally:
+
+```
+<script type="module" src="litert_embeddings.js"></script>
+```
+
+The WASM runtime underneath comes from a pinned CDN copy by default
+(`flutter_gemma_litertlm` 1.8.0+) — nothing else to install. To serve it
+yourself, copy `node_modules/@litertjs/core/wasm/` into `web/wasm/` and set
+`LiteRtWebRuntime.wasmPath = '/wasm/';` before the first embedding. See
+[`flutter_gemma_litertlm`'s embeddings on web](https://pub.dev/packages/flutter_gemma_litertlm#embeddings-on-web).
+
+**`flutter_gemma_rag_sqlite`** (web RAG): no `<script>`. Copy the package's
+`web/rag/sqlite3.wasm` (a `sqlite3.wasm` with `sqlite-vec` statically linked)
+into your app's web root as `rag/sqlite3.wasm`, and serve the app with the
+cross-origin isolation headers OPFS persistence needs:
+
+```
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Embedder-Policy: require-corp
+```
 
 <Info>
 **Model compatibility:** mobile `.task` models often don't work on web — use the

@@ -1,10 +1,60 @@
 import 'package:flutter_gemma/core/function_call_parser.dart';
 import 'package:flutter_gemma/core/model.dart';
 import 'package:flutter_gemma/core/parsing/function_call_format_factory.dart';
+import 'package:flutter_gemma/core/parsing/function_gemma_format.dart';
 import 'package:flutter_gemma/core/parsing/sdk_passthrough_function_call_format.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  group('FunctionGemma: the runtime picks the format', () {
+    test('on .litertlm LiteRT-LM runs its tool calling (SDK passthrough)', () {
+      expect(
+        FunctionCallParser.usesSdkPassthrough(
+          ModelType.functionGemma,
+          fileType: ModelFileType.litertlm,
+        ),
+        isTrue,
+      );
+      expect(
+        FunctionCallFormatFactory.create(
+          ModelType.functionGemma,
+          fileType: ModelFileType.litertlm,
+        ),
+        isA<SdkPassthroughFunctionCallFormat>(),
+      );
+    });
+
+    test('on .task MediaPipe has no native tools (text wire format)', () {
+      expect(
+        FunctionCallParser.usesSdkPassthrough(
+          ModelType.functionGemma,
+          fileType: ModelFileType.task,
+        ),
+        isFalse,
+      );
+      expect(
+        FunctionCallFormatFactory.create(
+          ModelType.functionGemma,
+          fileType: ModelFileType.task,
+        ),
+        isA<FunctionGemmaCallFormat>(),
+      );
+    });
+
+    test('gemma4 is passthrough whatever the file type', () {
+      for (final fileType in [null, ...ModelFileType.values]) {
+        expect(
+          FunctionCallParser.usesSdkPassthrough(
+            ModelType.gemma4,
+            fileType: fileType,
+          ),
+          isTrue,
+          reason: 'gemma4 with fileType $fileType',
+        );
+      }
+    });
+  });
+
   group('FunctionCallParser.usesSdkPassthrough', () {
     test('true for the SDK-passthrough model (gemma4)', () {
       expect(FunctionCallParser.usesSdkPassthrough(ModelType.gemma4), isTrue);

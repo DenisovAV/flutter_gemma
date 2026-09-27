@@ -34,21 +34,22 @@ coverage/
 build/
 devtools_options.yaml
 
-# NPM files in root (should only be in web/rag/)
+# Gradle's per-project state: file-hash caches, .lock files, last-build.bin.
+# Only packages/flutter_gemma/android/ carried a .gitignore for this, so a
+# local Gradle run in any OTHER package's android/ dir left 8 tracked binaries
+# behind — which is exactly how they reached a PR, and they would have shipped
+# in the next flutter_gemma_mediapipe archive (that package has no .pubignore).
+**/.gradle/
+**/local.properties
+
+# NPM files in the repo root — the web bundle build lives in
+# packages/flutter_gemma_litertlm/tool/web_build, never here.
 /package.json
 /package-lock.json
 /vite.config.js
 
-# Web JS files are tracked for CDN distribution
-# Rebuild with: cd web/rag && npm run build && cp dist/* ../
-
-# But keep source files in web/rag/
-!web/rag/
-
 # Node modules
 node_modules/
-web/rag/node_modules/
-web/rag/dist/
 
 # Generated/downloaded models
 **/example/web/models/
@@ -117,3 +118,7 @@ ai-edge-gallery/
 # Python bytecode from .claude/hooks (would keep the publish guard's dirty-tree check permanently non-empty)
 __pycache__/
 *.pyc
+
+# Flutter crash reports — one got committed into a package and shipped to
+# pub.dev inside flutter_gemma_litertlm 1.8.0.
+flutter_*.log

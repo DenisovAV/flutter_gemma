@@ -26,8 +26,9 @@ Installs the agent skills `flutter_gemma` bundles — this package depends on it
 | iOS / macOS | Apple Foundation Models | iPhone 15 Pro+, Apple Silicon (M-series) Macs | Requires Apple Intelligence enabled in **Settings → Apple Intelligence & Siri**. Builds from **iOS 15.0** / macOS 10.15 — every Foundation Models call is availability-gated, so the package links and runs below OS 26 and simply reports unavailable. |
 | Web | Gemini Nano (Chrome **Prompt API**) | Desktop Chrome/Chromium-Edge only | **Not** Chrome-Android/iOS, **not** Firefox/Safari. Floor: ~22 GB free disk + a GPU with >4 GB VRAM (or a 16 GB-RAM CPU-only path). See [Web setup](#web-setup) — the feature is gated behind an origin trial or a local flag as of this writing. |
 
-Vision (image input) requires **OS 27+** on Apple platforms — on OS 26 Apple Foundation Models is
-**text-only**; sending an image throws a platform error instead of being silently ignored. Android
+Vision (image input) is **not available on Apple platforms** in this release: it needs Foundation
+Models' `Attachment`, which only the OS 27 SDK has, and this package builds against the OS 26 SDK.
+Sending an image throws a platform error (`IMAGE_UNSUPPORTED_OS`) instead of being silently ignored. Android
 Gemini Nano supports vision on every supported device. The **Web** arm is **text-only in this
 release** — image/audio input is accepted by the API surface but dropped with a one-time log
 warning (tracked for a follow-up once `expectedInputs:[{type:'image'}]` is verified end-to-end).
@@ -117,7 +118,7 @@ final response = await session.getResponse();
 | Feature | Android (Gemini Nano) | iOS / macOS (Apple FM) | Web (Chrome Prompt API) |
 |---------|------------------------|-------------------------|--------------------------|
 | Streaming responses | ✅ | ✅ | ✅ |
-| Vision (image input) | ✅ | ✅ on OS 27+ only (text-only on OS 26) | ❌ (v1, tracked) |
+| Vision (image input) | ✅ | ❌ — needs the OS 27 SDK; this build targets OS 26 | ❌ (v1, tracked) |
 | Audio input | ❌ | ❌ | ❌ |
 | Function calling | ✅ (prompt-based) | ✅ (prompt-based) | ✅ (prompt-based) |
 | Thinking mode | ❌ | ❌ | ❌ |

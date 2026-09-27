@@ -13,7 +13,15 @@ Future<void> main() async {
 
   // Engines are opt-in: the core registers none, and without LiteRtLmEngine
   // the first getActiveModel() throws a StateError telling you to add one.
-  await FlutterGemma.initialize(inferenceEngines: [LiteRtLmEngine()]);
+  //
+  // `WebStorageMode.streaming` is what the size demands on web: Gemma 4 E2B's
+  // web build is 2.0 GB, right on the ~2 GB blob ceiling the default cacheApi
+  // mode would have to buffer it into, so the @litert-lm/core engine reads it
+  // from OPFS via a ReadableStream. Native platforms ignore this option.
+  await FlutterGemma.initialize(
+    webStorageMode: WebStorageMode.streaming,
+    inferenceEngines: [LiteRtLmEngine()],
+  );
 
   runApp(const SkillsApp());
 }

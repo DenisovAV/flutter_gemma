@@ -575,6 +575,12 @@ FunctionGemma uses a special format (different from JSON-based function calling)
 ```
 
 The `flutter_gemma` plugin handles this format automatically via `FunctionCallParser`.
+This is the `.task` (MediaPipe) path. Since `flutter_gemma` 1.8.4 a `.litertlm`
+FunctionGemma goes through LiteRT-LM's own tool path instead: the runtime renders the
+declarations and returns the call already parsed, and results go back as role-`tool`
+messages. The format above is still what `FunctionCallParser` falls back to when the call
+arrives as text — on the web SDK, or from a `.litertlm` exported without the FunctionGemma
+model type.
 
 9. **🧠 Thinking Mode (DeepSeek, Qwen3 & Gemma 4 Models)**
 

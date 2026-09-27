@@ -93,7 +93,6 @@
 // (`_runQwen3Worker` in `tts_worker.dart`).
 
 import 'dart:ffi';
-import 'dart:io' show Platform;
 import 'dart:math' as math;
 import 'dart:typed_data';
 
@@ -200,28 +199,8 @@ List<List<int>> _readOutputShapes(
   String label,
 ) {
   final shapes = <List<int>>[];
-  if (Platform.isWindows) {
-    final layouts = calloc<LiteRtLayoutMsvc>(count);
-    try {
-      bindings
-          .getOutputTensorLayouts(
-            graph,
-            signatureIndex,
-            count,
-            layouts.cast(),
-            false,
-          )
-          .check('LiteRtGetCompiledModelOutputTensorLayouts($label)');
-      for (var i = 0; i < count; i++) {
-        final s = (layouts + i).ref;
-        final rank = s.rankAndHasStrides & 0x7f;
-        shapes.add([for (var d = 0; d < rank; d++) s.dimensions[d]]);
-      }
-    } finally {
-      calloc.free(layouts);
-    }
-    return shapes;
-  }
+  // LiteRtLayout has one layout on every compiler (see litert_bindings.dart),
+  // so the array stride is the same on Windows too.
   final layouts = calloc<LiteRtLayoutPosix>(count);
   try {
     bindings

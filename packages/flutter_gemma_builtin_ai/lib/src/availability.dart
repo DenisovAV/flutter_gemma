@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/services.dart';
 
 import '../pigeon.g.dart';
@@ -52,6 +54,14 @@ abstract final class BuiltInAi {
   /// [debugProbeTimeout] (a stuck/uninitialized OS AI stack), this resolves to
   /// [BuiltInAiAvailability.unavailableOther] so callers can degrade or skip.
   static Future<BuiltInAiAvailability> availability() async {
+    // Windows and Linux have no native arm — the plugin registers none there —
+    // so the pigeon call would find no handler and throw a `channel-error`
+    // PlatformException. There is no OS model to probe; say so.
+    if (!kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.windows ||
+            defaultTargetPlatform == TargetPlatform.linux)) {
+      return BuiltInAiAvailability.unavailableDeviceUnsupported;
+    }
     try {
       final status = await builtInAiService.checkAvailability().timeout(
         debugProbeTimeout,

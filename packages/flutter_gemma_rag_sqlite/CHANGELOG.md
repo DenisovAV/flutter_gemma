@@ -1,3 +1,6 @@
+## 1.4.0
+- Require sqlite3 3.6.0 (needs Flutter 3.47): web `flush()` awaits in-flight writes.
+
 ## 1.3.2
 - Add `flush()`; on web it drains IndexedDB — only partly on sqlite3 >=3.4 (#492).
 

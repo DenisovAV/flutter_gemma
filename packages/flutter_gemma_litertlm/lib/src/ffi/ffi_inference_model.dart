@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter_gemma/core/utils/gemma_log.dart';
 
 import 'package:flutter/foundation.dart';
@@ -10,6 +11,7 @@ import 'package:flutter_gemma/core/model.dart';
 import 'package:flutter_gemma/core/tool.dart';
 import 'package:flutter_gemma/core/chat.dart';
 import 'package:flutter_gemma/core/extensions.dart';
+import 'package:flutter_gemma/core/function_call_parser.dart';
 import 'package:flutter_gemma/core/parsing/sdk_response_parser.dart';
 import 'litert_lm_client.dart';
 import 'package:flutter_gemma/core/domain/platform_types.dart';
@@ -114,22 +116,25 @@ class FfiInferenceModel extends InferenceModel with CloseNotifier {
       // new one. See PR #310 review.
       await _session?.close();
 
-      // For Gemma 4, push tools into the SDK conversation config so it can
-      // render native `<|tool>declaration:...<tool|>` tokens via minja. Other
-      // model types still use Dart-side prompt injection in chat.dart.
-      final toolsJson = (modelType == ModelType.gemma4 && tools.isNotEmpty)
-          ? SdkResponseParser.serializeToolsForSdk(tools)
-          : null;
+      final toolsJson = _nativeToolsJson(tools);
 
       final beforeConv = sessionSw.elapsedMilliseconds;
-      final handle = await ffiClient.createConversationHandle(
-        systemMessage: systemInstruction,
-        toolsJson: toolsJson,
-        temperature: temperature,
-        topK: topK,
-        topP: topP,
-        seed: randomSeed,
-        maxOutputTokens: maxOutputTokens,
+      // Same config every time, so a conversation rebuilt after a stopped turn
+      // is this one again, plus its history.
+      Future<LiteRtLmConversationHandle> open({String? messagesJson}) =>
+          ffiClient.createConversationHandle(
+            systemMessage: systemInstruction,
+            toolsJson: toolsJson,
+            messagesJson: messagesJson,
+            temperature: temperature,
+            topK: topK,
+            topP: topP,
+            seed: randomSeed,
+            maxOutputTokens: maxOutputTokens,
+          );
+      final handle = RecoveringConversationHandle(
+        await open(),
+        reopen: (messagesJson) => open(messagesJson: messagesJson),
       );
       gemmaLog(
         '[FfiInferenceModel/perf] createConversation (FFI): ${sessionSw.elapsedMilliseconds - beforeConv}ms',
@@ -213,9 +218,7 @@ class FfiInferenceModel extends InferenceModel with CloseNotifier {
       );
     }
 
-    final toolsJson = (modelType == ModelType.gemma4 && tools.isNotEmpty)
-        ? SdkResponseParser.serializeToolsForSdk(tools)
-        : null;
+    final toolsJson = _nativeToolsJson(tools);
 
     // The LiteRT-LM engine allows only ONE live conversation at a time
     // (upstream #966), so concurrent sessions can't each hold a real native
@@ -305,6 +308,18 @@ class FfiInferenceModel extends InferenceModel with CloseNotifier {
     return chat!;
   }
 
+  /// `tools_json` for a model whose tool calling LiteRT-LM runs natively —
+  /// Gemma 4, and FunctionGemma — and null for every other model, which gets a
+  /// Dart-side tools prompt in chat.dart instead. The runtime renders the
+  /// declarations from it, parses calls into `tool_calls` and takes results as
+  /// role `tool`. Same predicate [InferenceChat] uses to skip its own prompt,
+  /// so the declarations are rendered exactly once.
+  String? _nativeToolsJson(List<Tool> tools) =>
+      tools.isNotEmpty &&
+          FunctionCallParser.usesSdkPassthrough(modelType, fileType: fileType)
+      ? SdkResponseParser.serializeToolsForSdk(tools)
+      : null;
+
   @override
   Future<void> close() async {
     if (_isClosed) return;
@@ -358,14 +373,28 @@ class FfiInferenceModelSession extends InferenceModelSession
   Uint8List? _pendingAudio;
   bool _isClosed = false;
 
-  /// Last full raw JSON response from SDK. For Gemma 4 this is the structured
-  /// OpenAI Chat Completions object (with `tool_calls` if any). chat.dart reads
-  /// it via [lastRawResponse] before fallback to text extraction.
+  /// Whether LiteRT-LM runs this model's tool calling natively (Gemma 4, and
+  /// FunctionGemma); see [FunctionCallParser.usesSdkPassthrough].
+  late final bool _nativeTools = FunctionCallParser.usesSdkPassthrough(
+    modelType,
+    fileType: fileType,
+  );
+
+  /// Tool results staged since the last generation, for [_nativeTools] models.
+  final List<({String name, Object? response})> _pendingToolResponses = [];
+
+  /// Whether anything other than a tool result was staged for this turn.
+  bool _stagedNonToolContent = false;
+
+  /// Last full raw JSON response from SDK. For native tool models this is the
+  /// structured OpenAI Chat Completions object (with `tool_calls` if any).
+  /// chat.dart reads it via [lastRawResponse] before fallback to text
+  /// extraction.
   String? _lastRawResponse;
 
   /// Most recent raw SDK JSON. Returns the response of the last [getResponse]
-  /// or [getResponseAsync]. For Gemma 4 use [LiteRtLmFfiClient.extractToolCalls]
-  /// on this string to surface tool calls.
+  /// or [getResponseAsync]. For native tool models use
+  /// [SdkResponseParser.extractToolCalls] on this string to surface tool calls.
   @override
   String? get lastRawResponse => _lastRawResponse;
 
@@ -384,6 +413,24 @@ class FfiInferenceModelSession extends InferenceModelSession
     );
     _queryBuffer.write(prompt);
 
+    if (_nativeTools && message.type == MessageType.toolResponse) {
+      final name = message.toolName;
+      if (name == null) {
+        throw ArgumentError.value(
+          message,
+          'message',
+          'A tool response needs toolName: the runtime formats the result as '
+              'response:NAME{...}, and without a name it answers no call',
+        );
+      }
+      _pendingToolResponses.add((
+        name: name,
+        response: SdkResponseParser.toolResponsePayload(message.text),
+      ));
+    } else if (prompt.isNotEmpty || message.hasImage || message.hasAudio) {
+      _stagedNonToolContent = true;
+    }
+
     if (message.hasImage && supportImage) {
       if (message.imageBytes != null) {
         _pendingImages.add(message.imageBytes!);
@@ -399,6 +446,39 @@ class FfiInferenceModelSession extends InferenceModelSession
     }
   }
 
+  /// The staged tool results as one role-`tool` message, when they are the
+  /// whole turn. LiteRT-LM's template continues the model's own turn only after
+  /// a `tool` message; sent as user text, the model opens a new turn and calls
+  /// the same function again. A turn that also carries user text or media is a
+  /// user message, so there the results stay in the text they were staged as —
+  /// the history replay after a context trim stages exactly that mix.
+  String? _takeToolResponseMessage() {
+    final onlyTools =
+        _pendingToolResponses.isNotEmpty && !_stagedNonToolContent;
+    final message = onlyTools
+        ? SdkResponseParser.buildToolResponsesJson(_pendingToolResponses)
+        : null;
+    _pendingToolResponses.clear();
+    _stagedNonToolContent = false;
+    return message;
+  }
+
+  /// This turn's raw SDK stream: the tool-result message when there is one,
+  /// the staged user message otherwise.
+  Stream<String> _rawTurn(
+    String text,
+    List<Uint8List>? images,
+    Uint8List? audio,
+    String? toolMessage,
+  ) => toolMessage != null
+      ? handle.chatRawMessage(toolMessage, enableThinking: enableThinking)
+      : handle.chatRaw(
+          text,
+          imageBytes: images,
+          audioBytes: audio,
+          enableThinking: enableThinking,
+        );
+
   @override
   Future<String> getResponse() async {
     _assertNotClosed();
@@ -410,23 +490,19 @@ class FfiInferenceModelSession extends InferenceModelSession
         : null;
     _pendingAudio = null;
     _pendingImages.clear();
+    final toolMessage = _takeToolResponseMessage();
 
     final genSw = Stopwatch()..start();
     int? firstChunkMs;
     var chunkCount = 0;
 
-    // For Gemma 4, walk raw SDK JSON so chat.dart can read `tool_calls` via
-    // [LiteRtLmFfiClient.extractToolCalls]. Other models keep the existing
+    // Native tool models walk raw SDK JSON so chat.dart can read `tool_calls`
+    // via [SdkResponseParser.extractToolCalls]. Other models keep the existing
     // text-only fast path (raw JSON cache stays null).
-    if (modelType == ModelType.gemma4) {
+    if (_nativeTools) {
       final rawBuffer = StringBuffer();
       final textBuffer = StringBuffer();
-      await for (final rawChunk in handle.chatRaw(
-        text,
-        imageBytes: images,
-        audioBytes: audio,
-        enableThinking: enableThinking,
-      )) {
+      await for (final rawChunk in _rawTurn(text, images, audio, toolMessage)) {
         if (firstChunkMs == null) {
           firstChunkMs = genSw.elapsedMilliseconds;
           gemmaLog(
@@ -493,19 +569,15 @@ class FfiInferenceModelSession extends InferenceModelSession
         : null;
     _pendingAudio = null;
     _pendingImages.clear();
+    final toolMessage = _takeToolResponseMessage();
 
     final genSw = Stopwatch()..start();
     int? firstChunkMs;
     var chunkCount = 0;
 
-    if (modelType == ModelType.gemma4) {
+    if (_nativeTools) {
       final rawBuffer = StringBuffer();
-      await for (final rawChunk in handle.chatRaw(
-        text,
-        imageBytes: images,
-        audioBytes: audio,
-        enableThinking: enableThinking,
-      )) {
+      await for (final rawChunk in _rawTurn(text, images, audio, toolMessage)) {
         if (firstChunkMs == null) {
           firstChunkMs = genSw.elapsedMilliseconds;
           gemmaLog(
@@ -631,8 +703,257 @@ class FfiInferenceModelSession extends InferenceModelSession
     _queryBuffer.clear();
     _pendingImages.clear();
     _pendingAudio = null;
+    _pendingToolResponses.clear();
     handle.close();
     onClose();
+  }
+}
+
+/// How long a turn waits for a stopped one to wind down before going ahead —
+/// the same bound VoiceSession gives a stopped reply to drain.
+const _windDownTimeout = Duration(seconds: 5);
+
+/// The single-session lane's handle: one real native conversation, rebuilt
+/// after a turn is stopped.
+///
+/// A conversation whose generation was cancelled mid-turn answers every later
+/// message with nothing — zero chunks in about a millisecond, on every turn
+/// after, measured on native 0.16.0 through 0.17.1. A fresh conversation on the
+/// same engine answers normally. So this handle records each turn the way the
+/// virtual-session multiplexer does, and the first turn after a stop replaces
+/// the conversation with a new one seeded with that history as a
+/// `messages_json` preface — one prefill, paid only after a stop.
+///
+/// A cancel that arrives after a turn has finished does not count: Dart
+/// delivers a stream's `done` by cancelling its subscription, which cancels
+/// the native conversation on every normal turn, and that leaves it healthy.
+///
+/// Public, though nothing outside this library uses it, so that tests can drive
+/// the recovery over fake handles with no engine.
+class RecoveringConversationHandle implements ConversationHandle {
+  RecoveringConversationHandle(
+    this._live, {
+    required this.reopen,
+    this.windDownTimeout = _windDownTimeout,
+  });
+
+  /// How long a turn waits for a stopped one to record itself. See [_turn].
+  final Duration windDownTimeout;
+
+  ConversationHandle _live;
+
+  /// Opens a conversation with this session's config, seeded with
+  /// [messagesJson] when given.
+  final Future<ConversationHandle> Function(String? messagesJson) reopen;
+
+  /// Every turn so far, as the messages a rebuild replays.
+  final List<Map<String, Object?>> _history = [];
+
+  /// True from the start of a turn — rebuild included — to the end of its
+  /// `finally`.
+  bool _inFlight = false;
+
+  /// A cancel landed inside the current turn. Reset when the next turn starts.
+  bool _stopRequested = false;
+
+  /// Completes when the current turn's `finally` has run, so a turn that
+  /// starts before a stopped one has wound down can wait for its history.
+  Future<void>? _turnDone;
+
+  /// Set when a turn that reached the model was cut off; the next turn
+  /// rebuilds before it runs.
+  bool _stopped = false;
+
+  /// Images and audio are not replayed — the preface is text — so a rebuild
+  /// after a multimodal turn says so once instead of silently forgetting.
+  bool _historyHasMedia = false;
+
+  bool _closed = false;
+
+  Future<void> _rebuild() async {
+    // One live conversation per engine (upstream #966): delete first.
+    _live.close();
+    _live = await reopen(
+      _history.isEmpty ? null : LiteRtLmFfiClient.buildHistoryJson(_history),
+    );
+    // Only now: a reopen that throws leaves the old conversation closed and
+    // this set, so the next turn tries again instead of using a dead handle.
+    _stopped = false;
+    if (_closed) {
+      _live.close();
+      throw StateError('Conversation handle is closed');
+    }
+    gemmaLog(
+      '[FfiInferenceModel] rebuilt the conversation after a stopped turn '
+      '(${_history.length} messages replayed)',
+    );
+    if (_historyHasMedia) {
+      gemmaLog(
+        '[FfiInferenceModel] images and audio from earlier turns are not '
+        'replayed after a stop — the rebuilt conversation has their text only',
+        level: GemmaLogLevel.info,
+      );
+    }
+  }
+
+  /// Runs one turn on the live conversation, rebuilding it first if the
+  /// previous turn was stopped, and records the turn for the next rebuild.
+  /// [raw] says whether [send] yields raw SDK JSON or plain text.
+  Stream<String> _turn(
+    Map<String, Object?> message,
+    Stream<String> Function(ConversationHandle live) send, {
+    required bool raw,
+  }) async* {
+    if (_closed) throw StateError('Conversation handle is closed');
+    // A turn that starts while a stopped one is still winding down — which
+    // VoiceSession does after a bounded drain — waits for its `finally`, or
+    // the rebuild would replay a history that is missing the stopped exchange.
+    // Bounded: a consumer that pauses the stopped stream and never resumes it
+    // would otherwise block every later turn. Past the bound the stopped turn
+    // is treated as having damaged the conversation, and the rebuild goes
+    // ahead without its exchange rather than not at all.
+    if (_stopRequested) {
+      await _turnDone?.timeout(
+        windDownTimeout,
+        onTimeout: () {
+          _stopped = true;
+          gemmaLog(
+            '[FfiInferenceModel] a stopped turn did not wind down within '
+            '${windDownTimeout.inSeconds}s (is its stream paused?); rebuilding '
+            'without it',
+          );
+        },
+      );
+    }
+    final done = Completer<void>();
+    _turnDone = done.future;
+    _inFlight = true;
+    _stopRequested = false;
+    final text = StringBuffer();
+    final rawReply = StringBuffer();
+    var sent = false;
+    var finished = false;
+    var failed = false;
+    try {
+      if (_stopped) await _rebuild();
+      // Stopped while the conversation was being rebuilt: nothing has reached
+      // the model, so there is nothing to generate and nothing to record.
+      if (_stopRequested) return;
+      sent = true;
+      await for (final chunk in send(_live)) {
+        if (raw) {
+          text.write(LiteRtLmFfiClient.extractTextFromResponse(chunk));
+          rawReply.write(chunk);
+        } else {
+          text.write(chunk);
+        }
+        yield chunk;
+      }
+      finished = true;
+    } catch (_) {
+      // A failed turn is not a stopped one: rebuilding would replay the same
+      // context into the same failure.
+      failed = true;
+      rethrow;
+    } finally {
+      _inFlight = false;
+      if (sent) {
+        // Stopped by cancelGeneration, or abandoned mid-turn — which cancels
+        // native the same way — leaves the conversation answering nothing.
+        if (_stopRequested || (!finished && !failed)) _stopped = true;
+        // The message reached the model either way, so it belongs in the
+        // history a rebuild replays — with whatever of the reply was produced.
+        _history
+          ..add(message)
+          ..add(
+            _VirtualConversationHandle._assistantTurn(
+              text.toString(),
+              rawReply.toString(),
+            ),
+          );
+      }
+      done.complete();
+    }
+  }
+
+  /// The user message as a rebuild replays it: its text. Media is noted, not
+  /// kept — see [_historyHasMedia].
+  Map<String, Object?> _textOnly(
+    String text,
+    List<Uint8List>? imageBytes,
+    Uint8List? audioBytes,
+  ) {
+    if ((imageBytes?.isNotEmpty ?? false) || audioBytes != null) {
+      _historyHasMedia = true;
+    }
+    return jsonDecode(LiteRtLmFfiClient.buildMessageJson(text))
+        as Map<String, Object?>;
+  }
+
+  @override
+  Future<int?> tokenCount(String text) => _live.tokenCount(text);
+
+  @override
+  Stream<String> chat(
+    String text, {
+    List<Uint8List>? imageBytes,
+    Uint8List? audioBytes,
+    bool enableThinking = false,
+  }) => _turn(
+    _textOnly(text, imageBytes, audioBytes),
+    (live) => live.chat(
+      text,
+      imageBytes: imageBytes,
+      audioBytes: audioBytes,
+      enableThinking: enableThinking,
+    ),
+    raw: false,
+  );
+
+  @override
+  Stream<String> chatRaw(
+    String text, {
+    List<Uint8List>? imageBytes,
+    Uint8List? audioBytes,
+    bool enableThinking = false,
+  }) => _turn(
+    _textOnly(text, imageBytes, audioBytes),
+    (live) => live.chatRaw(
+      text,
+      imageBytes: imageBytes,
+      audioBytes: audioBytes,
+      enableThinking: enableThinking,
+    ),
+    raw: true,
+  );
+
+  @override
+  Stream<String> chatRawMessage(
+    String messageJson, {
+    bool enableThinking = false,
+  }) => _turn(
+    jsonDecode(messageJson) as Map<String, Object?>,
+    (live) => live.chatRawMessage(messageJson, enableThinking: enableThinking),
+    raw: true,
+  );
+
+  @override
+  void cancelGeneration() {
+    // Only a cancel that lands inside a turn damages the conversation. The
+    // turn's `finally` turns this into a rebuild if generation had begun.
+    if (_inFlight) _stopRequested = true;
+    _live.cancelGeneration();
+  }
+
+  @override
+  SessionMetrics getSessionMetrics() => _live.getSessionMetrics();
+
+  @override
+  void close() {
+    if (_closed) return;
+    _closed = true;
+    _history.clear();
+    _live.close();
   }
 }
 
@@ -680,39 +1001,64 @@ class _VirtualConversationHandle implements ConversationHandle {
   /// whether the live conversation already holds this session's history.
   final Object token = Object();
 
-  /// Completed turns (user + assistant), replayed as a `messages_json`
-  /// preface to rebuild this session's context when it next becomes active.
-  final List<({String role, String text})> _history = [];
+  /// Completed turns, replayed as a `messages_json` preface to rebuild this
+  /// session's context when it next becomes active. Whole messages rather than
+  /// role and text, because a tool round is an assistant turn with
+  /// `tool_calls` followed by a role-`tool` message, and neither survives being
+  /// flattened to text.
+  final List<Map<String, Object?>> _history = [];
 
   bool _closed = false;
 
-  /// Drive one turn through the multiplexer, then record the user message and
-  /// the generated assistant reply so the NEXT turn replays them as preface.
-  /// [extractText] maps each raw chunk to the text appended to the recorded
-  /// assistant turn (text path strips JSON; raw path keeps the chunk for the
-  /// caller but we still record only the extracted text in history).
+  /// This session's own turn is running. See [cancelGeneration].
+  bool _inFlight = false;
+
+  /// A cancel landed inside this session's current turn.
+  bool _stopRequested = false;
+
+  /// Completes when the current turn has recorded its history.
+  Future<void>? _turnDone;
+
+  /// Drive one turn through the multiplexer, then record the sent [message]
+  /// and the generated assistant reply so the NEXT turn replays them as
+  /// preface. [raw] decides what the caller gets per chunk (raw SDK JSON or its
+  /// text); history records the reply the same way either way.
   Stream<String> _run(
-    String text, {
+    Map<String, Object?> message, {
     required bool raw,
     bool enableThinking = false,
   }) async* {
     if (_closed) throw StateError('Conversation handle is closed');
-    final messageJson = LiteRtLmFfiClient.buildMessageJson(text);
+    // After a stop the client rebuilds the conversation from this snapshot,
+    // so a turn that starts before the stopped one has recorded itself waits
+    // for it — otherwise the rebuild would leave the stopped exchange out.
+    if (_stopRequested) {
+      // Bounded for the reason given in RecoveringConversationHandle._turn.
+      await _turnDone?.timeout(_windDownTimeout, onTimeout: () {});
+    }
+    final done = Completer<void>();
+    _turnDone = done.future;
+    _inFlight = true;
+    _stopRequested = false;
+    final messageJson = jsonEncode(message);
     final extraContext = enableThinking ? '{"enable_thinking": true}' : null;
     // Snapshot history BEFORE this turn — the live message is sent separately.
-    final historySnapshot = List<({String role, String text})>.from(_history);
+    final historySnapshot = List<Map<String, Object?>>.from(_history);
     final assistantText = StringBuffer();
+    final assistantRaw = StringBuffer();
     var recorded = false;
     void record() {
       if (recorded) return;
       recorded = true;
       // Record both turns so the next switch back replays the full context.
-      // The user message was already fed live into the native conversation, so
-      // it must land in history even if generation errored partway — otherwise
-      // a session switch+rebuild would replay a context that omits a turn the
+      // The message was already fed live into the native conversation, so it
+      // must land in history even if generation errored partway — otherwise a
+      // session switch+rebuild would replay a context that omits a turn the
       // model actually saw, silently diverging native and Dart state.
-      _history.add((role: 'user', text: text));
-      _history.add((role: 'assistant', text: assistantText.toString()));
+      _history.add(message);
+      _history.add(
+        _assistantTurn(assistantText.toString(), assistantRaw.toString()),
+      );
     }
 
     try {
@@ -731,13 +1077,41 @@ class _VirtualConversationHandle implements ConversationHandle {
       )) {
         final chunkText = LiteRtLmFfiClient.extractTextFromResponse(rawChunk);
         assistantText.write(chunkText);
+        assistantRaw.write(rawChunk);
         yield raw ? rawChunk : chunkText;
       }
       record();
     } finally {
       // Also record on error/cancel so the user turn isn't lost.
       record();
+      _inFlight = false;
+      done.complete();
     }
+  }
+
+  /// The assistant turn to replay: its tool calls when it made any, so the
+  /// tool results recorded after it still answer something, and its text
+  /// otherwise.
+  static Map<String, Object?> _assistantTurn(String text, String raw) {
+    final calls = SdkResponseParser.extractToolCalls(raw);
+    if (calls.isEmpty) {
+      return {
+        'role': 'assistant',
+        'content': [
+          {'type': 'text', 'text': text},
+        ],
+      };
+    }
+    return {
+      'role': 'assistant',
+      'tool_calls': [
+        for (final call in calls)
+          {
+            'type': 'function',
+            'function': {'name': call.name, 'arguments': call.args},
+          },
+      ],
+    };
   }
 
   // Virtual sessions replay history as a text-only `messages_json` preface, so
@@ -762,7 +1136,7 @@ class _VirtualConversationHandle implements ConversationHandle {
     bool enableThinking = false,
   }) {
     _rejectMedia(imageBytes, audioBytes);
-    return _run(text, raw: false, enableThinking: enableThinking);
+    return _run(_userMessage(text), raw: false, enableThinking: enableThinking);
   }
 
   @override
@@ -773,11 +1147,28 @@ class _VirtualConversationHandle implements ConversationHandle {
     bool enableThinking = false,
   }) {
     _rejectMedia(imageBytes, audioBytes);
-    return _run(text, raw: true, enableThinking: enableThinking);
+    return _run(_userMessage(text), raw: true, enableThinking: enableThinking);
   }
 
   @override
-  void cancelGeneration() => client.cancelVirtualTurn(token);
+  Stream<String> chatRawMessage(
+    String messageJson, {
+    bool enableThinking = false,
+  }) => _run(
+    jsonDecode(messageJson) as Map<String, Object?>,
+    raw: true,
+    enableThinking: enableThinking,
+  );
+
+  static Map<String, Object?> _userMessage(String text) =>
+      jsonDecode(LiteRtLmFfiClient.buildMessageJson(text))
+          as Map<String, Object?>;
+
+  @override
+  void cancelGeneration() {
+    if (_inFlight) _stopRequested = true;
+    client.cancelVirtualTurn(token);
+  }
 
   @override
   SessionMetrics getSessionMetrics() => SessionMetrics();

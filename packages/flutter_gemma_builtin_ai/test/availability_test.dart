@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma_builtin_ai/flutter_gemma_builtin_ai.dart';
 import 'package:flutter_gemma_builtin_ai/pigeon.g.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -128,7 +128,8 @@ void main() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMessageHandler(
           '$_prefix.downloadFeature',
-          (ByteData? message) => Completer<ByteData?>().future, // never completes
+          (ByteData? message) =>
+              Completer<ByteData?>().future, // never completes
         );
     _mockHost('checkAvailability', (_) => [AvailabilityStatus.downloadable]);
 
@@ -152,7 +153,8 @@ void main() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMessageHandler(
           '$_prefix.checkAvailability',
-          (ByteData? message) => Completer<ByteData?>().future, // never completes
+          (ByteData? message) =>
+              Completer<ByteData?>().future, // never completes
         );
 
     final result = await BuiltInAi.availability().timeout(
@@ -161,4 +163,40 @@ void main() {
     );
     expect(result, BuiltInAiAvailability.unavailableOther);
   });
+
+  // Windows and Linux register no native arm, so a pigeon call there finds no
+  // handler and throws `channel-error`. No checkAvailability handler is mocked
+  // in these tests — the same situation — so a call that reached the channel
+  // would throw instead of returning.
+  for (final platform in [TargetPlatform.windows, TargetPlatform.linux]) {
+    test('availability() on $platform is unavailableDeviceUnsupported '
+        '(no channel call)', () async {
+      debugDefaultTargetPlatformOverride = platform;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+
+      expect(
+        await BuiltInAi.availability(),
+        BuiltInAiAvailability.unavailableDeviceUnsupported,
+      );
+    });
+
+    test(
+      'ensureReady() on $platform throws BuiltInAiUnavailableException',
+      () async {
+        debugDefaultTargetPlatformOverride = platform;
+        addTearDown(() => debugDefaultTargetPlatformOverride = null);
+
+        await expectLater(
+          BuiltInAi.ensureReady(),
+          throwsA(
+            isA<BuiltInAiUnavailableException>().having(
+              (e) => e.status,
+              'status',
+              BuiltInAiAvailability.unavailableDeviceUnsupported,
+            ),
+          ),
+        );
+      },
+    );
+  }
 }

@@ -108,11 +108,14 @@ class CodelabsPage extends StatelessComponent {
       title: 'Function Calling with On-Device Models in Flutter',
       blurb:
           'Declare Dart functions the model can call, drive the call/response '
-          'loop, and watch it reason first with thinking mode.',
-      duration: '45 min',
+          'loop by hand and then hand it to the SDK, fine-tune a 270M model on '
+          'your own tools, and watch a bigger one reason first with thinking '
+          'mode.',
+      duration: '56 min',
       level: 'Intermediate',
-      tags: ['function calling', 'tools', 'thinking mode'],
+      tags: ['function calling', 'tools', 'fine-tuning', 'thinking mode'],
       accent: Brand.green,
+      href: '/codelabs/function-calling-flutter-gemma',
     ),
     _Codelab(
       title: 'On-Device RAG in Flutter: Embeddings and Vector Search',
@@ -123,16 +126,19 @@ class CodelabsPage extends StatelessComponent {
       level: 'Advanced',
       tags: ['embeddings', 'sqlite-vec', 'RAG'],
       accent: Brand.green,
+      href: '/codelabs/on-device-rag-flutter-gemma',
     ),
     _Codelab(
       title: 'Building an Offline Voice Assistant in Flutter: STT, LLM, and TTS',
       blurb:
           'Wire speech-to-text, the model, and text-to-speech into one loop '
-          'that runs in airplane mode — including barge-in.',
-      duration: '60 min',
+          'that runs in airplane mode — with barge-in, and tools it calls by '
+          'voice.',
+      duration: '67 min',
       level: 'Advanced',
-      tags: ['STT', 'TTS', 'voice loop'],
+      tags: ['STT', 'TTS', 'voice loop', 'tools'],
       accent: Brand.orange,
+      href: '/codelabs/voice-assistant-flutter-gemma',
     ),
     _Codelab(
       title: 'Hybrid AI in Flutter: From Cloud to On-Device with Genkit Dart',

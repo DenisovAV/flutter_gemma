@@ -44,7 +44,7 @@ From the diff, detect which package(s)/area(s) are affected:
 **Packages (`packages/<pkg>/`):**
 - `flutter_gemma/` — core: registry, contracts, shells, ModelSource, slim native plugin (its `android/` `ios/` host only the bundled channel)
 - `flutter_gemma_litertlm/` — `.litertlm` FFI engine; `native/litert_lm/` build scripts, `lib/src/ffi/`, `hook/build.dart`
-- `flutter_gemma_embeddings/` — LiteRT C API embeddings (isolate worker)
+- `flutter_gemma_embeddings/` — embedding tokenizers (pure Dart; the app registers them)
 - `flutter_gemma_mediapipe/` — `.task` MediaPipe; owns pigeon (`lib/pigeon.g.dart`) + Kotlin/Swift + web JS
 - `flutter_gemma_rag_qdrant/` — native RAG over the official `qdrant_edge`
   UniFFI SDK. Since 2.0.0 the package owns NO native code and NO hook: the
@@ -260,7 +260,7 @@ web arms, plus embeddings and RAG:
 - packages/flutter_gemma_mediapipe/lib/src/web/ — `.task` via @mediapipe/tasks-genai
 - packages/flutter_gemma_litertlm/lib/src/web/ — `.litertlm` via @litert-lm/core.
   EARLY PREVIEW: text only. No vision, audio, thinking, function calling or LoRA.
-- packages/flutter_gemma_embeddings/ web arm — LiteRT.js, not the C API
+- packages/flutter_gemma_litertlm/ web embedding arm — LiteRT.js bundle in its own web/
 - packages/flutter_gemma_rag_sqlite/ — package:sqlite3/wasm.dart + a custom
   sqlite3.wasm with vec0 linked in, which the APP copies into its own web/ dir
 - packages/flutter_gemma/lib/web/ — the shared web shells and model source
@@ -272,14 +272,17 @@ CHECKLIST
    `flutter build web`. If a real signature changed, its stub must change too.
    This is how a web break shipped in 0.15.0 with green analyze and green tests.
 2. dart:io / dart:ffi must not reach the web graph. Check the conditional export.
-3. The three required web/ assets are not auto-injected — the app copies them:
-   cache_api.js (default cacheApi storage), opfs_helper.js (streaming), and
-   litert_embeddings.js (web embeddings). A change that needs a new global must
+3. The six required web/ assets are not auto-injected — the app copies them:
+   cache_api.js and opfs_helper.js from `flutter_gemma`, and the four-file
+   LiteRT.js bundle from `flutter_gemma_litertlm` (litert_embeddings.js plus
+   its three vendor chunks). A change that needs a new global must
    document the script tag.
 4. Storage modes: cacheApi (default, <2GB), streaming (OPFS, large models),
    none. Web is GPU-only — MediaPipe has no web CPU backend.
-5. CDN pins: @mediapipe/tasks-genai and @litert-lm/core versions must agree
-   between the code and any documented script tag.
+5. CDN pins: @mediapipe/tasks-genai, @litert-lm/core and @litertjs/core must
+   agree between the code and any documented script tag. @litertjs/core has
+   THREE places to keep in step: `LiteRtWebRuntime.pinnedVersion`,
+   `tool/web_build/package.json` and the committed `web/litert.js`.
 
 Report CRITICAL / IMPORTANT / MINOR with file:line.
 ```

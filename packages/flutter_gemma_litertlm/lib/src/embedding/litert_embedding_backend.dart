@@ -9,10 +9,11 @@ import 'package:flutter_gemma/core/registry/runtime_config.dart';
 import 'package:flutter_gemma/flutter_gemma_interface.dart' show EmbeddingModel;
 import 'package:flutter_gemma/core/model_management/model_specs.dart'
     show EmbeddingModelSpec;
-import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart'
-    show CommonEmbeddingModel, EmbeddingOutputContract, ForwardPassDescriptor;
-import 'package:flutter_gemma_embeddings/embedding_tokenizer.dart'
-    show loadGemmaSentencePieceEmbeddingTokenizer;
+import 'package:flutter_gemma/core/embedding/common_embedding_model.dart'
+    show CommonEmbeddingModel;
+import 'package:flutter_gemma/core/embedding/forward_pass.dart'
+    show EmbeddingOutputContract, ForwardPassDescriptor;
+import 'package:flutter_gemma/core/registry/embedding_tokenizer_registry.dart';
 
 import 'litert_embedding_forward_pass.dart';
 
@@ -51,7 +52,11 @@ class LiteRtEmbeddingBackend implements EmbeddingBackendProvider {
         engineTag: 'LiteRT',
         modelPath: config.modelPath,
         factory: createLiteRtEmbeddingForwardPass,
-        tokenizerFactory: loadGemmaSentencePieceEmbeddingTokenizer,
+        // Asked for, not named. Which family this model needs is a fact about
+        // the model, not about LiteRT — and hardcoding Gemma SentencePiece
+        // here is what made `canHandle => true` a trap: a WordPiece model was
+        // accepted and then tokenized with the wrong convention.
+        tokenizerFactory: EmbeddingTokenizerRegistry.instance.resolveFor(spec),
         outputContract: EmbeddingOutputContract.pooledFinal,
       ),
       tokenizerPath: tokenizerPath,

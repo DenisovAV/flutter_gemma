@@ -26,11 +26,14 @@ them in `await FlutterGemma.initialize(...)`:
 await FlutterGemma.initialize(
   inferenceEngines: const [LiteRtLmEngine()],
   embeddingBackends: const [LiteRtEmbeddingBackend()], // flutter_gemma_litertlm
+  embeddingTokenizers: const [GemmaEmbeddingTokenizers()], // flutter_gemma_embeddings
   vectorStore: QdrantVectorStore(),                    // or WebSqliteVectorStore() on web
 );
 ```
 
-See [Installation](/docs/installation) for the full registration reference.
+See [Installation](/docs/installation) for the full registration reference. On
+web, `LiteRtEmbeddingBackend` also needs its LiteRT.js loader script in
+`web/index.html` — see [Installation → Web](/docs/installation#web).
 
 ## Text embeddings
 
@@ -67,19 +70,20 @@ final embeddings = await embedder.generateEmbeddings(
 ```
 
 <Info>
-The LiteRT `LiteRtEmbeddingBackend` runs embedding on **CPU only**: EmbeddingGemma
+On native, `LiteRtEmbeddingBackend` runs embedding on **CPU only**: EmbeddingGemma
 is an int4 `.tflite` model, and the TFLite GPU delegate cannot run int4 — so GPU
-embedding is not possible for that model format. The `OnnxEmbeddingBackend` is not
-bound by this — it runs embeddings on **WebGPU** on Web (onnxruntime-web). Either
-way, embedding runs on a background isolate so it doesn't block the UI thread.
+embedding is not possible for that model format. On web both backends try
+**WebGPU** first and fall back to WASM (LiteRT.js, onnxruntime-web). On native,
+embedding runs on a background isolate so it doesn't block the UI thread; on web
+it runs on the main thread.
 </Info>
 
 ## On-device RAG / vector store
 
 All RAG operations live on the `FlutterGemma.rag` namespace — the canonical
 entry point. (The store is opt-in: register a `vectorStore:` in
-`await FlutterGemma.initialize(...)`, or every `rag` call throws a clear "add a RAG
-package" error.)
+`await FlutterGemma.initialize(...)`, or every `rag` call except `flush()` throws
+a clear "add a RAG package" error — `flush()` returns without doing anything.)
 
 ```dart
 import 'package:flutter_gemma/flutter_gemma.dart';
@@ -147,13 +151,18 @@ Call `FlutterGemma.rag.flush()` after indexing. What it does depends on the stor
   ends — an Android app killed in the background is the ordinary case. `close()`
   persists too, but only logs a failed save; `flush()` throws it.
 - **sqlite-vec, native** — a no-op: every statement is on disk when it returns.
-- **sqlite-vec, web** — drains the IndexedDB storage. On `sqlite3` >= 3.4.0 it
-  does not wait for a write batch already in flight (an upstream regression);
-  `close()` is the stronger drain there.
+- **sqlite-vec, web** — drains the IndexedDB storage and waits for it. `sqlite3`
+  3.4.0 through 3.5.2 returned early over a write batch already in flight
+  ([upstream #408](https://github.com/simolus3/sqlite3.dart/issues/408)), which
+  is why `flutter_gemma_rag_sqlite` 1.4.0 requires sqlite3 3.6.0 and, with it,
+  **Flutter 3.47** — a higher floor than every other package here. An app on
+  Flutter 3.44 resolves to rag_sqlite 1.3.2 instead and keeps the partial drain;
+  `close()` is the full drain on every version.
 
 A store that cannot persist at all (the web in-memory fallback) throws
-`VectorStoreException` rather than returning. Custom `VectorStoreRepository`
-implementations must declare `flush()`.
+`VectorStoreException` rather than returning. A custom store that `implements`
+`VectorStoreRepository` must declare `flush()`; one that `extends` it inherits an
+empty default — override it if your store buffers writes.
 
 ## The Filter API
 
@@ -211,7 +220,9 @@ at the first insert.
 `doc-type` is unrepresentable there rather than merely unescaped.
 
 `QdrantVectorStore` accepts far more — payload keys are free-form UTF-8 — with
-one rule of its own: no `.`, which qdrant reads as a nested-path separator.
+two rules of its own: no `.`, which qdrant reads as a nested-path separator, and
+none of the keys the store uses itself (`__flutter_gemma_id`,
+`__flutter_gemma_content`, `__flutter_gemma_metadata`).
 
 So the portable set is sqlite's. If you may ever switch backends, stay inside
 it. Regardless of store, a schema with a duplicate or empty name is rejected.
@@ -258,8 +269,11 @@ worked this way — as of 1.3.0 both packages behave the same.
 
 Before 1.3.0 the loadables were committed into the package, which shipped all
 seven platforms' binaries to every consumer to use one of them. If you build in
-an air-gapped environment, pre-populate that cache directory, or vendor the
-archives and point the build at them.
+an air-gapped environment, copy the whole `flutter_gemma/native` cache directory
+from a machine that built the same package versions, including its hidden
+version-marker files — a folder copied without them is discarded and fetched
+again. There is no setting that points the build at archives you vendor
+yourself.
 </Info>
 
 **Which store?** `qdrant-edge` is the fastest **native** option — benchmarked

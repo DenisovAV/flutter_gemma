@@ -30,11 +30,13 @@
 ///
 /// ```dart
 /// import 'package:flutter_gemma/flutter_gemma.dart';
+/// import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
 /// import 'package:flutter_gemma_onnx/flutter_gemma_onnx.dart';
 ///
 /// await FlutterGemma.initialize(
 ///   inferenceEngines: [OnnxEngine()],
 ///   embeddingBackends: [OnnxEmbeddingBackend()],
+///   embeddingTokenizers: [GemmaEmbeddingTokenizers()],
 /// );
 ///
 /// await FlutterGemma.installEmbedder()

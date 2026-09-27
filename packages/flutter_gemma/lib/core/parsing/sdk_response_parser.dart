@@ -3,6 +3,9 @@ import 'dart:convert';
 import 'package:flutter_gemma/core/model_response.dart';
 import 'package:flutter_gemma/core/tool.dart';
 
+import 'function_gemma_format.dart';
+import 'function_gemma_wire.dart';
+
 /// Parser for LiteRT-LM SDK Chat Completions JSON responses.
 ///
 /// Used by [InferenceChat] when the active session backend exposes
@@ -52,7 +55,41 @@ class SdkResponseParser {
     if (result.isEmpty && jsonStr.contains(_rawToolCallOpen)) {
       _harvestRawTokenCalls(jsonStr, result);
     }
+    // FunctionGemma, same reason: when its call comes back as text rather than
+    // `tool_calls` — the web SDK, or a `.litertlm` exported without the
+    // function_gemma model type, whose runtime creates no tool-call channel —
+    // parse the wire format the model wrote.
+    if (result.isEmpty && jsonStr.contains(functionGemmaStartCall)) {
+      result.addAll(FunctionGemmaCallFormat().parseAll(_responseText(jsonStr)));
+    }
     return result;
+  }
+
+  /// The text a raw response carries: the `content` string or text items of
+  /// every concatenated fragment, or [jsonStr] itself when none of it is JSON.
+  static String _responseText(String jsonStr) {
+    final text = StringBuffer();
+    var parsedAny = false;
+    for (final fragment in _splitConcatenatedJson(jsonStr)) {
+      final Object? parsed;
+      try {
+        parsed = jsonDecode(fragment);
+      } on FormatException {
+        continue;
+      }
+      if (parsed is! Map<String, dynamic>) continue;
+      parsedAny = true;
+      final content = parsed['content'];
+      if (content is String) text.write(content);
+      if (content is List) {
+        for (final item in content) {
+          if (item is Map && item['type'] == 'text' && item['text'] is String) {
+            text.write(item['text']);
+          }
+        }
+      }
+    }
+    return parsedAny ? text.toString() : jsonStr;
   }
 
   static const _rawToolCallOpen = '<|tool_call>';
@@ -217,22 +254,40 @@ class SdkResponseParser {
       },
   ]);
 
-  /// Build the JSON message that delivers a tool execution result back to
-  /// the model on the next turn. Format mirrors upstream Python
-  /// `serve.py::gemini_to_litertlm_message` and Gemma 4 data processor's
-  /// `FormatToolResponse`.
+  /// Build the role-`tool` message that returns a turn's tool results to the
+  /// model. One message carries every result, so a model that made parallel
+  /// calls reads all of their answers before it continues. The item shape
+  /// mirrors upstream Python `Conversation._handle_tool_calls`
+  /// (`{"type": "tool_response", "name", "response"}`), which the Gemma 4 and
+  /// FunctionGemma data processors format natively — as
+  /// `<|tool_response>response:NAME{...}<tool_response|>` and
+  /// `<start_function_response>response:NAME{...}<end_function_response>`.
   ///
-  /// SDK then renders this as native
-  /// `<|tool_response>response:NAME{...}<tool_response|>` tokens.
-  static String buildToolResponseJson({
-    required String toolName,
-    required Object? response,
-    String? toolCallId,
-  }) => jsonEncode({
+  /// It has to be role `tool`. Sent as a user message, the template opens a new
+  /// user turn and then a new model turn, and FunctionGemma answers that by
+  /// calling the same function again instead of reading the result.
+  static String buildToolResponsesJson(
+    List<({String name, Object? response})> responses,
+  ) => jsonEncode({
     'role': 'tool',
     'content': [
-      {'name': toolName, 'response': response},
+      for (final r in responses)
+        {'type': 'tool_response', 'name': r.name, 'response': r.response},
     ],
-    if (toolCallId != null) 'tool_call_id': toolCallId,
   });
+
+  /// The `response` object for a tool result carried in `Message.text`, which
+  /// `Message.toolResponse` fills with the JSON-encoded map. The runtime formats
+  /// an object as `NAME{key:value,...}`; anything else — a hand-built message
+  /// holding plain text — goes under `value`, the key FunctionGemma's template
+  /// uses for a scalar response.
+  static Map<String, Object?> toolResponsePayload(String text) {
+    try {
+      final decoded = jsonDecode(text);
+      if (decoded is Map<String, dynamic>) return decoded;
+      return {'value': decoded};
+    } on FormatException {
+      return {'value': text};
+    }
+  }
 }

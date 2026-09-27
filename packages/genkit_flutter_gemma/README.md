@@ -43,13 +43,15 @@ register their providers in `await FlutterGemma.initialize()`.
 |---|---|---|
 | `flutter_gemma_litertlm` | `LiteRtLmEngine()`, `LiteRtEmbeddingBackend()` | `.litertlm` models (Gemma 4, desktop) and/or text embeddings (EmbeddingGemma) |
 | `flutter_gemma_mediapipe` | `MediaPipeEngine()` | `.task` / `.bin` models (Gemma 3, mobile/web) |
+| `flutter_gemma_embeddings` | `GemmaEmbeddingTokenizers()` | text embeddings — required beside any embedding backend |
 
 ```yaml
 # pubspec.yaml (your app)
 dependencies:
   genkit_flutter_gemma: ^0.6.1
-  flutter_gemma: ^1.8.3
-  flutter_gemma_litertlm: ^1.6.4   # only the engines/backends you actually use
+  flutter_gemma: ^1.9.0
+  flutter_gemma_litertlm: ^1.8.0   # only the engines/backends you actually use
+  flutter_gemma_embeddings: ^2.2.0  # the tokenizers an embedding backend needs
   flutter_gemma_mediapipe: ^1.0.6
 ```
 
@@ -58,6 +60,7 @@ dependencies:
 await FlutterGemma.initialize(
   inferenceEngines: const [LiteRtLmEngine(), MediaPipeEngine()],
   embeddingBackends: const [LiteRtEmbeddingBackend()],
+  embeddingTokenizers: const [GemmaEmbeddingTokenizers()],
 );
 ```
 
@@ -68,6 +71,7 @@ await FlutterGemma.initialize(
 
 ```dart
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
 // Engines/backends are opt-in (see Setup) — register the ones you need.
 import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
@@ -78,6 +82,7 @@ import 'package:genkit_flutter_gemma/genkit_flutter_gemma.dart';
 await FlutterGemma.initialize(
   inferenceEngines: const [LiteRtLmEngine(), MediaPipeEngine()],
   embeddingBackends: const [LiteRtEmbeddingBackend()],
+  embeddingTokenizers: const [GemmaEmbeddingTokenizers()],
 );
 await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
     .fromAsset('assets/gemma-3-1b-it-int4.task')
@@ -230,7 +235,7 @@ for (final embedding in embeddings) {
 
 ## Known Limitations
 
-- **Engine registration**: With flutter_gemma 1.0.0+ the inference engines and embedding backends are opt-in. The host app must add the relevant packages (`flutter_gemma_litertlm` for `.litertlm`, `flutter_gemma_mediapipe` for `.task`/`.bin`, `flutter_gemma_embeddings` for embeddings) and register their providers in `await FlutterGemma.initialize()` before using the plugin.
+- **Engine registration**: With flutter_gemma 1.0.0+ the inference engines and embedding backends are opt-in. The host app must add the relevant packages (`flutter_gemma_litertlm` for `.litertlm`, `flutter_gemma_mediapipe` for `.task`/`.bin`, `flutter_gemma_embeddings` plus a backend such as `flutter_gemma_litertlm`'s `LiteRtEmbeddingBackend` for embeddings) and register their providers in `await FlutterGemma.initialize()` before using the plugin.
 - **Model installation**: The plugin does NOT manage model installation. The host app must install models via `FlutterGemma.installModel()` and embedders via `FlutterGemma.installEmbedder()` before using the plugin.
 - **System role**: System messages are passed natively via `createChat(systemInstruction:)` (requires flutter_gemma ^0.13.0). Only text content is supported in system messages.
 - **Thinking mode**: Requires `.litertlm` model format. Supported on Android, iOS, and Desktop. Not supported on Web.

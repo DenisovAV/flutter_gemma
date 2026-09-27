@@ -91,6 +91,11 @@ abstract class ConversationHandle {
     bool enableThinking,
   });
 
+  /// Streams raw SDK JSON for a prebuilt message. This is how tool results go
+  /// back: [chatRaw] always sends role `user`, and a tool result has to be role
+  /// `tool` for the model to read it as the answer to its call.
+  Stream<String> chatRawMessage(String messageJson, {bool enableThinking});
+
   void cancelGeneration();
 
   SessionMetrics getSessionMetrics();
@@ -101,12 +106,18 @@ abstract class ConversationHandle {
 /// One conversation owned by a [LiteRtLmFfiClient]. Each call to
 /// [LiteRtLmFfiClient.createConversationHandle] returns a fresh handle:
 /// the engine pointer is shared across handles, the conversation pointer
-/// is private to this handle.
+/// is private to this handle. The handle owns that pointer's lifetime and
+/// routes every per-conversation native call through the client's private
+/// `_…On(conv, …)` methods.
 ///
-/// This is what makes concurrent sessions possible — the LiteRT-LM C API
-/// supports multiple `LiteRtLmConversation*` per engine; the handle owns
-/// one and routes every per-conversation native call through the client's
-/// private `_…On(conv, …)` methods.
+/// What the handle does NOT give you is simultaneity. The engine allows
+/// only ONE live conversation at a time today (upstream LiteRT-LM #966),
+/// so any prior conversation must be deleted before
+/// [LiteRtLmFfiClient.createConversationHandle] is called again.
+/// Concurrent sessions come from the virtual-session multiplexer, which
+/// tears the native conversation down and rebuilds it seeded with the
+/// active session's history — not from several `LiteRtLmConversation*`
+/// coexisting on one engine.
 ///
 /// Lifetime contract: the caller must call [close] when done. The owning
 /// client closes any remaining handles on [LiteRtLmFfiClient.shutdown].
@@ -160,6 +171,19 @@ class LiteRtLmConversationHandle implements ConversationHandle {
       imageBytes: imageBytes,
       audioBytes: audioBytes,
       enableThinking: enableThinking,
+    );
+  }
+
+  @override
+  Stream<String> chatRawMessage(
+    String messageJson, {
+    bool enableThinking = false,
+  }) {
+    _assertOpen();
+    return _client._sendMessageStreamRawOn(
+      _conversation!,
+      messageJson,
+      extraContext: enableThinking ? '{"enable_thinking": true}' : null,
     );
   }
 
@@ -1150,7 +1174,18 @@ class LiteRtLmFfiClient {
 
     if (conv == nullptr) {
       _dumpNativeLog();
-      throw Exception('Failed to create conversation');
+      // With tools the runtime also builds a constraint for tool calls, and
+      // that is the usual culprit here: FunctionGemma's constraint provider
+      // accepts only a SentencePiece tokenizer, so a bundle exported with a
+      // Hugging Face tokenizer cannot open a conversation with tools at all.
+      throw Exception(
+        toolsJson == null
+            ? 'Failed to create conversation'
+            : 'Failed to create conversation with tools. Tool calls run with '
+                  'constrained decoding; for FunctionGemma that needs the '
+                  '.litertlm to carry a SentencePiece tokenizer, and a bundle '
+                  'exported with a Hugging Face tokenizer cannot provide one.',
+      );
     }
 
     _liveConvs.add(conv); // #379: track liveness so late cancels can't UAF
@@ -1209,25 +1244,17 @@ class LiteRtLmFfiClient {
     return jsonEncode({'role': 'user', 'content': content});
   }
 
-  /// Serialize a turn history into the `messages_json` array the
-  /// conversation config accepts as a preface. Each turn is
-  /// `{role, content: [{type: 'text', text}]}`. Used by the virtual-session
-  /// multiplexer to rebuild a session's full context (user + assistant
-  /// turns) in one prefill when switching the single live conversation.
+  /// Serialize a message history into the `messages_json` array the
+  /// conversation config accepts as a preface. Each entry is a whole
+  /// Conversation API message — user and assistant text, an assistant turn
+  /// with `tool_calls`, a role-`tool` result. Used by the virtual-session
+  /// multiplexer to rebuild a session's full context in one prefill when
+  /// switching the single live conversation.
   ///
   /// Verified honored by the patched native (a `messages_json` preface with
   /// a prior user+assistant turn lets the model recall it).
-  static String buildHistoryJson(List<({String role, String text})> turns) {
-    return jsonEncode([
-      for (final turn in turns)
-        {
-          'role': turn.role,
-          'content': [
-            {'type': 'text', 'text': turn.text},
-          ],
-        },
-    ]);
-  }
+  static String buildHistoryJson(List<Map<String, Object?>> messages) =>
+      jsonEncode(messages);
 
   /// Extract text from a LiteRT-LM JSON response chunk. Delegates to
   /// [SdkTextExtractor] — single source of truth shared with the web
@@ -1362,6 +1389,11 @@ class LiteRtLmFfiClient {
   /// live stream (use-after-free).
   bool _virtualTurnInFlight = false;
 
+  /// Set when a virtual turn is cancelled mid-generation. A cancelled
+  /// conversation answers every later message with nothing, so the next turn
+  /// must rebuild it even when it belongs to the same session.
+  bool _virtualConvStopped = false;
+
   /// Token of a session that asked to release the live conversation while a
   /// turn was in flight. The teardown is deferred to the turn's cleanup.
   Object? _pendingReleaseToken;
@@ -1369,7 +1401,7 @@ class LiteRtLmFfiClient {
   Stream<String> startVirtualTurn({
     required Object conversationToken,
     required String messageJson,
-    required List<({String role, String text})> history,
+    required List<Map<String, Object?>> history,
     String? systemMessage,
     String? toolsJson,
     double temperature = 0.8,
@@ -1419,9 +1451,13 @@ class LiteRtLmFfiClient {
         await _nativeMutex.acquire();
         mutexHeld = true;
         _virtualTurnInFlight = true;
-        if (_virtualActiveToken != conversationToken || _virtualConv == null) {
-          // Switching sessions (or first turn): drop the old live conversation
-          // and rebuild one replaying this session's history as a preface.
+        if (_virtualActiveToken != conversationToken ||
+            _virtualConv == null ||
+            _virtualConvStopped) {
+          // Switching sessions (or first turn, or the turn after a stop): drop
+          // the old live conversation and rebuild one replaying this session's
+          // history as a preface.
+          _virtualConvStopped = false;
           final old = _virtualConv;
           if (old != null) {
             _deleteConversation(old);
@@ -1524,7 +1560,10 @@ class LiteRtLmFfiClient {
   void cancelVirtualTurn(Object conversationToken) {
     if (_virtualActiveToken != conversationToken) return;
     final conv = _virtualConv;
-    if (conv != null) _cancelOn(conv);
+    if (conv == null) return;
+    // Only a cancel that lands inside a turn damages the conversation.
+    if (_virtualTurnInFlight) _virtualConvStopped = true;
+    _cancelOn(conv);
   }
 
   /// Tear down the live virtual conversation if it belongs to

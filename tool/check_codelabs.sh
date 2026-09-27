@@ -91,9 +91,17 @@ fi
 # One source can feed several starters — Getting Started's finished app is where
 # both of the codelabs that continue it begin — so this is a list of pairs, not
 # a map, and a new row is all a new continuation needs.
+#
+# It is a list of the codelabs that DO continue another, not of all of them. A
+# starter is free to be its own app: function-calling's is Step 2 without the
+# tools, on the 284 MB model that codelab is actually about, because inheriting
+# Getting Started's finished app meant downloading a licence-gated half-gigabyte
+# model that the next step then replaced and never opened again.
 MIRRORS=(
   "codelabs/getting-started-flutter-gemma/complete|codelabs/inference-engines-flutter-gemma/step_01_starter"
   "codelabs/getting-started-flutter-gemma/complete|codelabs/multimodal-flutter-gemma/step_01_starter"
+  "codelabs/getting-started-flutter-gemma/complete|codelabs/on-device-rag-flutter-gemma/step_01_starter"
+  "codelabs/getting-started-flutter-gemma/complete|codelabs/voice-assistant-flutter-gemma/step_01_starter"
 )
 
 # Fail closed, the way discovery does above. An emptied or mistyped table must
@@ -119,6 +127,19 @@ for pair in "${MIRRORS[@]}"; do
       || { echo "::error::$dst/$sub has drifted from $src/$sub"; failed=1; }
   done
 done
+
+# Web model storage, engine bootstrap and the embeddings loader — delegated to
+# tool/check_codelab_web_storage.py, which needs a parser rather than a grep
+# (a commented-out <script> loads nothing, and a TODO mentioning
+# `FlutterGemma.initialize(` is not a call). It runs after the loop above so
+# every app's .dart_tool/package_config.json exists: the JS is compared against
+# the package each app RESOLVES, not this repo's unreleased copy.
+echo ""
+echo "=== web model storage ==="
+# The guard's own tests first: they are seconds, they need no flutter, and a
+# guard nobody proves still fires is worth less than no guard at all.
+python3 tool/check_codelab_web_storage_test.py || failed=1
+python3 tool/check_codelab_web_storage.py "$PWD" || failed=1
 
 # One identity per codelab, and the two halves pull in opposite directions, so
 # both are asserted:

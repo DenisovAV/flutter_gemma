@@ -18,6 +18,7 @@ import 'package:flutter_gemma/core/message.dart';
 import 'package:flutter_gemma/core/model.dart';
 import 'package:flutter_gemma/core/tool.dart';
 import 'package:flutter_gemma/core/extensions.dart';
+import 'package:flutter_gemma/core/function_call_parser.dart';
 import 'package:flutter_gemma/core/parsing/sdk_response_parser.dart';
 import 'package:flutter_gemma/core/parsing/sdk_text_extractor.dart';
 import 'package:flutter_gemma/web/web_model_source.dart';
@@ -386,11 +387,13 @@ class LiteRtLmWebInferenceModel extends InferenceModel with CloseNotifier {
         'content': systemInstruction,
       });
     }
-    // Tools — only push for Gemma 4, identical to native FFI gating in
-    // `FfiInferenceModel.createSession`. Reuses
-    // [SdkResponseParser.serializeToolsForSdk] so the JSON shape is
-    // byte-identical between web and native.
-    final toolsForPreface = (modelType == ModelType.gemma4 && tools.isNotEmpty)
+    // Tools — for the models whose tool calling LiteRT-LM runs natively (Gemma
+    // 4, and FunctionGemma), the same predicate as the native FFI path in
+    // `FfiInferenceModel`. Reuses [SdkResponseParser.serializeToolsForSdk] so
+    // the JSON shape is byte-identical between web and native.
+    final toolsForPreface =
+        tools.isNotEmpty &&
+            FunctionCallParser.usesSdkPassthrough(modelType, fileType: fileType)
         ? (jsonDecode(SdkResponseParser.serializeToolsForSdk(tools))
               as List<dynamic>)
         : const <dynamic>[];
@@ -503,7 +506,20 @@ class LiteRtLmWebSession extends InferenceModelSession
   bool _isClosed = false;
   bool _isCancelled = false;
 
-  /// Last full raw JSON response from SDK — Gemma 4 path only.
+  /// Whether LiteRT-LM runs this model's tool calling natively (Gemma 4, and
+  /// FunctionGemma); see [FunctionCallParser.usesSdkPassthrough].
+  late final bool _nativeTools = FunctionCallParser.usesSdkPassthrough(
+    modelType,
+    fileType: fileType,
+  );
+
+  /// Tool results staged since the last generation, for [_nativeTools] models.
+  final List<({String name, Object? response})> _pendingToolResponses = [];
+
+  /// Whether anything other than a tool result was staged for this turn.
+  bool _stagedNonToolContent = false;
+
+  /// Last full raw JSON response from SDK — native tool models only.
   /// chat.dart reads it via [lastRawResponse] and runs
   /// [SdkResponseParser.extractToolCalls] on it before falling back to text
   /// extraction. Mirrors [FfiInferenceModelSession._lastRawResponse].
@@ -532,6 +548,23 @@ class LiteRtLmWebSession extends InferenceModelSession
       fileType: fileType,
     );
     _queryBuffer.write(prompt);
+    if (_nativeTools && message.type == MessageType.toolResponse) {
+      final name = message.toolName;
+      if (name == null) {
+        throw ArgumentError.value(
+          message,
+          'message',
+          'A tool response needs toolName: the runtime formats the result as '
+              'response:NAME{...}, and without a name it answers no call',
+        );
+      }
+      _pendingToolResponses.add((
+        name: name,
+        response: SdkResponseParser.toolResponsePayload(message.text),
+      ));
+    } else if (prompt.isNotEmpty || message.hasImage || message.hasAudio) {
+      _stagedNonToolContent = true;
+    }
     if (message.hasImage && supportImage) {
       if (message.imageBytes != null) {
         _pendingImages.add(message.imageBytes!);
@@ -545,6 +578,20 @@ class LiteRtLmWebSession extends InferenceModelSession
     if (message.hasAudio && message.audioBytes != null && supportAudio) {
       _pendingAudio = message.audioBytes;
     }
+  }
+
+  /// The staged tool results as one role-`tool` message, when they are the
+  /// whole turn; mirrors `FfiInferenceModelSession`. A turn that also carries
+  /// user text or media is a user message, and the results stay in its text.
+  String? _takeToolResponseMessage() {
+    final onlyTools =
+        _pendingToolResponses.isNotEmpty && !_stagedNonToolContent;
+    final message = onlyTools
+        ? SdkResponseParser.buildToolResponsesJson(_pendingToolResponses)
+        : null;
+    _pendingToolResponses.clear();
+    _stagedNonToolContent = false;
+    return message;
   }
 
   @override
@@ -569,6 +616,7 @@ class LiteRtLmWebSession extends InferenceModelSession
     _pendingImages.clear();
     _pendingAudio = null;
     _isCancelled = false;
+    final toolMessage = _takeToolResponseMessage();
 
     final controller = StreamController<String>();
     final genSw = Stopwatch()..start();
@@ -593,7 +641,12 @@ class LiteRtLmWebSession extends InferenceModelSession
     //    MessageContentItem (one text + N image/audio items), shaped per the
     //    upstream TS declarations.
     final JSAny messageArg;
-    if ((images == null || images.isEmpty) && audio == null) {
+    if (toolMessage != null) {
+      // Tool results go back as one role-`tool` message, the only shape after
+      // which the template continues the model's own turn.
+      messageArg =
+          (jsonDecode(toolMessage) as Map<String, Object?>).jsify() as JSAny;
+    } else if ((images == null || images.isEmpty) && audio == null) {
       messageArg = text.toJS;
     } else {
       final contentItems = <Map<String, Object>>[
@@ -625,11 +678,11 @@ class LiteRtLmWebSession extends InferenceModelSession
           <String, Object>{'role': 'user', 'content': contentItems}.jsify()
               as JSAny;
     }
-    // Gemma 4 path mirrors FfiInferenceModelSession.getResponseAsync — every
-    // raw chunk is stringified and appended to rawBuffer so chat.dart can
-    // run SdkResponseParser.extractToolCalls on the assembled JSON. Other
+    // Native tool models mirror FfiInferenceModelSession.getResponseAsync —
+    // every raw chunk is stringified and appended to rawBuffer so chat.dart
+    // can run SdkResponseParser.extractToolCalls on the assembled JSON. Other
     // model types skip accumulation and `_lastRawResponse` stays null.
-    final accumulateRaw = modelType == ModelType.gemma4;
+    final accumulateRaw = _nativeTools;
     final rawBuffer = accumulateRaw ? StringBuffer() : null;
     if (accumulateRaw) {
       _lastRawResponse = null;

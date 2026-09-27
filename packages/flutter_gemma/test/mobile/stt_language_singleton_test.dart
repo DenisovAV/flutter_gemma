@@ -22,6 +22,7 @@
 //
 // Run: flutter test test/mobile/stt_language_singleton_test.dart
 
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -102,12 +103,11 @@ void main() {
     final backend = await installWhisper();
 
     final recognizer = await FlutterGemma.getActiveStt(language: 'de');
+    addTearDown(recognizer.close);
 
     expect(backend.lastConfig?.language, 'de');
     expect(backend.createModelCallCount, 1);
     expect(recognizer.language, 'de');
-
-    await recognizer.close();
   });
 
   test('a second call with a DIFFERENT language retargets the same '
@@ -115,6 +115,7 @@ void main() {
     final backend = await installWhisper();
 
     final first = await FlutterGemma.getActiveStt(language: 'en');
+    addTearDown(first.close);
     expect(first.language, 'en');
     expect(backend.createModelCallCount, 1);
 
@@ -129,8 +130,6 @@ void main() {
     // before the fix `second.language` was still 'en'.
     expect(second.language, 'de');
     expect(first.language, 'de', reason: 'same object, so it must agree');
-
-    await first.close();
   });
 
   test('a later call with no language clears the override back to the '
@@ -141,6 +140,7 @@ void main() {
     final backend = await installWhisper();
 
     final recognizer = await FlutterGemma.getActiveStt(language: 'de');
+    addTearDown(recognizer.close);
     expect(recognizer.language, 'de');
 
     final again = await FlutterGemma.getActiveStt();
@@ -148,8 +148,6 @@ void main() {
     expect(identical(again, recognizer), isTrue);
     expect(again.language, isNull);
     expect(backend.createModelCallCount, 1);
-
-    await recognizer.close();
   });
 
   test(
@@ -158,6 +156,7 @@ void main() {
       final backend = await installWhisper();
 
       final recognizer = await FlutterGemma.getActiveStt(language: 'de');
+      addTearDown(recognizer.close);
       await recognizer.transcribe(Uint8List(16), language: 'fr');
 
       expect(backend.recognizer.lastTranscribeLanguage, 'fr');
@@ -167,8 +166,6 @@ void main() {
 
       await recognizer.transcribe(Uint8List(16));
       expect(backend.recognizer.lastTranscribeLanguage, 'de');
-
-      await recognizer.close();
     },
   );
   test(
@@ -179,18 +176,23 @@ void main() {
       // loading was dropped with no error — the #500 failure, narrowed to a
       // window wide enough to hold an isolate spawn and a tokenizer parse.
       final backend = await installWhisper(
-        loadDelay: const Duration(milliseconds: 50),
+        loadDelay: const Duration(milliseconds: 500),
       );
 
       final first = FlutterGemma.getActiveStt(); // deliberately not awaited
+      // Wait for the first load to actually START. Without this the test relied
+      // on the first call finishing its file-path preamble before the second
+      // one did; on a loaded machine the I/O finished in the other order, the
+      // 'de' call built the model and the null call retargeted it back, so it
+      // was green alone and red in tool/test_all.sh.
+      await backend.loadStarted.future;
       final second = await FlutterGemma.getActiveStt(language: 'de');
+      addTearDown(second.close);
       final firstResolved = await first;
 
       expect(backend.createModelCallCount, 1, reason: 'must not build twice');
       expect(identical(second, firstResolved), isTrue);
       expect(second.language, 'de');
-
-      await second.close();
     },
   );
 
@@ -204,6 +206,7 @@ void main() {
       tokenizerPath: '/tmp/tokenizer.json',
       language: 'de',
     );
+    addTearDown(first.close);
     expect(first.language, 'de');
 
     final second = await FlutterGemmaPlugin.instance.createSttModel(
@@ -215,8 +218,6 @@ void main() {
     expect(identical(second, first), isTrue);
     expect(second.language, 'fr');
     expect(backend.createModelCallCount, 1);
-
-    await first.close();
   });
 
   test(
@@ -230,6 +231,7 @@ void main() {
       final backend = await installWhisper(rejectLanguage: true);
 
       final recognizer = await FlutterGemma.getActiveStt();
+      addTearDown(recognizer.close);
       expect(recognizer.language, isNull);
 
       await expectLater(
@@ -240,8 +242,6 @@ void main() {
       // …and the rejected value must not have been stored.
       expect(recognizer.language, isNull);
       expect(backend.createModelCallCount, 1);
-
-      await recognizer.close();
     },
   );
 }
@@ -260,6 +260,11 @@ class _FakeSttBackend implements SttBackendProvider {
 
   RuntimeConfig? lastConfig;
   int createModelCallCount = 0;
+
+  /// Completes when the first `createModel` starts, i.e. once the shell has
+  /// installed its in-flight completer, so a caller that waits for it is
+  /// guaranteed to land on the in-flight branch.
+  final loadStarted = Completer<void>();
   late _FakeSpeechRecognizer recognizer;
 
   @override
@@ -278,6 +283,7 @@ class _FakeSttBackend implements SttBackendProvider {
   ) async {
     createModelCallCount++;
     lastConfig = config;
+    if (!loadStarted.isCompleted) loadStarted.complete();
     if (loadDelay != null) await Future<void>.delayed(loadDelay!);
     return recognizer = _FakeSpeechRecognizer(
       config.language,

@@ -1,3 +1,7 @@
+## 0.2.6
+
+- README: web native-intent behaviour, Android release builds, and installing the agent skills.
+
 ## 0.2.5
 
 - fix: drop runSkill's required scriptName — the script comes from the skill's SKILL.md.

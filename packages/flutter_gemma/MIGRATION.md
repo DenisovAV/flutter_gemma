@@ -24,11 +24,11 @@ dependencies:
 **After (1.0):**
 ```yaml
 dependencies:
-  flutter_gemma: ^1.9.0                 # core — always required
-  flutter_gemma_litertlm: ^1.8.0        # add if you run .litertlm models (also provides LiteRtEmbeddingBackend)
-  flutter_gemma_mediapipe: ^1.0.6       # add if you run .task / .bin models
+  flutter_gemma: ^1.10.0                 # core — always required
+  flutter_gemma_litertlm: ^1.8.3        # add if you run .litertlm models (also provides LiteRtEmbeddingBackend)
+  flutter_gemma_mediapipe: ^1.0.7       # add if you run .task / .bin models
   flutter_gemma_embeddings: ^2.2.0      # add if you compute embeddings (needs a backend, see above)
-  flutter_gemma_rag_qdrant: ^1.3.1      # add for native on-device RAG (qdrant)
+  flutter_gemma_rag_qdrant: ^1.3.2      # add for native on-device RAG (qdrant)
   flutter_gemma_rag_sqlite: ^1.4.0      # add for on-device RAG (sqlite-vec; all platforms incl. web) — needs Flutter 3.47
 ```
 

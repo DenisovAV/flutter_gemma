@@ -1,3 +1,6 @@
+## 1.3.2
+- README: how to install the agent skills that cover this package.
+
 ## 1.3.1
 - Add `flush()`; without it an index was lost when the process ended (#492).
 

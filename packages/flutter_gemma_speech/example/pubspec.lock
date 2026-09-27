@@ -180,14 +180,14 @@ packages:
       path: "../../flutter_gemma"
       relative: true
     source: path
-    version: "1.10.0"
+    version: "1.11.0"
   flutter_gemma_agent:
     dependency: "direct main"
     description:
       path: "../../flutter_gemma_agent"
       relative: true
     source: path
-    version: "0.2.5"
+    version: "0.2.6"
   flutter_gemma_embeddings:
     dependency: "direct overridden"
     description:
@@ -201,7 +201,7 @@ packages:
       path: "../../flutter_gemma_litertlm"
       relative: true
     source: path
-    version: "1.8.3"
+    version: "1.8.4"
   flutter_gemma_speech:
     dependency: "direct main"
     description:

@@ -9,7 +9,7 @@ import 'package:flutter_edge_ai/core/registry/hugging_face_resolver.dart'
 ///
 /// Built-in models have NO Hugging Face file — the OS owns the weights, and a
 /// `ModelFileType.builtIn` install downloads nothing. This resolver claims the
-/// `builtIn` slot only so `FlutterGemma.resolveHuggingFace(repo, fileType:
+/// `builtIn` slot only so `FlutterEdgeAi.resolveHuggingFace(repo, fileType:
 /// ModelFileType.builtIn)` answers with a clear "not possible" error instead
 /// of core's generic "no resolver registered" `StateError`.
 ///
@@ -19,7 +19,7 @@ import 'package:flutter_edge_ai/core/registry/hugging_face_resolver.dart'
 ///
 /// Auto-registered from `BuiltInAiEngine` (which implements
 /// `HuggingFaceResolverSource`), so registering the engine is enough; pass it in
-/// `FlutterGemma.initialize(huggingFaceResolvers: [...])` only to override.
+/// `FlutterEdgeAi.initialize(huggingFaceResolvers: [...])` only to override.
 class BuiltInAiHuggingFaceResolver implements HuggingFaceResolver {
   const BuiltInAiHuggingFaceResolver();
 

@@ -15,7 +15,7 @@ import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 
 import 'inference_test_helpers.dart';
 
-const _deviceModelDir = '/data/local/tmp/flutter_gemma_test';
+const _deviceModelDir = '/data/local/tmp/flutter_edge_ai_test';
 const _gemma3nPath = '$_deviceModelDir/gemma-3n-E2B-it-int4.task';
 
 /// Load test image from bundled assets.
@@ -28,7 +28,7 @@ Future<Uint8List> _loadTestImage() async {
 Future<void> _installMultimodalModel() async {
   print('[Multimodal] Installing from file: $_gemma3nPath');
 
-  await FlutterGemma.installModel(
+  await FlutterEdgeAi.installModel(
     modelType: ModelType.gemmaIt,
     fileType: ModelFileType.task,
   ).fromFile(_gemma3nPath).install();
@@ -46,7 +46,7 @@ void main() {
     final imageBytes = await _loadTestImage();
     print('[Vision] Image loaded: ${imageBytes.length} bytes');
 
-    final model = await FlutterGemma.getActiveModel(
+    final model = await FlutterEdgeAi.getActiveModel(
       maxTokens: 4096,
       preferredBackend: PreferredBackend.gpu,
       supportImage: true,

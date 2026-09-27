@@ -5,7 +5,7 @@
 // here rather than inside a forward pass because they are engine-agnostic (pure
 // Dart, `dart_sentencepiece_tokenizer` only). The pad/truncate-to-`seqLen` half
 // deliberately does NOT: it stays with the LiteRT forward pass in
-// `flutter_gemma_litertlm`, because only that engine's compiled model knows its
+// `flutter_edge_ai_litertlm`, because only that engine's compiled model knows its
 // fixed `seqLen`.
 //
 // ⚠️ I1 risk: getting `bosId`/`eosId` or the `prefix + text` concatenation

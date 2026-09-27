@@ -24,7 +24,7 @@ void main() {
     final response = await ai.generate(
       model: testModelRef,
       prompt: 'What is 2+2? Answer briefly.',
-      config: FlutterGemmaModelOptions(maxTokens: 256),
+      config: FlutterEdgeAiModelOptions(maxTokens: 256),
     );
 
     final text = response.text;
@@ -38,7 +38,7 @@ void main() {
     final stream = ai.generateStream(
       model: testModelRef,
       prompt: 'Say hello in a few words.',
-      config: FlutterGemmaModelOptions(maxTokens: 128),
+      config: FlutterEdgeAiModelOptions(maxTokens: 128),
     );
 
     await for (final chunk in stream) {
@@ -76,7 +76,7 @@ void main() {
           content: [TextPart(text: 'What is my name?')],
         ),
       ],
-      config: FlutterGemmaModelOptions(maxTokens: 128),
+      config: FlutterEdgeAiModelOptions(maxTokens: 128),
     );
 
     final text = response.text;
@@ -97,7 +97,7 @@ void main() {
           content: [TextPart(text: 'What color is the sky?')],
         ),
       ],
-      config: FlutterGemmaModelOptions(maxTokens: 128),
+      config: FlutterEdgeAiModelOptions(maxTokens: 128),
     );
 
     final text = response.text;
@@ -110,7 +110,7 @@ void main() {
     final response = await ai.generate(
       model: testModelRef,
       prompt: 'Write a long story about a dragon.',
-      config: FlutterGemmaModelOptions(
+      config: FlutterEdgeAiModelOptions(
         maxTokens: 50,
         temperature: 0.1,
       ),

@@ -10,11 +10,11 @@
 /// "find docs matching X but not Y" idiom.
 ///
 /// All conditions reference fields inside a document's metadata JSON. The
-/// metadata schema is up to the caller — flutter_gemma does not impose one.
+/// metadata schema is up to the caller — flutter_edge_ai does not impose one.
 ///
 /// Backends honor filters over the fields a caller declares filterable via
-/// [FilterSchema]: qdrant-edge (`flutter_gemma_rag_qdrant`) promotes them to
-/// payload keys, and the sqlite-vec store (`flutter_gemma_rag_sqlite`) to
+/// [FilterSchema]: qdrant-edge (`flutter_edge_ai_qdrant`) promotes them to
+/// payload keys, and the sqlite-vec store (`flutter_edge_ai_sqlite`) to
 /// typed `vec0` columns on both native and web. A condition on an undeclared
 /// field is a no-op, never an error — pass a filter expecting it to narrow or
 /// to be ignored, never to throw.
@@ -268,7 +268,7 @@ class FilterField {
 
 /// The set of metadata fields a store should make filterable.
 ///
-/// Passed once at registration through `FlutterGemma.initialize(filterSchema:)`
+/// Passed once at registration through `FlutterEdgeAi.initialize(filterSchema:)`
 /// and handed to the store via [VectorStoreRepository.configure] before
 /// [VectorStoreRepository.initialize]. An empty schema (the default) leaves
 /// every store in its existing "filters are a safe no-op" mode.

@@ -12,7 +12,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 import 'inference_test_helpers.dart' show registerTestEngines;
 
-const _modelPath = '/data/local/tmp/flutter_gemma_test/gemma-4-E2B-it.litertlm';
+const _modelPath = '/data/local/tmp/flutter_edge_ai_test/gemma-4-E2B-it.litertlm';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -33,13 +33,13 @@ void main() {
     (tester) async {
       await registerTestEngines();
 
-      await FlutterGemma.installModel(
+      await FlutterEdgeAi.installModel(
         modelType: ModelType.gemmaIt,
         fileType: ModelFileType.litertlm,
       ).fromFile(_modelPath).install();
 
       // No preferredBackend = CPU (default), matching issue #209 reporter's code
-      final model = await FlutterGemma.getActiveModel(maxTokens: 2048);
+      final model = await FlutterEdgeAi.getActiveModel(maxTokens: 2048);
 
       try {
         final chat = await model.createChat(modelType: ModelType.gemmaIt);

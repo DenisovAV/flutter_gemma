@@ -16,12 +16,12 @@ void main() {
     setUpAll(() async {
       debugPrint('=== Setting up Desktop Chat Test ===');
 
-      // Initialize FlutterGemma
-      await FlutterGemma.initialize();
-      debugPrint('FlutterGemma initialized');
+      // Initialize FlutterEdgeAi
+      await FlutterEdgeAi.initialize();
+      debugPrint('FlutterEdgeAi initialized');
 
       // Check if model is installed
-      final hasModel = FlutterGemma.hasActiveModel();
+      final hasModel = FlutterEdgeAi.hasActiveModel();
       debugPrint('Has active model: $hasModel');
 
       if (!hasModel) {
@@ -31,7 +31,7 @@ void main() {
       }
 
       // Create model with minimal config - NO audio/image support to test pure text
-      model = await FlutterGemma.getActiveModel(
+      model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 512,
         preferredBackend: PreferredBackend.gpu,
         supportAudio: false,

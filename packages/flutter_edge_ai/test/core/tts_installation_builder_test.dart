@@ -18,10 +18,10 @@ void main() {
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
     fakeDocuments = await Directory.systemTemp.createTemp(
-      'flutter_gemma_docs_',
+      'flutter_edge_ai_docs_',
     );
     fakeAppSupport = await Directory.systemTemp.createTemp(
-      'flutter_gemma_appsupport_',
+      'flutter_edge_ai_appsupport_',
     );
     PathProviderPlatform.instance = _FixedPathProviderPlatform(
       documentsPath: fakeDocuments.path,
@@ -45,18 +45,18 @@ void main() {
   });
 
   test('install() requires a base source', () {
-    expect(FlutterGemma.installTts().install(), throwsA(isA<StateError>()));
+    expect(FlutterEdgeAi.installTts().install(), throwsA(isA<StateError>()));
   });
 
   test('install() requires ofType', () {
     expect(
-      FlutterGemma.installTts().fromNetwork('https://x/').install(),
+      FlutterEdgeAi.installTts().fromNetwork('https://x/').install(),
       throwsA(isA<StateError>()),
     );
   });
 
   test('getActiveTts throws with no active model', () {
-    expect(FlutterGemma.getActiveTts(), throwsA(isA<StateError>()));
+    expect(FlutterEdgeAi.getActiveTts(), throwsA(isA<StateError>()));
   });
 
   test(
@@ -75,7 +75,7 @@ void main() {
       );
       await ServiceRegistry.initialize(downloadService: fixtureDownload);
 
-      final installation = await FlutterGemma.installTts()
+      final installation = await FlutterEdgeAi.installTts()
           .fromNetwork(
             'https://huggingface.co/litert-community/'
             'Qwen3-TTS-12Hz-0.6B-Base/resolve/main/',
@@ -165,7 +165,7 @@ void main() {
       );
       await ServiceRegistry.initialize(downloadService: fixtureDownload);
 
-      final installation = await FlutterGemma.installTts()
+      final installation = await FlutterEdgeAi.installTts()
           .fromNetwork('https://example.com/matcha/')
           .ofType(TtsModelType.matcha)
           .install();
@@ -189,12 +189,12 @@ void main() {
       );
       await ServiceRegistry.initialize(downloadService: fixtureDownload);
 
-      await FlutterGemma.installTts()
+      await FlutterEdgeAi.installTts()
           .fromNetwork('https://example.com/matcha/')
           .ofType(TtsModelType.matcha)
           .install();
 
-      final manager = FlutterGemmaPlugin.instance.modelManager;
+      final manager = FlutterEdgeAiPlugin.instance.modelManager;
 
       // #391: the installed bundle is listed under tts, not inference.
       expect(
@@ -213,7 +213,7 @@ void main() {
       // download fake), so getOrphanedFiles() would report — and
       // cleanupStorage() would delete — them if _getProtectedFiles omitted tts.
       expect(
-        await FlutterGemma.getOrphanedFiles(),
+        await FlutterEdgeAi.getOrphanedFiles(),
         isEmpty,
         reason: 'installed TTS files must be protected from cleanup',
       );
@@ -234,7 +234,7 @@ void main() {
       );
       await ServiceRegistry.initialize(downloadService: fixtureDownload);
 
-      await FlutterGemma.installTts()
+      await FlutterEdgeAi.installTts()
           .fromNetwork('https://example.com/matcha/')
           .ofType(TtsModelType.matcha)
           .install();
@@ -244,10 +244,10 @@ void main() {
       // ONLY from the type-agnostic listInstalled() keep-set (the actual #391
       // anti-data-loss fix). Real-world case: a second TTS voice, or a TTS
       // installed while a different modality is active.
-      await FlutterGemmaPlugin.instance.modelManager.clearActiveTtsIdentity();
+      await FlutterEdgeAiPlugin.instance.modelManager.clearActiveTtsIdentity();
 
       expect(
-        await FlutterGemma.getOrphanedFiles(),
+        await FlutterEdgeAi.getOrphanedFiles(),
         isEmpty,
         reason:
             'installed-but-inactive TTS files must still be protected; reverting '
@@ -267,7 +267,7 @@ void main() {
       await ServiceRegistry.initialize(modelRepository: _ThrowingRepository());
 
       await expectLater(
-        FlutterGemma.getOrphanedFiles(),
+        FlutterEdgeAi.getOrphanedFiles(),
         throwsA(isA<StateError>()),
       );
     },

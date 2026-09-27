@@ -14,7 +14,7 @@ enum PreferredBackend {
 @ConfigurePigeon(PigeonOptions(
   dartOut: 'lib/pigeon.g.dart',
   kotlinOut:
-      'android/src/main/kotlin/dev/flutterberlin/flutter_gemma_mediapipe/PigeonInterface.g.kt',
+      'android/src/main/kotlin/dev/flutterberlin/flutter_edge_ai_mediapipe/PigeonInterface.g.kt',
   kotlinOptions:
       KotlinOptions(package: 'dev.flutterberlin.flutter_gemma_mediapipe'),
   swiftOut: 'ios/Classes/PigeonInterface.g.swift',

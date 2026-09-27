@@ -23,7 +23,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_edge_ai/core/domain/platform_types.dart'
     show PreferredBackend;
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 
 import '../model/stt_model_profile.dart';
 import 'stt_core.dart';
@@ -108,10 +108,10 @@ class _WorkerInit {
   final SttModelProfile profile;
   final PreferredBackend? backend;
 
-  /// Snapshot of the main-isolate [gemmaLogLevel] at spawn — the worker
+  /// Snapshot of the main-isolate [edgeAiLogLevel] at spawn — the worker
   /// isolate gets its own copy of the per-isolate top-level (default info),
   /// so it must be seeded explicitly.
-  final GemmaLogLevel logLevel;
+  final EdgeAiLogLevel logLevel;
 }
 
 /// Main-isolate handle to the STT worker. Spawns the isolate, performs the
@@ -172,7 +172,7 @@ class SttWorker {
           tokenizerPath: tokenizerPath,
           profile: profile,
           backend: backend,
-          logLevel: gemmaLogLevel,
+          logLevel: edgeAiLogLevel,
         ),
         // onExit posts `null` to fromWorker so we never wait on a dead isolate.
         onExit: fromWorker.sendPort,
@@ -265,7 +265,7 @@ class SttWorker {
 /// Isolate entry point. Loads the model, then serves requests until _Close.
 Future<void> _workerEntry(_WorkerInit init) async {
   // Seed this isolate's per-isolate log level from the main-isolate snapshot.
-  gemmaLogLevel = init.logLevel;
+  edgeAiLogLevel = init.logLevel;
   final SttCore core;
   try {
     core = await SttCore.load(
@@ -275,7 +275,7 @@ Future<void> _workerEntry(_WorkerInit init) async {
       backend: init.backend,
     );
   } catch (e, st) {
-    gemmaLog('[SttWorker] load failed: $e\n$st');
+    edgeAiLog('[SttWorker] load failed: $e\n$st');
     init.replyTo.send('STT worker failed to load: $e');
     return;
   }

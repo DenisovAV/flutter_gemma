@@ -49,7 +49,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF0b2351),
       appBar: AppBar(
-        title: const Text('Flutter Gemma Example'),
+        title: const Text('Flutter Edge AI Example'),
         backgroundColor: const Color(0xFF0b2351),
       ),
       body: Padding(
@@ -63,7 +63,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 32),
             const Text(
-              'Welcome to Flutter Gemma',
+              'Welcome to Flutter Edge AI',
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,

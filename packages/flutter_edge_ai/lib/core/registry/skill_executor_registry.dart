@@ -1,13 +1,13 @@
 import 'package:flutter/foundation.dart' show kDebugMode;
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 import 'package:flutter_edge_ai/core/registry/skill_executor_provider.dart';
 
-/// Holds skill executors registered via `FlutterGemma.initialize`
+/// Holds skill executors registered via `FlutterEdgeAi.initialize`
 /// (`skillExecutors:`). Same probe-chain selection as `EngineRegistry` /
 /// `EmbeddingRegistry`: the registered executor with the highest
 /// [SkillExecutorProvider.priority] whose [SkillExecutorProvider.canExecute]
 /// returns true for a skill type wins (first-registered breaks ties). There is
-/// no central type map — the opt-in `flutter_gemma_agent` executors self-select.
+/// no central type map — the opt-in `flutter_edge_ai_agent` executors self-select.
 ///
 /// Core owns only this registry + the [SkillExecutorProvider] contract; the
 /// concrete `SkillExecutor` base and `SkillResult` types live in the agent
@@ -39,8 +39,8 @@ class SkillExecutorRegistry {
     if (kDebugMode &&
         indexed.length > 1 &&
         indexed[0].$2.priority == indexed[1].$2.priority) {
-      gemmaLog(
-        '[flutter_gemma] Ambiguous skill executor: '
+      edgeAiLog(
+        '[flutter_edge_ai] Ambiguous skill executor: '
         '${indexed.map((e) => e.$2.name).join(", ")} all handle "$skillType" at '
         'priority ${indexed[0].$2.priority}; using "${indexed[0].$2.name}" '
         '(first registered).',

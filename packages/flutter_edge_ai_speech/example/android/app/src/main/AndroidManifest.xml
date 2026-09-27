@@ -2,7 +2,7 @@
     <!-- Downloads the model. Flutter's template grants this to debug and profile builds only. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <application
-        android:label="flutter_gemma_speech_example"
+        android:label="flutter_edge_ai_speech_example"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

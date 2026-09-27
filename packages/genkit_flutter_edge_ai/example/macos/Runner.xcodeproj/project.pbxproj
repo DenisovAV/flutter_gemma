@@ -68,7 +68,7 @@
 		331C80D7294CF71000263BE5 /* RunnerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerTests.swift; sourceTree = "<group>"; };
 		333000ED22D3DE5D00554162 /* Warnings.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Warnings.xcconfig; sourceTree = "<group>"; };
 		335BBD1A22A9A15E00E9071D /* GeneratedPluginRegistrant.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = GeneratedPluginRegistrant.swift; sourceTree = "<group>"; };
-		33CC10ED2044A3C60003C045 /* genkit_flutter_gemma_example.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = genkit_flutter_gemma_example.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		33CC10ED2044A3C60003C045 /* genkit_flutter_edge_ai_example.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = genkit_flutter_edge_ai_example.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		33CC10F02044A3C60003C045 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		33CC10F22044A3C60003C045 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Assets.xcassets; path = Runner/Assets.xcassets; sourceTree = "<group>"; };
 		33CC10F52044A3C60003C045 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Base; path = Base.lproj/MainMenu.xib; sourceTree = "<group>"; };
@@ -144,7 +144,7 @@
 		33CC10EE2044A3C60003C045 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				33CC10ED2044A3C60003C045 /* genkit_flutter_gemma_example.app */,
+				33CC10ED2044A3C60003C045 /* genkit_flutter_edge_ai_example.app */,
 				331C80D5294CF71000263BE5 /* RunnerTests.xctest */,
 			);
 			name = Products;
@@ -250,7 +250,7 @@
 			);
 			name = Runner;
 			productName = Runner;
-			productReference = 33CC10ED2044A3C60003C045 /* genkit_flutter_gemma_example.app */;
+			productReference = 33CC10ED2044A3C60003C045 /* genkit_flutter_edge_ai_example.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -439,7 +439,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# Find flutter_gemma plugin path\nPLUGIN_PATH=\"${PODS_ROOT}/../Flutter/ephemeral/.symlinks/plugins/flutter_gemma/macos\"\nif [ -f \"$PLUGIN_PATH/scripts/setup_desktop.sh\" ]; then\n  sh \"$PLUGIN_PATH/scripts/setup_desktop.sh\" \"$PLUGIN_PATH\" \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app\"\nfi\n";
+			shellScript = "# Find flutter_edge_ai plugin path\nPLUGIN_PATH=\"${PODS_ROOT}/../Flutter/ephemeral/.symlinks/plugins/flutter_edge_ai/macos\"\nif [ -f \"$PLUGIN_PATH/scripts/setup_desktop.sh\" ]; then\n  sh \"$PLUGIN_PATH/scripts/setup_desktop.sh\" \"$PLUGIN_PATH\" \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app\"\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -501,7 +501,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = dev.flutterberlin.genkitFlutterGemmaExample.RunnerTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/genkit_flutter_gemma_example.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/genkit_flutter_gemma_example";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/genkit_flutter_edge_ai_example.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/genkit_flutter_edge_ai_example";
 			};
 			name = Debug;
 		};
@@ -516,7 +516,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = dev.flutterberlin.genkitFlutterGemmaExample.RunnerTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/genkit_flutter_gemma_example.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/genkit_flutter_gemma_example";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/genkit_flutter_edge_ai_example.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/genkit_flutter_edge_ai_example";
 			};
 			name = Release;
 		};
@@ -531,7 +531,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = dev.flutterberlin.genkitFlutterGemmaExample.RunnerTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/genkit_flutter_gemma_example.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/genkit_flutter_gemma_example";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/genkit_flutter_edge_ai_example.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/genkit_flutter_edge_ai_example";
 			};
 			name = Profile;
 		};

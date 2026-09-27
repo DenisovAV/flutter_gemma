@@ -3,7 +3,7 @@
 //
 // Prerequisites:
 //   Push models to device: ./scripts/prepare_test_models.sh [device_id]
-//   Models loaded from /data/local/tmp/flutter_gemma_test/ on device.
+//   Models loaded from /data/local/tmp/flutter_edge_ai_test/ on device.
 //
 // Tests per model:
 //   - install: model loads from device file
@@ -20,7 +20,7 @@ import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 import 'package:flutter_edge_ai/core/function_call_parser.dart';
 import 'inference_test_helpers.dart' show registerTestEngines;
 
-const _deviceModelDir = '/data/local/tmp/flutter_gemma_test';
+const _deviceModelDir = '/data/local/tmp/flutter_edge_ai_test';
 
 /// Test model configuration for tool calling tests.
 class ToolCallingTestModel {
@@ -140,12 +140,12 @@ void main() {
         await registerTestEngines();
 
         debugPrint('[${model.name}] Installing from file: ${model.filePath}');
-        await FlutterGemma.installModel(
+        await FlutterEdgeAi.installModel(
           modelType: model.modelType,
           fileType: model.fileType,
         ).fromFile(model.filePath).install();
 
-        expect(FlutterGemma.hasActiveModel(), isTrue);
+        expect(FlutterEdgeAi.hasActiveModel(), isTrue);
         debugPrint('[${model.name}] Installed successfully');
       }, timeout: const Timeout(Duration(minutes: 10)));
 
@@ -155,7 +155,7 @@ void main() {
           await registerTestEngines();
           await _ensureModelInstalled(model);
 
-          final inferenceModel = await FlutterGemma.getActiveModel(
+          final inferenceModel = await FlutterEdgeAi.getActiveModel(
             maxTokens: model.maxTokens,
             preferredBackend: PreferredBackend.cpu,
           );
@@ -214,7 +214,7 @@ void main() {
           await registerTestEngines();
           await _ensureModelInstalled(model);
 
-          final inferenceModel = await FlutterGemma.getActiveModel(
+          final inferenceModel = await FlutterEdgeAi.getActiveModel(
             maxTokens: model.maxTokens,
             preferredBackend: PreferredBackend.cpu,
           );
@@ -268,7 +268,7 @@ void main() {
           await registerTestEngines();
           await _ensureModelInstalled(model);
 
-          final inferenceModel = await FlutterGemma.getActiveModel(
+          final inferenceModel = await FlutterEdgeAi.getActiveModel(
             maxTokens: model.maxTokens,
             preferredBackend: PreferredBackend.cpu,
           );
@@ -319,7 +319,7 @@ void main() {
           await registerTestEngines();
           await _ensureModelInstalled(model);
 
-          final inferenceModel = await FlutterGemma.getActiveModel(
+          final inferenceModel = await FlutterEdgeAi.getActiveModel(
             maxTokens: model.maxTokens,
             preferredBackend: PreferredBackend.cpu,
           );
@@ -381,7 +381,7 @@ void main() {
           await registerTestEngines();
           await _ensureModelInstalled(model);
 
-          final inferenceModel = await FlutterGemma.getActiveModel(
+          final inferenceModel = await FlutterEdgeAi.getActiveModel(
             maxTokens: model.maxTokens,
             preferredBackend: PreferredBackend.cpu,
           );
@@ -474,9 +474,9 @@ void main() {
 
 /// Ensure model is installed (idempotent).
 Future<void> _ensureModelInstalled(ToolCallingTestModel model) async {
-  if (FlutterGemma.hasActiveModel()) return;
+  if (FlutterEdgeAi.hasActiveModel()) return;
 
-  await FlutterGemma.installModel(
+  await FlutterEdgeAi.installModel(
     modelType: model.modelType,
     fileType: model.fileType,
   ).fromFile(model.filePath).install();

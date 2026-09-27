@@ -50,7 +50,7 @@ android {
         applicationId = "dev.flutterberlin.flutter_gemma_example"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        // Raised to 26 for flutter_gemma_builtin_ai (Gemini Nano via ML Kit
+        // Raised to 26 for flutter_edge_ai_builtin_ai (Gemini Nano via ML Kit
         // GenAI / AICore requires API 26+); the manifest merger rejects a lower
         // app minSdk against the library's declared minSdk 26.
         minSdk = 26

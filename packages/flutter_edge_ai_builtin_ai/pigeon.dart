@@ -15,11 +15,11 @@ enum AvailabilityStatus {
 @ConfigurePigeon(PigeonOptions(
   dartOut: 'lib/pigeon.g.dart',
   kotlinOut:
-      'android/src/main/kotlin/dev/flutterberlin/flutter_gemma_builtin_ai/PigeonInterface.g.kt',
+      'android/src/main/kotlin/dev/flutterberlin/flutter_edge_ai_builtin_ai/PigeonInterface.g.kt',
   kotlinOptions:
       KotlinOptions(package: 'dev.flutterberlin.flutter_gemma_builtin_ai'),
   swiftOut:
-      'darwin/flutter_gemma_builtin_ai/Sources/flutter_gemma_builtin_ai/PigeonInterface.g.swift',
+      'darwin/flutter_edge_ai_builtin_ai/Sources/flutter_edge_ai_builtin_ai/PigeonInterface.g.swift',
   swiftOptions: SwiftOptions(),
   dartPackageName: 'flutter_gemma_builtin_ai',
 ))

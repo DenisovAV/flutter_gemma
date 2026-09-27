@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_edge_ai/core/domain/web_storage_mode.dart';
 import 'package:flutter_edge_ai/core/services/download_service.dart';
@@ -323,10 +323,10 @@ class ServiceRegistry {
 
     // RAG is opt-in as of 1.0. Core ships no built-in vector store on any
     // platform. Pass vectorStore: to initialize() from a RAG package
-    // (flutter_gemma_rag_sqlite / flutter_gemma_rag_qdrant). When omitted,
+    // (flutter_edge_ai_sqlite / flutter_edge_ai_qdrant). When omitted,
     // UnconfiguredVectorStore throws a clear "add a RAG package" error on first
     // Core ships no vector-store impl — sqlite and qdrant are opt-in packages
-    // (flutter_gemma_rag_sqlite / flutter_gemma_rag_qdrant).
+    // (flutter_edge_ai_sqlite / flutter_edge_ai_qdrant).
     _vectorStoreRepository = vectorStoreRepository ?? UnconfiguredVectorStore();
 
     // Declare the filterable-metadata schema at registration, BEFORE the store
@@ -373,26 +373,26 @@ class ServiceRegistry {
   ///
   /// Throws [StateError] if not initialized.
   ///
-  /// Must call [FlutterGemma.initialize()] first in main():
+  /// Must call [FlutterEdgeAi.initialize()] first in main():
   /// ```dart
   /// void main() async {
   ///   WidgetsFlutterBinding.ensureInitialized();
-  ///   await FlutterGemma.initialize();
+  ///   await FlutterEdgeAi.initialize();
   ///   runApp(MyApp());
   /// }
   /// ```
   static ServiceRegistry get instance {
     if (_instance == null) {
       throw StateError(
-        'FlutterGemma not initialized!\n\n'
-        'You must call FlutterGemma.initialize() in main() before using the plugin.\n\n'
+        'FlutterEdgeAi not initialized!\n\n'
+        'You must call FlutterEdgeAi.initialize() in main() before using the plugin.\n\n'
         'Example:\n'
         '  void main() async {\n'
         '    WidgetsFlutterBinding.ensureInitialized();\n'
-        '    await FlutterGemma.initialize();\n'
+        '    await FlutterEdgeAi.initialize();\n'
         '    runApp(MyApp());\n'
         '  }\n\n'
-        'For more information, see: https://pub.dev/packages/flutter_gemma#initialization',
+        'For more information, see: https://pub.dev/packages/flutter_edge_ai#initialization',
       );
     }
     return _instance!;
@@ -435,13 +435,13 @@ class ServiceRegistry {
     if (_instance != null) {
       // Warn if critical parameters changed
       if (_instance!.webStorageMode != webStorageMode) {
-        gemmaLog(
+        edgeAiLog(
           'WARNING: webStorageMode cannot be changed after initialization.\n'
           'Current: ${_instance!.webStorageMode}, Requested: $webStorageMode\n'
           'Restart the application to change this setting.',
         );
       }
-      gemmaLog(
+      edgeAiLog(
         'ServiceRegistry: Already initialized, skipping re-initialization',
       );
       return;
@@ -479,7 +479,7 @@ class ServiceRegistry {
     try {
       await _vectorStoreRepository.close();
     } catch (e) {
-      gemmaLog('Warning: Failed to close VectorStore: $e');
+      edgeAiLog('Warning: Failed to close VectorStore: $e');
     }
   }
 

@@ -5,7 +5,7 @@ import 'package:flutter_edge_ai/flutter_edge_ai.dart' show SttModelType;
 /// Mirrors `models/embedding_model.dart` / `models/model.dart` — the STT
 /// model is SELECTABLE, not hardcoded: every entry carries the
 /// [SttModelType] that tells the single generic `LiteRtSttBackend`
-/// (`flutter_gemma_speech`) which runtime `SttModelProfile` to run. Adding a
+/// (`flutter_edge_ai_speech`) which runtime `SttModelProfile` to run. Adding a
 /// new family later is a new catalog entry (+ a profile + a mel frontend for
 /// the log-mel families), not a new screen or a new backend/recognizer class.
 ///

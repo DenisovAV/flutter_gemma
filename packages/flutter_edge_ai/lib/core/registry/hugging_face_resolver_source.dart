@@ -5,7 +5,7 @@ import 'package:flutter_edge_ai/core/registry/hugging_face_resolver.dart'
 /// Hugging Face manifest [HuggingFaceResolver] for its own model family.
 ///
 /// An engine that implements this exposes its resolver via
-/// [huggingFaceResolver], and `FlutterGemma.initialize(inferenceEngines: …)`
+/// [huggingFaceResolver], and `FlutterEdgeAi.initialize(inferenceEngines: …)`
 /// auto-registers it — so an app that adds the engine gets that engine's
 /// `.litertlm` / `.onnx` / `.builtIn` resolver WITHOUT maintaining a parallel
 /// `huggingFaceResolvers:` list. The engine and its resolver ship in the same

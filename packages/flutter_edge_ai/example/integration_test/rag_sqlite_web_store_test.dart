@@ -2,7 +2,7 @@
 ///
 /// Run with:
 ///   chromedriver --port=4444 &
-///   cd packages/flutter_gemma/example
+///   cd packages/flutter_edge_ai/example
 ///   flutter drive \
 ///     --driver=test_driver/integration_test.dart \
 ///     --target=integration_test/rag_sqlite_web_store_test.dart \
@@ -21,7 +21,7 @@
 /// supported platform.
 ///
 /// The two tests below are the web twins of the native ones in
-/// `flutter_gemma_rag_sqlite/test/sqlite_vector_store_test.dart`, and both fail
+/// `flutter_edge_ai_sqlite/test/sqlite_vector_store_test.dart`, and both fail
 /// against the 1.2.0 web arm.
 ///
 /// The wasm this drives is the example's own `web/rag/sqlite3.wasm` — the

@@ -4,7 +4,7 @@ import 'package:genai_primitives/genai_primitives.dart';
 
 import '../chat.dart';
 import '../model_response.dart';
-import '../utils/gemma_log.dart';
+import '../utils/edge_ai_log.dart';
 import 'genai_input_converter.dart';
 import 'genai_output_converter.dart';
 
@@ -120,7 +120,7 @@ extension GenAiChat on InferenceChat {
       try {
         await stopGeneration();
       } catch (e, s) {
-        gemmaLog(
+        edgeAiLog(
           'WARNING: genai stopGeneration during teardown failed: $e\n$s',
         );
       }

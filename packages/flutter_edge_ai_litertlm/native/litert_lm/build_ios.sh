@@ -232,8 +232,8 @@ done
 # does not support the minimum OS Version specified in the Info.plist")
 # whenever a dylib's binary minos differs from the wrapper plist's 13.0.
 #
-# The declared floor is flutter_gemma's podspec `s.platform = :ios, '15.0'`
-# (#441; 16.0 only for flutter_gemma_mediapipe) — that's the real contract.
+# The declared floor is flutter_edge_ai's podspec `s.platform = :ios, '15.0'`
+# (#441; 16.0 only for flutter_edge_ai_mediapipe) — that's the real contract.
 # The minos here is just metadata to satisfy validator equality between binary
 # and wrapper plist; the actual minimum is enforced by whichever dependency
 # manager the app uses — SwiftPM against the Runner target on the default path,

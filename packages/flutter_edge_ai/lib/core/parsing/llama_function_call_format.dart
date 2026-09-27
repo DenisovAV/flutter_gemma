@@ -2,7 +2,7 @@ import 'package:flutter_edge_ai/core/model_response.dart';
 
 import 'function_call_format.dart';
 import 'json_function_call_format.dart';
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 
 /// Llama 3.2 tool call format.
 ///
@@ -101,9 +101,9 @@ class LlamaFunctionCallFormat extends FunctionCallFormat {
       final argsStr = match.group(2)!;
 
       final args = _parsePythonArgs(argsStr);
-      gemmaLog(
+      edgeAiLog(
         'LlamaFormat: Parsed function: $name($args)',
-        level: GemmaLogLevel.verbose,
+        level: EdgeAiLogLevel.verbose,
       );
       results.add(FunctionCallResponse(name: name, args: args));
     }

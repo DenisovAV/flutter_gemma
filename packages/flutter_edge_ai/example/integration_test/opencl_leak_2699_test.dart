@@ -5,10 +5,10 @@
 /// rather than a convenient minimal loop, because "did not reproduce" only
 /// means anything when the repro matches:
 ///
-///   flutter_gemma #348 (Pixel 4a, Android 13, GPU): openChat per turn +
+///   flutter_edge_ai #348 (Pixel 4a, Android 13, GPU): openChat per turn +
 ///     generateChatResponseAsync streaming, maxTokens 4096, temp 0.2, topK 20,
 ///     tokenBuffer 256 -> Native Heap ratcheted 150-300 MB per inference.
-///   flutter_gemma #402 (Vivo iQOO, Android 12, GPU): createChat per turn +
+///   flutter_edge_ai #402 (Vivo iQOO, Android 12, GPU): createChat per turn +
 ///     streaming, maxTokens 2048 -> ~65 MB per inference, OOM after ~18.
 ///
 /// An earlier version of this test used the raw session API, non-streaming
@@ -16,8 +16,8 @@
 /// KV cache. It showed no growth, which said nothing about the reported bug.
 ///
 /// Model is pushed by Firebase Test Lab via
-///   --other-files /data/local/tmp/flutter_gemma_test/Qwen3-0.6B.litertlm=<local>
-/// Locally: adb push Qwen3-0.6B.litertlm /data/local/tmp/flutter_gemma_test/
+///   --other-files /data/local/tmp/flutter_edge_ai_test/Qwen3-0.6B.litertlm=<local>
+/// Locally: adb push Qwen3-0.6B.litertlm /data/local/tmp/flutter_edge_ai_test/
 library;
 
 import 'dart:io';
@@ -26,7 +26,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 import 'inference_test_helpers.dart' show registerTestEngines;
 
-const _dir = '/data/local/tmp/flutter_gemma_test';
+const _dir = '/data/local/tmp/flutter_edge_ai_test';
 const _qwen3 = '$_dir/Qwen3-0.6B.litertlm';
 
 const _turns = 8;
@@ -63,7 +63,7 @@ int _rssKb() {
 /// Returns RSS in kB before the first turn, after each turn, and after the
 /// engine itself is closed.
 Future<List<int>> _turnLoop(PreferredBackend backend, int turns) async {
-  final model = await FlutterGemma.getActiveModel(
+  final model = await FlutterEdgeAi.getActiveModel(
     maxTokens: 4096, // #348: KV-cache size
     preferredBackend: backend,
   );
@@ -165,7 +165,7 @@ void main() {
       isTrue,
       reason: 'model missing at $_qwen3',
     );
-    await FlutterGemma.installModel(
+    await FlutterEdgeAi.installModel(
       modelType: ModelType.qwen3,
       fileType: ModelFileType.litertlm,
     ).fromFile(_qwen3).install();

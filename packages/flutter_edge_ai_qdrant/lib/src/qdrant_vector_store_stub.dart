@@ -1,7 +1,7 @@
 import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 
 /// Non-web stub for [QdrantVectorStore]. qdrant-edge can't compile to WASM,
-/// so on web every method throws; web RAG uses flutter_gemma_rag_sqlite's
+/// so on web every method throws; web RAG uses flutter_edge_ai_sqlite's
 /// WebSqliteVectorStore instead.
 /// Mirror of the native arm's type so `on QdrantLegacyStoreException` compiles
 /// on every platform. The stub never throws it — there is no store here to be

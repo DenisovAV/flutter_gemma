@@ -1,7 +1,7 @@
 import 'package:flutter_edge_ai/core/model.dart' show ModelFileType;
 import 'package:flutter_edge_ai/core/registry/inference_engine_provider.dart';
 import 'package:flutter_edge_ai/core/registry/runtime_config.dart';
-import 'package:flutter_edge_ai/flutter_gemma_interface.dart' show InferenceModel;
+import 'package:flutter_edge_ai/flutter_edge_ai_interface.dart' show InferenceModel;
 import 'package:flutter_edge_ai/core/model_management/model_specs.dart'
     show InferenceModelSpec;
 import 'package:flutter_edge_ai/web/web_model_source.dart';

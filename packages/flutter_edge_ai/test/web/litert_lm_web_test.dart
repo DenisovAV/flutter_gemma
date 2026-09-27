@@ -4,7 +4,7 @@
 /// Run with: `flutter test test/web/litert_lm_web_test.dart --platform chrome`
 ///
 /// After the flutter_gemma 0.16.2 part-of refactor, `LiteRtLmWebInferenceModel` lives inside
-/// the `flutter_gemma_web.dart` library (alongside `WebInferenceModel` and
+/// the `flutter_edge_ai_web.dart` library (alongside `WebInferenceModel` and
 /// `WebModelSourceResolver`). End-to-end behaviour (Engine.create, streaming,
 /// OPFS) is exercised manually by `example/integration_test/litertlm_web_test.dart`
 /// via `flutter drive -d chrome`.
@@ -15,14 +15,14 @@
 @TestOn('chrome')
 library;
 
-import 'package:flutter_edge_ai/web/flutter_gemma_web.dart';
+import 'package:flutter_edge_ai/web/flutter_edge_ai_web.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('flutter_gemma_web library compiles in Chrome test runner', () {
+  test('flutter_edge_ai_web library compiles in Chrome test runner', () {
     // The mere fact that the import above resolves under --platform chrome
     // proves the part-of unification (LiteRtLmWebInferenceModel,
     // WebModelSourceResolver, WebInferenceModel) is well-formed.
-    expect(FlutterGemmaWeb.new, isNotNull);
+    expect(FlutterEdgeAiWeb.new, isNotNull);
   });
 }

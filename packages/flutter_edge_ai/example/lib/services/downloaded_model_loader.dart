@@ -8,7 +8,7 @@ class DownloadedModelLoader {
   const DownloadedModelLoader._();
 
   static Future<void> unloadAllInMemory() async {
-    final plugin = FlutterGemmaPlugin.instance;
+    final plugin = FlutterEdgeAiPlugin.instance;
     await plugin.initializedModel?.close();
     await plugin.initializedEmbeddingModel?.close();
   }
@@ -46,7 +46,7 @@ class DownloadedModelLoader {
 
   static Future<void> _loadInference(InferenceMatch match) async {
     final model = match.model;
-    final installer = FlutterGemma.installModel(
+    final installer = FlutterEdgeAi.installModel(
       modelType: model.modelType,
       fileType: model.fileType,
     );
@@ -61,7 +61,7 @@ class DownloadedModelLoader {
       await installer.fromNetwork(model.url, token: token).install();
     }
 
-    await FlutterGemma.getActiveModel(
+    await FlutterEdgeAi.getActiveModel(
       maxTokens: model.maxTokens,
       preferredBackend: model.preferredBackend,
       supportImage: model.supportImage,
@@ -77,12 +77,12 @@ class DownloadedModelLoader {
       token = await AuthTokenService.loadToken();
     }
 
-    await FlutterGemma.installModel(
+    await FlutterEdgeAi.installModel(
       modelType: model.modelType,
       fileType: model.fileType,
     ).fromNetwork(model.url, token: token).install();
 
-    await FlutterGemma.getActiveModel(
+    await FlutterEdgeAi.getActiveModel(
       maxTokens: model.maxTokens,
       preferredBackend: model.preferredBackend,
     );
@@ -95,7 +95,7 @@ class DownloadedModelLoader {
       token = await AuthTokenService.loadToken();
     }
 
-    var builder = FlutterGemma.installEmbedder();
+    var builder = FlutterEdgeAi.installEmbedder();
 
     switch (model.sourceType) {
       case ModelSourceType.network:
@@ -119,7 +119,7 @@ class DownloadedModelLoader {
     }
 
     await builder.install();
-    await FlutterGemma.getActiveEmbedder(
+    await FlutterEdgeAi.getActiveEmbedder(
       preferredBackend: PreferredBackend.gpu,
     );
 

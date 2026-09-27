@@ -27,7 +27,7 @@ const _gemma4Url =
     'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm';
 const _token = String.fromEnvironment('HUGGINGFACE_TOKEN');
 
-String get _androidDir => '/data/local/tmp/flutter_gemma_test';
+String get _androidDir => '/data/local/tmp/flutter_edge_ai_test';
 
 String? _localPath(String filename) {
   if (Platform.isAndroid) return '$_androidDir/$filename';
@@ -39,13 +39,13 @@ Future<void> _install() async {
   final local = _localPath('gemma-4-E2B-it.litertlm');
   if (local != null && File(local).existsSync()) {
     debugPrint('[#318] installing from local file: $local');
-    await FlutterGemma.installModel(
+    await FlutterEdgeAi.installModel(
       modelType: ModelType.gemma4,
       fileType: ModelFileType.litertlm,
     ).fromFile(local).install();
   } else {
     debugPrint('[#318] local file not found, downloading from network');
-    await FlutterGemma.installModel(
+    await FlutterEdgeAi.installModel(
       modelType: ModelType.gemma4,
       fileType: ModelFileType.litertlm,
     ).fromNetwork(_gemma4Url, token: _token).install();
@@ -67,7 +67,7 @@ Future<({bool ok, String response, String error})> _runUserConfig({
       '[#318] getActiveModel(maxTokens: $maxTokens, backend: $backend), '
       'createSession(maxOutputTokens: $maxOutputTokens)',
     );
-    model = await FlutterGemma.getActiveModel(
+    model = await FlutterEdgeAi.getActiveModel(
       preferredBackend: backend,
       maxTokens: maxTokens,
     );

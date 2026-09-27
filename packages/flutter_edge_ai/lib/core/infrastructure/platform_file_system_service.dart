@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
@@ -93,8 +93,8 @@ class PlatformFileSystemService implements FileSystemService {
       final legacyPath = path.join(legacy.path, filename);
       if (await File(legacyPath).exists()) {
         if (_legacyFallbackLogged.add(legacyPath)) {
-          gemmaLog(
-            '[flutter_gemma] Reading model from legacy Documents path; '
+          edgeAiLog(
+            '[flutter_edge_ai] Reading model from legacy Documents path; '
             'consider re-installing to migrate: $legacyPath',
           );
         }
@@ -191,8 +191,8 @@ class PlatformFileSystemService implements FileSystemService {
     final oldFile = File(oldPath);
     if (!await oldFile.exists()) return false;
     await oldFile.rename(newPath);
-    gemmaLog(
-      '[flutter_gemma] Migrated legacy install "$oldFilename" -> '
+    edgeAiLog(
+      '[flutter_edge_ai] Migrated legacy install "$oldFilename" -> '
       '"$newFilename" (install-identity-namespacing)',
     );
     return true;
@@ -202,7 +202,7 @@ class PlatformFileSystemService implements FileSystemService {
   ///
   /// Mobile (Android, iOS): app's Documents — sandboxed, never cloud-synced.
   /// Desktop:
-  ///   - Windows: `%LOCALAPPDATA%\flutter_gemma\` — truly local, never
+  ///   - Windows: `%LOCALAPPDATA%\flutter_edge_ai\` — truly local, never
   ///     OneDrive-synced (unlike Documents or Roaming AppData). NOTE:
   ///     path_provider's `getApplicationSupportDirectory()` returns
   ///     `%APPDATA%` (Roaming) which is Domain-synced in corporate envs,
@@ -245,8 +245,8 @@ class PlatformFileSystemService implements FileSystemService {
         base = Directory(local);
       } else {
         if (local != null && local.isNotEmpty) {
-          gemmaLog(
-            '[flutter_gemma] LOCALAPPDATA is not absolute '
+          edgeAiLog(
+            '[flutter_edge_ai] LOCALAPPDATA is not absolute '
             '("$local") — falling back to USERPROFILE / Application '
             'Support. Models would otherwise land in a \$PWD-relative '
             'directory.',
@@ -263,7 +263,7 @@ class PlatformFileSystemService implements FileSystemService {
       }
       dir = Directory(path.join(base.path, 'flutter_gemma'));
     } else {
-      // macOS, Linux — namespace under flutter_gemma/ inside Application
+      // macOS, Linux — namespace under flutter_edge_ai/ inside Application
       // Support so models don't pollute the package root.
       final base = await getApplicationSupportDirectory();
       dir = Directory(path.join(base.path, 'flutter_gemma'));

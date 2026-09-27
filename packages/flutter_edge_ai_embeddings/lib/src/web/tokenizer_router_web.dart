@@ -3,7 +3,7 @@
 // Web can only do WordPiece in Dart: `dart_sentencepiece_tokenizer` imports
 // `dart:io`/`dart:isolate` unconditionally and cannot be compiled for the web
 // at all. That is a platform gap, not an engine one — but it only bites
-// backends that tokenize in Dart. `flutter_gemma_litertlm`'s web arm does not:
+// backends that tokenize in Dart. `flutter_edge_ai_litertlm`'s web arm does not:
 // it tokenizes inside `sentencepiece.js`, part of its own JS bundle, and never
 // reaches this file.
 //

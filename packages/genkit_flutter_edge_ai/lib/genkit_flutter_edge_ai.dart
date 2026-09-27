@@ -1,6 +1,6 @@
-/// Genkit Dart plugin for flutter_gemma — local on-device AI inference.
+/// Genkit Dart plugin for flutter_edge_ai — local on-device AI inference.
 ///
-/// Wraps [flutter_gemma](https://pub.dev/packages/flutter_gemma) as a Genkit
+/// Wraps [flutter_edge_ai](https://pub.dev/packages/flutter_edge_ai) as a Genkit
 /// model provider, enabling on-device inference with Google Gemma, DeepSeek,
 /// Qwen, Llama, and other supported architectures.
 ///
@@ -11,30 +11,30 @@
 /// import 'package:genkit_flutter_edge_ai/genkit_flutter_edge_ai.dart';
 /// import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 ///
-/// // 1. Initialize flutter_gemma and install a model (host app responsibility).
-/// await FlutterGemma.initialize();
-/// await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
+/// // 1. Initialize flutter_edge_ai and install a model (host app responsibility).
+/// await FlutterEdgeAi.initialize();
+/// await FlutterEdgeAi.installModel(modelType: ModelType.gemmaIt)
 ///   .fromNetwork('https://...')
 ///   .install();
 ///
 /// // 2. Create Genkit with the plugin.
 /// final ai = Genkit(plugins: [
-///   GenkitFlutterGemmaPlugin(
+///   GenkitFlutterEdgeAiPlugin(
 ///     models: [
-///       FlutterGemmaModelConfig(
+///       FlutterEdgeAiModelConfig(
 ///         name: 'gemma-3-nano',
 ///         modelType: ModelType.gemmaIt,
 ///       ),
 ///     ],
 ///     embedders: [
-///       FlutterGemmaEmbedderConfig(name: 'embedding-gemma-300m'),
+///       FlutterEdgeAiEmbedderConfig(name: 'embedding-gemma-300m'),
 ///     ],
 ///   ),
 /// ]);
 ///
 /// // 3. Generate.
 /// final response = await ai.generate(
-///   model: flutterGemma.model('gemma-3-nano'),
+///   model: flutterEdgeAi.model('gemma-3-nano'),
 ///   prompt: 'Tell me a joke',
 /// );
 /// print(response.text);
@@ -43,18 +43,19 @@ library;
 
 import 'package:genkit/genkit.dart';
 
-import 'src/flutter_gemma_options.dart';
-import 'src/flutter_gemma_plugin.dart';
+import 'src/flutter_edge_ai_options.dart';
+import 'src/flutter_edge_ai_plugin.dart';
+import 'src/flutter_edge_ai_runtime.dart';
 
-export 'src/flutter_gemma_options.dart'
-    show FlutterGemmaModelOptions, FlutterGemmaEmbedConfig;
-export 'src/flutter_gemma_plugin.dart'
+export 'src/flutter_edge_ai_options.dart'
+    show FlutterEdgeAiModelOptions, FlutterEdgeAiEmbedConfig;
+export 'src/flutter_edge_ai_plugin.dart'
     show
-        GenkitFlutterGemmaPlugin,
-        FlutterGemmaModelConfig,
-        FlutterGemmaEmbedderConfig;
-export 'src/flutter_gemma_runtime.dart'
-    show FlutterGemmaRuntime, DefaultFlutterGemmaRuntime;
+        GenkitFlutterEdgeAiPlugin,
+        FlutterEdgeAiModelConfig,
+        FlutterEdgeAiEmbedderConfig;
+export 'src/flutter_edge_ai_runtime.dart'
+    show FlutterEdgeAiRuntime, DefaultFlutterEdgeAiRuntime;
 export 'src/middleware/context_window.dart'
     show
         ContextWindowMiddleware,
@@ -62,30 +63,61 @@ export 'src/middleware/context_window.dart'
         kContextWindowMiddlewareName,
         trimContext;
 
-/// Convenience handle for referencing flutter-gemma models and embedders.
+/// Convenience handle for referencing flutter-edge-ai models and embedders.
 ///
 /// Usage:
 /// ```dart
 /// final response = await ai.generate(
-///   model: flutterGemma.model('gemma-3-nano'),
+///   model: flutterEdgeAi.model('gemma-3-nano'),
 ///   prompt: 'Hello!',
 /// );
 /// ```
-class FlutterGemmaPluginHandle {
-  const FlutterGemmaPluginHandle();
+class FlutterEdgeAiPluginHandle {
+  const FlutterEdgeAiPluginHandle();
 
   /// Returns a [ModelRef] for the given model name registered by this plugin.
-  ModelRef<FlutterGemmaModelOptions> model(String name) =>
-      modelRef<FlutterGemmaModelOptions>(
-        '${GenkitFlutterGemmaPlugin.prefix}/$name',
+  ModelRef<FlutterEdgeAiModelOptions> model(String name) =>
+      modelRef<FlutterEdgeAiModelOptions>(
+        '${GenkitFlutterEdgeAiPlugin.prefix}/$name',
       );
 
   /// Returns an [EmbedderRef] for the given embedder name registered by this plugin.
-  EmbedderRef<FlutterGemmaEmbedConfig> embedder(String name) =>
-      embedderRef<FlutterGemmaEmbedConfig>(
-        '${GenkitFlutterGemmaPlugin.prefix}/$name',
+  EmbedderRef<FlutterEdgeAiEmbedConfig> embedder(String name) =>
+      embedderRef<FlutterEdgeAiEmbedConfig>(
+        '${GenkitFlutterEdgeAiPlugin.prefix}/$name',
       );
 }
 
-/// Global convenience instance for referencing flutter-gemma models and embedders.
-const flutterGemma = FlutterGemmaPluginHandle();
+/// Global convenience instance for referencing flutter-edge-ai models and embedders.
+const flutterEdgeAi = FlutterEdgeAiPluginHandle();
+
+// The names this package carried as genkit_flutter_gemma. Only the Dart names
+// are aliased: model and embedder ids are now `flutter-edge-ai/<name>`, so a
+// hard-coded `'flutter-gemma/<name>'` string has to change.
+
+@Deprecated('Use flutterEdgeAi: genkit_flutter_gemma was renamed.')
+const flutterGemma = flutterEdgeAi;
+
+@Deprecated('Use FlutterEdgeAiPluginHandle: genkit_flutter_gemma was renamed.')
+typedef FlutterGemmaPluginHandle = FlutterEdgeAiPluginHandle;
+
+@Deprecated('Use GenkitFlutterEdgeAiPlugin: genkit_flutter_gemma was renamed.')
+typedef GenkitFlutterGemmaPlugin = GenkitFlutterEdgeAiPlugin;
+
+@Deprecated('Use FlutterEdgeAiModelConfig: genkit_flutter_gemma was renamed.')
+typedef FlutterGemmaModelConfig = FlutterEdgeAiModelConfig;
+
+@Deprecated('Use FlutterEdgeAiEmbedderConfig: genkit_flutter_gemma was renamed.')
+typedef FlutterGemmaEmbedderConfig = FlutterEdgeAiEmbedderConfig;
+
+@Deprecated('Use FlutterEdgeAiModelOptions: genkit_flutter_gemma was renamed.')
+typedef FlutterGemmaModelOptions = FlutterEdgeAiModelOptions;
+
+@Deprecated('Use FlutterEdgeAiEmbedConfig: genkit_flutter_gemma was renamed.')
+typedef FlutterGemmaEmbedConfig = FlutterEdgeAiEmbedConfig;
+
+@Deprecated('Use FlutterEdgeAiRuntime: genkit_flutter_gemma was renamed.')
+typedef FlutterGemmaRuntime = FlutterEdgeAiRuntime;
+
+@Deprecated('Use DefaultFlutterEdgeAiRuntime: genkit_flutter_gemma was renamed.')
+typedef DefaultFlutterGemmaRuntime = DefaultFlutterEdgeAiRuntime;

@@ -22,12 +22,12 @@ void main() {
 
     await registerTestEngines();
 
-    await FlutterGemma.installEmbedder()
+    await FlutterEdgeAi.installEmbedder()
         .modelFromAsset(_modelPath)
         .tokenizerFromAsset(_tokenizerPath)
         .install();
 
-    final embedder = await FlutterGemma.getActiveEmbedder();
+    final embedder = await FlutterEdgeAi.getActiveEmbedder();
 
     final testPhrases = [
       'Hello world',

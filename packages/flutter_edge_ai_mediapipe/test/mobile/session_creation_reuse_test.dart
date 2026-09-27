@@ -14,7 +14,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// session lifecycle is modelled in a `Buggy`/`Fixed` pair so the bug and
 /// the fix are asserted directly against the logic that changed.
 ///
-/// The native contract being modelled (`FlutterGemmaPlugin.createSession`):
+/// The native contract being modelled (`FlutterEdgeAiPlugin.createSession`):
 ///   session?.close();                       // close the prior session
 ///   session = engine.createSession(config); // create a fresh one
 /// i.e. the native layer already gives every createSession a clean session.

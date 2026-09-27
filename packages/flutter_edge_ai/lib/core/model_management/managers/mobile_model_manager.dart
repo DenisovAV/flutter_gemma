@@ -1,4 +1,4 @@
-part of '../../../mobile/flutter_gemma_mobile.dart';
+part of '../../../mobile/flutter_edge_ai_mobile.dart';
 
 /// Main unified model manager that orchestrates all model operations
 class MobileModelManager extends ModelFileManager {
@@ -21,13 +21,13 @@ class MobileModelManager extends ModelFileManager {
       await _restoreActiveEmbeddingModel();
       await _restoreActiveSttModel();
       await _restoreActiveTtsModel();
-      gemmaLog('UnifiedModelManager initialized successfully');
+      edgeAiLog('UnifiedModelManager initialized successfully');
     } catch (e, st) {
       // Restoring the previously-active model is best-effort. A failure here
       // (e.g. unreadable SharedPreferences) must not abort app startup — start
       // with no active model; the user can re-install/select. (#314 follow-up)
       // Include the stack trace so an unexpected restore bug stays diagnosable.
-      gemmaLog(
+      edgeAiLog(
         'UnifiedModelManager: active-model restore failed, starting with no active model: $e\n$st',
       );
     }
@@ -119,30 +119,30 @@ class MobileModelManager extends ModelFileManager {
               await storage.removeResumeData(r.task.taskId);
               await storage.removePausedTask(r.task.taskId);
               await downloader.database.deleteRecordWithId(r.task.taskId);
-              gemmaLog(
+              edgeAiLog(
                 'Reclaimed legacy download record ${r.task.taskId} (#383)',
               );
           }
         } catch (e) {
-          gemmaLog('Reclaim: skipped record ${r.task.taskId} ($e) (#383)');
+          edgeAiLog('Reclaim: skipped record ${r.task.taskId} ($e) (#383)');
           continue;
         }
       }
 
       // Blanket filesystem sweep only when nothing is actively writing a temp.
       if (nativeRunningIds.isNotEmpty) {
-        gemmaLog(
+        edgeAiLog(
           'Download-temp sweep skipped: ${nativeRunningIds.length} running task(s) (#383)',
         );
         return;
       }
       final dir = await getApplicationSupportDirectory();
       final reclaimed = await sweepOrphanedDownloadTemps(dir, keepPaths: keep);
-      gemmaLog(
+      edgeAiLog(
         'Download-temp reclaim: kept ${keep.length}, reclaimed $reclaimed (#383)',
       );
     } catch (e, st) {
-      gemmaLog('Orphaned download-temp reclaim failed (non-fatal): $e\n$st');
+      edgeAiLog('Orphaned download-temp reclaim failed (non-fatal): $e\n$st');
     }
   }
 
@@ -172,7 +172,7 @@ class MobileModelManager extends ModelFileManager {
       modelType = ModelType.values.byName(modelTypeName);
       fileType = ModelFileType.values.byName(fileTypeName);
     } catch (e) {
-      gemmaLog(
+      edgeAiLog(
         '[ModelManager] active model restore: unknown enum value ($modelTypeName / $fileTypeName) — skipping',
       );
       return;
@@ -187,7 +187,7 @@ class MobileModelManager extends ModelFileManager {
         modelType: modelType,
         fileType: fileType,
       );
-      gemmaLog('[ModelManager] restored active built-in model: $filename');
+      edgeAiLog('[ModelManager] restored active built-in model: $filename');
       return;
     }
 
@@ -206,7 +206,7 @@ class MobileModelManager extends ModelFileManager {
     final filePath = await ServiceRegistry.instance.fileSystemService
         .getTargetPath(filename);
     if (!File(filePath).existsSync()) {
-      gemmaLog(
+      edgeAiLog(
         '[ModelManager] active model restore: file $filePath missing — skipping',
       );
       return;
@@ -218,7 +218,7 @@ class MobileModelManager extends ModelFileManager {
       modelType: modelType,
       fileType: fileType,
     );
-    gemmaLog('[ModelManager] restored active inference model: $filename');
+    edgeAiLog('[ModelManager] restored active inference model: $filename');
   }
 
   /// Restores a DIRECTORY (ORT-GenAI) active model from the repository records
@@ -241,7 +241,7 @@ class MobileModelManager extends ModelFileManager {
         .where((m) => m.id.startsWith('$modelId/'))
         .toList();
     if (!members.any((m) => m.id == primaryFilename)) {
-      gemmaLog(
+      edgeAiLog(
         '[ModelManager] active directory model restore: no primary record '
         '"$primaryFilename" — skipping',
       );
@@ -252,7 +252,7 @@ class MobileModelManager extends ModelFileManager {
     for (final m in members) {
       final p = await ModelFileSystemManager.getModelFilePath(m.id);
       if (!File(p).existsSync()) {
-        gemmaLog(
+        edgeAiLog(
           '[ModelManager] active directory model restore: missing file $p '
           '— skipping',
         );
@@ -279,7 +279,7 @@ class MobileModelManager extends ModelFileManager {
       fileType: fileType,
       directoryFiles: bundle,
     );
-    gemmaLog(
+    edgeAiLog(
       '[ModelManager] restored active directory model: $modelId '
       '(${bundle.length} files)',
     );
@@ -345,7 +345,7 @@ class MobileModelManager extends ModelFileManager {
     await repository.deleteModel(persistedFilename);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(prefsKey, namespaced);
-    gemmaLog(
+    edgeAiLog(
       '[ModelManager] migrated legacy companion "$persistedFilename" -> '
       '"$namespaced" (install-identity-namespacing)',
     );
@@ -378,7 +378,7 @@ class MobileModelManager extends ModelFileManager {
     );
     final modelPath = await fs.getReadTargetPath(modelFilename);
     if (!File(modelPath).existsSync() || !File(tokenizerPath).existsSync()) {
-      gemmaLog(
+      edgeAiLog(
         '[ModelManager] active embedding restore: file missing — skipping',
       );
       return;
@@ -389,7 +389,7 @@ class MobileModelManager extends ModelFileManager {
       modelSource: FileSource(modelPath),
       tokenizerSource: FileSource(tokenizerPath),
     );
-    gemmaLog('[ModelManager] restored active embedding model: $modelFilename');
+    edgeAiLog('[ModelManager] restored active embedding model: $modelFilename');
   }
 
   /// Mirror of [_restoreActiveEmbeddingModel] for the STT pair
@@ -415,7 +415,7 @@ class MobileModelManager extends ModelFileManager {
     try {
       sttModelType = SttModelType.values.byName(sttModelTypeName);
     } catch (e) {
-      gemmaLog(
+      edgeAiLog(
         '[ModelManager] active STT restore: unknown SttModelType ($sttModelTypeName) — skipping',
       );
       return;
@@ -432,7 +432,7 @@ class MobileModelManager extends ModelFileManager {
     );
     final modelPath = await fs.getReadTargetPath(modelFilename);
     if (!File(modelPath).existsSync() || !File(tokenizerPath).existsSync()) {
-      gemmaLog('[ModelManager] active STT restore: file missing — skipping');
+      edgeAiLog('[ModelManager] active STT restore: file missing — skipping');
       return;
     }
 
@@ -442,7 +442,7 @@ class MobileModelManager extends ModelFileManager {
       tokenizerSource: FileSource(tokenizerPath),
       sttModelType: sttModelType,
     );
-    gemmaLog('[ModelManager] restored active STT model: $modelFilename');
+    edgeAiLog('[ModelManager] restored active STT model: $modelFilename');
   }
 
   /// Mirror of [_restoreActiveSttModel] for TTS. The bundle files are
@@ -463,7 +463,7 @@ class MobileModelManager extends ModelFileManager {
     try {
       ttsModelType = TtsModelType.values.byName(typeName);
     } catch (e) {
-      gemmaLog(
+      edgeAiLog(
         '[ModelManager] active TTS restore: unknown TtsModelType ($typeName) — skipping',
       );
       return;
@@ -475,7 +475,7 @@ class MobileModelManager extends ModelFileManager {
       final namespacedFn = FileNameUtils.namespaced(ttsModelType.name, fn);
       final p = await fs.getTargetPath(namespacedFn);
       if (!File(p).existsSync()) {
-        gemmaLog(
+        edgeAiLog(
           '[ModelManager] active TTS restore: file missing ($namespacedFn) — skipping',
         );
         return;
@@ -488,20 +488,20 @@ class MobileModelManager extends ModelFileManager {
       ttsModelType: ttsModelType,
       sourceFor: (fn) => FileSource(paths[fn]!),
     );
-    gemmaLog('[ModelManager] restored active TTS model: $name');
+    edgeAiLog('[ModelManager] restored active TTS model: $name');
   }
 
   /// Internal method for ModelSpec-based operations
   Future<void> _ensureModelReadySpec(ModelSpec spec) async {
     await _ensureInitialized();
 
-    gemmaLog('UnifiedModelManager: Ensuring model ready - ${spec.name}');
+    edgeAiLog('UnifiedModelManager: Ensuring model ready - ${spec.name}');
 
     try {
       await _ensureModelReady(spec);
-      gemmaLog('UnifiedModelManager: Model ${spec.name} is ready');
+      edgeAiLog('UnifiedModelManager: Model ${spec.name} is ready');
     } catch (e) {
-      gemmaLog(
+      edgeAiLog(
         'UnifiedModelManager: Failed to ensure model ready - ${spec.name}: $e',
       );
       rethrow;
@@ -511,19 +511,19 @@ class MobileModelManager extends ModelFileManager {
   /// Ensures a model is ready, applying replace policy
   /// Delegates to Modern API handlers via ServiceRegistry
   Future<void> _ensureModelReady(ModelSpec spec) async {
-    gemmaLog('🔍 Ensuring model ready: ${spec.name}');
-    gemmaLog('🔍 Model source type: ${spec.files.first.source.runtimeType}');
+    edgeAiLog('🔍 Ensuring model ready: ${spec.name}');
+    edgeAiLog('🔍 Model source type: ${spec.files.first.source.runtimeType}');
 
     // Check if already installed
     final installed = await _isModelInstalled(spec);
-    gemmaLog('🔍 isModelInstalled returned: $installed');
+    edgeAiLog('🔍 isModelInstalled returned: $installed');
 
     if (installed) {
-      gemmaLog('✅ Model ${spec.name} already ready (skipping installation)');
+      edgeAiLog('✅ Model ${spec.name} already ready (skipping installation)');
       return;
     }
 
-    gemmaLog('📥 Model not installed, proceeding with installation...');
+    edgeAiLog('📥 Model not installed, proceeding with installation...');
 
     // Handle model switching with replace policy
     await _handleModelSwitching(spec);
@@ -539,7 +539,7 @@ class MobileModelManager extends ModelFileManager {
     final handlerRegistry = registry.sourceHandlerRegistry;
 
     for (final file in spec.files) {
-      gemmaLog(
+      edgeAiLog(
         '🔀 Routing file: ${file.filename}, source type: ${file.source.runtimeType}',
       );
 
@@ -555,7 +555,7 @@ class MobileModelManager extends ModelFileManager {
         }
 
         await handler.install(file.source, modelType: _toRepoType(spec.type));
-        gemmaLog(
+        edgeAiLog(
           '✅ File installed: ${file.filename} via Modern handler: ${file.source.runtimeType}',
         );
       } catch (e) {
@@ -572,7 +572,7 @@ class MobileModelManager extends ModelFileManager {
   Future<void> _handleModelSwitching(ModelSpec spec) async {
     // If replace policy, clean up ALL models of this type before installing new one
     if (spec.replacePolicy == ModelReplacePolicy.replace) {
-      gemmaLog(
+      edgeAiLog(
         'Policy-based replacement: cleaning up ALL ${spec.type.name} models',
       );
 
@@ -586,7 +586,7 @@ class MobileModelManager extends ModelFileManager {
           await ModelFileSystemManager.deleteModelFile(filename);
           await repository.deleteModel(filename);
         } catch (e) {
-          gemmaLog('Failed to delete model file $filename: $e');
+          edgeAiLog('Failed to delete model file $filename: $e');
         }
       }
 
@@ -598,7 +598,7 @@ class MobileModelManager extends ModelFileManager {
   /// Clean up all tasks and files of a specific type
   Future<void> _cleanupAllTasksOfType(ModelManagementType type) async {
     try {
-      gemmaLog('Cleaning up all tasks of type: ${type.name}');
+      edgeAiLog('Cleaning up all tasks of type: ${type.name}');
 
       final downloader = FileDownloader();
       final records = await downloader.database.allRecords();
@@ -613,13 +613,13 @@ class MobileModelManager extends ModelFileManager {
           try {
             await ModelFileSystemManager.deleteModelFile(filename);
           } catch (e) {
-            gemmaLog('Could not delete partial file $filename: $e');
+            edgeAiLog('Could not delete partial file $filename: $e');
           }
         }
       }
 
       if (cleanedCount > 0) {
-        gemmaLog('Cleaned up $cleanedCount tasks of type ${type.name}');
+        edgeAiLog('Cleaned up $cleanedCount tasks of type ${type.name}');
       }
 
       // Cancel only THIS type's tasks (deletes their paused temps) before the
@@ -638,17 +638,17 @@ class MobileModelManager extends ModelFileManager {
           await downloader.cancelTasksWithIds(ofType);
         }
       } catch (e) {
-        gemmaLog('Failed to cancel ${type.name} tasks before reset: $e');
+        edgeAiLog('Failed to cancel ${type.name} tasks before reset: $e');
       }
 
       // Reset background_downloader tasks
       try {
         await downloader.reset(group: SmartDownloader.downloadGroup);
       } catch (e) {
-        gemmaLog('Failed to reset background_downloader tasks: $e');
+        edgeAiLog('Failed to reset background_downloader tasks: $e');
       }
     } catch (e) {
-      gemmaLog('Failed to cleanup tasks of type ${type.name}: $e');
+      edgeAiLog('Failed to cleanup tasks of type ${type.name}: $e');
     }
   }
 
@@ -700,18 +700,18 @@ class MobileModelManager extends ModelFileManager {
   }) async* {
     await _ensureInitialized();
 
-    gemmaLog(
+    edgeAiLog(
       'UnifiedModelManager: Starting download with progress - ${spec.name}',
     );
 
     try {
       yield* _downloadModelWithProgress(spec, token: token);
-      gemmaLog('UnifiedModelManager: Download completed - ${spec.name}');
+      edgeAiLog('UnifiedModelManager: Download completed - ${spec.name}');
 
       // Set as active model after successful download (same as Modern API)
       setActiveModel(spec);
     } catch (e) {
-      gemmaLog('UnifiedModelManager: Download failed - ${spec.name}: $e');
+      edgeAiLog('UnifiedModelManager: Download failed - ${spec.name}: $e');
       rethrow;
     }
   }
@@ -829,18 +829,18 @@ class MobileModelManager extends ModelFileManager {
   Future<void> downloadModel(ModelSpec spec, {String? token}) async {
     await _ensureInitialized();
 
-    gemmaLog('UnifiedModelManager: Starting download - ${spec.name}');
+    edgeAiLog('UnifiedModelManager: Starting download - ${spec.name}');
 
     try {
       await for (final _ in _downloadModelWithProgress(spec, token: token)) {
         // Just consume the stream without emitting progress
       }
-      gemmaLog('UnifiedModelManager: Download completed - ${spec.name}');
+      edgeAiLog('UnifiedModelManager: Download completed - ${spec.name}');
 
       // Set as active model after successful download (same as Modern API)
       setActiveModel(spec);
     } catch (e) {
-      gemmaLog('UnifiedModelManager: Download failed - ${spec.name}: $e');
+      edgeAiLog('UnifiedModelManager: Download failed - ${spec.name}: $e');
       rethrow;
     }
   }
@@ -852,10 +852,10 @@ class MobileModelManager extends ModelFileManager {
 
     try {
       final result = await _isModelInstalled(spec);
-      gemmaLog('UnifiedModelManager: Model ${spec.name} installed: $result');
+      edgeAiLog('UnifiedModelManager: Model ${spec.name} installed: $result');
       return result;
     } catch (e) {
-      gemmaLog(
+      edgeAiLog(
         'UnifiedModelManager: Failed to check if model installed - ${spec.name}: $e',
       );
       return false;
@@ -883,7 +883,7 @@ class MobileModelManager extends ModelFileManager {
   Future<void> deleteModel(ModelSpec spec) async {
     await _ensureInitialized();
 
-    gemmaLog('UnifiedModelManager: Deleting model - ${spec.name}');
+    edgeAiLog('UnifiedModelManager: Deleting model - ${spec.name}');
 
     try {
       final registry = ServiceRegistry.instance;
@@ -907,9 +907,9 @@ class MobileModelManager extends ModelFileManager {
         }
       }
 
-      gemmaLog('UnifiedModelManager: Model deleted - ${spec.name}');
+      edgeAiLog('UnifiedModelManager: Model deleted - ${spec.name}');
     } catch (e) {
-      gemmaLog(
+      edgeAiLog(
         'UnifiedModelManager: Failed to delete model - ${spec.name}: $e',
       );
       throw ModelStorageException(
@@ -945,12 +945,12 @@ class MobileModelManager extends ModelFileManager {
           .map((info) => info.id)
           .toList();
 
-      gemmaLog(
+      edgeAiLog(
         'UnifiedModelManager: Found ${files.length} installed files for type $type',
       );
       return files;
     } catch (e) {
-      gemmaLog(
+      edgeAiLog(
         'UnifiedModelManager: Failed to get installed models for type $type: $e',
       );
       return [];
@@ -966,7 +966,7 @@ class MobileModelManager extends ModelFileManager {
       final files = await getInstalledModels(type);
       return files.isNotEmpty;
     } catch (e) {
-      gemmaLog(
+      edgeAiLog(
         'UnifiedModelManager: Failed to check if any model is installed for type $type: $e',
       );
       return false;
@@ -978,7 +978,7 @@ class MobileModelManager extends ModelFileManager {
   Future<void> performCleanup() async {
     await _ensureInitialized();
 
-    gemmaLog('UnifiedModelManager: Performing cleanup');
+    edgeAiLog('UnifiedModelManager: Performing cleanup');
 
     try {
       // 1. Get protected files from ModelRepository
@@ -1003,9 +1003,9 @@ class MobileModelManager extends ModelFileManager {
         enableResumeDetection: true,
       );
 
-      gemmaLog('UnifiedModelManager: Cleanup completed');
+      edgeAiLog('UnifiedModelManager: Cleanup completed');
     } catch (e) {
-      gemmaLog('UnifiedModelManager: Cleanup failed: $e');
+      edgeAiLog('UnifiedModelManager: Cleanup failed: $e');
       rethrow;
     }
   }
@@ -1026,10 +1026,10 @@ class MobileModelManager extends ModelFileManager {
 
     try {
       final result = await ModelFileSystemManager.validateModelFiles(spec);
-      gemmaLog('UnifiedModelManager: Model ${spec.name} validation: $result');
+      edgeAiLog('UnifiedModelManager: Model ${spec.name} validation: $result');
       return result;
     } catch (e) {
-      gemmaLog(
+      edgeAiLog(
         'UnifiedModelManager: Failed to validate model - ${spec.name}: $e',
       );
       return false;
@@ -1079,7 +1079,7 @@ class MobileModelManager extends ModelFileManager {
 
       return filePaths;
     } catch (e) {
-      gemmaLog(
+      edgeAiLog(
         'UnifiedModelManager: Failed to get file paths for ${spec.name}: $e',
       );
       return null;
@@ -1254,7 +1254,7 @@ class MobileModelManager extends ModelFileManager {
     await _ensureInitialized();
     _activeInferenceModel = null;
     _activeEmbeddingModel = null;
-    gemmaLog('Model cache cleared');
+    edgeAiLog('Model cache cleared');
   }
 
   @override
@@ -1268,10 +1268,10 @@ class MobileModelManager extends ModelFileManager {
       await prefs.remove(PreferencesKeys.activeInferenceSource);
       _activeInferenceModel = null;
     } catch (e) {
-      gemmaLog('[ModelManager] clearActiveInferenceIdentity failed: $e');
+      edgeAiLog('[ModelManager] clearActiveInferenceIdentity failed: $e');
       rethrow;
     }
-    gemmaLog('Active inference identity cleared');
+    edgeAiLog('Active inference identity cleared');
   }
 
   @override
@@ -1285,10 +1285,10 @@ class MobileModelManager extends ModelFileManager {
       await prefs.remove(PreferencesKeys.activeEmbeddingTokenizerSource);
       _activeEmbeddingModel = null;
     } catch (e) {
-      gemmaLog('[ModelManager] clearActiveEmbeddingIdentity failed: $e');
+      edgeAiLog('[ModelManager] clearActiveEmbeddingIdentity failed: $e');
       rethrow;
     }
-    gemmaLog('Active embedding identity cleared');
+    edgeAiLog('Active embedding identity cleared');
   }
 
   @override
@@ -1303,10 +1303,10 @@ class MobileModelManager extends ModelFileManager {
       await prefs.remove(PreferencesKeys.activeSttTokenizerSource);
       _activeSttModel = null;
     } catch (e) {
-      gemmaLog('[ModelManager] clearActiveSttIdentity failed: $e');
+      edgeAiLog('[ModelManager] clearActiveSttIdentity failed: $e');
       rethrow;
     }
-    gemmaLog('Active STT identity cleared');
+    edgeAiLog('Active STT identity cleared');
   }
 
   @override
@@ -1318,10 +1318,10 @@ class MobileModelManager extends ModelFileManager {
       await prefs.remove(PreferencesKeys.activeTtsModelType);
       _activeTtsModel = null;
     } catch (e) {
-      gemmaLog('[ModelManager] clearActiveTtsIdentity failed: $e');
+      edgeAiLog('[ModelManager] clearActiveTtsIdentity failed: $e');
       rethrow;
     }
-    gemmaLog('Active TTS identity cleared');
+    edgeAiLog('Active TTS identity cleared');
   }
 
   // === Active Model Management ===
@@ -1361,21 +1361,21 @@ class MobileModelManager extends ModelFileManager {
   void setActiveModel(ModelSpec spec) {
     if (spec is InferenceModelSpec) {
       _activeInferenceModel = spec;
-      gemmaLog('✅ Set active inference model: ${spec.name}');
+      edgeAiLog('✅ Set active inference model: ${spec.name}');
       // Fire-and-forget — SharedPreferences write is cheap and the
       // success of the operation is already reflected in memory.
       unawaited(_persistActiveInferenceIdentity(spec));
     } else if (spec is EmbeddingModelSpec) {
       _activeEmbeddingModel = spec;
-      gemmaLog('✅ Set active embedding model: ${spec.name}');
+      edgeAiLog('✅ Set active embedding model: ${spec.name}');
       unawaited(_persistActiveEmbeddingIdentity(spec));
     } else if (spec is SttModelSpec) {
       _activeSttModel = spec;
-      gemmaLog('✅ Set active STT model: ${spec.name}');
+      edgeAiLog('✅ Set active STT model: ${spec.name}');
       unawaited(_persistActiveSttIdentity(spec));
     } else if (spec is TtsModelSpec) {
       _activeTtsModel = spec;
-      gemmaLog('✅ Set active TTS model: ${spec.name}');
+      edgeAiLog('✅ Set active TTS model: ${spec.name}');
       unawaited(_persistActiveTtsIdentity(spec));
     } else {
       throw ArgumentError('Unknown ModelSpec type: ${spec.runtimeType}');
@@ -1404,7 +1404,7 @@ class MobileModelManager extends ModelFileManager {
         spec.modelSource.encode(),
       );
     } catch (e) {
-      gemmaLog('[ModelManager] persistActiveInferenceIdentity failed: $e');
+      edgeAiLog('[ModelManager] persistActiveInferenceIdentity failed: $e');
     }
   }
 
@@ -1434,7 +1434,7 @@ class MobileModelManager extends ModelFileManager {
         spec.tokenizerSource.encode(),
       );
     } catch (e) {
-      gemmaLog('[ModelManager] persistActiveEmbeddingIdentity failed: $e');
+      edgeAiLog('[ModelManager] persistActiveEmbeddingIdentity failed: $e');
     }
   }
 
@@ -1468,7 +1468,7 @@ class MobileModelManager extends ModelFileManager {
         spec.tokenizerSource.encode(),
       );
     } catch (e) {
-      gemmaLog('[ModelManager] persistActiveSttIdentity failed: $e');
+      edgeAiLog('[ModelManager] persistActiveSttIdentity failed: $e');
     }
   }
 
@@ -1481,7 +1481,7 @@ class MobileModelManager extends ModelFileManager {
         spec.ttsModelType.name,
       );
     } catch (e) {
-      gemmaLog('[ModelManager] persistActiveTtsIdentity failed: $e');
+      edgeAiLog('[ModelManager] persistActiveTtsIdentity failed: $e');
     }
   }
 
@@ -1583,7 +1583,7 @@ class MobileModelManager extends ModelFileManager {
 
       return stats;
     } catch (e) {
-      gemmaLog('UnifiedModelManager: Failed to get storage stats: $e');
+      edgeAiLog('UnifiedModelManager: Failed to get storage stats: $e');
       return {
         'protectedFiles': 0,
         'totalSizeBytes': 0,
@@ -1632,7 +1632,7 @@ class MobileModelManager extends ModelFileManager {
   Future<int> cleanupStorage() async {
     await _ensureInitialized();
 
-    gemmaLog('UnifiedModelManager: Cleaning up storage (explicit user call)');
+    edgeAiLog('UnifiedModelManager: Cleaning up storage (explicit user call)');
 
     // Propagate real errors instead of returning 0: this is a destructive op,
     // and a mid-sweep failure that already deleted some files must not report
@@ -1643,7 +1643,7 @@ class MobileModelManager extends ModelFileManager {
       enableResumeDetection: true,
     );
 
-    gemmaLog('UnifiedModelManager: Cleaned up $deletedCount orphaned files');
+    edgeAiLog('UnifiedModelManager: Cleaned up $deletedCount orphaned files');
     return deletedCount;
   }
 
@@ -1679,7 +1679,7 @@ class MobileModelManager extends ModelFileManager {
       // All installed models, ANY type (ids from the repository).
       protected.addAll(await _getAllProtectedFiles());
 
-      gemmaLog(
+      edgeAiLog(
         'UnifiedModelManager: Protected files count: ${protected.length}',
       );
     } catch (e) {
@@ -1689,7 +1689,7 @@ class MobileModelManager extends ModelFileManager {
       // protect — so a failed enumeration must ABORT the caller, not launder into
       // an under-protective list. Matches the "propagate real errors" contract
       // those three callers already document.
-      gemmaLog('UnifiedModelManager: Failed to compute protected files: $e');
+      edgeAiLog('UnifiedModelManager: Failed to compute protected files: $e');
       rethrow;
     }
 

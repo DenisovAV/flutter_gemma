@@ -351,7 +351,7 @@ Future<Directory?> _downloadAndExtract(
 
     final url = '${bundle.releaseBase}/$archiveName';
     stderr.writeln(
-      'flutter_gemma: Downloading ${bundle.namespace} native libs from $url ...',
+      'flutter_edge_ai: Downloading ${bundle.namespace} native libs from $url ...',
     );
 
     final client = HttpClient();
@@ -360,7 +360,7 @@ Future<Directory?> _downloadAndExtract(
       final response = await request.close();
       if (response.statusCode != 200) {
         stderr.writeln(
-          'flutter_gemma: Download failed (HTTP ${response.statusCode})',
+          'flutter_edge_ai: Download failed (HTTP ${response.statusCode})',
         );
         return null;
       }
@@ -373,13 +373,13 @@ Future<Directory?> _downloadAndExtract(
     final bytes = await archiveFile.readAsBytes();
     final actualChecksum = sha256.convert(bytes).toString();
     if (actualChecksum != expectedChecksum) {
-      stderr.writeln('flutter_gemma: Checksum mismatch for $archiveName!');
+      stderr.writeln('flutter_edge_ai: Checksum mismatch for $archiveName!');
       stderr.writeln('  Expected: $expectedChecksum');
       stderr.writeln('  Actual:   $actualChecksum');
       archiveFile.deleteSync();
       return null;
     }
-    stderr.writeln('flutter_gemma: Checksum verified ($archiveName)');
+    stderr.writeln('flutter_edge_ai: Checksum verified ($archiveName)');
 
     // Extract into a sibling temp dir on the SAME filesystem (under cacheRoot),
     // then atomically rename into place. A torn/interrupted extract leaves only
@@ -396,7 +396,7 @@ Future<Directory?> _downloadAndExtract(
       ]);
       if (result.exitCode != 0) {
         stderr.writeln(
-          'flutter_gemma: ${bundle.namespace} extract failed: ${result.stderr}',
+          'flutter_edge_ai: ${bundle.namespace} extract failed: ${result.stderr}',
         );
         return null;
       }
@@ -407,11 +407,11 @@ Future<Directory?> _downloadAndExtract(
     }
     archiveFile.deleteSync();
     stderr.writeln(
-      'flutter_gemma: ${bundle.namespace} libs cached to ${targetDir.path}',
+      'flutter_edge_ai: ${bundle.namespace} libs cached to ${targetDir.path}',
     );
     return targetDir;
   } catch (e) {
-    stderr.writeln('flutter_gemma: ${bundle.namespace} download failed: $e');
+    stderr.writeln('flutter_edge_ai: ${bundle.namespace} download failed: $e');
     if (archiveFile.existsSync()) archiveFile.deleteSync();
     return null;
   }

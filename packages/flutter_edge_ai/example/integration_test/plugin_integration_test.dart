@@ -14,7 +14,7 @@ void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets('getPlatformVersion test', (tester) async {
-    final FlutterGemmaPlugin gemma = FlutterGemmaPlugin.instance;
+    final FlutterEdgeAiPlugin gemma = FlutterEdgeAiPlugin.instance;
     final InferenceModel model = await gemma.createModel(
       modelType: ModelType.general,
     );

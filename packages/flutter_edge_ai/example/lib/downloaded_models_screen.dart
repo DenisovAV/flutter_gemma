@@ -48,7 +48,7 @@ class _DownloadedModelsScreenState extends State<DownloadedModelsScreen> {
     });
 
     try {
-      final installed = await FlutterGemma.listInstalledModels();
+      final installed = await FlutterEdgeAi.listInstalledModels();
       final loadedIds = loadedModelIds();
 
       final entries = installed.where(isDownloadedModelArtifact).map((id) {

@@ -5,7 +5,7 @@
 //
 // On Android the test pushes the files into the app sandbox via
 // adb-style `getApplicationDocumentsDirectory()` staging, then loads
-// them by absolute path through FlutterGemma.installEmbedder().fromFile.
+// them by absolute path through FlutterEdgeAi.installEmbedder().fromFile.
 
 import 'dart:io';
 import 'dart:math' as math;
@@ -130,11 +130,11 @@ void main() {
 
   testWidgets('Gecko 110M — full RAG flow', (_) async {
     await registerTestEngines();
-    await FlutterGemma.installEmbedder()
+    await FlutterEdgeAi.installEmbedder()
         .modelFromFile(await _docsPath(_geckoModelName))
         .tokenizerFromFile(await _docsPath(_geckoTokenizerName))
         .install();
-    final model = await FlutterGemma.getActiveEmbedder();
+    final model = await FlutterEdgeAi.getActiveEmbedder();
     try {
       await _exercise('Gecko64', model);
     } finally {
@@ -146,11 +146,11 @@ void main() {
     'EmbeddingGemma 256 — full RAG flow',
     (_) async {
       await registerTestEngines();
-      await FlutterGemma.installEmbedder()
+      await FlutterEdgeAi.installEmbedder()
           .modelFromFile(await _docsPath(_gemmaModelName))
           .tokenizerFromFile(await _docsPath(_gemmaTokenizerName))
           .install();
-      final model = await FlutterGemma.getActiveEmbedder();
+      final model = await FlutterEdgeAi.getActiveEmbedder();
       try {
         await _exercise('EmbeddingGemma256', model);
       } finally {

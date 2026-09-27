@@ -4,9 +4,9 @@ import 'package:flutter_edge_ai/core/embedding/tokenizer_adapter.dart'
 import 'package:flutter_edge_ai/core/model_management/model_specs.dart'
     show EmbeddingModelSpec;
 import 'package:flutter_edge_ai/core/registry/embedding_tokenizer_provider.dart';
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 
-/// Holds embedding tokenizer providers registered via `FlutterGemma.initialize`.
+/// Holds embedding tokenizer providers registered via `FlutterEdgeAi.initialize`.
 /// Same probe-chain selection as [EmbeddingRegistry] and [EngineRegistry].
 class EmbeddingTokenizerRegistry {
   EmbeddingTokenizerRegistry._();
@@ -32,8 +32,8 @@ class EmbeddingTokenizerRegistry {
     if (kDebugMode &&
         indexed.length > 1 &&
         indexed[0].$2.priority == indexed[1].$2.priority) {
-      gemmaLog(
-        '[flutter_gemma] Ambiguous embedding tokenizer: '
+      edgeAiLog(
+        '[flutter_edge_ai] Ambiguous embedding tokenizer: '
         '${indexed.map((e) => e.$2.name).join(", ")} all handle this spec at '
         'priority ${indexed[0].$2.priority}; using "${indexed[0].$2.name}".',
       );
@@ -51,11 +51,11 @@ class EmbeddingTokenizerRegistry {
     final provider = findFor(spec);
     if (provider == null) {
       throw StateError(
-        'No embedding tokenizer is configured. flutter_gemma core ships the '
+        'No embedding tokenizer is configured. flutter_edge_ai core ships the '
         'tokenizer CONTRACT but no implementation — they are opt-in, like RAG '
-        'stores. Add flutter_gemma_embeddings to pubspec.yaml and pass its '
-        'provider to FlutterGemma.initialize(embeddingTokenizers: ...):\n'
-        '  • flutter_gemma_embeddings → GemmaEmbeddingTokenizers()\n'
+        'stores. Add flutter_edge_ai_embeddings to pubspec.yaml and pass its '
+        'provider to FlutterEdgeAi.initialize(embeddingTokenizers: ...):\n'
+        '  • flutter_edge_ai_embeddings → GemmaEmbeddingTokenizers()\n'
         'Spec: ${spec.name}',
       );
     }

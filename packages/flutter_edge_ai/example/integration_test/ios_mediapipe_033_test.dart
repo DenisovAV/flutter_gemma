@@ -26,7 +26,7 @@ Future<String> _modelPath() async {
     final dir = await getApplicationDocumentsDirectory();
     return '${dir.path}/$_modelFilename';
   }
-  return '/data/local/tmp/flutter_gemma_test/$_modelFilename';
+  return '/data/local/tmp/flutter_edge_ai_test/$_modelFilename';
 }
 
 Future<void> _waitForModel(String path) async {
@@ -82,7 +82,7 @@ void main() {
       await _waitForModel(path);
 
       // Install from local file
-      await FlutterGemma.installModel(
+      await FlutterEdgeAi.installModel(
         modelType: ModelType.gemmaIt,
         fileType: ModelFileType.task,
       ).fromFile(path).install();
@@ -90,7 +90,7 @@ void main() {
 
       // --- 1. Text inference ---
       print('\n=== 1. TEXT INFERENCE ===');
-      var model = await FlutterGemma.getActiveModel(
+      var model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 512,
         preferredBackend: PreferredBackend.gpu,
       );
@@ -117,7 +117,7 @@ void main() {
       final imageBytes = await _loadTestImage();
       print('[Vision] Image: ${imageBytes.length} bytes');
 
-      model = await FlutterGemma.getActiveModel(
+      model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 4096,
         preferredBackend: PreferredBackend.gpu,
         supportImage: true,
@@ -150,7 +150,7 @@ void main() {
 
       // --- 3. Cancel generation ---
       print('\n=== 3. CANCEL GENERATION ===');
-      model = await FlutterGemma.getActiveModel(
+      model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 512,
         preferredBackend: PreferredBackend.gpu,
       );

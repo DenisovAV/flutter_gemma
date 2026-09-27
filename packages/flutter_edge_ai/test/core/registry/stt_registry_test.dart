@@ -3,7 +3,7 @@ import 'package:flutter_edge_ai/core/registry/stt_registry.dart';
 import 'package:flutter_edge_ai/core/registry/stt_backend_provider.dart';
 import 'package:flutter_edge_ai/core/registry/runtime_config.dart';
 import 'package:flutter_edge_ai/core/domain/model_source.dart';
-import 'package:flutter_edge_ai/flutter_gemma_interface.dart'
+import 'package:flutter_edge_ai/flutter_edge_ai_interface.dart'
     show SpeechRecognizer;
 import 'package:flutter_edge_ai/core/model_management/model_specs.dart'
     show SttModelSpec, SttModelType;

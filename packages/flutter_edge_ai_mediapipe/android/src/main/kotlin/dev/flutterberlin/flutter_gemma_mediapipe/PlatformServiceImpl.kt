@@ -12,7 +12,7 @@ internal class PlatformServiceImpl(
   val context: Context
 ) : PlatformService, EventChannel.StreamHandler {
   companion object {
-    private const val TAG = "FlutterGemmaMediaPipePlugin"
+    private const val TAG = "FlutterEdgeAiMediaPipePlugin"
   }
   private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
   private var eventSink: EventChannel.EventSink? = null

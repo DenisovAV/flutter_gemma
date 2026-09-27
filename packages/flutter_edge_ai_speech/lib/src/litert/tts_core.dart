@@ -59,7 +59,7 @@ import 'dart:typed_data';
 import 'package:ffi/ffi.dart';
 import 'package:flutter_edge_ai/core/domain/platform_types.dart'
     show PreferredBackend;
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 import 'package:meta/meta.dart' show visibleForTesting;
 // Public, native-only bindings library (not the package barrel) — see the
 // equivalent comment in `stt_core.dart`/`litert_embedding_core.dart` for why
@@ -283,7 +283,7 @@ class TtsCore {
       final g2pMaxT = (g2pMeta['MAXT'] as num).toInt();
       final g2pNPhonemes = (g2pMeta['n_phonemes'] as num).toInt();
 
-      gemmaLog('[TtsCore] loaded: backend=$backend, 4 graphs compiled');
+      edgeAiLog('[TtsCore] loaded: backend=$backend, 4 graphs compiled');
 
       return TtsCore._(
         bindings: bindings,

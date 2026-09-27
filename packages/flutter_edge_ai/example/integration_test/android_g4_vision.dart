@@ -6,9 +6,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 
 const _gemma3n =
-    '/data/local/tmp/flutter_gemma_test/gemma-3n-E2B-it-int4.litertlm';
-const _gemma4 = '/data/local/tmp/flutter_gemma_test/gemma-4-E2B-it.litertlm';
-const _img = '/data/local/tmp/flutter_gemma_test/test_image.jpg';
+    '/data/local/tmp/flutter_edge_ai_test/gemma-3n-E2B-it-int4.litertlm';
+const _gemma4 = '/data/local/tmp/flutter_edge_ai_test/gemma-4-E2B-it.litertlm';
+const _img = '/data/local/tmp/flutter_edge_ai_test/test_image.jpg';
 
 typedef _CreateSettingsC =
     Pointer Function(

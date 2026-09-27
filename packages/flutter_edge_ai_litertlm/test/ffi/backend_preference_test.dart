@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_edge_ai_litertlm/src/ffi/backend_preference.dart';
 import 'package:flutter_edge_ai/core/domain/platform_types.dart';
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Runs [body] and returns everything it `print`ed, with `gemmaLog` muted — so
@@ -13,8 +13,8 @@ Future<List<String>> _printedWithGemmaLogMuted(
   Future<void> Function() body,
 ) async {
   final printed = <String>[];
-  final level = gemmaLogLevel;
-  gemmaLogLevel = GemmaLogLevel.none;
+  final level = edgeAiLogLevel;
+  edgeAiLogLevel = EdgeAiLogLevel.none;
   try {
     await runZoned(
       body,
@@ -23,7 +23,7 @@ Future<List<String>> _printedWithGemmaLogMuted(
       ),
     );
   } finally {
-    gemmaLogLevel = level;
+    edgeAiLogLevel = level;
   }
   return printed;
 }

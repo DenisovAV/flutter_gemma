@@ -25,7 +25,7 @@ import 'package:flutter_edge_ai/core/services/download_service.dart';
 import 'package:flutter_edge_ai/core/utils/file_name_utils.dart'
     show FileNameUtils;
 import 'package:flutter_edge_ai/flutter_edge_ai.dart';
-import 'package:flutter_edge_ai/mobile/flutter_gemma_mobile.dart'
+import 'package:flutter_edge_ai/mobile/flutter_edge_ai_mobile.dart'
     show MobileModelManager;
 
 const _modelId = 'org__repo__cpu';
@@ -91,7 +91,7 @@ void main() {
       _ScriptedResolver(ModelFileType.onnx, _dirModel),
     ]);
 
-    final install = await FlutterGemma.installModel(
+    final install = await FlutterEdgeAi.installModel(
       modelType: ModelType.general, // manifest overrides → qwen3
       fileType: ModelFileType.onnx,
     ).fromHuggingFace('org/repo').install();
@@ -121,7 +121,7 @@ void main() {
     // getModelFilePaths.values.first (the engine's modelPath) resolves to
     // genai_config.json INSIDE the subdir → File(modelPath).parent == the dir.
     final manager =
-        FlutterGemmaPlugin.instance.modelManager as MobileModelManager;
+        FlutterEdgeAiPlugin.instance.modelManager as MobileModelManager;
     final paths = await manager.getModelFilePaths(spec);
     expect(paths, isNotNull);
     final modelPath = paths!.values.first;
@@ -135,7 +135,7 @@ void main() {
     HuggingFaceResolverRegistry.instance.registerAll([
       _ScriptedResolver(ModelFileType.onnx, _dirModel),
     ]);
-    await FlutterGemma.installModel(
+    await FlutterEdgeAi.installModel(
       modelType: ModelType.general,
       fileType: ModelFileType.onnx,
     ).fromHuggingFace('org/repo').install();
@@ -168,7 +168,7 @@ void main() {
     HuggingFaceResolverRegistry.instance.registerAll([
       _ScriptedResolver(ModelFileType.onnx, _dirModel),
     ]);
-    final install = await FlutterGemma.installModel(
+    final install = await FlutterEdgeAi.installModel(
       modelType: ModelType.general,
       fileType: ModelFileType.onnx,
     ).fromHuggingFace('org/repo').install();
@@ -177,7 +177,7 @@ void main() {
     expect(Directory(p.join(dir, _modelId)).existsSync(), isTrue);
 
     final manager =
-        FlutterGemmaPlugin.instance.modelManager as MobileModelManager;
+        FlutterEdgeAiPlugin.instance.modelManager as MobileModelManager;
     await manager.deleteModel(install.spec);
 
     expect(
@@ -212,7 +212,7 @@ void main() {
       ]);
 
       await expectLater(
-        FlutterGemma.installModel(
+        FlutterEdgeAi.installModel(
           modelType: ModelType.general,
           fileType: ModelFileType.onnx,
         ).fromHuggingFace('org/repo').install(),
@@ -247,7 +247,7 @@ void main() {
         ),
       ]);
       await expectLater(
-        FlutterGemma.installModel(
+        FlutterEdgeAi.installModel(
           modelType: ModelType.general,
           fileType: ModelFileType.onnx,
         ).fromHuggingFace('org/repo').install(),
@@ -283,7 +283,7 @@ void main() {
         ),
       ]);
       await expectLater(
-        FlutterGemma.installModel(
+        FlutterEdgeAi.installModel(
           modelType: ModelType.general,
           fileType: ModelFileType.onnx,
         ).fromHuggingFace('org/repo').install(),
@@ -314,7 +314,7 @@ void main() {
         ]);
 
         await expectLater(
-          FlutterGemma.installModel(
+          FlutterEdgeAi.installModel(
                 modelType: ModelType.general,
                 fileType: ModelFileType.onnx,
               )
@@ -355,7 +355,7 @@ void main() {
       ]);
 
       await expectLater(
-        FlutterGemma.installModel(
+        FlutterEdgeAi.installModel(
           modelType: ModelType.general,
           fileType: ModelFileType.onnx,
         ).fromHuggingFace('org/repo').install(),

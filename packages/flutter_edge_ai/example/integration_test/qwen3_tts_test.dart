@@ -18,7 +18,7 @@
 // see Task 5.4) must NOT produce byte-identical audio to the english pass.
 //
 // The full 9-file bundle is ~1.9 GB; this test can take tens of minutes on a
-// slow connection. Run: cd packages/flutter_gemma/example && \
+// slow connection. Run: cd packages/flutter_edge_ai/example && \
 //   flutter test integration_test/qwen3_tts_test.dart -d macos
 import 'dart:math' as math;
 import 'dart:typed_data';
@@ -27,7 +27,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:flutter_edge_ai/flutter_edge_ai.dart'
-    show FlutterGemma, TtsModelType;
+    show FlutterEdgeAi, TtsModelType;
 import 'package:flutter_edge_ai_speech/flutter_edge_ai_speech.dart'
     show LiteRtTtsBackend;
 
@@ -61,14 +61,14 @@ void main() {
     'Qwen3-TTS installs from HF, synthesizes plausible english audio, and '
     'german differs from english',
     (_) async {
-      await FlutterGemma.initialize(ttsBackends: const [LiteRtTtsBackend()]);
+      await FlutterEdgeAi.initialize(ttsBackends: const [LiteRtTtsBackend()]);
 
-      await FlutterGemma.installTts()
+      await FlutterEdgeAi.installTts()
           .fromNetwork(_modelUrl)
           .ofType(TtsModelType.qwen3)
           .install();
 
-      final englishSynth = await FlutterGemma.getActiveTts(language: 'english');
+      final englishSynth = await FlutterEdgeAi.getActiveTts(language: 'english');
       Uint8List englishPcm;
       try {
         englishPcm = await englishSynth.synthesize(_text);
@@ -106,7 +106,7 @@ void main() {
         await englishSynth.close();
       }
 
-      final germanSynth = await FlutterGemma.getActiveTts(language: 'german');
+      final germanSynth = await FlutterEdgeAi.getActiveTts(language: 'german');
       try {
         final germanPcm = await germanSynth.synthesize(_text);
 

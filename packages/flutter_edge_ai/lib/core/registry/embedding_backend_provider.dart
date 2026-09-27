@@ -1,5 +1,5 @@
 import 'package:flutter_edge_ai/core/registry/runtime_config.dart';
-import 'package:flutter_edge_ai/flutter_gemma_interface.dart' show EmbeddingModel;
+import 'package:flutter_edge_ai/flutter_edge_ai_interface.dart' show EmbeddingModel;
 import 'package:flutter_edge_ai/core/model_management/model_specs.dart'
     show EmbeddingModelSpec;
 
@@ -7,7 +7,7 @@ import 'package:flutter_edge_ai/core/model_management/model_specs.dart'
 /// third-party backend). Same probe-chain shape as [InferenceEngineProvider]:
 /// selected by probing the embedding model spec, highest-priority first match.
 ///
-/// Passed to `FlutterGemma.initialize` via `embeddingBackends:`.
+/// Passed to `FlutterEdgeAi.initialize` via `embeddingBackends:`.
 abstract class EmbeddingBackendProvider {
   /// Human-readable name for diagnostics / error messages.
   String get name;

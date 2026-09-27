@@ -31,7 +31,7 @@ class TransformersWebResolver {
 
   /// Builds a resolver backed by a fresh [WebModelManager], which rehydrates
   /// the active model from persisted prefs. Lets [OnnxEngine] (web) construct
-  /// the resolver without a `FlutterGemmaWeb` instance — same pattern as
+  /// the resolver without a `FlutterEdgeAiWeb` instance — same pattern as
   /// `WebModelSourceResolver.forActiveModel()`.
   factory TransformersWebResolver.forActiveModel() =>
       TransformersWebResolver(WebModelManager());
@@ -49,7 +49,7 @@ class TransformersWebResolver {
     final active = _modelManager.activeInferenceModel;
     if (active == null) {
       throw StateError(
-        'No active inference model set. Use FlutterGemma.installModel() first.',
+        'No active inference model set. Use FlutterEdgeAi.installModel() first.',
       );
     }
     if (active is! InferenceModelSpec) {

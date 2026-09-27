@@ -1,7 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application>
         <!-- LAYERING NOTE: the <uses-native-library> declarations below serve the
-             opt-in `flutter_gemma_litertlm` engine (its GPU/NPU native backends),
+             opt-in `flutter_edge_ai_litertlm` engine (its GPU/NPU native backends),
              NOT the engine-agnostic core. They live here because that engine ships
              as a Native-Assets FFI package with no Android library module of its
              own, so it cannot contribute an AndroidManifest to the merge — the

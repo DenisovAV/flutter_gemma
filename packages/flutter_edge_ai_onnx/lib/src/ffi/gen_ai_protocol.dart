@@ -3,7 +3,7 @@
 // survive `SendPort.send`.
 //
 // Deliberately its own file, src-only (NOT barrel-exported from
-// `flutter_gemma_onnx.dart`) — hardened plan Task 2a. Pulling the protocol
+// `flutter_edge_ai_onnx.dart`) — hardened plan Task 2a. Pulling the protocol
 // out from under `gen_ai_client.dart`'s leading underscores lets
 // `test/gen_ai_client_lifecycle_test.dart` spawn a scripted FAKE worker (a
 // real isolate, real ports, zero FFI/dlopen) that speaks the exact same
@@ -15,7 +15,7 @@
 // `onnx_generation_host_smoke_test.dart` for that).
 import 'dart:isolate';
 
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart' show GemmaLogLevel;
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart' show EdgeAiLogLevel;
 
 import 'gen_ai_client.dart' show GenAiTurn;
 
@@ -33,7 +33,7 @@ class WorkerInit {
   final String modelDir;
   final int contextWindow;
   final String? libsDir;
-  final GemmaLogLevel logLevel;
+  final EdgeAiLogLevel logLevel;
 }
 
 /// Worker → main: load succeeded, here is the command port.

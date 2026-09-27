@@ -1,4 +1,4 @@
-# Flutter Gemma Linux Plugin
+# Flutter Edge AI Linux Plugin
 #
 # Minimal plugin setup for the FFI path. Native libraries (libLiteRtLm.so,
 # libLiteRt.so, libLiteRtWebGpuAccelerator.so, companions, libStreamProxy.so)
@@ -7,13 +7,13 @@
 
 cmake_minimum_required(VERSION 3.14)
 
-project(flutter_gemma LANGUAGES CXX)
+project(flutter_edge_ai LANGUAGES CXX)
 
 # This value is used when generating builds using this plugin — do not change.
-set(PLUGIN_NAME "flutter_gemma_plugin")
+set(PLUGIN_NAME "flutter_edge_ai_plugin")
 
 add_library(${PLUGIN_NAME} SHARED
-  "flutter_gemma_plugin.cc"
+  "flutter_edge_ai_plugin.cc"
 )
 
 apply_standard_settings(${PLUGIN_NAME})
@@ -29,4 +29,4 @@ target_include_directories(${PLUGIN_NAME} PUBLIC
 target_link_libraries(${PLUGIN_NAME} PRIVATE flutter)
 
 # Native asset .so files are handled by hook/build.dart + Native Assets.
-set(flutter_gemma_bundled_libraries "" PARENT_SCOPE)
+set(flutter_edge_ai_bundled_libraries "" PARENT_SCOPE)

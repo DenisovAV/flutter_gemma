@@ -48,7 +48,7 @@ class PreferencesKeys {
   // ============================================================================
 
   /// `ModelType.name` of the currently active inference model.
-  /// Read on `FlutterGemma.initialize()` together with [activeInferenceFileType]
+  /// Read on `FlutterEdgeAi.initialize()` together with [activeInferenceFileType]
   /// and [installedModelFileName] to rehydrate `_activeInferenceModel`.
   static const String activeInferenceModelType = 'active_inference_model_type';
 

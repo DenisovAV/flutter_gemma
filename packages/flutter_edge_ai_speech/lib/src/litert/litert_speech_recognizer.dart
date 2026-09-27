@@ -13,7 +13,7 @@ import 'dart:typed_data';
 import 'package:flutter_edge_ai/core/domain/platform_types.dart'
     show PreferredBackend;
 import 'package:flutter_edge_ai/core/lifecycle/close_notifier.dart';
-import 'package:flutter_edge_ai/flutter_gemma_interface.dart'
+import 'package:flutter_edge_ai/flutter_edge_ai_interface.dart'
     show SpeechRecognizer;
 
 import '../model/stt_model_profile.dart';

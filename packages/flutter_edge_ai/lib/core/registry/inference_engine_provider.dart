@@ -1,13 +1,13 @@
 import 'package:flutter_edge_ai/core/registry/runtime_config.dart';
-import 'package:flutter_edge_ai/flutter_gemma_interface.dart' show InferenceModel;
+import 'package:flutter_edge_ai/flutter_edge_ai_interface.dart' show InferenceModel;
 import 'package:flutter_edge_ai/core/model_management/model_specs.dart'
     show InferenceModelSpec;
 
 /// A pluggable inference engine (MediaPipe `.task`, LiteRT-LM `.litertlm`, or a
 /// third-party `.onnx`/`.gguf` engine).
 ///
-/// Implemented in an engine package (e.g. flutter_gemma_mediapipe) and passed
-/// to `FlutterGemma.initialize` via `inferenceEngines:`. Core selects an engine
+/// Implemented in an engine package (e.g. flutter_edge_ai_mediapipe) and passed
+/// to `FlutterEdgeAi.initialize` via `inferenceEngines:`. Core selects an engine
 /// by probing: the first registered engine (highest [priority]) whose
 /// [canHandle] returns true for the active model spec wins. There is NO central
 /// file-type map — a third-party engine self-selects with zero core changes.

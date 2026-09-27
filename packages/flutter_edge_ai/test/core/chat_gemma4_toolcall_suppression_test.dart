@@ -3,7 +3,7 @@ import 'package:flutter_edge_ai/core/message.dart';
 import 'package:flutter_edge_ai/core/model.dart';
 import 'package:flutter_edge_ai/core/model_response.dart';
 import 'package:flutter_edge_ai/core/tool.dart';
-import 'package:flutter_edge_ai/flutter_gemma_interface.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai_interface.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// The LiteRT-LM C++ runtime streams a Gemma 4 tool-call turn as the raw

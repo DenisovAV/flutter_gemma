@@ -1,13 +1,13 @@
-/// LiteRT-LM (.litertlm) on-device inference engine for flutter_gemma.
+/// LiteRT-LM (.litertlm) on-device inference engine for flutter_edge_ai.
 ///
 /// Opt-in. Add to pubspec.yaml and pass an instance to
-/// `FlutterGemma.initialize(inferenceEngines: [LiteRtLmEngine()])`.
+/// `FlutterEdgeAi.initialize(inferenceEngines: [LiteRtLmEngine()])`.
 ///
 /// ```dart
 /// import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 /// import 'package:flutter_edge_ai_litertlm/flutter_edge_ai_litertlm.dart';
 ///
-/// await FlutterGemma.initialize(inferenceEngines: [LiteRtLmEngine()]);
+/// await FlutterEdgeAi.initialize(inferenceEngines: [LiteRtLmEngine()]);
 /// ```
 library flutter_edge_ai_litertlm;
 
@@ -15,13 +15,13 @@ export 'src/litert_lm_engine_web.dart'
     if (dart.library.ffi) 'src/litert_lm_engine.dart';
 
 // LiteRt interpreter FFI (arbitrary `.tflite` models) — used by
-// flutter_gemma_speech. `dart.library.ffi`-only;
+// flutter_edge_ai_speech. `dart.library.ffi`-only;
 // the web stub exports no symbols (web leaves use their own JS arm).
 export 'src/ffi/litert_bindings_stub.dart'
     if (dart.library.ffi) 'src/ffi/litert_bindings.dart';
 
 // LiteRT embedding backend (`LiteRtEmbeddingBackend`) — moved from
-// flutter_gemma_embeddings (embedder decoupling, 1.5.0). Native arm builds a
+// flutter_edge_ai_embeddings (embedder decoupling, 1.5.0). Native arm builds a
 // `ForwardPassDescriptor` over the LiteRT C API forward pass; web arm builds
 // the LiteRT.js-backed `WebEmbeddingModel` directly.
 // Where the LiteRT.js WASM runtime is fetched from on web. Plain Dart with no
@@ -38,7 +38,7 @@ export 'src/embedding/litert_embedding_backend_web.dart'
 // `HuggingFaceResolverSource`), so registering the engine registers this too;
 // pass `huggingFaceResolvers:` only to OVERRIDE, e.g. a pinned
 // `LitertlmManifestResolver(revision: 'abc123')`. Drive it via
-// `FlutterGemma.resolveHuggingFace(repo, fileType: ModelFileType.litertlm)`,
+// `FlutterEdgeAi.resolveHuggingFace(repo, fileType: ModelFileType.litertlm)`,
 // or resolve and install in one call with
 // `installModel(...).fromHuggingFace(repo)`. All six platforms (its IO arm
 // picks dart:io or browser fetch internally).

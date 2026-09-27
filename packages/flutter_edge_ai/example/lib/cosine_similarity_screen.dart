@@ -91,7 +91,7 @@ class _CosineSimilarityScreenState extends State<CosineSimilarityScreen> {
         }
       }
 
-      await FlutterGemma.installEmbedder()
+      await FlutterEdgeAi.installEmbedder()
           .modelFromNetwork(widget.model.url, token: token)
           .tokenizerFromNetwork(widget.model.tokenizerUrl, token: token)
           .withModelProgress((percent) {
@@ -115,7 +115,7 @@ class _CosineSimilarityScreenState extends State<CosineSimilarityScreen> {
       }
 
       // Get active embedding model
-      _embeddingModel = await FlutterGemma.getActiveEmbedder(
+      _embeddingModel = await FlutterEdgeAi.getActiveEmbedder(
         preferredBackend:
             PreferredBackend.gpu, // Use GPU mode for better performance
       );

@@ -29,7 +29,7 @@ void main() {
     // `available=false` and every test skips instead of hanging to the deadline.
     try {
       await () async {
-        await FlutterGemma.initialize(
+        await FlutterEdgeAi.initialize(
           inferenceEngines: const [BuiltInAiEngine()],
         );
         final status = await BuiltInAi.availability();
@@ -48,7 +48,7 @@ void main() {
           final spec = defaultTargetPlatform == TargetPlatform.android
               ? BuiltInAiModels.geminiNano
               : BuiltInAiModels.appleFoundationModels;
-          await FlutterGemma.installModel(
+          await FlutterEdgeAi.installModel(
             modelType: spec.modelType,
             fileType: spec.fileType,
           ).fromBundled(spec.name).install();
@@ -62,7 +62,7 @@ void main() {
   test('single-shot generation', () async {
     if (!available)
       return markTestSkipped('BuiltInAI not available on this device');
-    final model = await FlutterGemma.getActiveModel(maxTokens: 4096);
+    final model = await FlutterEdgeAi.getActiveModel(maxTokens: 4096);
     final session = await model.createSession();
     await session.addQueryChunk(
       const Message(text: 'Reply with exactly: PONG', isUser: true),
@@ -76,7 +76,7 @@ void main() {
   test('streaming yields incremental deltas then completes', () async {
     if (!available)
       return markTestSkipped('BuiltInAI not available on this device');
-    final model = await FlutterGemma.getActiveModel(maxTokens: 4096);
+    final model = await FlutterEdgeAi.getActiveModel(maxTokens: 4096);
     final session = await model.createSession();
     await session.addQueryChunk(
       const Message(text: 'Count from 1 to 5.', isUser: true),
@@ -91,7 +91,7 @@ void main() {
   test('multi-turn chat keeps context', () async {
     if (!available)
       return markTestSkipped('BuiltInAI not available on this device');
-    final model = await FlutterGemma.getActiveModel(maxTokens: 4096);
+    final model = await FlutterEdgeAi.getActiveModel(maxTokens: 4096);
     final chat = await model.createChat(supportImage: false);
     await chat.addQueryChunk(
       const Message(text: 'My name is Sasha. Say hi.', isUser: true),
@@ -108,7 +108,7 @@ void main() {
   test('sizeInTokens returns a positive count', () async {
     if (!available)
       return markTestSkipped('BuiltInAI not available on this device');
-    final model = await FlutterGemma.getActiveModel(maxTokens: 4096);
+    final model = await FlutterEdgeAi.getActiveModel(maxTokens: 4096);
     final session = await model.createSession();
     expect(
       await session.sizeInTokens('Hello world, four words plus.'),

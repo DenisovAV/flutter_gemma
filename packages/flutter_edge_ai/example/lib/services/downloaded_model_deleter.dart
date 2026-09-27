@@ -12,7 +12,7 @@ class DownloadedModelDeleter {
 
     final tokenizerId = match.model.tokenizerFilename;
     if (tokenizerId == installedId) return false;
-    if (!await FlutterGemma.isModelInstalled(tokenizerId)) return false;
+    if (!await FlutterEdgeAi.isModelInstalled(tokenizerId)) return false;
 
     return !await isEmbeddingTokenizerStillNeeded(
       tokenizerFilename: tokenizerId,
@@ -27,21 +27,21 @@ class DownloadedModelDeleter {
 
     final match = resolveCatalog(installedId);
     if (match is EmbeddingMatch && !match.isTokenizer) {
-      await FlutterGemma.uninstallModel(installedId);
+      await FlutterEdgeAi.uninstallModel(installedId);
       final tokenizerId = match.model.tokenizerFilename;
       if (tokenizerId != installedId &&
-          await FlutterGemma.isModelInstalled(tokenizerId) &&
+          await FlutterEdgeAi.isModelInstalled(tokenizerId) &&
           !await isEmbeddingTokenizerStillNeeded(
             tokenizerFilename: tokenizerId,
             removedModelFilename: installedId,
           )) {
-        await FlutterGemma.uninstallModel(tokenizerId);
+        await FlutterEdgeAi.uninstallModel(tokenizerId);
       }
       await _clearActiveIdentityIfUninstalled(installedId);
       return;
     }
 
-    await FlutterGemma.uninstallModel(installedId);
+    await FlutterEdgeAi.uninstallModel(installedId);
     await _clearActiveIdentityIfUninstalled(installedId);
   }
 
@@ -49,10 +49,10 @@ class DownloadedModelDeleter {
     String installedId,
   ) async {
     if (activeInferenceModelId() == installedId) {
-      await FlutterGemma.clearActiveInferenceIdentity();
+      await FlutterEdgeAi.clearActiveInferenceIdentity();
     }
     if (isActiveEmbeddingArtifact(installedId)) {
-      await FlutterGemma.clearActiveEmbeddingIdentity();
+      await FlutterEdgeAi.clearActiveEmbeddingIdentity();
     }
   }
 }

@@ -1,6 +1,6 @@
 // ORT-GenAI `InferenceModelSession` — text-only v1 (hardened plan Phase 3,
 // Task 2). Shape mirrors `FfiInferenceModelSession`
-// (`flutter_gemma_litertlm/lib/src/ffi/ffi_inference_model.dart`) but drives
+// (`flutter_edge_ai_litertlm/lib/src/ffi/ffi_inference_model.dart`) but drives
 // [GenAiClient] instead of the LiteRT-LM conversation handle.
 import 'dart:async';
 
@@ -8,8 +8,8 @@ import 'package:flutter/foundation.dart' show VoidCallback;
 import 'package:flutter_edge_ai/core/extensions.dart';
 import 'package:flutter_edge_ai/core/model.dart';
 import 'package:flutter_edge_ai/core/message.dart';
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
-import 'package:flutter_edge_ai/flutter_gemma_interface.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai_interface.dart';
 
 import 'ffi/gen_ai_client.dart';
 
@@ -178,13 +178,13 @@ class OnnxSession extends InferenceModelSession {
   void _logGenerationStats(Stopwatch sw, int? firstChunkMs, int chunks) {
     final total = sw.elapsedMilliseconds;
     if (firstChunkMs == null || chunks == 0) {
-      gemmaLog(
+      edgeAiLog(
         '[OnnxSession/perf] generation total: ${total}ms (no chunks emitted)',
       );
       return;
     }
     final decodeMs = total - firstChunkMs;
-    gemmaLog(
+    edgeAiLog(
       '[OnnxSession/perf] generation total: ${total}ms '
       '(prefill ${firstChunkMs}ms + decode ${decodeMs}ms over $chunks chunks)',
     );

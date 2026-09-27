@@ -1,4 +1,4 @@
-import '../utils/gemma_log.dart';
+import '../utils/edge_ai_log.dart';
 
 /// Utilities for URL manipulation
 class UrlUtils {
@@ -31,7 +31,7 @@ class UrlUtils {
 
       return normalized;
     } catch (e) {
-      gemmaLog('[UrlUtils] ⚠️  URL normalization failed: $e');
+      edgeAiLog('[UrlUtils] ⚠️  URL normalization failed: $e');
       return url;
     }
   }

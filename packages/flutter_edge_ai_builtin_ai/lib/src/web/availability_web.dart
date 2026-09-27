@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:js_interop';
 
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 
 import '../availability_types.dart';
 import 'language_model_interop.dart';
@@ -42,7 +42,7 @@ abstract final class BuiltInAi {
       // probe's contract is "always resolves to a BuiltInAiAvailability, never
       // throws". Map it to the unclassified bucket (and don't let it break
       // ensureReady() before its own _download() error wrapping runs).
-      gemmaLog('[BuiltInAI/web] LanguageModel.availability() rejected: $e');
+      edgeAiLog('[BuiltInAI/web] LanguageModel.availability() rejected: $e');
       return BuiltInAiAvailability.unavailableOther;
     }
   }

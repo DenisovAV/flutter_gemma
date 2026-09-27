@@ -1,13 +1,13 @@
-/// qdrant-edge on-device RAG vector store for flutter_gemma (native FFI).
+/// qdrant-edge on-device RAG vector store for flutter_edge_ai (native FFI).
 ///
 /// Opt-in package, native platforms only. Add it to pubspec.yaml and pass an
-/// instance to `FlutterGemma.initialize(vectorStore: ...)`:
+/// instance to `FlutterEdgeAi.initialize(vectorStore: ...)`:
 ///
 /// ```dart
 /// import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 /// import 'package:flutter_edge_ai_qdrant/flutter_edge_ai_qdrant.dart';
 ///
-/// await FlutterGemma.initialize(vectorStore: QdrantVectorStore());
+/// await FlutterEdgeAi.initialize(vectorStore: QdrantVectorStore());
 /// ```
 library;
 

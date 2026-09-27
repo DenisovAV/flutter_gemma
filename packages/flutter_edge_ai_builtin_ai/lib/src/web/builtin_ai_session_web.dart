@@ -6,8 +6,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_edge_ai/core/extensions.dart';
 import 'package:flutter_edge_ai/core/message.dart';
 import 'package:flutter_edge_ai/core/model.dart';
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
-import 'package:flutter_edge_ai/flutter_gemma_interface.dart'
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai_interface.dart'
     show InferenceModelSession, SessionMetrics;
 
 import 'language_model_interop.dart';
@@ -29,7 +29,7 @@ void resetImageSkippedWarningWeb() => _imageSkippedWarnedWeb = false;
 /// A generation session on the Chrome Prompt API (`LanguageModelSession`).
 ///
 /// Buffers query chunks in a `StringBuffer` (the same shape
-/// `flutter_gemma_onnx`'s `OnnxSession` uses) and drains them into one
+/// `flutter_edge_ai_onnx`'s `OnnxSession` uses) and drains them into one
 /// `prompt()`/`promptStreaming()` call — the Prompt API's session is
 /// stateful (multi-turn context accrues in the JS session itself), so no
 /// manual history replay is needed here, matching the native session's
@@ -84,7 +84,7 @@ class BuiltInAiSessionWeb extends InferenceModelSession {
     _assertNotClosed();
     if (message.hasImage && !_imageSkippedWarnedWeb) {
       _imageSkippedWarnedWeb = true;
-      gemmaLog(
+      edgeAiLog(
         '[BuiltInAI/web] Image input is dropped on the web Prompt API path '
         '(v1, text-only).',
       );
@@ -227,7 +227,7 @@ class BuiltInAiSessionWeb extends InferenceModelSession {
     }
     if (!_tokenFallbackWarnedWeb) {
       _tokenFallbackWarnedWeb = true;
-      gemmaLog(
+      edgeAiLog(
         '[BuiltInAI/web] neither measureContextUsage nor measureInputUsage is '
         'available on this host; falling back to a (text.length / 4) estimate. '
         'Counts are approximate.',
@@ -247,7 +247,7 @@ class BuiltInAiSessionWeb extends InferenceModelSession {
       // defensively in case a host throws instead. A throw here means the stop
       // request may not have taken effect — surface it in debug.
       if (kDebugMode) {
-        gemmaLog('[BuiltInAI/web] abort() threw in stopGeneration: $e');
+        edgeAiLog('[BuiltInAI/web] abort() threw in stopGeneration: $e');
       }
     }
   }
@@ -274,7 +274,7 @@ class BuiltInAiSessionWeb extends InferenceModelSession {
       // a racing close() call) can't throw out of this method. A throw for any
       // OTHER reason would leak the JS session — surface it in debug.
       if (kDebugMode) {
-        gemmaLog('[BuiltInAI/web] session.destroy() threw on close: $e');
+        edgeAiLog('[BuiltInAI/web] session.destroy() threw on close: $e');
       }
     }
   }

@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 
 import 'package:flutter/foundation.dart';
 
-import 'package:flutter_edge_ai/flutter_gemma_interface.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai_interface.dart';
 import 'package:flutter_edge_ai/core/lifecycle/close_notifier.dart';
 import 'package:flutter_edge_ai/core/message.dart';
 import 'package:flutter_edge_ai/core/model.dart';
@@ -136,7 +136,7 @@ class FfiInferenceModel extends InferenceModel with CloseNotifier {
         await open(),
         reopen: (messagesJson) => open(messagesJson: messagesJson),
       );
-      gemmaLog(
+      edgeAiLog(
         '[FfiInferenceModel/perf] createConversation (FFI): ${sessionSw.elapsedMilliseconds - beforeConv}ms',
       );
 
@@ -166,7 +166,7 @@ class FfiInferenceModel extends InferenceModel with CloseNotifier {
       _session = session;
 
       completer.complete(session);
-      gemmaLog(
+      edgeAiLog(
         '[FfiInferenceModel/perf] createSession total: ${sessionSw.elapsedMilliseconds}ms',
       );
     } catch (e, st) {
@@ -505,7 +505,7 @@ class FfiInferenceModelSession extends InferenceModelSession
       await for (final rawChunk in _rawTurn(text, images, audio, toolMessage)) {
         if (firstChunkMs == null) {
           firstChunkMs = genSw.elapsedMilliseconds;
-          gemmaLog(
+          edgeAiLog(
             '[FfiInferenceModelSession/perf] time-to-first-chunk (prefill): ${firstChunkMs}ms',
           );
         }
@@ -528,7 +528,7 @@ class FfiInferenceModelSession extends InferenceModelSession
     )) {
       if (firstChunkMs == null) {
         firstChunkMs = genSw.elapsedMilliseconds;
-        gemmaLog(
+        edgeAiLog(
           '[FfiInferenceModelSession/perf] time-to-first-chunk (prefill): ${firstChunkMs}ms',
         );
       }
@@ -542,7 +542,7 @@ class FfiInferenceModelSession extends InferenceModelSession
   void _logGenerationStats(Stopwatch sw, int? firstChunkMs, int chunks) {
     final total = sw.elapsedMilliseconds;
     if (firstChunkMs == null || chunks == 0) {
-      gemmaLog(
+      edgeAiLog(
         '[FfiInferenceModelSession/perf] generation total: ${total}ms (no chunks emitted)',
       );
       return;
@@ -551,7 +551,7 @@ class FfiInferenceModelSession extends InferenceModelSession
     final decodeRate = chunks > 1 && decodeMs > 0
         ? ((chunks - 1) * 1000.0 / decodeMs).toStringAsFixed(1)
         : 'n/a';
-    gemmaLog(
+    edgeAiLog(
       '[FfiInferenceModelSession/perf] generation total: ${total}ms '
       '(prefill ${firstChunkMs}ms + decode ${decodeMs}ms over $chunks chunks, '
       '~$decodeRate chunks/sec)',
@@ -580,7 +580,7 @@ class FfiInferenceModelSession extends InferenceModelSession
       await for (final rawChunk in _rawTurn(text, images, audio, toolMessage)) {
         if (firstChunkMs == null) {
           firstChunkMs = genSw.elapsedMilliseconds;
-          gemmaLog(
+          edgeAiLog(
             '[FfiInferenceModelSession/perf] (async) time-to-first-chunk (prefill): ${firstChunkMs}ms',
           );
         }
@@ -602,7 +602,7 @@ class FfiInferenceModelSession extends InferenceModelSession
     )) {
       if (firstChunkMs == null) {
         firstChunkMs = genSw.elapsedMilliseconds;
-        gemmaLog(
+        edgeAiLog(
           '[FfiInferenceModelSession/perf] (async) time-to-first-chunk (prefill): ${firstChunkMs}ms',
         );
       }
@@ -672,7 +672,7 @@ class FfiInferenceModelSession extends InferenceModelSession
     // under-counts.
     if (!_tokenFallbackWarned) {
       _tokenFallbackWarned = true;
-      gemmaLog(
+      edgeAiLog(
         '[LiteRtLmFfi] sizeInTokens: native tokenizer unavailable; estimating '
         'conservatively at 2 chars/token for the rest of this session. '
         'Context budgeting will over-count, trimming history earlier than '
@@ -783,15 +783,15 @@ class RecoveringConversationHandle implements ConversationHandle {
       _live.close();
       throw StateError('Conversation handle is closed');
     }
-    gemmaLog(
+    edgeAiLog(
       '[FfiInferenceModel] rebuilt the conversation after a stopped turn '
       '(${_history.length} messages replayed)',
     );
     if (_historyHasMedia) {
-      gemmaLog(
+      edgeAiLog(
         '[FfiInferenceModel] images and audio from earlier turns are not '
         'replayed after a stop — the rebuilt conversation has their text only',
-        level: GemmaLogLevel.info,
+        level: EdgeAiLogLevel.info,
       );
     }
   }
@@ -817,7 +817,7 @@ class RecoveringConversationHandle implements ConversationHandle {
         windDownTimeout,
         onTimeout: () {
           _stopped = true;
-          gemmaLog(
+          edgeAiLog(
             '[FfiInferenceModel] a stopped turn did not wind down within '
             '${windDownTimeout.inSeconds}s (is its stream paused?); rebuilding '
             'without it',

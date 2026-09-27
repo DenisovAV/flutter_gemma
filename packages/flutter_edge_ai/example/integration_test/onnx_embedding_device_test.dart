@@ -21,7 +21,7 @@
 // numbers stay comparable across platforms (all hosts produce the SAME cosines).
 //
 // Run (device / emulator / simulator attached):
-//   cd packages/flutter_gemma/example
+//   cd packages/flutter_edge_ai/example
 //   flutter test integration_test/onnx_embedding_device_test.dart -d <id>
 import 'dart:io';
 import 'dart:math' as math;

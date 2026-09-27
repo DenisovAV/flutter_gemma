@@ -3,7 +3,7 @@ import 'package:ffi/ffi.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 
-const _dir = '/data/local/tmp/flutter_gemma_test';
+const _dir = '/data/local/tmp/flutter_edge_ai_test';
 const _gemma3n = '$_dir/gemma-3n-E2B-it-int4.litertlm';
 const _gemma4 = '$_dir/gemma-4-E2B-it.litertlm';
 

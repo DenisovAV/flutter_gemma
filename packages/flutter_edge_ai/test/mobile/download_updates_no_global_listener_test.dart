@@ -1,4 +1,4 @@
-// #445: depending on flutter_gemma must not take background_downloader away
+// #445: depending on flutter_edge_ai must not take background_downloader away
 // from the host app.
 //
 // `FileDownloader().updates` is a SINGLE-SUBSCRIPTION controller
@@ -6,8 +6,8 @@
 // SmartDownloader used to listen to it — via `asBroadcastStream()`, which still
 // takes the one subscription the process has — so any later
 // `FileDownloader().updates.listen(...)` in the app or in another package threw
-// "Bad state: Stream has already been listened to". Nothing in flutter_gemma
-// failed; the HOST did, for a stream flutter_gemma had no business claiming.
+// "Bad state: Stream has already been listened to". Nothing in flutter_edge_ai
+// failed; the HOST did, for a stream flutter_edge_ai had no business claiming.
 //
 // The fix routes our own group through `registerCallbacks(group:)`, which
 // base_downloader consults BEFORE `updates.hasListener` — so we still see every
@@ -86,7 +86,7 @@ void main() {
       SmartDownloader.debugGroupFanOutIsLive,
       isFalse,
       reason:
-          'a host that disposes flutter_gemma should get its downloader back',
+          'a host that disposes flutter_edge_ai should get its downloader back',
     );
 
     // And the next download must not be handed the closed controller.

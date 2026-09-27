@@ -2,14 +2,14 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 import 'package:flutter_edge_ai_qdrant/src/filter_codec.dart';
 import 'package:flutter_edge_ai_qdrant/src/point_id_hasher.dart';
 import 'package:flutter_edge_ai_qdrant/src/qdrant_edge_client.dart';
 import 'package:path/path.dart' as p;
 
-/// Thrown when a store written by `flutter_gemma_rag_qdrant` 1.x is found at
+/// Thrown when a store written by `flutter_edge_ai_qdrant` 1.x is found at
 /// the bare `databasePath`, and ONLY then.
 ///
 /// It is a separate type because the two things `initialize` can refuse over
@@ -30,10 +30,10 @@ class QdrantLegacyStoreException extends VectorStoreException {
 
 /// Native-only RAG vector store backed by the official `qdrant_edge` SDK.
 /// Implements
-/// flutter_gemma's [VectorStoreRepository]. Its HNSW index makes it the fastest
+/// flutter_edge_ai's [VectorStoreRepository]. Its HNSW index makes it the fastest
 /// native option — roughly 5–11× faster search than the in-SQLite sqlite-vec
 /// store at 1k–10k docs (with identical top-K results). Web is unsupported
-/// (qdrant-edge can't compile to WASM); use flutter_gemma_rag_sqlite there.
+/// (qdrant-edge can't compile to WASM); use flutter_edge_ai_sqlite there.
 ///
 /// Public API parity with the existing contract:
 ///
@@ -241,7 +241,7 @@ class QdrantVectorStore implements VectorStoreRepository {
         throw ArgumentError.value(
           field.name,
           'schema.fields',
-          'is reserved by flutter_gemma_rag_qdrant for the stored document '
+          'is reserved by flutter_edge_ai_qdrant for the stored document '
               'id/content/metadata — choose another field name',
         );
       }
@@ -263,7 +263,7 @@ class QdrantVectorStore implements VectorStoreRepository {
       try {
         await existing.close();
       } on QdrantException catch (e) {
-        gemmaLog('[QdrantVectorStore] close() failed (best-effort): $e');
+        edgeAiLog('[QdrantVectorStore] close() failed (best-effort): $e');
       }
     }
     _client = null;
@@ -334,7 +334,7 @@ class QdrantVectorStore implements VectorStoreRepository {
       // be why it failed. What can: an exclusive WAL held elsewhere, a
       // corrupted config, permissions. None of those are resolved by a write,
       // so a write must not paper over them either — addDocument asserts the
-      // latch too. gemmaLog alone would not do: it is debug-only, so in a
+      // latch too. edgeAiLog alone would not do: it is debug-only, so in a
       // release build nobody is told at all.
       // Two different situations, two different things to tell the caller.
       // They arrived as one generic error until the SDK gave the lock its own
@@ -350,7 +350,7 @@ class QdrantVectorStore implements VectorStoreRepository {
                 'this store cannot tell you whether it is empty — reporting no '
                 'results would hide an intact corpus. Call initialize() again '
                 'once the cause is cleared. Underlying error: $e';
-      gemmaLog('[QdrantVectorStore] could not adopt existing shard: $e');
+      edgeAiLog('[QdrantVectorStore] could not adopt existing shard: $e');
       // And REPORT it. The contract says initialize() throws
       // VectorStoreException when initialization fails, and this failed: a
       // shard is on disk and we could not open it. Returning normally left the
@@ -431,7 +431,7 @@ class QdrantVectorStore implements VectorStoreRepository {
         return;
       case _AtPath.legacyStore:
         throw QdrantLegacyStoreException(
-          'Found a store written by flutter_gemma_rag_qdrant 1.x at '
+          'Found a store written by flutter_edge_ai_qdrant 1.x at '
           '$databasePath. Its on-disk format is not readable by 2.0, and this '
           'release never deletes files it cannot read: remove '
           '"${_legacyEntries.join('", "')}" from that directory yourself, then '
@@ -709,14 +709,14 @@ class QdrantVectorStore implements VectorStoreRepository {
     try {
       decoded = jsonDecode(metadata);
     } on FormatException catch (e) {
-      gemmaLog(
+      edgeAiLog(
         '[QdrantVectorStore] metadata is not valid JSON — filter fields not '
         'promoted (round-trip blob kept): $e',
       );
       return;
     }
     if (decoded is! Map<String, dynamic>) {
-      gemmaLog(
+      edgeAiLog(
         '[QdrantVectorStore] metadata JSON is not an object — filter fields '
         'not promoted (round-trip blob kept)',
       );
@@ -911,7 +911,7 @@ class QdrantVectorStore implements VectorStoreRepository {
       try {
         await c.close();
       } on QdrantException catch (e) {
-        gemmaLog('[QdrantVectorStore] close() failed (best-effort): $e');
+        edgeAiLog('[QdrantVectorStore] close() failed (best-effort): $e');
       }
     }
   }

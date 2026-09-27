@@ -158,11 +158,11 @@ void main() {
       // FakeAsync zone via `tester.runAsync(...)`.
       await tester.runAsync(() async {
         await registerTestEngines();
-        await FlutterGemma.installEmbedder()
+        await FlutterEdgeAi.installEmbedder()
             .modelFromAsset(_modelPath)
             .tokenizerFromAsset(_tokenizerPath)
             .install();
-        final embedder = await FlutterGemma.getActiveEmbedder();
+        final embedder = await FlutterEdgeAi.getActiveEmbedder();
 
         final totalDocs = _sizes.reduce(math.max);
         final rng = math.Random(42);

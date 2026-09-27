@@ -46,14 +46,14 @@ Future<InferenceModel> _ensureModel() async {
     _enginesRegistered = true;
   }
   if (_model != null) return _model!;
-  final installer = FlutterGemma.installModel(
+  final installer = FlutterEdgeAi.installModel(
     modelType: ModelType.gemma4,
     fileType: ModelFileType.litertlm,
   );
   await installer
       .fromNetwork(_webModelUrl, token: _hfToken.isEmpty ? null : _hfToken)
       .install();
-  return _model = await FlutterGemma.getActiveModel(maxTokens: 1024);
+  return _model = await FlutterEdgeAi.getActiveModel(maxTokens: 1024);
 }
 
 Future<void> _disposeModel() async {
@@ -98,7 +98,7 @@ void main() {
       // Asserted as isEmpty ON PURPOSE. If this fails, thinking started working:
       // delete this test, and update the "Limitations" doc on
       // LiteRtLmWebInferenceModel plus the web feature matrices in
-      // flutter_gemma/README.md and website/content/docs/litertlm.md.
+      // flutter_edge_ai/README.md and website/content/docs/litertlm.md.
       expect(
         events.whereType<ThinkingResponse>(),
         isEmpty,

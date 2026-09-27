@@ -14,14 +14,14 @@ void main() {
     (tester) async {
       await registerTestEngines();
 
-      final hasModel = FlutterGemma.hasActiveModel();
+      final hasModel = FlutterEdgeAi.hasActiveModel();
       if (!hasModel) {
         fail(
           'No active model set. Install gemma-3n-E2B-it-int4 first via the example app.',
         );
       }
 
-      final model = await FlutterGemma.getActiveModel(
+      final model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 512,
         preferredBackend: PreferredBackend.gpu,
         supportAudio: false,

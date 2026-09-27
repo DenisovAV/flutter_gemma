@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'image_processor.dart';
 import 'image_tokenizer.dart';
 import 'vision_encoder_validator.dart';
-import 'utils/gemma_log.dart';
+import 'utils/edge_ai_log.dart';
 
 /// Comprehensive error handling and debugging utilities for AI image processing
 /// to prevent corruption that causes repeating text patterns in model responses.
@@ -16,19 +16,19 @@ class ImageErrorHandler {
     Uint8List? imageBytes,
     String? context,
   }) {
-    gemmaLog('=== IMAGE PROCESSING ERROR ===');
-    gemmaLog('Context: $context');
-    gemmaLog('Error: $error');
-    gemmaLog('StackTrace: $stackTrace');
+    edgeAiLog('=== IMAGE PROCESSING ERROR ===');
+    edgeAiLog('Context: $context');
+    edgeAiLog('Error: $error');
+    edgeAiLog('StackTrace: $stackTrace');
 
     if (imageBytes != null) {
-      gemmaLog('Image bytes: ${imageBytes.length} bytes');
+      edgeAiLog('Image bytes: ${imageBytes.length} bytes');
       _logImageInfo(imageBytes);
     }
 
     // Categorize the error
     final errorType = _categorizeError(error);
-    gemmaLog('Error Type: $errorType');
+    edgeAiLog('Error Type: $errorType');
 
     // Generate recovery suggestions
     final suggestions = _generateRecoverySuggestions(errorType, imageBytes);
@@ -36,8 +36,8 @@ class ImageErrorHandler {
     // Create detailed error message
     final message = _createDetailedErrorMessage(error, errorType, context);
 
-    gemmaLog('Recovery Suggestions: ${suggestions.join(', ')}');
-    gemmaLog('================================');
+    edgeAiLog('Recovery Suggestions: ${suggestions.join(', ')}');
+    edgeAiLog('================================');
 
     return ErrorHandlingResult(
       isRecoverable: _isRecoverable(errorType),
@@ -57,19 +57,19 @@ class ImageErrorHandler {
     String? prompt,
     int? expectedImageCount,
   }) {
-    gemmaLog('=== IMAGE TOKENIZATION ERROR ===');
-    gemmaLog('Model Type: $modelType');
-    gemmaLog('Expected Images: $expectedImageCount');
-    gemmaLog('Prompt Length: ${prompt?.length ?? 0}');
+    edgeAiLog('=== IMAGE TOKENIZATION ERROR ===');
+    edgeAiLog('Model Type: $modelType');
+    edgeAiLog('Expected Images: $expectedImageCount');
+    edgeAiLog('Prompt Length: ${prompt?.length ?? 0}');
     if (prompt != null && prompt.length < _maxLogSize) {
-      gemmaLog(
+      edgeAiLog(
         'Prompt Preview: ${_sanitizePromptForLogging(prompt)}',
-        level: GemmaLogLevel.verbose,
+        level: EdgeAiLogLevel.verbose,
       );
     }
 
     final errorType = _categorizeTokenizationError(error, prompt);
-    gemmaLog('Tokenization Error Type: $errorType');
+    edgeAiLog('Tokenization Error Type: $errorType');
 
     final suggestions = _generateTokenizationRecoverySuggestions(
       errorType,
@@ -83,8 +83,8 @@ class ImageErrorHandler {
       modelType,
     );
 
-    gemmaLog('Tokenization Recovery: ${suggestions.join(', ')}');
-    gemmaLog('================================');
+    edgeAiLog('Tokenization Recovery: ${suggestions.join(', ')}');
+    edgeAiLog('================================');
 
     return ErrorHandlingResult(
       isRecoverable: _isTokenizationRecoverable(errorType),
@@ -102,10 +102,10 @@ class ImageErrorHandler {
     Uint8List? imageBytes,
     VisionEncoderType? encoderType,
   }) {
-    gemmaLog('=== VISION ENCODER VALIDATION ERROR ===');
-    gemmaLog('Encoder: ${encoderType?.name ?? 'unknown'}');
-    gemmaLog('Validation Result: ${validationResult.isValid}');
-    gemmaLog('Message: ${validationResult.message}');
+    edgeAiLog('=== VISION ENCODER VALIDATION ERROR ===');
+    edgeAiLog('Encoder: ${encoderType?.name ?? 'unknown'}');
+    edgeAiLog('Validation Result: ${validationResult.isValid}');
+    edgeAiLog('Message: ${validationResult.message}');
 
     if (imageBytes != null) {
       _logImageInfo(imageBytes);
@@ -122,8 +122,8 @@ class ImageErrorHandler {
     final message =
         'Vision encoder validation failed: ${validationResult.message}';
 
-    gemmaLog('Validation Recovery: ${suggestions.join(', ')}');
-    gemmaLog('======================================');
+    edgeAiLog('Validation Recovery: ${suggestions.join(', ')}');
+    edgeAiLog('======================================');
 
     return ErrorHandlingResult(
       isRecoverable: true, // Validation errors are usually recoverable
@@ -137,12 +137,12 @@ class ImageErrorHandler {
   /// Detects and handles model response corruption patterns
   static CorruptionDetectionResult detectResponseCorruption(String response) {
     try {
-      gemmaLog('=== DETECTING RESPONSE CORRUPTION ===');
-      gemmaLog('Response Length: ${response.length}');
+      edgeAiLog('=== DETECTING RESPONSE CORRUPTION ===');
+      edgeAiLog('Response Length: ${response.length}');
       if (response.length < _maxLogSize) {
-        gemmaLog(
+        edgeAiLog(
           'Response Preview: ${_sanitizeResponseForLogging(response)}',
-          level: GemmaLogLevel.verbose,
+          level: EdgeAiLogLevel.verbose,
         );
       }
 
@@ -158,9 +158,9 @@ class ImageErrorHandler {
         analysis,
       );
 
-      gemmaLog('Corruption Detected: $hasCorruption');
-      gemmaLog('Confidence Level: ${confidence.toStringAsFixed(2)}');
-      gemmaLog('Analysis: $analysis');
+      edgeAiLog('Corruption Detected: $hasCorruption');
+      edgeAiLog('Confidence Level: ${confidence.toStringAsFixed(2)}');
+      edgeAiLog('Analysis: $analysis');
 
       return CorruptionDetectionResult(
         isCorrupted: hasCorruption,
@@ -169,7 +169,7 @@ class ImageErrorHandler {
         suggestedAction: _suggestCorruptionAction(confidence, analysis),
       );
     } catch (e) {
-      gemmaLog('Error detecting corruption: $e');
+      edgeAiLog('Error detecting corruption: $e');
       return CorruptionDetectionResult(
         isCorrupted: false,
         confidence: 0.0,
@@ -185,9 +185,9 @@ class ImageErrorHandler {
       final format = ImageProcessor.detectFormat(imageBytes);
       final sizeInKB = imageBytes.length / 1024;
 
-      gemmaLog('Image Format: $format');
-      gemmaLog('Image Size: ${sizeInKB.toStringAsFixed(2)}KB');
-      gemmaLog('Image Bytes: ${imageBytes.length}');
+      edgeAiLog('Image Format: $format');
+      edgeAiLog('Image Size: ${sizeInKB.toStringAsFixed(2)}KB');
+      edgeAiLog('Image Bytes: ${imageBytes.length}');
 
       // Log first few bytes for signature analysis
       if (imageBytes.length >= 8) {
@@ -195,10 +195,10 @@ class ImageErrorHandler {
             .sublist(0, 8)
             .map((b) => '0x${b.toRadixString(16).padLeft(2, '0')}')
             .join(' ');
-        gemmaLog('Image Signature: $signature');
+        edgeAiLog('Image Signature: $signature');
       }
     } catch (e) {
-      gemmaLog('Error logging image info: $e');
+      edgeAiLog('Error logging image info: $e');
     }
   }
 

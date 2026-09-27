@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -8,14 +8,14 @@ import 'package:mutex/mutex.dart';
 import 'package:flutter_edge_ai/core/extensions.dart';
 import 'package:flutter_edge_ai/core/message.dart';
 import 'package:flutter_edge_ai/core/model.dart';
-import 'package:flutter_edge_ai/flutter_gemma_interface.dart'
+import 'package:flutter_edge_ai/flutter_edge_ai_interface.dart'
     show InferenceModelSession, SessionMetrics;
 
 import 'package:flutter_edge_ai_mediapipe/pigeon.g.dart';
 
 /// Shared MediaPipe pigeon client. Library-level (non-private) so the engine
 /// (`mediapipe_engine.dart`) and both session classes use the SAME channel
-/// instance — its own `flutter_gemma`-domain pigeon channel, distinct from
+/// instance — its own `flutter_edge_ai`-domain pigeon channel, distinct from
 /// core's removed `PlatformService`.
 final platformService = PlatformService();
 
@@ -84,17 +84,17 @@ class MobileInferenceModelSession extends InferenceModelSession {
         text: '[System: ${systemInstruction!}]\n\n${message.text}',
       );
     }
-    gemmaLog(
+    edgeAiLog(
       '[MobileSession.addQueryChunk] modelType=$modelType, fileType=$fileType, msgType=${message.type}',
-      level: GemmaLogLevel.verbose,
+      level: EdgeAiLogLevel.verbose,
     );
     final finalPrompt = messageToSend.transformToChatPrompt(
       type: modelType,
       fileType: fileType,
     );
-    gemmaLog(
+    edgeAiLog(
       '[MobileSession.addQueryChunk] finalPrompt length=${finalPrompt.length}',
-      level: GemmaLogLevel.verbose,
+      level: EdgeAiLogLevel.verbose,
     );
     if (message.hasImage && supportImage) {
       final images = message.images.isNotEmpty
@@ -249,13 +249,13 @@ class MobileInferenceModelSession extends InferenceModelSession {
       // Ignore "not supported" errors, but rethrow others
       if (e.code != 'stop_not_supported') {
         if (kDebugMode) {
-          gemmaLog('Warning: Failed to stop generation: ${e.message}');
+          edgeAiLog('Warning: Failed to stop generation: ${e.message}');
         }
       }
     } catch (e) {
       // Ignore other errors during cleanup
       if (kDebugMode) {
-        gemmaLog('Warning: Unexpected error during stop generation: $e');
+        edgeAiLog('Warning: Unexpected error during stop generation: $e');
       }
     }
 

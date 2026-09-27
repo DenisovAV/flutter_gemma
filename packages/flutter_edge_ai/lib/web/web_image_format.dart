@@ -3,7 +3,7 @@ import 'dart:typed_data';
 /// Detects the image MIME type (e.g. `image/jpeg`, `image/png`, `image/webp`)
 /// from a byte buffer's magic-number signature. Shared by the MediaPipe web
 /// path (`ImagePromptPart`) and the LiteRT-LM web session. Public so the
-/// extracted `flutter_gemma_litertlm` web package can reuse it.
+/// extracted `flutter_edge_ai_litertlm` web package can reuse it.
 String detectImageMimeType(Uint8List bytes) {
   if (bytes.length < 4) return 'image/png'; // default fallback
 

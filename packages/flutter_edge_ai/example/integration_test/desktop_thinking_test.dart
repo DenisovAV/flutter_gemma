@@ -43,15 +43,15 @@ void main() {
       await registerTestEngines();
 
       print('=== Installing model from file ===');
-      await FlutterGemma.installModel(
+      await FlutterEdgeAi.installModel(
         modelType: ModelType.gemmaIt,
         fileType: ModelFileType.litertlm,
       ).fromFile(modelPath).install();
 
-      expect(FlutterGemma.hasActiveModel(), isTrue);
+      expect(FlutterEdgeAi.hasActiveModel(), isTrue);
       print('Model installed');
 
-      final model = await FlutterGemma.getActiveModel(
+      final model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 2048,
         preferredBackend: PreferredBackend.gpu,
       );
@@ -130,12 +130,12 @@ void main() {
     testWidgets('no_thinking', (tester) async {
       await registerTestEngines();
 
-      await FlutterGemma.installModel(
+      await FlutterEdgeAi.installModel(
         modelType: ModelType.gemmaIt,
         fileType: ModelFileType.litertlm,
       ).fromFile(modelPath).install();
 
-      final model = await FlutterGemma.getActiveModel(
+      final model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 2048,
         preferredBackend: PreferredBackend.gpu,
       );

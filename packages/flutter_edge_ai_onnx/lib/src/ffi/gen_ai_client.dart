@@ -3,7 +3,7 @@
 // `scratchpad/ort_genai_spike/bin/main.dart` (hardened plan Phase 3, Task 1).
 //
 // Why a long-lived worker and not `Isolate.run` per call (mirrors
-// `EmbeddingWorker`'s doc, `flutter_gemma/lib/core/embedding/embedding_worker.dart`):
+// `EmbeddingWorker`'s doc, `flutter_edge_ai/lib/core/embedding/embedding_worker.dart`):
 //   - Model + tokenizer load costs hundreds of ms and must happen once.
 //   - FFI `Pointer`/`DynamicLibrary` cannot cross isolate boundaries — every
 //     native handle (model, tokenizer, generator) is created and used
@@ -35,7 +35,7 @@ import 'dart:isolate';
 
 import 'package:ffi/ffi.dart' as pkg_ffi;
 import 'package:flutter/foundation.dart' show visibleForTesting;
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 import 'package:mutex/mutex.dart';
 
 import 'gen_ai_protocol.dart';
@@ -228,7 +228,7 @@ class GenAiFfiClient implements GenAiClient {
         libsDir: (envLibsDir != null && envLibsDir.isNotEmpty)
             ? envLibsDir
             : null,
-        logLevel: gemmaLogLevel,
+        logLevel: edgeAiLogLevel,
       ),
       onExit: fromWorker.sendPort,
       debugName: 'onnx-genai-worker',
@@ -455,7 +455,7 @@ class GenAiFfiClient implements GenAiClient {
 /// cannot resolve a bare `<name>.framework/<name>` leaf name the way macOS's
 /// dyld does — it needs an explicit anchor, exactly the
 /// `@executable_path/Frameworks/<name>.framework/<name>` shape
-/// `flutter_gemma_litertlm/lib/src/ffi/litert_lm_client.dart` already uses
+/// `flutter_edge_ai_litertlm/lib/src/ffi/litert_lm_client.dart` already uses
 /// (and documents, with the same "dyld 4 cannot resolve from .framework
 /// names alone" reasoning) for `LiteRtLm.framework`/`StreamProxy.framework`.
 /// A bare leaf name here would dlopen-fail on every real iPhone (and the
@@ -546,7 +546,7 @@ void _exportOrtLibPath(ffi.DynamicLibrary ortLib) {
     final ortPath = info.ref.dli_fname.toDartString();
     valuePtr = ortPath.toNativeUtf8();
     setenv(namePtr, valuePtr, 1); // overwrite
-    gemmaLog('[OnnxGenAi] ORT_LIB_PATH=$ortPath');
+    edgeAiLog('[OnnxGenAi] ORT_LIB_PATH=$ortPath');
   } catch (_) {
     // Best-effort: if the env override can't be set, GenAI still tries its
     // bare-name + self-directory paths (works for the flat host-test layout).
@@ -600,7 +600,7 @@ void _exportOrtLibPath(ffi.DynamicLibrary ortLib) {
 }
 
 Future<void> _defaultWorkerEntry(WorkerInit init) async {
-  gemmaLogLevel = init.logLevel;
+  edgeAiLogLevel = init.logLevel;
 
   late final OrtGenAiBindings oga;
 
@@ -648,7 +648,7 @@ Future<void> _defaultWorkerEntry(WorkerInit init) async {
       pkg_ffi.calloc.free(tokenizerOut);
     }
   } catch (e, st) {
-    gemmaLog('[GenAiFfiClient/worker] load failed: $e\n$st');
+    edgeAiLog('[GenAiFfiClient/worker] load failed: $e\n$st');
     if (model != null) {
       try {
         oga.OgaDestroyModel(model);
@@ -876,7 +876,7 @@ Future<void> _defaultWorkerEntry(WorkerInit init) async {
         ),
       );
     } catch (e, st) {
-      gemmaLog('[GenAiFfiClient/worker] generate failed: $e\n$st');
+      edgeAiLog('[GenAiFfiClient/worker] generate failed: $e\n$st');
       init.replyTo.send(GenerateError(id, e.toString()));
     } finally {
       if (tokenizerStream != null) {

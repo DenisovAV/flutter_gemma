@@ -32,7 +32,7 @@ class MockPlatformService {
   }
 }
 
-/// Simulates the FlutterGemmaMobile.createModel() logic
+/// Simulates the FlutterEdgeAiMobile.createModel() logic
 /// with the BUG (not resetting _initCompleter on failure)
 class BuggyModelCreator {
   final MockPlatformService platformService;
@@ -65,7 +65,7 @@ class BuggyModelCreator {
   }
 }
 
-/// Simulates the FIXED FlutterGemmaMobile.createModel() logic
+/// Simulates the FIXED FlutterEdgeAiMobile.createModel() logic
 class FixedModelCreator {
   final MockPlatformService platformService;
 

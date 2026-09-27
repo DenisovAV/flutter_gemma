@@ -16,7 +16,7 @@
 // - every variant's advisory sha256/size_bytes equal the repo's LFS metadata;
 // - every URL the resolver can build (all platforms × hints) answers 200;
 // - the engine-carried resolver resolves end to end through
-//   FlutterGemma.resolveHuggingFace — the exact path an app runs.
+//   FlutterEdgeAi.resolveHuggingFace — the exact path an app runs.
 //
 // Reproduction notes:
 // - flutter_test's TestWidgetsFlutterBinding installs an HttpOverrides that
@@ -29,7 +29,7 @@
 //   `SharedPreferences.setMockInitialValues({})` must run first (the in-memory
 //   store). This is the only suite in the package that drives `initialize()`
 //   — the registration contract itself is tested in core
-//   (flutter_gemma/test/core/registry/resolver_registration_test.dart).
+//   (flutter_edge_ai/test/core/registry/resolver_registration_test.dart).
 @TestOn('vm')
 @Timeout(Duration(minutes: 10))
 library;
@@ -45,7 +45,7 @@ import 'package:flutter_edge_ai/core/domain/platform_types.dart'
 import 'package:flutter_edge_ai/core/model.dart' show ModelFileType;
 import 'package:flutter_edge_ai/core/registry/engine_registry.dart';
 import 'package:flutter_edge_ai/core/registry/hugging_face_resolver_registry.dart';
-import 'package:flutter_edge_ai/flutter_edge_ai.dart' show FlutterGemma;
+import 'package:flutter_edge_ai/flutter_edge_ai.dart' show FlutterEdgeAi;
 import 'package:flutter_edge_ai_litertlm/flutter_edge_ai_litertlm.dart'
     show LiteRtLmEngine;
 import 'package:flutter_edge_ai_litertlm/src/manifest/litertlm_manifest_resolver.dart';
@@ -243,7 +243,7 @@ void main() {
     });
 
     test(
-      'engine-carried resolver end to end via FlutterGemma.resolveHuggingFace '
+      'engine-carried resolver end to end via FlutterEdgeAi.resolveHuggingFace '
       '(published default fetcher, follows the /resolve 307)',
       () async {
         SharedPreferences.setMockInitialValues({});
@@ -258,12 +258,12 @@ void main() {
           ServiceRegistry.reset();
         });
 
-        await FlutterGemma.initialize(
+        await FlutterEdgeAi.initialize(
           huggingFaceToken: _token,
           inferenceEngines: const [LiteRtLmEngine()],
         );
         const repo = 'litert-community/SmolLM3-3B';
-        final r = await FlutterGemma.resolveHuggingFace(
+        final r = await FlutterEdgeAi.resolveHuggingFace(
           repo,
           fileType: ModelFileType.litertlm,
         );

@@ -1,8 +1,8 @@
 // Benchmark comparison: Gemma 3 Nano E2B vs Gemma 4 E2B on Android (LiteRT-LM)
 //
 // Prerequisites:
-//   adb push /path/to/gemma-3n-E2B-it-int4.litertlm /data/local/tmp/flutter_gemma_test/
-//   adb push /path/to/gemma-4-E2B-it.litertlm /data/local/tmp/flutter_gemma_test/
+//   adb push /path/to/gemma-3n-E2B-it-int4.litertlm /data/local/tmp/flutter_edge_ai_test/
+//   adb push /path/to/gemma-4-E2B-it.litertlm /data/local/tmp/flutter_edge_ai_test/
 //
 // Run:
 //   cd example
@@ -20,7 +20,7 @@ import 'inference_test_helpers.dart';
 
 // --- Model configs ---
 
-const _deviceDir = '/data/local/tmp/flutter_gemma_test';
+const _deviceDir = '/data/local/tmp/flutter_edge_ai_test';
 
 const _models = <_BenchmarkModelConfig>[
   _BenchmarkModelConfig(
@@ -119,7 +119,7 @@ Future<Uint8List> _loadTestAudio() async {
 
 Future<void> _installBenchmarkModel(_BenchmarkModelConfig config) async {
   print('[Benchmark] Installing ${config.name} from ${config.filePath}');
-  await FlutterGemma.installModel(
+  await FlutterEdgeAi.installModel(
     modelType: ModelType.gemmaIt,
     fileType: ModelFileType.litertlm,
   ).fromFile(config.filePath).install();
@@ -331,7 +331,7 @@ void main() {
 
         // --- Text benchmarks (single-turn, new chat per question) ---
         {
-          final model = await FlutterGemma.getActiveModel(
+          final model = await FlutterEdgeAi.getActiveModel(
             maxTokens: 4096,
             preferredBackend: PreferredBackend.gpu,
           );
@@ -354,7 +354,7 @@ void main() {
 
         // --- Multi-turn chat benchmark (single chat, 5 steps) ---
         {
-          final model = await FlutterGemma.getActiveModel(
+          final model = await FlutterEdgeAi.getActiveModel(
             maxTokens: 4096,
             preferredBackend: PreferredBackend.gpu,
           );
@@ -378,7 +378,7 @@ void main() {
 
         // --- Vision benchmarks ---
         {
-          final model = await FlutterGemma.getActiveModel(
+          final model = await FlutterEdgeAi.getActiveModel(
             maxTokens: 4096,
             preferredBackend: PreferredBackend.gpu,
             supportImage: true,
@@ -409,7 +409,7 @@ void main() {
 
         // --- Audio benchmarks ---
         {
-          final model = await FlutterGemma.getActiveModel(
+          final model = await FlutterEdgeAi.getActiveModel(
             maxTokens: 4096,
             preferredBackend: PreferredBackend.gpu,
             supportAudio: true,

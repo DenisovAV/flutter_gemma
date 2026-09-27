@@ -1,4 +1,4 @@
-// packages/flutter_gemma_speech/lib/src/litert/mel_filters/whisper_mel_80.g.dart
+// packages/flutter_edge_ai_speech/lib/src/litert/mel_filters/whisper_mel_80.g.dart
 //
 // GENERATED DATA FILE — DO NOT EDIT MANUALLY.
 // Source: openai-whisper's assets/mel_filters.npz, key "mel_80", shape

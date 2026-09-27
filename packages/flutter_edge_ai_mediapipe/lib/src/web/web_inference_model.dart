@@ -1,10 +1,10 @@
 // Standalone library: the MediaPipe-web inference model + session + prompt
-// parts, extracted from core's `flutter_gemma_web.dart`. Consumes the shared
+// parts, extracted from core's `flutter_edge_ai_web.dart`. Consumes the shared
 // public web infra that STAYS in core (`web_model_source.dart`,
 // `web_image_format.dart`) plus the sibling MediaPipe JS interop
 // (`llm_inference_web.dart`).
 import 'dart:async';
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 import 'dart:convert';
 import 'dart:js_interop';
 import 'dart:math' as math;
@@ -15,7 +15,7 @@ import 'package:flutter_edge_ai/core/lifecycle/close_notifier.dart';
 import 'package:flutter_edge_ai/core/message.dart';
 import 'package:flutter_edge_ai/core/model.dart';
 import 'package:flutter_edge_ai/core/tool.dart';
-import 'package:flutter_edge_ai/flutter_gemma_interface.dart'
+import 'package:flutter_edge_ai/flutter_edge_ai_interface.dart'
     show InferenceModel, InferenceModelSession, SessionMetrics;
 // WebInferenceModel.activeBackend overrides the [InferenceModel] contract, whose
 // type is core's PreferredBackend (from core's platform_types.dart).
@@ -113,14 +113,14 @@ class WebInferenceModel extends InferenceModel with CloseNotifier {
     // Thinking mode not supported on Web (MediaPipe has no extraContext/channels API)
     if (enableThinking) {
       if (kDebugMode) {
-        gemmaLog(
+        edgeAiLog(
           'Warning: enableThinking is not supported on Web (MediaPipe). '
           'Use Android or Desktop with .litertlm models for Gemma 4 thinking mode.',
         );
       }
     }
     if (maxOutputTokens != null) {
-      gemmaLog(
+      edgeAiLog(
         '[MediaPipe Web] maxOutputTokens ($maxOutputTokens) is not supported '
         'on the .task web path (no session-level output cap); ignoring.',
       );
@@ -129,7 +129,7 @@ class WebInferenceModel extends InferenceModel with CloseNotifier {
     // TODO: Implement vision modality for web
     if (enableVisionModality == true) {
       if (kDebugMode) {
-        gemmaLog(
+        edgeAiLog(
           'Warning: Vision modality is not yet implemented for web platform',
         );
       }
@@ -138,7 +138,7 @@ class WebInferenceModel extends InferenceModel with CloseNotifier {
     // Audio modality is handled via supportAudio flag in the model
     if (enableAudioModality == true && !supportAudio) {
       if (kDebugMode) {
-        gemmaLog('Warning: Audio modality requested but supportAudio is false');
+        edgeAiLog('Warning: Audio modality requested but supportAudio is false');
       }
     }
 
@@ -148,7 +148,7 @@ class WebInferenceModel extends InferenceModel with CloseNotifier {
     final completer = _initCompleter = Completer<InferenceModelSession>();
     try {
       // Shared resolver handles activeModel lookup + storage-mode branch.
-      // Used identically by the LiteRT-LM web model in flutter_gemma_litertlm.
+      // Used identically by the LiteRT-LM web model in flutter_edge_ai_litertlm.
       final resolved = await sourceResolver.resolveActiveInferenceModel();
 
       final fileset = await FilesetResolver.forGenAiTasks(
@@ -257,7 +257,7 @@ class WebModelSession extends InferenceModelSession {
   @override
   Future<void> addQueryChunk(Message message) async {
     if (kDebugMode) {
-      gemmaLog(
+      edgeAiLog(
         '🟢 WebModelSession.addQueryChunk() called - hasImage: ${message.hasImage}, hasAudio: ${message.hasAudio}, supportImage: $supportImage, supportAudio: $supportAudio',
       );
     }
@@ -282,7 +282,7 @@ class WebModelSession extends InferenceModelSession {
     if (message.hasImage) {
       if (!supportImage) {
         if (kDebugMode) {
-          gemmaLog('🔴 Model does not support images - throwing exception');
+          edgeAiLog('🔴 Model does not support images - throwing exception');
         }
         throw ArgumentError('This model does not support images');
       }
@@ -294,15 +294,15 @@ class WebModelSession extends InferenceModelSession {
                 : const <Uint8List>[]);
       for (final imageBytes in images) {
         if (kDebugMode) {
-          gemmaLog(
+          edgeAiLog(
             '🟢 Processing image: ${imageBytes.length} bytes',
-            level: GemmaLogLevel.verbose,
+            level: EdgeAiLogLevel.verbose,
           );
         }
         final imagePart = ImagePromptPart.fromBytes(imageBytes);
         _promptParts.add(imagePart);
         if (kDebugMode) {
-          gemmaLog(
+          edgeAiLog(
             '🟢 Added image part with dataUrl length: ${imagePart.dataUrl.length}',
           );
         }
@@ -312,14 +312,14 @@ class WebModelSession extends InferenceModelSession {
     // Handle audio processing for web (Gemma 3n E4B)
     if (message.hasAudio && message.audioBytes != null) {
       if (kDebugMode) {
-        gemmaLog(
+        edgeAiLog(
           '🎵 Processing audio: ${message.audioBytes!.length} bytes',
-          level: GemmaLogLevel.verbose,
+          level: EdgeAiLogLevel.verbose,
         );
       }
       if (!supportAudio) {
         if (kDebugMode) {
-          gemmaLog('🔴 Model does not support audio - throwing exception');
+          edgeAiLog('🔴 Model does not support audio - throwing exception');
         }
         throw ArgumentError('This model does not support audio');
       }
@@ -327,7 +327,7 @@ class WebModelSession extends InferenceModelSession {
       final audioPart = AudioPromptPart(message.audioBytes!);
       _promptParts.add(audioPart);
       if (kDebugMode) {
-        gemmaLog(
+        edgeAiLog(
           '🎵 Added audio part with ${message.audioBytes!.length} bytes',
         );
       }
@@ -336,15 +336,15 @@ class WebModelSession extends InferenceModelSession {
     // Add text part last so multimodal turns keep image/audio context first.
     _promptParts.add(TextPromptPart(finalPrompt));
     if (kDebugMode) {
-      gemmaLog(
+      edgeAiLog(
         '🟢 Added text part: ${finalPrompt.substring(0, math.min(100, finalPrompt.length))}...',
       );
     }
 
     if (kDebugMode) {
-      gemmaLog(
+      edgeAiLog(
         '🟢 Total prompt parts: ${_promptParts.length}',
-        level: GemmaLogLevel.verbose,
+        level: EdgeAiLogLevel.verbose,
       );
     }
   }
@@ -352,14 +352,14 @@ class WebModelSession extends InferenceModelSession {
   /// Convert PromptParts to JavaScript array for MediaPipe
   JSAny _createPromptArray() {
     if (kDebugMode) {
-      gemmaLog(
+      edgeAiLog(
         '🔧 _createPromptArray: Starting with ${_promptParts.length} prompt parts',
       );
     }
 
     if (_promptParts.isEmpty) {
       if (kDebugMode) {
-        gemmaLog(
+        edgeAiLog(
           '📝 _createPromptArray: Empty prompt parts, returning empty string',
         );
       }
@@ -373,10 +373,10 @@ class WebModelSession extends InferenceModelSession {
           .map((part) => part.text)
           .join('');
       if (kDebugMode) {
-        gemmaLog(
+        edgeAiLog(
           '📝 _createPromptArray: All text parts, returning string of length ${fullText.length}',
         );
-        gemmaLog(
+        edgeAiLog(
           '📝 _createPromptArray: Text preview: ${fullText.substring(0, math.min(100, fullText.length))}...',
         );
       }
@@ -385,7 +385,7 @@ class WebModelSession extends InferenceModelSession {
 
     // Multimodal: create array of parts following MediaPipe documentation format
     if (kDebugMode) {
-      gemmaLog(
+      edgeAiLog(
         '🎯 _createPromptArray: Multimodal mode - creating array with proper format',
       );
     }
@@ -400,17 +400,17 @@ class WebModelSession extends InferenceModelSession {
 
       if (part is TextPromptPart) {
         if (kDebugMode) {
-          gemmaLog(
+          edgeAiLog(
             '📝 _createPromptArray: Adding text part: "${part.text.substring(0, math.min(50, part.text.length))}..."',
           );
         }
         jsArray.add(part.text.toJS);
       } else if (part is ImagePromptPart) {
         if (kDebugMode) {
-          gemmaLog(
+          edgeAiLog(
             '🖼️ _createPromptArray: Adding image part with data URL length: ${part.dataUrl.length}',
           );
-          gemmaLog(
+          edgeAiLog(
             '🖼️ _createPromptArray: Image data URL prefix: ${part.dataUrl.substring(0, math.min(50, part.dataUrl.length))}...',
           );
         }
@@ -418,12 +418,12 @@ class WebModelSession extends InferenceModelSession {
         // Create proper image object for MediaPipe
         final imageObj = <String, String>{'imageSource': part.dataUrl}.jsify();
         if (kDebugMode) {
-          gemmaLog('🖼️ _createPromptArray: Created image object with jsify()');
+          edgeAiLog('🖼️ _createPromptArray: Created image object with jsify()');
         }
         jsArray.add(imageObj as JSAny);
       } else if (part is AudioPromptPart) {
         if (kDebugMode) {
-          gemmaLog(
+          edgeAiLog(
             '🎵 _createPromptArray: Adding audio part with ${part.audioBytes.length} bytes',
           );
         }
@@ -434,12 +434,12 @@ class WebModelSession extends InferenceModelSession {
           'audioSource': part.audioBytes.buffer.asUint8List(),
         }.jsify();
         if (kDebugMode) {
-          gemmaLog('🎵 _createPromptArray: Created audio object with jsify()');
+          edgeAiLog('🎵 _createPromptArray: Created audio object with jsify()');
         }
         jsArray.add(audioObj as JSAny);
       } else {
         if (kDebugMode) {
-          gemmaLog(
+          edgeAiLog(
             '❌ _createPromptArray: Unsupported prompt part type: ${part.runtimeType}',
           );
         }
@@ -451,10 +451,10 @@ class WebModelSession extends InferenceModelSession {
     jsArray.add('<ctrl100>\n<ctrl99>model\n'.toJS);
 
     if (kDebugMode) {
-      gemmaLog(
+      edgeAiLog(
         '✅ _createPromptArray: Created JS array with ${jsArray.length} elements (including control tokens)',
       );
-      gemmaLog('🎯 _createPromptArray: Array structure ready for MediaPipe');
+      edgeAiLog('🎯 _createPromptArray: Array structure ready for MediaPipe');
     }
 
     return jsArray.toJS;
@@ -463,17 +463,17 @@ class WebModelSession extends InferenceModelSession {
   @override
   Future<String> getResponse() async {
     if (kDebugMode) {
-      gemmaLog('🚀 getResponse: Starting response generation');
+      edgeAiLog('🚀 getResponse: Starting response generation');
     }
 
     try {
       final promptArray = _createPromptArray();
 
       if (kDebugMode) {
-        gemmaLog(
+        edgeAiLog(
           '🎯 getResponse: Prompt array type: ${promptArray.runtimeType}',
         );
-        gemmaLog('🎯 getResponse: Is JSString? ${promptArray is JSString}');
+        edgeAiLog('🎯 getResponse: Is JSString? ${promptArray is JSString}');
       }
 
       String response;
@@ -481,7 +481,7 @@ class WebModelSession extends InferenceModelSession {
       // Use appropriate method based on prompt type
       if (promptArray is JSString) {
         if (kDebugMode) {
-          gemmaLog(
+          edgeAiLog(
             '📝 getResponse: Using generateResponse for text-only prompt',
           );
         }
@@ -490,7 +490,7 @@ class WebModelSession extends InferenceModelSession {
                 .toDart;
       } else {
         if (kDebugMode) {
-          gemmaLog(
+          edgeAiLog(
             '🖼️ getResponse: Using generateResponseMultimodal for multimodal prompt',
           );
         }
@@ -502,10 +502,10 @@ class WebModelSession extends InferenceModelSession {
       }
 
       if (kDebugMode) {
-        gemmaLog(
+        edgeAiLog(
           '✅ getResponse: Successfully generated response of length ${response.length}',
         );
-        gemmaLog(
+        edgeAiLog(
           '✅ getResponse: Response preview: ${response.substring(0, math.min(100, response.length))}...',
         );
       }
@@ -514,8 +514,8 @@ class WebModelSession extends InferenceModelSession {
       return response;
     } catch (e, stackTrace) {
       if (kDebugMode) {
-        gemmaLog('❌ getResponse: Exception caught: $e');
-        gemmaLog('❌ getResponse: Stack trace: $stackTrace');
+        edgeAiLog('❌ getResponse: Exception caught: $e');
+        edgeAiLog('❌ getResponse: Stack trace: $stackTrace');
       }
       _promptParts.clear();
       rethrow;
@@ -525,7 +525,7 @@ class WebModelSession extends InferenceModelSession {
   @override
   Stream<String> getResponseAsync() {
     if (kDebugMode) {
-      gemmaLog('🌊 getResponseAsync: Starting async response generation');
+      edgeAiLog('🌊 getResponseAsync: Starting async response generation');
     }
 
     // Close previous controller to prevent leak if called again before completion
@@ -536,10 +536,10 @@ class WebModelSession extends InferenceModelSession {
       final promptArray = _createPromptArray();
 
       if (kDebugMode) {
-        gemmaLog(
+        edgeAiLog(
           '🎯 getResponseAsync: Prompt array type: ${promptArray.runtimeType}',
         );
-        gemmaLog(
+        edgeAiLog(
           '🎯 getResponseAsync: Is JSString? ${promptArray is JSString}',
         );
       }
@@ -547,7 +547,7 @@ class WebModelSession extends InferenceModelSession {
       // Use appropriate method based on prompt type
       if (promptArray is JSString) {
         if (kDebugMode) {
-          gemmaLog(
+          edgeAiLog(
             '📝 getResponseAsync: Using generateResponse for text-only prompt',
           );
         }
@@ -558,20 +558,20 @@ class WebModelSession extends InferenceModelSession {
               final complete = completeRaw.parseBool();
               final partial = partialJs.toDart;
               if (kDebugMode) {
-                gemmaLog(
+                edgeAiLog(
                   '📝 getResponseAsync: Received partial (complete: $complete): ${partial.substring(0, math.min(50, partial.length))}...',
                 );
               }
               _controller?.add(partial);
               if (complete) {
                 if (kDebugMode) {
-                  gemmaLog('✅ getResponseAsync: Text response completed');
+                  edgeAiLog('✅ getResponseAsync: Text response completed');
                 }
                 _controller?.close();
               }
             } catch (e) {
               if (kDebugMode) {
-                gemmaLog('❌ getResponseAsync: Error in text callback: $e');
+                edgeAiLog('❌ getResponseAsync: Error in text callback: $e');
               }
               _controller?.addError(e);
             }
@@ -579,7 +579,7 @@ class WebModelSession extends InferenceModelSession {
         );
       } else {
         if (kDebugMode) {
-          gemmaLog(
+          edgeAiLog(
             '🖼️ getResponseAsync: Using generateResponseMultimodal for multimodal prompt',
           );
         }
@@ -590,20 +590,20 @@ class WebModelSession extends InferenceModelSession {
               final complete = completeRaw.parseBool();
               final partial = partialJs.toDart;
               if (kDebugMode) {
-                gemmaLog(
+                edgeAiLog(
                   '🖼️ getResponseAsync: Received multimodal partial (complete: $complete): ${partial.substring(0, math.min(50, partial.length))}...',
                 );
               }
               _controller?.add(partial);
               if (complete) {
                 if (kDebugMode) {
-                  gemmaLog('✅ getResponseAsync: Multimodal response completed');
+                  edgeAiLog('✅ getResponseAsync: Multimodal response completed');
                 }
                 _controller?.close();
               }
             } catch (e) {
               if (kDebugMode) {
-                gemmaLog(
+                edgeAiLog(
                   '❌ getResponseAsync: Error in multimodal callback: $e',
                 );
               }
@@ -614,8 +614,8 @@ class WebModelSession extends InferenceModelSession {
       }
     } catch (e, stackTrace) {
       if (kDebugMode) {
-        gemmaLog('❌ getResponseAsync: Exception during setup: $e');
-        gemmaLog('❌ getResponseAsync: Stack trace: $stackTrace');
+        edgeAiLog('❌ getResponseAsync: Exception during setup: $e');
+        edgeAiLog('❌ getResponseAsync: Stack trace: $stackTrace');
       }
       _controller?.addError(e);
     }
@@ -629,7 +629,7 @@ class WebModelSession extends InferenceModelSession {
       llmInference.cancelProcessing();
     } catch (e) {
       if (kDebugMode) {
-        gemmaLog('[WebModelSession] cancelProcessing error: $e');
+        edgeAiLog('[WebModelSession] cancelProcessing error: $e');
       }
     } finally {
       _controller?.close();
@@ -653,11 +653,11 @@ class WebModelSession extends InferenceModelSession {
     try {
       llmInference.close();
       if (kDebugMode) {
-        gemmaLog('[WebModelSession] Cleaned up LlmInference resources');
+        edgeAiLog('[WebModelSession] Cleaned up LlmInference resources');
       }
     } catch (e) {
       if (kDebugMode) {
-        gemmaLog('[WebModelSession] Warning: Error closing LlmInference: $e');
+        edgeAiLog('[WebModelSession] Warning: Error closing LlmInference: $e');
       }
     }
 

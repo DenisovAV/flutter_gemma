@@ -144,7 +144,7 @@ _Scope _loadAndVerify(String soname, {required String proxyFailureContext}) {
       'libStreamProxy.so could not be loaded ($e), so $soname was not '
       'preloaded into the default search scope. $proxyFailureContext This '
       'usually means a partial or stale native cache — `flutter clean` plus '
-      'removing the flutter_gemma native cache directory rebuilds it.',
+      'removing the flutter_edge_ai native cache directory rebuilds it.',
     );
     return _Scope.proxyUnavailable;
   }
@@ -206,8 +206,8 @@ String _shadowedBy(String soname) =>
 String _notExported(String soname) =>
     '$soname loaded but does not export $_controlSymbol. This is not a '
     'load-order problem: the bundled native library is not a libLiteRtLm this '
-    'version of flutter_gemma_litertlm can drive. Usually a stale native '
-    'cache — remove the flutter_gemma native cache directory and rebuild.';
+    'version of flutter_edge_ai_litertlm can drive. Usually a stale native '
+    'cache — remove the flutter_edge_ai native cache directory and rebuild.';
 
 String _poisonedBy(String soname) =>
     'Something opened $soname with a plain DynamicLibrary.open (or '
@@ -215,7 +215,7 @@ String _poisonedBy(String soname) =>
     'call, and bionic does not promote an already-loaded library, so the '
     'condition is permanent for this process — a Flutter hot restart will '
     'NOT clear it, since linker state outlives the isolate; a full app '
-    'restart is required. Load it before flutter_gemma does and with '
+    'restart is required. Load it before flutter_edge_ai does and with '
     'RTLD_GLOBAL. Note that a Java `System.loadLibrary` cannot request '
     'RTLD_GLOBAL at all, so from Java the only remedy is not to preload it.';
 
@@ -242,7 +242,7 @@ void _assertAndroid(String fn) {
 /// Opens [soname] for a caller that resolves symbols through the returned
 /// handle and does not need them to be ambient.
 ///
-/// That is `LiteRtBindings` and everything in flutter_gemma_speech: they use
+/// That is `LiteRtBindings` and everything in flutter_edge_ai_speech: they use
 /// `_lib.lookupFunction`, which ignores RTLD_GLOBAL entirely, so they work
 /// whether or not the preload takes. They come through here to avoid POISONING
 /// the process for a later `.litertlm` generation, not because they need the
@@ -327,7 +327,7 @@ DynamicLibrary openLiteRtLmRequiringDefaultScope(String soname) {
         'be put into the default search scope and the stream-callback ABI '
         'cannot be probed. Both libraries ship in one native archive, so this '
         'points at a partial or stale native cache: run `flutter clean` and '
-        'remove the flutter_gemma native cache directory. See '
+        'remove the flutter_edge_ai native cache directory. See '
         'https://github.com/DenisovAV/flutter_gemma/issues/447',
       );
   }

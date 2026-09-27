@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 
 import 'package:flutter_edge_ai/core/model_response.dart';
 
@@ -105,14 +105,14 @@ class DeepSeekFunctionCallFormat extends FunctionCallFormat {
       try {
         final args = jsonDecode(argsStr);
         if (args is Map<String, dynamic>) {
-          gemmaLog(
+          edgeAiLog(
             'DeepSeekFormat: Parsed function: $functionName($args)',
-            level: GemmaLogLevel.verbose,
+            level: EdgeAiLogLevel.verbose,
           );
           results.add(FunctionCallResponse(name: functionName, args: args));
         }
       } catch (e) {
-        gemmaLog('DeepSeekFormat: Failed to parse args for $functionName: $e');
+        edgeAiLog('DeepSeekFormat: Failed to parse args for $functionName: $e');
       }
     }
 

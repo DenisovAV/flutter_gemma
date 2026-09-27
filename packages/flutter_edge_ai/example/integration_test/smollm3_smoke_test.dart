@@ -1,6 +1,6 @@
 /// SmolLM3-3B single-model smoke — used for the v0.14.0 vs 0.13.1 differential
 /// on Android (no macOS code-signing). Loads a locally-cached `.litertlm`
-/// (Android: /data/local/tmp/flutter_gemma_test/) and runs one CPU + one GPU
+/// (Android: /data/local/tmp/flutter_edge_ai_test/) and runs one CPU + one GPU
 /// generation.
 library;
 
@@ -15,7 +15,7 @@ const _url =
     'https://huggingface.co/litert-community/SmolLM3-3B/resolve/main/SmolLM3-3B_q4_block32_ekv4096.litertlm';
 
 String? _localPath() {
-  if (Platform.isAndroid) return '/data/local/tmp/flutter_gemma_test/$_file';
+  if (Platform.isAndroid) return '/data/local/tmp/flutter_edge_ai_test/$_file';
   if (Platform.isMacOS) {
     return '${Platform.environment['HOME']}/Library/Containers/dev.flutterberlin.flutterGemmaExample55/Data/Documents/$_file';
   }
@@ -31,7 +31,7 @@ String? _localPath() {
 InferenceModel? _model;
 
 Future<String> _run(PreferredBackend backend) async {
-  _model = await FlutterGemma.getActiveModel(
+  _model = await FlutterEdgeAi.getActiveModel(
     maxTokens: 2048,
     preferredBackend: backend,
   );
@@ -56,12 +56,12 @@ void main() {
     await registerTestEngines();
     final lp = _localPath();
     if (lp != null && File(lp).existsSync()) {
-      await FlutterGemma.installModel(
+      await FlutterEdgeAi.installModel(
         modelType: ModelType.general,
         fileType: ModelFileType.litertlm,
       ).fromFile(lp).install();
     } else {
-      await FlutterGemma.installModel(
+      await FlutterEdgeAi.installModel(
         modelType: ModelType.general,
         fileType: ModelFileType.litertlm,
       ).fromNetwork(_url).install();

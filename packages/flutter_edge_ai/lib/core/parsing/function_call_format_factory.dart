@@ -17,7 +17,7 @@ class FunctionCallFormatFactory {
   /// declarations, parses calls into structured `tool_calls` and takes results
   /// as role `tool` — the path Google's own apps use. MediaPipe (`.task`) has no
   /// native tools, so there FunctionGemma keeps the text wire format
-  /// flutter_gemma renders itself.
+  /// flutter_edge_ai renders itself.
   static FunctionCallFormat create(
     ModelType? modelType, {
     ModelFileType? fileType,

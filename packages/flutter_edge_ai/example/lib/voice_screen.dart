@@ -115,7 +115,7 @@ class _VoiceScreenState extends State<VoiceScreen> {
         _stage = 'Downloading speech model';
         _downloadPercent = null;
       });
-      await FlutterGemma.installStt()
+      await FlutterEdgeAi.installStt()
           .modelFromNetwork(widget.sttModel.modelUrl, token: sttToken)
           .tokenizerFromNetwork(widget.sttModel.tokenizerUrl, token: sttToken)
           .ofType(widget.sttModel.sttModelType)
@@ -128,7 +128,7 @@ class _VoiceScreenState extends State<VoiceScreen> {
             setState(() => _downloadPercent = percent);
           })
           .install();
-      recognizer = await FlutterGemma.getActiveStt();
+      recognizer = await FlutterEdgeAi.getActiveStt();
 
       // --- TTS ---
       if (!mounted) {
@@ -139,7 +139,7 @@ class _VoiceScreenState extends State<VoiceScreen> {
         _stage = 'Downloading voice model';
         _downloadPercent = null;
       });
-      await FlutterGemma.installTts()
+      await FlutterEdgeAi.installTts()
           .fromNetwork(widget.ttsModel.baseUrl)
           .ofType(widget.ttsModel.ttsModelType)
           .withProgress((percent) {
@@ -147,7 +147,7 @@ class _VoiceScreenState extends State<VoiceScreen> {
             setState(() => _downloadPercent = percent);
           })
           .install();
-      synth = await FlutterGemma.getActiveTts();
+      synth = await FlutterEdgeAi.getActiveTts();
 
       // --- LLM (no tools — see class doc) ---
       String? llmToken;
@@ -162,7 +162,7 @@ class _VoiceScreenState extends State<VoiceScreen> {
         _stage = 'Downloading language model';
         _downloadPercent = null;
       });
-      await FlutterGemma.installModel(
+      await FlutterEdgeAi.installModel(
         modelType: widget.llmModel.modelType,
         fileType: widget.llmModel.fileType,
       ).fromNetwork(widget.llmModel.url, token: llmToken).withProgress((
@@ -172,7 +172,7 @@ class _VoiceScreenState extends State<VoiceScreen> {
         setState(() => _downloadPercent = percent);
       }).install();
 
-      final model = await FlutterGemma.getActiveModel(
+      final model = await FlutterEdgeAi.getActiveModel(
         maxTokens: widget.llmModel.maxTokens,
         preferredBackend: widget.llmModel.preferredBackend,
       );

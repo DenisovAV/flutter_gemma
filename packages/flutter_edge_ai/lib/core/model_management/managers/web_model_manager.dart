@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -44,12 +44,12 @@ class WebModelManager extends ModelFileManager {
       await _restoreActiveInferenceModel();
       await _restoreActiveEmbeddingModel();
       await _restoreActiveSttModel();
-      gemmaLog('WebModelManager initialized');
+      edgeAiLog('WebModelManager initialized');
     } catch (e, st) {
       // Best-effort restore: a failure must not abort app startup — start with
       // no active model. (#314 follow-up; mirrors MobileModelManager.)
       // Include the stack trace so an unexpected restore bug stays diagnosable.
-      gemmaLog(
+      edgeAiLog(
         'WebModelManager: active-model restore failed, starting with no active model: $e\n$st',
       );
     }
@@ -85,7 +85,7 @@ class WebModelManager extends ModelFileManager {
       modelType = ModelType.values.byName(modelTypeName);
       fileType = ModelFileType.values.byName(fileTypeName);
     } catch (e) {
-      gemmaLog(
+      edgeAiLog(
         '[WebModelManager] active model restore: unknown enum value — skipping',
       );
       return;
@@ -93,7 +93,7 @@ class WebModelManager extends ModelFileManager {
 
     final source = ModelSource.tryDecode(sourceEncoded);
     if (source == null) {
-      gemmaLog(
+      edgeAiLog(
         '[WebModelManager] active model restore: malformed source — skipping',
       );
       return;
@@ -101,7 +101,7 @@ class WebModelManager extends ModelFileManager {
 
     if (fileType == ModelFileType.builtIn || fileType == ModelFileType.onnx) {
       // Both are FILELESS on web: built-in OS models (Gemini Nano via the
-      // Chrome Prompt API) and ONNX web text generation (flutter_gemma_onnx's
+      // Chrome Prompt API) and ONNX web text generation (flutter_edge_ai_onnx's
       // Transformers.js arm) install no file — `InferenceInstallationBuilder`
       // bypasses SourceHandlers/the repository for these fileTypes, so nothing
       // was ever `repository.saveModel()`-ed and the `repo.isInstalled` gate
@@ -115,7 +115,7 @@ class WebModelManager extends ModelFileManager {
         modelType: modelType,
         fileType: fileType,
       );
-      gemmaLog(
+      edgeAiLog(
         '[WebModelManager] restored active fileless '
         '(${fileType.name}) model: $filename',
       );
@@ -127,7 +127,7 @@ class WebModelManager extends ModelFileManager {
     // later on the first getActiveModel() call.
     final repo = ServiceRegistry.instance.modelRepository;
     if (!await repo.isInstalled(filename)) {
-      gemmaLog(
+      edgeAiLog(
         '[WebModelManager] active model restore: $filename not in repository — skipping',
       );
       return;
@@ -139,7 +139,7 @@ class WebModelManager extends ModelFileManager {
       modelType: modelType,
       fileType: fileType,
     );
-    gemmaLog('[WebModelManager] restored active inference model: $filename');
+    edgeAiLog('[WebModelManager] restored active inference model: $filename');
   }
 
   /// Web mirror of `MobileModelManager._migrateLegacyCompanionForRestore`: on
@@ -198,7 +198,7 @@ class WebModelManager extends ModelFileManager {
           hasLoraWeights: false,
         ),
       );
-      gemmaLog(
+      edgeAiLog(
         '[WebModelManager] migrated legacy companion "$persistedFilename" -> '
         '"$namespaced" (install-identity-namespacing)',
       );
@@ -234,7 +234,7 @@ class WebModelManager extends ModelFileManager {
     final modelSource = ModelSource.tryDecode(modelSourceEncoded);
     final tokenizerSource = ModelSource.tryDecode(tokenizerSourceEncoded);
     if (modelSource == null || tokenizerSource == null) {
-      gemmaLog(
+      edgeAiLog(
         '[WebModelManager] active embedding restore: malformed source — skipping',
       );
       return;
@@ -255,7 +255,7 @@ class WebModelManager extends ModelFileManager {
     final repository = ServiceRegistry.instance.modelRepository;
     if (!await repository.isInstalled(modelFilename) ||
         !await repository.isInstalled(effectiveTokenizerFilename)) {
-      gemmaLog(
+      edgeAiLog(
         '[WebModelManager] active embedding restore: file missing — skipping',
       );
       return;
@@ -266,7 +266,7 @@ class WebModelManager extends ModelFileManager {
       modelSource: modelSource,
       tokenizerSource: tokenizerSource,
     );
-    gemmaLog(
+    edgeAiLog(
       '[WebModelManager] restored active embedding model: $modelFilename',
     );
   }
@@ -300,7 +300,7 @@ class WebModelManager extends ModelFileManager {
     try {
       sttModelType = SttModelType.values.byName(sttModelTypeName);
     } catch (e) {
-      gemmaLog(
+      edgeAiLog(
         '[WebModelManager] active STT restore: unknown SttModelType ($sttModelTypeName) — skipping',
       );
       return;
@@ -309,7 +309,7 @@ class WebModelManager extends ModelFileManager {
     final modelSource = ModelSource.tryDecode(modelSourceEncoded);
     final tokenizerSource = ModelSource.tryDecode(tokenizerSourceEncoded);
     if (modelSource == null || tokenizerSource == null) {
-      gemmaLog(
+      edgeAiLog(
         '[WebModelManager] active STT restore: malformed source — skipping',
       );
       return;
@@ -330,7 +330,7 @@ class WebModelManager extends ModelFileManager {
     final repository = ServiceRegistry.instance.modelRepository;
     if (!await repository.isInstalled(modelFilename) ||
         !await repository.isInstalled(effectiveTokenizerFilename)) {
-      gemmaLog('[WebModelManager] active STT restore: file missing — skipping');
+      edgeAiLog('[WebModelManager] active STT restore: file missing — skipping');
       return;
     }
 
@@ -340,7 +340,7 @@ class WebModelManager extends ModelFileManager {
       tokenizerSource: tokenizerSource,
       sttModelType: sttModelType,
     );
-    gemmaLog('[WebModelManager] restored active STT model: $modelFilename');
+    edgeAiLog('[WebModelManager] restored active STT model: $modelFilename');
   }
 
   /// Checks if a model is installed
@@ -372,11 +372,11 @@ class WebModelManager extends ModelFileManager {
   }) async* {
     await _ensureInitialized();
 
-    gemmaLog('WebModelManager: Starting download for ${spec.name}');
+    edgeAiLog('WebModelManager: Starting download for ${spec.name}');
 
     // Fileless identity installs — ONNX web (Transformers.js resolves + caches
     // the HF repo from the repo id in `spec.modelSource`, see
-    // flutter_gemma_onnx's `TransformersWebResolver`) and builtIn (the
+    // flutter_edge_ai_onnx's `TransformersWebResolver`) and builtIn (the
     // OS/browser owns the weights, e.g. Gemini Nano via the Chrome Prompt API).
     // Core must not byte-download either — otherwise a builtIn spec falls into
     // the per-file handler loop below and the bundled handler tries to fetch a
@@ -392,7 +392,7 @@ class WebModelManager extends ModelFileManager {
         currentFileProgress: 100,
         currentFileName: 'Complete',
       );
-      gemmaLog(
+      edgeAiLog(
         'WebModelManager: fileless (web) model set as active: ${spec.name}',
       );
       return;
@@ -457,7 +457,7 @@ class WebModelManager extends ModelFileManager {
       currentFileName: 'Complete',
     );
 
-    gemmaLog('WebModelManager: Download completed for ${spec.name}');
+    edgeAiLog('WebModelManager: Download completed for ${spec.name}');
   }
 
   @override
@@ -486,7 +486,7 @@ class WebModelManager extends ModelFileManager {
       await repository.deleteModel(file.filename);
     }
 
-    gemmaLog('WebModelManager: Model ${spec.name} deleted');
+    edgeAiLog('WebModelManager: Model ${spec.name} deleted');
   }
 
   repo.ModelType _toRepoType(ModelManagementType type) => switch (type) {
@@ -540,7 +540,7 @@ class WebModelManager extends ModelFileManager {
   @override
   Future<void> performCleanup() async {
     await _ensureInitialized();
-    gemmaLog('WebModelManager: Cleanup not needed on web');
+    edgeAiLog('WebModelManager: Cleanup not needed on web');
   }
 
   /// Validates if a model is properly installed
@@ -589,7 +589,7 @@ class WebModelManager extends ModelFileManager {
         // If URL lost (page reload), restore from Cache API
         var url = fileSystem.getUrl(file.filename);
         if (url == null) {
-          gemmaLog(
+          edgeAiLog(
             '[WebModelManager] Blob URL lost for ${file.filename}, restoring from cache...',
           );
 
@@ -604,14 +604,14 @@ class WebModelManager extends ModelFileManager {
             networkSource.url,
           );
           if (cachedBlobUrl != null) {
-            gemmaLog(
+            edgeAiLog(
               '[WebModelManager] ✅ Restored blob URL from cache: $cachedBlobUrl',
             );
             // Re-register the blob URL
             fileSystem.registerUrl(file.filename, cachedBlobUrl);
             url = cachedBlobUrl;
           } else {
-            gemmaLog(
+            edgeAiLog(
               '[WebModelManager] ⚠️  Not found in cache, will use original URL (may require auth)',
             );
           }
@@ -627,7 +627,7 @@ class WebModelManager extends ModelFileManager {
         // If URL lost (page reload), recreate it
         var url = fileSystem.getUrl(file.filename);
         if (url == null) {
-          gemmaLog(
+          edgeAiLog(
             '[WebModelManager] Blob URL lost for ${file.filename}, recreating from asset...',
           );
           // Recreate Blob URL by reinstalling
@@ -872,7 +872,7 @@ class WebModelManager extends ModelFileManager {
 
   /// Installs model from Flutter asset (debug mode only)
   ///
-  /// ⚠️ DEPRECATED: Use FlutterGemma.installModel().fromAsset() instead
+  /// ⚠️ DEPRECATED: Use FlutterEdgeAi.installModel().fromAsset() instead
   ///
   /// This method provides backward compatibility but delegates to Modern API.
   ///
@@ -882,11 +882,11 @@ class WebModelManager extends ModelFileManager {
   /// await manager.installModelFromAsset('assets/models/gemma.task');
   ///
   /// // NEW:
-  /// await FlutterGemma.installModel()
+  /// await FlutterEdgeAi.installModel()
   ///   .fromAsset('assets/models/gemma.task')
   ///   .install();
   /// ```
-  @Deprecated('Use FlutterGemma.installModel().fromAsset() instead')
+  @Deprecated('Use FlutterEdgeAi.installModel().fromAsset() instead')
   @override
   Future<void> installModelFromAsset(String path, {String? loraPath}) async {
     if (kReleaseMode) {
@@ -914,24 +914,24 @@ class WebModelManager extends ModelFileManager {
 
   /// Installs model from Flutter asset with progress (debug mode only)
   ///
-  /// ⚠️ DEPRECATED: Use FlutterGemma.installModel().fromAsset().installWithProgress() instead
+  /// ⚠️ DEPRECATED: Use FlutterEdgeAi.installModel().fromAsset().installWithProgress() instead
   ///
   /// Migration:
   /// ```dart
   /// // OLD:
   /// await for (final progress in manager.installModelFromAssetWithProgress('assets/models/gemma.task')) {
-  ///   gemmaLog('Progress: $progress%');
+  ///   edgeAiLog('Progress: $progress%');
   /// }
   ///
   /// // NEW:
-  /// await for (final progress in FlutterGemma.installModel()
+  /// await for (final progress in FlutterEdgeAi.installModel()
   ///     .fromAsset('assets/models/gemma.task')
   ///     .installWithProgress()) {
-  ///   gemmaLog('Progress: ${progress.currentFileProgress}%');
+  ///   edgeAiLog('Progress: ${progress.currentFileProgress}%');
   /// }
   /// ```
   @Deprecated(
-    'Use FlutterGemma.installModel().fromAsset().installWithProgress() instead',
+    'Use FlutterEdgeAi.installModel().fromAsset().installWithProgress() instead',
   )
   @override
   Stream<int> installModelFromAssetWithProgress(
@@ -967,7 +967,7 @@ class WebModelManager extends ModelFileManager {
 
   /// Sets model path for inference (web: URLs only)
   ///
-  /// ⚠️ DEPRECATED: Use FlutterGemma.installModel().fromNetwork() instead
+  /// ⚠️ DEPRECATED: Use FlutterEdgeAi.installModel().fromNetwork() instead
   ///
   /// This method provides backward compatibility but delegates to Modern API.
   ///
@@ -977,11 +977,11 @@ class WebModelManager extends ModelFileManager {
   /// await manager.setModelPath('https://example.com/model.task');
   ///
   /// // NEW:
-  /// await FlutterGemma.installModel()
+  /// await FlutterEdgeAi.installModel()
   ///   .fromNetwork('https://example.com/model.task')
   ///   .install();
   /// ```
-  @Deprecated('Use FlutterGemma.installModel().fromNetwork() instead')
+  @Deprecated('Use FlutterEdgeAi.installModel().fromNetwork() instead')
   @override
   Future<void> setModelPath(String path, {String? loraPath}) async {
     await _ensureInitialized();
@@ -1023,7 +1023,7 @@ class WebModelManager extends ModelFileManager {
     _activeInferenceModel = null;
     _activeEmbeddingModel = null;
 
-    gemmaLog('WebModelManager: Model cache cleared (active models reset)');
+    edgeAiLog('WebModelManager: Model cache cleared (active models reset)');
   }
 
   @override
@@ -1037,10 +1037,10 @@ class WebModelManager extends ModelFileManager {
       await prefs.remove(PreferencesKeys.activeInferenceSource);
       _activeInferenceModel = null;
     } catch (e) {
-      gemmaLog('[WebModelManager] clearActiveInferenceIdentity failed: $e');
+      edgeAiLog('[WebModelManager] clearActiveInferenceIdentity failed: $e');
       rethrow;
     }
-    gemmaLog('WebModelManager: active inference identity cleared');
+    edgeAiLog('WebModelManager: active inference identity cleared');
   }
 
   @override
@@ -1054,10 +1054,10 @@ class WebModelManager extends ModelFileManager {
       await prefs.remove(PreferencesKeys.activeEmbeddingTokenizerSource);
       _activeEmbeddingModel = null;
     } catch (e) {
-      gemmaLog('[WebModelManager] clearActiveEmbeddingIdentity failed: $e');
+      edgeAiLog('[WebModelManager] clearActiveEmbeddingIdentity failed: $e');
       rethrow;
     }
-    gemmaLog('WebModelManager: active embedding identity cleared');
+    edgeAiLog('WebModelManager: active embedding identity cleared');
   }
 
   @override
@@ -1072,17 +1072,17 @@ class WebModelManager extends ModelFileManager {
       await prefs.remove(PreferencesKeys.activeSttTokenizerSource);
       _activeSttModel = null;
     } catch (e) {
-      gemmaLog('[WebModelManager] clearActiveSttIdentity failed: $e');
+      edgeAiLog('[WebModelManager] clearActiveSttIdentity failed: $e');
       rethrow;
     }
-    gemmaLog('WebModelManager: active STT identity cleared');
+    edgeAiLog('WebModelManager: active STT identity cleared');
   }
 
   @override
   Future<void> clearActiveTtsIdentity() async {
     // TTS is native-only; web keeps only the in-memory reference (no prefs).
     _activeTtsModel = null;
-    gemmaLog('WebModelManager: active TTS identity cleared (in-memory only)');
+    edgeAiLog('WebModelManager: active TTS identity cleared (in-memory only)');
   }
 
   // === Legacy LoRA Management Methods Implementation ===
@@ -1163,21 +1163,21 @@ class WebModelManager extends ModelFileManager {
   void setActiveModel(ModelSpec spec) {
     if (spec is InferenceModelSpec) {
       _activeInferenceModel = spec;
-      gemmaLog('✅ Set active inference model: ${spec.name}');
+      edgeAiLog('✅ Set active inference model: ${spec.name}');
       unawaited(_persistActiveInferenceIdentity(spec));
     } else if (spec is EmbeddingModelSpec) {
       _activeEmbeddingModel = spec;
-      gemmaLog('✅ Set active embedding model: ${spec.name}');
+      edgeAiLog('✅ Set active embedding model: ${spec.name}');
       unawaited(_persistActiveEmbeddingIdentity(spec));
     } else if (spec is SttModelSpec) {
       _activeSttModel = spec;
-      gemmaLog('✅ Set active STT model: ${spec.name}');
+      edgeAiLog('✅ Set active STT model: ${spec.name}');
       unawaited(_persistActiveSttIdentity(spec));
     } else if (spec is TtsModelSpec) {
       // TTS is native-only; on web we keep the in-memory reference so the API
       // doesn't throw, but do not persist/restore (its backend is a stub).
       _activeTtsModel = spec;
-      gemmaLog('✅ Set active TTS model (web, in-memory only): ${spec.name}');
+      edgeAiLog('✅ Set active TTS model (web, in-memory only): ${spec.name}');
     } else {
       throw ArgumentError('Unknown ModelSpec type: ${spec.runtimeType}');
     }
@@ -1217,7 +1217,7 @@ class WebModelManager extends ModelFileManager {
         ),
       ]);
     } catch (e) {
-      gemmaLog('[WebModelManager] persistActiveInferenceIdentity failed: $e');
+      edgeAiLog('[WebModelManager] persistActiveInferenceIdentity failed: $e');
     }
   }
 
@@ -1250,7 +1250,7 @@ class WebModelManager extends ModelFileManager {
         ),
       ]);
     } catch (e) {
-      gemmaLog('[WebModelManager] persistActiveEmbeddingIdentity failed: $e');
+      edgeAiLog('[WebModelManager] persistActiveEmbeddingIdentity failed: $e');
     }
   }
 
@@ -1284,7 +1284,7 @@ class WebModelManager extends ModelFileManager {
         ),
       ]);
     } catch (e) {
-      gemmaLog('[WebModelManager] persistActiveSttIdentity failed: $e');
+      edgeAiLog('[WebModelManager] persistActiveSttIdentity failed: $e');
     }
   }
 
@@ -1312,7 +1312,7 @@ class WebModelManager extends ModelFileManager {
   Future<int> cleanupStorage() async {
     await _ensureInitialized();
     // Web platform doesn't have file system access, nothing to cleanup
-    gemmaLog('WebModelManager: cleanupStorage() is a no-op on web');
+    edgeAiLog('WebModelManager: cleanupStorage() is a no-op on web');
     return 0;
   }
 
@@ -1330,9 +1330,9 @@ class WebModelManager extends ModelFileManager {
       final registry = ServiceRegistry.instance;
       final downloadService = registry.downloadService as WebDownloadService;
       await downloadService.cacheService.clearCache();
-      gemmaLog('WebModelManager: Browser cache cleared');
+      edgeAiLog('WebModelManager: Browser cache cleared');
     } catch (e) {
-      gemmaLog('WebModelManager: clearCache failed: $e');
+      edgeAiLog('WebModelManager: clearCache failed: $e');
       rethrow;
     }
   }
@@ -1359,7 +1359,7 @@ class WebModelManager extends ModelFileManager {
         'availableBytes': quota.available,
       };
     } catch (e) {
-      gemmaLog('[WebModelManager] ❌ getCacheStats failed: $e');
+      edgeAiLog('[WebModelManager] ❌ getCacheStats failed: $e');
       return {
         'cachedUrls': 0,
         'storageUsage': 0,

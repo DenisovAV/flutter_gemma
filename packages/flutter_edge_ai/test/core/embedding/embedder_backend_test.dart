@@ -1,12 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_edge_ai/core/domain/platform_types.dart';
 import 'package:flutter_edge_ai/core/embedding/embedder_backend_notice.dart';
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 import 'package:flutter_edge_ai/core/embedding/common_embedding_model.dart';
 import 'package:flutter_edge_ai/core/embedding/forward_pass.dart';
 import 'package:flutter_edge_ai/core/embedding/tokenizer_adapter.dart';
 import 'package:flutter_edge_ai/core/registry/runtime_config.dart';
-import 'package:flutter_edge_ai/flutter_gemma_interface.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai_interface.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Nothing but the defaults, to pin what an implementation gets for free.
@@ -136,7 +136,7 @@ void main() {
 
     tearDown(() {
       debugPrint = original;
-      gemmaLogLevel = GemmaLogLevel.info;
+      edgeAiLogLevel = EdgeAiLogLevel.info;
     });
 
     test('says nothing for the backend embeddings actually use', () {
@@ -159,11 +159,11 @@ void main() {
     test('a muted log does not spend the one shot', () {
       // The level is public API, and an app that starts silent and raises it
       // to debug this is the whole reason the flag must not burn early.
-      gemmaLogLevel = GemmaLogLevel.none;
+      edgeAiLogLevel = EdgeAiLogLevel.none;
       noticeEmbedderBackendIgnored(PreferredBackend.gpu);
       expect(printed, isEmpty);
 
-      gemmaLogLevel = GemmaLogLevel.info;
+      edgeAiLogLevel = EdgeAiLogLevel.info;
       noticeEmbedderBackendIgnored(PreferredBackend.gpu);
       expect(printed, hasLength(1), reason: 'the shot was still unspent');
     });

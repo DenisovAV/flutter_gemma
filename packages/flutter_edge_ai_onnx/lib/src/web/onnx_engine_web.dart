@@ -17,7 +17,7 @@ import 'package:flutter_edge_ai/core/registry/hugging_face_resolver_source.dart'
     show HuggingFaceResolverSource;
 import 'package:flutter_edge_ai/core/registry/inference_engine_provider.dart';
 import 'package:flutter_edge_ai/core/registry/runtime_config.dart';
-import 'package:flutter_edge_ai/flutter_gemma_interface.dart' show InferenceModel;
+import 'package:flutter_edge_ai/flutter_edge_ai_interface.dart' show InferenceModel;
 
 import '../onnx_hugging_face_resolver.dart' show OnnxHuggingFaceResolver;
 import 'onnx_web_inference_model.dart';

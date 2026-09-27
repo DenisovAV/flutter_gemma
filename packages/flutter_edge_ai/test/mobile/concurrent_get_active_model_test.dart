@@ -8,7 +8,7 @@
 // model, with no error and nothing in the log: the same defect as the
 // name-only reuse check, in the one window that check cannot see.
 //
-// End-to-end against the real FlutterGemma facade (not a re-implementation of
+// End-to-end against the real FlutterEdgeAi facade (not a re-implementation of
 // the completer logic), using the fixture pattern from
 // tts_language_singleton_test.dart — the engine is faked, everything above it
 // is the shipping code.
@@ -51,14 +51,14 @@ void main() {
   });
 
   tearDown(() async {
-    // FlutterGemmaMobile is a singleton: its _initCompleter / _initializedModel
-    // / _inFlightRequest outlive a test, and FlutterGemma.reset() deliberately
+    // FlutterEdgeAiMobile is a singleton: its _initCompleter / _initializedModel
+    // / _inFlightRequest outlive a test, and FlutterEdgeAi.reset() deliberately
     // does NOT touch them (it resets the DI registry, and documents that the
     // active inference model survives). Closing the cached model is what fires
     // the close listener that clears them. Without this, the first test's
     // leftover in-flight build reappeared inside the second one, which then
     // reported a config difference no test in it had asked for.
-    await FlutterGemmaPlugin.instance.initializedModel?.close();
+    await FlutterEdgeAiPlugin.instance.initializedModel?.close();
     ServiceRegistry.reset();
     EngineRegistry.instance.reset();
     for (final dir in [fakeDocuments, fakeAppSupport]) {
@@ -72,7 +72,7 @@ void main() {
     );
     final engine = _GatedEngine();
     EngineRegistry.instance.registerAll([engine]);
-    await FlutterGemma.installModel(
+    await FlutterEdgeAi.installModel(
       modelType: ModelType.gemmaIt,
     ).fromNetwork('https://example.com/model.bin').install();
     return engine;
@@ -86,14 +86,14 @@ void main() {
     // uncompared again: moved out of the comparator and into the call site,
     // where the unit test cannot see it because it never goes through a shell.
     //
-    // Driven through FlutterGemmaPlugin.instance.createModel rather than
-    // FlutterGemma.getActiveModel: loraRanks is a createModel knob, and the
+    // Driven through FlutterEdgeAiPlugin.instance.createModel rather than
+    // FlutterEdgeAi.getActiveModel: loraRanks is a createModel knob, and the
     // facade does not expose it. That is also why the earlier count assertion
     // in runtime_config_test read "nine" and looked right.
     final engine = await installWithGatedEngine();
     engine.release();
 
-    final plugin = FlutterGemmaPlugin.instance;
+    final plugin = FlutterEdgeAiPlugin.instance;
     final a = await plugin.createModel(
       modelType: ModelType.gemmaIt,
       maxTokens: 1024,
@@ -143,7 +143,7 @@ void main() {
       final engine = await installWithGatedEngine();
       engine.release();
 
-      final f32 = await FlutterGemma.getActiveModel(
+      final f32 = await FlutterEdgeAi.getActiveModel(
         maxTokens: 1024,
         activationDataType: ActivationDataType.float32,
       );
@@ -152,7 +152,7 @@ void main() {
         ActivationDataType.float32,
       );
 
-      final same = await FlutterGemma.getActiveModel(
+      final same = await FlutterEdgeAi.getActiveModel(
         maxTokens: 1024,
         activationDataType: ActivationDataType.float32,
       );
@@ -161,7 +161,7 @@ void main() {
 
       // Null is not "float32 by default": it hands the choice back to the model
       // file, which is a different engine.
-      final unset = await FlutterGemma.getActiveModel(maxTokens: 1024);
+      final unset = await FlutterEdgeAi.getActiveModel(maxTokens: 1024);
       expect(engine.createModelCallCount, 2);
       expect(engine.configs.last.activationDataType, isNull);
       expect(identical(unset, f32), isFalse);
@@ -192,19 +192,19 @@ void main() {
     final engine = await installWithGatedEngine();
     engine.release();
 
-    final first = await FlutterGemma.getActiveModel(
+    final first = await FlutterEdgeAi.getActiveModel(
       maxTokens: 1024,
       preferredBackend: PreferredBackend.cpu,
     );
     expect(engine.createModelCallCount, 1);
 
     // B forces a rebuild and suspends inside close().
-    final b = FlutterGemma.getActiveModel(
+    final b = FlutterEdgeAi.getActiveModel(
       maxTokens: 1024,
       preferredBackend: PreferredBackend.gpu,
     );
     // C asks for the OLD config while that close is in flight.
-    final c = FlutterGemma.getActiveModel(
+    final c = FlutterEdgeAi.getActiveModel(
       maxTokens: 1024,
       preferredBackend: PreferredBackend.cpu,
     );
@@ -266,7 +266,7 @@ void main() {
     }
 
     await expectLater(
-      FlutterGemma.getActiveModel(
+      FlutterEdgeAi.getActiveModel(
         maxTokens: 1024,
       ).timeout(const Duration(seconds: 5)),
       throwsA(isA<Exception>()),
@@ -274,7 +274,7 @@ void main() {
 
     // A DIFFERENT request must also fail — promptly, and on its own merits.
     await expectLater(
-      FlutterGemma.getActiveModel(
+      FlutterEdgeAi.getActiveModel(
         maxTokens: 2048,
       ).timeout(const Duration(seconds: 5)),
       throwsA(isA<Exception>()),
@@ -296,7 +296,7 @@ void main() {
     for (final f in installed) {
       f.writeAsBytesSync(_fakeBundleBytes);
     }
-    final recovered = await FlutterGemma.getActiveModel(
+    final recovered = await FlutterEdgeAi.getActiveModel(
       maxTokens: 2048,
     ).timeout(const Duration(seconds: 5));
     expect(engine.createModelCallCount, 1, reason: 'must build, not replay');
@@ -308,7 +308,7 @@ void main() {
     final engine = await installWithGatedEngine();
 
     // A starts and blocks inside the engine.
-    final a = FlutterGemma.getActiveModel(
+    final a = FlutterEdgeAi.getActiveModel(
       maxTokens: 1024,
       preferredBackend: PreferredBackend.cpu,
     );
@@ -316,7 +316,7 @@ void main() {
     expect(engine.createModelCallCount, 1);
 
     // B arrives mid-build asking for a DIFFERENT backend.
-    final b = FlutterGemma.getActiveModel(
+    final b = FlutterEdgeAi.getActiveModel(
       maxTokens: 1024,
       preferredBackend: PreferredBackend.gpu,
     );
@@ -348,12 +348,12 @@ void main() {
       // request — sharing one build is the whole point of the completer.
       final engine = await installWithGatedEngine();
 
-      final a = FlutterGemma.getActiveModel(
+      final a = FlutterEdgeAi.getActiveModel(
         maxTokens: 1024,
         preferredBackend: PreferredBackend.cpu,
       );
       await engine.started.first;
-      final b = FlutterGemma.getActiveModel(
+      final b = FlutterEdgeAi.getActiveModel(
         maxTokens: 1024,
         preferredBackend: PreferredBackend.cpu,
       );
@@ -377,9 +377,9 @@ void main() {
       // requests build a bit-identical engine and must share it.
       final engine = await installWithGatedEngine();
 
-      final a = FlutterGemma.getActiveModel(maxTokens: 1024);
+      final a = FlutterEdgeAi.getActiveModel(maxTokens: 1024);
       await engine.started.first;
-      final b = FlutterGemma.getActiveModel(maxTokens: 1024, maxNumImages: 4);
+      final b = FlutterEdgeAi.getActiveModel(maxTokens: 1024, maxNumImages: 4);
       await pumpEventQueue();
 
       engine.release();
@@ -403,7 +403,7 @@ void main() {
       engine.release();
 
       // Manifest defaults with no explicit args → merged values reach the engine.
-      final m1 = await FlutterGemma.getActiveModel(
+      final m1 = await FlutterEdgeAi.getActiveModel(
         defaults: const ModelRuntimeDefaults(
           maxTokens: 2048,
           supportImage: true,
@@ -415,14 +415,14 @@ void main() {
       expect(engine.configs.last.preferredBackend, PreferredBackend.gpu);
 
       // Explicit argument wins over the manifest default (and rebuilds).
-      final m2 = await FlutterGemma.getActiveModel(
+      final m2 = await FlutterEdgeAi.getActiveModel(
         maxTokens: 512,
         defaults: const ModelRuntimeDefaults(maxTokens: 2048),
       );
       expect(engine.configs.last.maxTokens, 512);
       expect(identical(m1, m2), isFalse);
 
-      await FlutterGemmaPlugin.instance.initializedModel?.close();
+      await FlutterEdgeAiPlugin.instance.initializedModel?.close();
     },
   );
 }

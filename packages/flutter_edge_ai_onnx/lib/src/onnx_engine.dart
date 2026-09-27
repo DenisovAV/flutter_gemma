@@ -11,8 +11,8 @@ import 'package:flutter_edge_ai/core/registry/hugging_face_resolver_source.dart'
     show HuggingFaceResolverSource;
 import 'package:flutter_edge_ai/core/registry/inference_engine_provider.dart';
 import 'package:flutter_edge_ai/core/registry/runtime_config.dart';
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart' show gemmaLog;
-import 'package:flutter_edge_ai/flutter_gemma_interface.dart' show InferenceModel;
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart' show edgeAiLog;
+import 'package:flutter_edge_ai/flutter_edge_ai_interface.dart' show InferenceModel;
 
 import 'ffi/gen_ai_client.dart';
 import 'onnx_hugging_face_resolver.dart' show OnnxHuggingFaceResolver;
@@ -34,7 +34,7 @@ import 'onnx_inference_model.dart';
 /// from the single self-contained genai xcframework, `OgaCreateModel` +
 /// streamed generation succeed. See `hook/build.dart`'s platform table.
 ///
-/// Mirrors [LiteRtLmEngine] from `flutter_gemma_litertlm`: a pure factory
+/// Mirrors [LiteRtLmEngine] from `flutter_edge_ai_litertlm`: a pure factory
 /// that core probes via [canHandle] and calls to build a bare
 /// [InferenceModel]; core owns the singleton lifecycle.
 class OnnxEngine implements InferenceEngineProvider, HuggingFaceResolverSource {
@@ -56,7 +56,7 @@ class OnnxEngine implements InferenceEngineProvider, HuggingFaceResolverSource {
   int get priority => 0;
 
   /// The engine's own Hugging Face resolver ([OnnxHuggingFaceResolver]).
-  /// Auto-registered by `FlutterGemma.initialize(inferenceEngines: …)` so it
+  /// Auto-registered by `FlutterEdgeAi.initialize(inferenceEngines: …)` so it
   /// owns the `.onnx` slot: `resolveHuggingFace(fileType: onnx)` and the
   /// one-call `fromHuggingFace(repo)` list the repo's file tree, pick an
   /// execution-provider folder, and install the whole ORT-GenAI directory
@@ -107,7 +107,7 @@ class OnnxEngine implements InferenceEngineProvider, HuggingFaceResolverSource {
   bool canHandle(InferenceModelSpec spec) {
     if (spec.fileType != ModelFileType.onnx) return false;
     if (!_isSupportedHost) {
-      gemmaLog(
+      edgeAiLog(
         'OnnxEngine declined ${Platform.operatingSystem}/${Abi.current()}: '
         'native ORT archives are macOS-arm64/linux-x64/windows-x64/'
         'android-arm64/ios-arm64-only in v1 (see hook/build.dart '
@@ -139,7 +139,7 @@ class OnnxEngine implements InferenceEngineProvider, HuggingFaceResolverSource {
     // The install layer hands inference engines a single resolved FILE path per
     // `InferenceModelSpec` (`RuntimeConfig.modelPath` =
     // `manager.getModelFilePaths(...).values.first`, see
-    // `flutter_gemma_mobile.dart`'s createModel preamble). ORT-GenAI models are
+    // `flutter_edge_ai_mobile.dart`'s createModel preamble). ORT-GenAI models are
     // whole DIRECTORIES (`genai_config.json` + `.onnx`[+`.onnx_data`] +
     // tokenizer files). The directory install
     // (`installModel(fileType: onnx).fromHuggingFace(repo)`, wired via

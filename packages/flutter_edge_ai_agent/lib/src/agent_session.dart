@@ -18,7 +18,7 @@ import 'skill_registry.dart';
 
 /// Resolve the executor list for an [AgentSession]: use [explicit] when given,
 /// otherwise read whatever was registered through
-/// `FlutterGemma.initialize(skillExecutors: …)` (core's [SkillExecutorRegistry]).
+/// `FlutterEdgeAi.initialize(skillExecutors: …)` (core's [SkillExecutorRegistry]).
 ///
 /// Throws [StateError] if neither path supplied executors, or if a registered
 /// [SkillExecutorProvider] is not a [SkillExecutor] (a bare provider can't be
@@ -30,7 +30,7 @@ List<SkillExecutor> _resolveExecutors(List<SkillExecutor>? explicit) {
   if (registered.isEmpty) {
     throw StateError(
       'No skill executors available: pass executors: to AgentSession.fromModel '
-      'or register them via FlutterGemma.initialize(skillExecutors: [...]).',
+      'or register them via FlutterEdgeAi.initialize(skillExecutors: [...]).',
     );
   }
   return [
@@ -41,7 +41,7 @@ List<SkillExecutor> _resolveExecutors(List<SkillExecutor>? explicit) {
         throw StateError(
           'Registered skill executor "${p.name}" (${p.runtimeType}) does not '
           'extend SkillExecutor, so the agent loop cannot run it. Register '
-          'flutter_gemma_agent SkillExecutor subclasses.',
+          'flutter_edge_ai_agent SkillExecutor subclasses.',
         ),
   ];
 }
@@ -71,7 +71,7 @@ __SKILLS__
 /// and consume the `Stream<AgentEvent>`.
 class AgentSession {
   /// Build a session. [executors] is optional: when omitted, the executors
-  /// registered via `FlutterGemma.initialize(skillExecutors: …)` are used (see
+  /// registered via `FlutterEdgeAi.initialize(skillExecutors: …)` are used (see
   /// [_resolveExecutors]). Pass an explicit list to bypass the global registry.
   AgentSession({
     required this.chat,
@@ -118,7 +118,7 @@ class AgentSession {
   /// meaningless without it.
   ///
   /// [executors] is optional: omit it to use the executors registered via
-  /// `FlutterGemma.initialize(skillExecutors: …)`; pass a list to override the
+  /// `FlutterEdgeAi.initialize(skillExecutors: …)`; pass a list to override the
   /// global registry for this session.
   static Future<AgentSession> fromModel(
     InferenceModel model, {

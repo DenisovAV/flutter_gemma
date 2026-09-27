@@ -1,7 +1,7 @@
 // Long-lived background isolate that drives a runtime-agnostic
 // [EmbeddingForwardPass] (built from a [ForwardPassDescriptor]'s top-level
 // factory tear-off — see `forward_pass.dart`) plus tokenization, which comes
-// from a registered `EmbeddingTokenizerProvider` (`flutter_gemma_embeddings`). Generalization of what used to be
+// from a registered `EmbeddingTokenizerProvider` (`flutter_edge_ai_embeddings`). Generalization of what used to be
 // `litert/litert_embedding_worker.dart`; the isolate machinery below
 // (message classes, id-correlated pending map, onExit-null death handling,
 // timeout-guarded close, log-level seeding, debugName) is preserved
@@ -22,7 +22,7 @@
 // (reply).
 
 import 'dart:async';
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 import 'dart:isolate';
 
 import 'forward_pass.dart';
@@ -80,10 +80,10 @@ class _WorkerInit {
   final ForwardPassDescriptor descriptor;
   final String tokenizerPath;
 
-  /// Snapshot of the main-isolate [gemmaLogLevel] at spawn — the worker
+  /// Snapshot of the main-isolate [edgeAiLogLevel] at spawn — the worker
   /// isolate gets its own copy of the per-isolate top-level (default info),
   /// so it must be seeded explicitly or its logs ignore the caller's level.
-  final GemmaLogLevel logLevel;
+  final EdgeAiLogLevel logLevel;
 }
 
 /// Main-isolate handle to the embedding worker. Spawns the isolate, performs
@@ -148,7 +148,7 @@ class EmbeddingWorker {
         replyTo: fromWorker.sendPort,
         descriptor: descriptor,
         tokenizerPath: tokenizerPath,
-        logLevel: gemmaLogLevel,
+        logLevel: edgeAiLogLevel,
       ),
       // onExit posts `null` to fromWorker so we never wait on a dead isolate.
       onExit: fromWorker.sendPort,
@@ -287,7 +287,7 @@ List<double> _copyPooledFinal(ForwardResult result) {
 /// requests until _Close.
 Future<void> _workerEntry(_WorkerInit init) async {
   // Seed this isolate's per-isolate log level from the main-isolate snapshot.
-  gemmaLogLevel = init.logLevel;
+  edgeAiLogLevel = init.logLevel;
 
   final EmbeddingTokenizer tokenizer;
   final EmbeddingForwardPass pass;
@@ -296,12 +296,12 @@ Future<void> _workerEntry(_WorkerInit init) async {
     pass = init.descriptor.factory(init.descriptor.modelPath);
     await pass.load();
   } catch (e, st) {
-    gemmaLog('[EmbeddingWorker] load failed: $e\n$st');
+    edgeAiLog('[EmbeddingWorker] load failed: $e\n$st');
     init.replyTo.send('Embedding worker failed to load: $e');
     return;
   }
 
-  gemmaLog(
+  edgeAiLog(
     '[EmbeddingWorker] loaded: engine=${init.descriptor.engineTag}, '
     'seqLen=${pass.inputSequenceLength}, dim=${pass.outputDimension}',
   );

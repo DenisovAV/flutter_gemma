@@ -15,7 +15,7 @@
 //     sandbox can't read a host path, and the app requests no broad file access).
 //
 // Run (iPhone connected via USB, trusted):
-//   cd packages/flutter_gemma/example
+//   cd packages/flutter_edge_ai/example
 //   flutter test integration_test/onnx_ios_generation_test.dart -d <iphone-id>
 import 'dart:io';
 

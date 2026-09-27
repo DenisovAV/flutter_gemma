@@ -1,4 +1,4 @@
-export 'flutter_gemma_interface.dart';
+export 'flutter_edge_ai_interface.dart';
 export 'model_file_manager_interface.dart';
 
 // Public parameter types that exported APIs require — previously forced
@@ -12,7 +12,7 @@ export 'core/services/file_system_service.dart'
 // ignored on Web.
 // The embedding seam: contracts an engine implements, the worker that runs
 // them off the UI isolate, and the facade it produces. Contracts only — the
-// tokenizer IMPLEMENTATIONS stay in flutter_gemma_embeddings, which core never
+// tokenizer IMPLEMENTATIONS stay in flutter_edge_ai_embeddings, which core never
 // depends on (see "Packages -> core, never to each other" in CLAUDE.md).
 export 'core/registry/embedding_tokenizer_provider.dart';
 export 'core/registry/embedding_tokenizer_registry.dart';
@@ -20,7 +20,7 @@ export 'core/embedding/forward_pass.dart';
 export 'core/embedding/tokenizer_adapter.dart';
 export 'core/embedding/pooling.dart';
 // Real arm by default, web overrides -- core's own convention everywhere else
-// (flutter_gemma_interface.dart, service_registry.dart). The worker needs
+// (flutter_edge_ai_interface.dart, service_registry.dart). The worker needs
 // dart:isolate; web engine arms build their own EmbeddingModel and never
 // reach it.
 export 'core/embedding/common_embedding_model.dart'
@@ -28,13 +28,13 @@ export 'core/embedding/common_embedding_model.dart'
 
 export 'core/services/vector_store_filter.dart';
 export 'core/services/vector_store_repository.dart'; // VectorStoreRepository + VectorStoreException for opt-in RAG packages
-// Agentic skill-executor seam — the opt-in flutter_gemma_agent package's
+// Agentic skill-executor seam — the opt-in flutter_edge_ai_agent package's
 // SkillExecutor implements this contract and is registered/resolved here.
 export 'core/registry/skill_executor_provider.dart'; // SkillExecutorProvider contract
 export 'core/registry/skill_executor_registry.dart'; // SkillExecutorRegistry (fromModel reads it)
 // Hugging Face manifest-resolver seam. Only the app-facing value types are
 // re-exported — [ResolvedHfModel] (plus its directory members [ResolvedHfFile])
-// and [ModelRuntimeDefaults] are the result of FlutterGemma.resolveHuggingFace.
+// and [ModelRuntimeDefaults] are the result of FlutterEdgeAi.resolveHuggingFace.
 // The [HuggingFaceResolver] contract itself is implemented by engine packages,
 // which import it directly from core/registry/hugging_face_resolver.dart — as
 // they do the inference / embedding / stt / tts *Provider contracts (those are
@@ -48,7 +48,7 @@ export 'core/model.dart'; // Export ModelType and other model-related classes
 export 'core/model_response.dart';
 export 'core/function_call_parser.dart';
 export 'core/tool.dart';
-export 'core/utils/gemma_log.dart' show GemmaLogLevel;
+export 'core/utils/edge_ai_log.dart' show EdgeAiLogLevel;
 export 'core/chat.dart';
 export 'core/model_management/cancel_token.dart';
 
@@ -60,7 +60,8 @@ export 'core/image_error_handler.dart';
 export 'core/multimodal_image_handler.dart';
 
 // Export Modern API
-export 'core/api/flutter_gemma.dart';
+export 'core/api/flutter_edge_ai.dart';
+export 'core/deprecated_names.dart';
 export 'core/api/inference_installation_builder.dart';
 export 'core/api/embedding_installation_builder.dart';
 export 'core/api/stt_installation_builder.dart';
@@ -99,8 +100,8 @@ export 'core/model_management/model_specs.dart'
 
 // Export Desktop implementation (conditionally - only on non-web platforms)
 // Note: Desktop uses MobileModelManager for file management
-export 'desktop/flutter_gemma_desktop.dart'
-    if (dart.library.js_interop) 'desktop/flutter_gemma_desktop_stub.dart'
-    show FlutterGemmaDesktop, isDesktop;
+export 'desktop/flutter_edge_ai_desktop.dart'
+    if (dart.library.js_interop) 'desktop/flutter_edge_ai_desktop_stub.dart'
+    show FlutterEdgeAiDesktop, isDesktop;
 
 // ModelReplacePolicy is already exported from model_file_manager_interface.dart

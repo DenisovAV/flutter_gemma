@@ -3,7 +3,7 @@ import 'package:flutter_edge_ai/core/domain/platform_types.dart'
     show PreferredBackend;
 import 'package:flutter_edge_ai/core/registry/runtime_config.dart'
     show ActiveEmbedderParams;
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 
 /// Said once per isolate. The parameter is passed on every call or on none, so
 /// repeating it per embedder would only drown the console — and a caller who
@@ -11,7 +11,7 @@ import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
 /// `EmbeddingModel.activeBackend`, which survives a release build.
 ///
 /// Per-isolate, not per-process: a top-level mutable gets its own copy in a
-/// spawned isolate (see the note in `gemma_log.dart`). The shells call this on
+/// spawned isolate (see the note in `edge_ai_log.dart`). The shells call this on
 /// the isolate that owns the singleton, so in practice it is said once.
 bool _warned = false;
 
@@ -35,9 +35,9 @@ void noticeEmbedderBackendIgnored(PreferredBackend? requested) {
   // level is public API — so setting the flag first turned "say it once" into
   // "suppress once" for an app that starts silent and raises the level later
   // to debug exactly this.
-  if (!kDebugMode || gemmaLogLevel == GemmaLogLevel.none) return;
+  if (!kDebugMode || edgeAiLogLevel == EdgeAiLogLevel.none) return;
   _warned = true;
-  gemmaLog(
+  edgeAiLog(
     'ℹ️  Embeddings run on CPU: preferredBackend ${requested!.name} is not '
     'applied. Read EmbeddingModel.activeBackend for the backend in use — it '
     'is available in release builds, where this line is not.',
@@ -55,9 +55,9 @@ void noticeEmbedderBackendIgnored(PreferredBackend? requested) {
 /// embeddings were running on WebGPU — a backend reported that did not run.
 void noticeWebEmbedderBackendIgnored(PreferredBackend? requested) {
   if (requested == null || _warned) return;
-  if (!kDebugMode || gemmaLogLevel == GemmaLogLevel.none) return;
+  if (!kDebugMode || edgeAiLogLevel == EdgeAiLogLevel.none) return;
   _warned = true;
-  gemmaLog(
+  edgeAiLog(
     'ℹ️  preferredBackend ${requested.name} is not applied to embeddings on '
     'web: the runtime picks the accelerator (WebGPU first, WASM as the '
     'fallback). EmbeddingModel.activeBackend is null on web; with LiteRT, '

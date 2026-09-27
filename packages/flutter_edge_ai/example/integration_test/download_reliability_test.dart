@@ -158,8 +158,8 @@ void main() {
     tearDown(() async {
       // Clean up after each test to avoid state pollution.
       try {
-        if (await FlutterGemma.isModelInstalled(_smallModelFilename)) {
-          await FlutterGemma.uninstallModel(_smallModelFilename);
+        if (await FlutterEdgeAi.isModelInstalled(_smallModelFilename)) {
+          await FlutterEdgeAi.uninstallModel(_smallModelFilename);
         }
       } catch (_) {}
     });
@@ -170,7 +170,7 @@ void main() {
       (tester) async {
         final progressValues = <int>[];
 
-        await FlutterGemma.installModel(
+        await FlutterEdgeAi.installModel(
           modelType: ModelType.functionGemma,
           fileType: ModelFileType.task,
         ).fromNetwork(_smallModelUrl).withProgress((p) {
@@ -179,12 +179,12 @@ void main() {
         }).install();
 
         expect(
-          FlutterGemma.hasActiveModel(),
+          FlutterEdgeAi.hasActiveModel(),
           isTrue,
           reason: 'Active model should be set after install',
         );
         expect(
-          await FlutterGemma.isModelInstalled(_smallModelFilename),
+          await FlutterEdgeAi.isModelInstalled(_smallModelFilename),
           isTrue,
           reason: 'Model file should exist on disk',
         );
@@ -221,14 +221,14 @@ void main() {
           () => hostSub = FileDownloader().updates.listen(hostSaw.add),
           returnsNormally,
           reason:
-              'flutter_gemma consumed the only subscription on '
+              'flutter_edge_ai consumed the only subscription on '
               'FileDownloader().updates, so the host cannot watch its own '
               'downloads (#445)',
         );
         addTearDown(() => hostSub?.cancel());
 
         final progressValues = <int>[];
-        await FlutterGemma.installModel(
+        await FlutterEdgeAi.installModel(
               modelType: ModelType.functionGemma,
               fileType: ModelFileType.task,
             )
@@ -237,7 +237,7 @@ void main() {
             .install();
 
         expect(
-          await FlutterGemma.isModelInstalled(_smallModelFilename),
+          await FlutterEdgeAi.isModelInstalled(_smallModelFilename),
           isTrue,
           reason: 'the download itself must still work',
         );
@@ -254,7 +254,7 @@ void main() {
           hostSaw.where((u) => u.task.group == SmartDownloader.downloadGroup),
           isEmpty,
           reason:
-              "flutter_gemma's own tasks leaked into the host's stream; the "
+              "flutter_edge_ai's own tasks leaked into the host's stream; the "
               'host would see downloads it never started',
         );
 
@@ -289,7 +289,7 @@ void main() {
         bool progressReset = false;
         int resetFromPercent = 0;
 
-        await FlutterGemma.installModel(
+        await FlutterEdgeAi.installModel(
           modelType: ModelType.functionGemma,
           fileType: ModelFileType.task,
         ).fromNetwork(_smallModelUrl).withProgress((p) {
@@ -323,20 +323,20 @@ void main() {
     testWidgets(
       'uninstalled model is removed from disk',
       (tester) async {
-        await FlutterGemma.installModel(
+        await FlutterEdgeAi.installModel(
           modelType: ModelType.functionGemma,
           fileType: ModelFileType.task,
         ).fromNetwork(_smallModelUrl).install();
 
         expect(
-          await FlutterGemma.isModelInstalled(_smallModelFilename),
+          await FlutterEdgeAi.isModelInstalled(_smallModelFilename),
           isTrue,
         );
 
-        await FlutterGemma.uninstallModel(_smallModelFilename);
+        await FlutterEdgeAi.uninstallModel(_smallModelFilename);
 
         expect(
-          await FlutterGemma.isModelInstalled(_smallModelFilename),
+          await FlutterEdgeAi.isModelInstalled(_smallModelFilename),
           isFalse,
           reason: 'Model file should be removed after uninstall',
         );
@@ -357,8 +357,8 @@ void main() {
     tearDown(() async {
       if (!Platform.isAndroid) return;
       try {
-        if (await FlutterGemma.isModelInstalled(_smallModelFilename)) {
-          await FlutterGemma.uninstallModel(_smallModelFilename);
+        if (await FlutterEdgeAi.isModelInstalled(_smallModelFilename)) {
+          await FlutterEdgeAi.uninstallModel(_smallModelFilename);
         }
       } catch (_) {}
     });
@@ -370,7 +370,7 @@ void main() {
     testWidgets(
       'foreground: true download starts and completes on fast network',
       (tester) async {
-        await FlutterGemma.installModel(
+        await FlutterEdgeAi.installModel(
               modelType: ModelType.functionGemma,
               fileType: ModelFileType.task,
             )
@@ -379,7 +379,7 @@ void main() {
             .install();
 
         expect(
-          await FlutterGemma.isModelInstalled(_smallModelFilename),
+          await FlutterEdgeAi.isModelInstalled(_smallModelFilename),
           isTrue,
           reason:
               'foreground: true download should complete on fast network. '

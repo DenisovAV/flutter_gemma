@@ -2,8 +2,8 @@
 // Reproduces issue #209 — SIGSEGV crash on second sendMessage
 //
 // Prerequisites:
-//   adb push /path/to/gemma-4-E2B-it.litertlm /data/local/tmp/flutter_gemma_test/
-//   adb push /path/to/Qwen3-0.6B.litertlm /data/local/tmp/flutter_gemma_test/
+//   adb push /path/to/gemma-4-E2B-it.litertlm /data/local/tmp/flutter_edge_ai_test/
+//   adb push /path/to/Qwen3-0.6B.litertlm /data/local/tmp/flutter_edge_ai_test/
 //
 // Run:
 //   cd example
@@ -16,7 +16,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 import 'inference_test_helpers.dart' show registerTestEngines;
 
-const _deviceDir = '/data/local/tmp/flutter_gemma_test';
+const _deviceDir = '/data/local/tmp/flutter_edge_ai_test';
 
 const _models = <({String path, String name, ModelType modelType})>[
   (
@@ -39,12 +39,12 @@ const _models = <({String path, String name, ModelType modelType})>[
 Future<InferenceModel> _installAndLoad(String path, ModelType modelType) async {
   await registerTestEngines();
 
-  await FlutterGemma.installModel(
+  await FlutterEdgeAi.installModel(
     modelType: modelType,
     fileType: ModelFileType.litertlm,
   ).fromFile(path).install();
 
-  return FlutterGemma.getActiveModel(
+  return FlutterEdgeAi.getActiveModel(
     maxTokens: 2048,
     preferredBackend: PreferredBackend.gpu,
   );

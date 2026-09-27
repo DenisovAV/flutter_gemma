@@ -3,7 +3,7 @@ import 'package:flutter_edge_ai/core/di/service_registry.dart';
 import 'package:flutter_edge_ai/core/model_management/model_specs.dart';
 import 'package:flutter_edge_ai/core/utils/file_name_utils.dart';
 import 'package:flutter_edge_ai/flutter_edge_ai.dart';
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 
 /// Fluent builder for inference model installation
 ///
@@ -12,7 +12,7 @@ import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
 ///
 /// Usage:
 /// ```dart
-/// await FlutterGemma.installModel(
+/// await FlutterEdgeAi.installModel(
 ///   modelType: ModelType.gemmaIt,
 /// )
 ///   .fromNetwork('https://example.com/model.task', token: 'hf_...')
@@ -112,15 +112,15 @@ class InferenceInstallationBuilder {
   ///
   /// **Manifest (one-call)** (OMIT [file]): resolves the repo's deployment
   /// manifest internally at [install] time — via the resolver registered for
-  /// this builder's `fileType` (see [FlutterGemma.resolveHuggingFace]) — then
+  /// this builder's `fileType` (see [FlutterEdgeAi.resolveHuggingFace]) — then
   /// installs the resolved, revision-pinned variant and returns the manifest's
   /// overridable runtime defaults on [InferenceInstallation.runtime]:
   /// ```dart
-  /// final install = await FlutterGemma
+  /// final install = await FlutterEdgeAi
   ///     .installModel(modelType: ModelType.general, fileType: ModelFileType.litertlm)
   ///     .fromHuggingFace('org/repo')            // no file — resolve the manifest
   ///     .install();
-  /// final model = await FlutterGemma.getActiveModel(defaults: install.runtime);
+  /// final model = await FlutterEdgeAi.getActiveModel(defaults: install.runtime);
   /// ```
   /// Notes on the manifest mode:
   /// - [revision] must be left `'main'`: the registered resolver owns the pin
@@ -240,7 +240,7 @@ class InferenceInstallationBuilder {
   /// ```dart
   /// final cancelToken = CancelToken();
   ///
-  /// final future = FlutterGemma.installModel(modelType: ModelType.gemmaIt)
+  /// final future = FlutterEdgeAi.installModel(modelType: ModelType.gemmaIt)
   ///   .fromNetwork(url)
   ///   .withCancelToken(cancelToken)
   ///   .install();
@@ -288,7 +288,7 @@ class InferenceInstallationBuilder {
     // throws its own clear `UnsupportedError` (the OS owns the weights, no HF
     // file) — either way, before those branches trip over a null source.
     if (_hfRepo != null) {
-      final r = await FlutterGemma.resolveHuggingFace(
+      final r = await FlutterEdgeAi.resolveHuggingFace(
         _hfRepo!,
         fileType: _fileType,
         token: _hfToken,
@@ -313,13 +313,13 @@ class InferenceInstallationBuilder {
             'Installed as ${_modelType.name} (your explicit choice); the '
             'Hugging Face manifest for "$_hfRepo" declares ${manifestType.name}.';
         resolvedNotes = [...r.notes, note];
-        gemmaLog('ℹ️  $note');
+        edgeAiLog('ℹ️  $note');
       } else {
         resolvedModelType = _modelType; // agrees, or manifest silent
         resolvedNotes = r.notes;
       }
       for (final note in r.notes) {
-        gemmaLog('ℹ️  Hugging Face ($_hfRepo): $note');
+        edgeAiLog('ℹ️  Hugging Face ($_hfRepo): $note');
       }
 
       resolvedRuntime = r.runtime;
@@ -368,9 +368,9 @@ class InferenceInstallationBuilder {
         modelType: resolvedModelType ?? _modelType,
         fileType: _fileType,
       );
-      final manager = FlutterGemmaPlugin.instance.modelManager;
+      final manager = FlutterEdgeAiPlugin.instance.modelManager;
       manager.setActiveModel(spec);
-      gemmaLog('✅ Built-in model set as active: ${spec.name}');
+      edgeAiLog('✅ Built-in model set as active: ${spec.name}');
       return InferenceInstallation(
         spec: spec,
         runtime: resolvedRuntime,
@@ -400,9 +400,9 @@ class InferenceInstallationBuilder {
         modelType: resolvedModelType ?? _modelType,
         fileType: _fileType,
       );
-      final manager = FlutterGemmaPlugin.instance.modelManager;
+      final manager = FlutterEdgeAiPlugin.instance.modelManager;
       manager.setActiveModel(spec);
-      gemmaLog(
+      edgeAiLog(
         '✅ ONNX web model set as active (Transformers.js owns the weights): '
         '${spec.name}',
       );
@@ -438,7 +438,7 @@ class InferenceInstallationBuilder {
     final isInstalled = await repository.isInstalled(namespacedModelFilename);
 
     if (isInstalled) {
-      gemmaLog(
+      edgeAiLog(
         'ℹ️  Model already installed: $namespacedModelFilename (skipping download)',
       );
     } else {
@@ -474,10 +474,10 @@ class InferenceInstallationBuilder {
     }
 
     // AUTO-SET as active inference model (even if already installed)
-    final manager = FlutterGemmaPlugin.instance.modelManager;
+    final manager = FlutterEdgeAiPlugin.instance.modelManager;
     manager.setActiveModel(spec);
 
-    gemmaLog('✅ Inference model installed and set as active: ${spec.name}');
+    edgeAiLog('✅ Inference model installed and set as active: ${spec.name}');
 
     return InferenceInstallation(
       spec: spec,
@@ -622,7 +622,7 @@ class InferenceInstallationBuilder {
       final file = files[i];
       _cancelToken?.throwIfCancelled();
       if (await repository.isInstalled(file.filename)) {
-        gemmaLog('ℹ️  Already installed: ${file.filename} (skipping download)');
+        edgeAiLog('ℹ️  Already installed: ${file.filename} (skipping download)');
       } else {
         final handler = handlerRegistry.getHandler(file.source);
         if (handler == null) {
@@ -653,9 +653,9 @@ class InferenceInstallationBuilder {
       _onProgress?.call((((i + 1) / total) * 100).round());
     }
 
-    final manager = FlutterGemmaPlugin.instance.modelManager;
+    final manager = FlutterEdgeAiPlugin.instance.modelManager;
     manager.setActiveModel(spec);
-    gemmaLog('✅ ONNX directory model installed and set as active: $modelId');
+    edgeAiLog('✅ ONNX directory model installed and set as active: $modelId');
 
     return InferenceInstallation(spec: spec, runtime: runtime, notes: notes);
   }

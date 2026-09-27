@@ -2,7 +2,7 @@
 // auto-restore (#227, see active_model_restore_test.dart).
 //
 // Verifies that clearing the active identity removes BOTH the in-memory spec
-// AND the persisted prefs, so a subsequent `FlutterGemma.initialize()`
+// AND the persisted prefs, so a subsequent `FlutterEdgeAi.initialize()`
 // ("second app launch") does NOT rehydrate the cleared model.
 //
 //   1. Test 1: installModel() → active set + identity keys in prefs →
@@ -49,12 +49,12 @@ void main() {
       await registerTestEngines();
 
       final modelPath = await _docsPath(_modelName);
-      await FlutterGemma.installModel(
+      await FlutterEdgeAi.installModel(
         modelType: ModelType.gemmaIt,
         fileType: ModelFileType.litertlm,
       ).fromFile(modelPath).install();
 
-      expect(FlutterGemma.hasActiveModel(), isTrue);
+      expect(FlutterEdgeAi.hasActiveModel(), isTrue);
 
       // Let the fire-and-forget persistence land before clearing.
       await Future<void>.delayed(const Duration(milliseconds: 200));
@@ -66,11 +66,11 @@ void main() {
       );
 
       // The operation under test.
-      await FlutterGemma.clearActiveInferenceIdentity();
+      await FlutterEdgeAi.clearActiveInferenceIdentity();
 
       // In-memory state cleared.
       expect(
-        FlutterGemma.hasActiveModel(),
+        FlutterEdgeAi.hasActiveModel(),
         isFalse,
         reason: 'hasActiveModel() must be false right after clear',
       );
@@ -94,7 +94,7 @@ void main() {
       await registerTestEngines();
 
       expect(
-        FlutterGemma.hasActiveModel(),
+        FlutterEdgeAi.hasActiveModel(),
         isFalse,
         reason:
             'a cleared identity must not be auto-restored on second initialize()',

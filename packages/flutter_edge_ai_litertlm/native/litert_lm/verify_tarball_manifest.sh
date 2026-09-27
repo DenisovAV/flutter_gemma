@@ -26,7 +26,7 @@ set -euo pipefail
 
 DIST_DIR="${1:?usage: verify_tarball_manifest.sh <DIST_DIR> <PREV_TAG>}"
 PREV_TAG="${2:?usage: verify_tarball_manifest.sh <DIST_DIR> <PREV_TAG>}"
-REPO="${FLUTTER_GEMMA_REPO:-DenisovAV/flutter_gemma}"
+REPO="${FLUTTER_GEMMA_REPO:-DenisovAV/flutter_edge_ai}"
 
 # Allow-list of files that are INTENTIONALLY removed in this release.
 # Format: "<platform>:<basename>" (e.g. "android_arm64:libQnnHtp.so").
@@ -484,9 +484,9 @@ if dispatch_importers:
 #    them must still state it — one page keeping the sentence would otherwise
 #    cover for three that dropped it.
 DOCS = ["website/content/docs/desktop.md",
-        "packages/flutter_gemma/DESKTOP_SUPPORT.md",
-        "packages/flutter_gemma/README.md",
-        "packages/flutter_gemma/skills/flutter-gemma-inference/references/platform-setup.md"]
+        "packages/flutter_edge_ai/DESKTOP_SUPPORT.md",
+        "packages/flutter_edge_ai/README.md",
+        "packages/flutter_edge_ai/skills/flutter-edge-ai-inference/references/platform-setup.md"]
 COUNT = re.compile(r"(\d+) of (?:the bundle's |its )?(\d+) DLLs")
 # Every mention of a redistributable must be a denial or a description of the
 # past. Checking for instruction verbs instead would miss "Download the …" and

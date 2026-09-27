@@ -20,7 +20,7 @@ import 'package:flutter_edge_ai/core/model_management/constants/preferences_keys
 import 'package:flutter_edge_ai/core/services/download_service.dart';
 import 'package:flutter_edge_ai/core/services/model_repository.dart' as repo;
 import 'package:flutter_edge_ai/flutter_edge_ai.dart';
-import 'package:flutter_edge_ai/mobile/flutter_gemma_mobile.dart'
+import 'package:flutter_edge_ai/mobile/flutter_edge_ai_mobile.dart'
     show MobileModelManager;
 
 // FileSourceHandler enforces a minimum size per extension (1MB for model
@@ -38,12 +38,12 @@ void main() {
 
   setUp(() async {
     fakeDocuments = await Directory.systemTemp.createTemp(
-      'flutter_gemma_docs_',
+      'flutter_edge_ai_docs_',
     );
     fakeAppSupport = await Directory.systemTemp.createTemp(
-      'flutter_gemma_appsupport_',
+      'flutter_edge_ai_appsupport_',
     );
-    sourceDir = await Directory.systemTemp.createTemp('flutter_gemma_src_');
+    sourceDir = await Directory.systemTemp.createTemp('flutter_edge_ai_src_');
     PathProviderPlatform.instance = _FixedPathProviderPlatform(
       documentsPath: fakeDocuments.path,
       appSupportPath: fakeAppSupport.path,
@@ -76,7 +76,7 @@ void main() {
         // path later.
         await loraFile.writeAsBytes(_fakeModelBytes);
 
-        await FlutterGemma.installModel(
+        await FlutterEdgeAi.installModel(
           modelType: ModelType.general,
         ).fromFile(modelFile.path).withLoraFromFile(loraFile.path).install();
 
@@ -102,7 +102,7 @@ void main() {
         );
         await tokenizerFile.writeAsBytes(_fakeCompanionBytes);
 
-        await FlutterGemma.installEmbedder()
+        await FlutterEdgeAi.installEmbedder()
             .modelFromFile(modelFile.path)
             .tokenizerFromFile(tokenizerFile.path)
             .install();
@@ -129,7 +129,7 @@ void main() {
         final tokenizerFile = File(path.join(sourceDir.path, 'tokenizer.json'));
         await tokenizerFile.writeAsBytes(_fakeCompanionBytes);
 
-        await FlutterGemma.installStt()
+        await FlutterEdgeAi.installStt()
             .modelFromFile(modelFile.path)
             .tokenizerFromFile(tokenizerFile.path)
             .ofType(SttModelType.moonshine)
@@ -153,7 +153,7 @@ void main() {
       final fixtureDownload = _FixtureDownloadService(_fakeCompanionBytes);
       await ServiceRegistry.initialize(downloadService: fixtureDownload);
 
-      await FlutterGemma.installTts()
+      await FlutterEdgeAi.installTts()
           .fromNetwork('https://example.com/matcha/')
           .ofType(TtsModelType.matcha)
           .install();
@@ -171,7 +171,7 @@ void main() {
       // storage dir via the same FileSystemService the builder used rather
       // than hardcoding fakeDocuments.path — on desktop hosts (this test
       // typically runs as a native VM test) writes land under
-      // ApplicationSupport/flutter_gemma/, not Documents; on mobile they
+      // ApplicationSupport/flutter_edge_ai/, not Documents; on mobile they
       // land directly under Documents.
       final storageDir = await ServiceRegistry.instance.fileSystemService
           .getModelStorageDirectory();
@@ -191,7 +191,7 @@ void main() {
         final fixtureDownload = _FixtureDownloadService(_fakeCompanionBytes);
         await ServiceRegistry.initialize(downloadService: fixtureDownload);
 
-        await FlutterGemma.installTts()
+        await FlutterEdgeAi.installTts()
             .fromNetwork('https://example.com/matcha/')
             .ofType(TtsModelType.matcha)
             .install();
@@ -236,7 +236,7 @@ void main() {
       // Resolve the storage dir via the same FileSystemService the
       // builder uses rather than hardcoding fakeDocuments.path — on
       // desktop hosts (this test typically runs as a native VM test)
-      // writes land under ApplicationSupport/flutter_gemma/, not
+      // writes land under ApplicationSupport/flutter_edge_ai/, not
       // Documents; on mobile they land directly under Documents.
       final storageDir = await ServiceRegistry.instance.fileSystemService
           .getModelStorageDirectory();
@@ -248,7 +248,7 @@ void main() {
       final oldPath = path.join(storageDir, 'matcha_textenc_fp16.tflite');
       await File(oldPath).writeAsBytes([7, 7, 7, 7]);
 
-      await FlutterGemma.installTts()
+      await FlutterEdgeAi.installTts()
           .fromNetwork('https://example.com/matcha/')
           .ofType(TtsModelType.matcha)
           .install();
@@ -298,7 +298,7 @@ void main() {
       final foreignPath = path.join(storageDir, 'tokenizer.json');
       await File(foreignPath).writeAsBytes([1, 2, 3, 4, 5]);
 
-      final installation = await FlutterGemma.installTts()
+      final installation = await FlutterEdgeAi.installTts()
           .fromNetwork(
             'https://huggingface.co/litert-community/'
             'Qwen3-TTS-12Hz-0.6B-Base/resolve/main/',
@@ -353,7 +353,7 @@ void main() {
         final tokenizerFile = File(path.join(sourceDir.path, 'tokenizer.json'));
         await tokenizerFile.writeAsBytes(_fakeCompanionBytes);
 
-        await FlutterGemma.installStt()
+        await FlutterEdgeAi.installStt()
             .modelFromFile(modelFile.path)
             .tokenizerFromFile(tokenizerFile.path)
             .ofType(SttModelType.moonshine)
@@ -390,14 +390,14 @@ void main() {
         Uint8List.fromList(List.filled(2048, 1)),
       );
 
-      await FlutterGemma.installStt()
+      await FlutterEdgeAi.installStt()
           .modelFromFile(moonshineModel.path)
           .tokenizerFromFile(moonshineTokenizer.path)
           .ofType(SttModelType.moonshine)
           .install();
 
       final whisperDir = await Directory.systemTemp.createTemp(
-        'flutter_gemma_whisper_src_',
+        'flutter_edge_ai_whisper_src_',
       );
       addTearDown(() => whisperDir.delete(recursive: true));
       final whisperModel = File(
@@ -413,7 +413,7 @@ void main() {
         Uint8List.fromList(List.filled(2048, 2)),
       );
 
-      await FlutterGemma.installStt()
+      await FlutterEdgeAi.installStt()
           .modelFromFile(whisperModel.path)
           .tokenizerFromFile(whisperTokenizer.path)
           .ofType(SttModelType.whisper)
@@ -453,13 +453,13 @@ void main() {
           Uint8List.fromList(List.filled(2048, 3)),
         );
 
-        await FlutterGemma.installEmbedder()
+        await FlutterEdgeAi.installEmbedder()
             .modelFromFile(gemmaModel.path)
             .tokenizerFromFile(gemmaTokenizer.path)
             .install();
 
         final geckoDir = await Directory.systemTemp.createTemp(
-          'flutter_gemma_gecko_src_',
+          'flutter_edge_ai_gecko_src_',
         );
         addTearDown(() => geckoDir.delete(recursive: true));
         final geckoModel = File(
@@ -473,7 +473,7 @@ void main() {
           Uint8List.fromList(List.filled(2048, 4)),
         );
 
-        await FlutterGemma.installEmbedder()
+        await FlutterEdgeAi.installEmbedder()
             .modelFromFile(geckoModel.path)
             .tokenizerFromFile(geckoTokenizer.path)
             .install();

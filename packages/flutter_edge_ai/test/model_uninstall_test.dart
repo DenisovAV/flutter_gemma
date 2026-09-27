@@ -236,7 +236,7 @@ void main() {
       expect(mockRepo.hasModel(modelId), isTrue);
       expect(mockFS.hasFile(modelPath), isTrue);
 
-      // Act - simulate proper uninstall (what FlutterGemma.uninstallModel does)
+      // Act - simulate proper uninstall (what FlutterEdgeAi.uninstallModel does)
       // 1. Delete metadata
       await mockRepo.deleteModel(modelId);
       // 2. Delete file
@@ -399,7 +399,7 @@ void main() {
     test('after proper deleteModel, isInstalled returns false', () async {
       // This test verifies the fix for issue #169
       // Before fix: deleteModel only deleted file, metadata remained
-      // After fix: deleteModel calls FlutterGemma.uninstallModel which deletes both
+      // After fix: deleteModel calls FlutterEdgeAi.uninstallModel which deletes both
 
       // Arrange - simulate model installed via Modern API
       const modelId = 'functiongemma-flutter_q8_ekv1024.task';

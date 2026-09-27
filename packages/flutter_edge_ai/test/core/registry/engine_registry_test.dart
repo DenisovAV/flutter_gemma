@@ -4,8 +4,8 @@ import 'package:flutter_edge_ai/core/registry/inference_engine_provider.dart';
 import 'package:flutter_edge_ai/core/registry/runtime_config.dart';
 import 'package:flutter_edge_ai/core/model.dart';
 import 'package:flutter_edge_ai/core/domain/model_source.dart';
-import 'package:flutter_edge_ai/flutter_gemma_interface.dart' show InferenceModel;
-import 'package:flutter_edge_ai/mobile/flutter_gemma_mobile.dart'
+import 'package:flutter_edge_ai/flutter_edge_ai_interface.dart' show InferenceModel;
+import 'package:flutter_edge_ai/mobile/flutter_edge_ai_mobile.dart'
     show InferenceModelSpec;
 
 class _FakeEngine implements InferenceEngineProvider {

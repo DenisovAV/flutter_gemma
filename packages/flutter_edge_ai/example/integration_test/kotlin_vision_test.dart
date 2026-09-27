@@ -5,8 +5,8 @@ import 'package:integration_test/integration_test.dart';
 import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 import 'inference_test_helpers.dart' show registerTestEngines;
 
-const _g3n = '/data/local/tmp/flutter_gemma_test/gemma-3n-E2B-it-int4.litertlm';
-const _img = '/data/local/tmp/flutter_gemma_test/test_image.jpg';
+const _g3n = '/data/local/tmp/flutter_edge_ai_test/gemma-3n-E2B-it-int4.litertlm';
+const _img = '/data/local/tmp/flutter_edge_ai_test/test_image.jpg';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -14,12 +14,12 @@ void main() {
   testWidgets('Kotlin: Gemma3n GPU vision', (t) async {
     await registerTestEngines();
 
-    await FlutterGemma.installModel(
+    await FlutterEdgeAi.installModel(
       modelType: ModelType.gemmaIt,
     ).fromFile(_g3n).install();
     print('Gemma3n installed');
 
-    final model = await FlutterGemma.getActiveModel(
+    final model = await FlutterEdgeAi.getActiveModel(
       maxTokens: 4096,
       preferredBackend: PreferredBackend.gpu,
       supportImage: true,

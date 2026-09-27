@@ -98,7 +98,7 @@ class RuntimeConfig {
   /// tell them apart — the active model decides which one applies:
   ///
   /// - **TTS (Qwen3)**: a full lowercase language NAME — one of
-  ///   `flutter_gemma_speech`'s `qwen3SupportedLanguages`, or `'auto'`
+  ///   `flutter_edge_ai_speech`'s `qwen3SupportedLanguages`, or `'auto'`
   ///   (`'english'`, `'german'`). Null defaults to `'english'`. Matcha ignores
   ///   it; its locale comes from `TtsModelProfile.locale`.
   /// - **STT (Whisper)**: a bare lowercase ISO CODE (`'en'`, `'de'`) — the

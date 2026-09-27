@@ -22,7 +22,7 @@ import 'package:flutter_edge_ai/core/infrastructure/web_cache_interop_stub.dart'
 import 'package:flutter_edge_ai/core/model_management/constants/preferences_keys.dart';
 import 'package:flutter_edge_ai/core/infrastructure/url_utils.dart';
 import 'package:flutter_edge_ai/core/infrastructure/web_file_system_service.dart';
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 
 /// Web cache service
 ///
@@ -59,14 +59,14 @@ class WebCacheService {
       final cached = await _cacheInterop.has(cacheName, normalizedUrl);
 
       if (kDebugMode) {
-        gemmaLog(
+        edgeAiLog(
           '[WebCacheService] 🔍 isCached($url) -> $cached (normalized: $normalizedUrl)',
         );
       }
 
       return cached;
     } catch (e) {
-      gemmaLog('[WebCacheService] ❌ isCached failed for $url: $e');
+      edgeAiLog('[WebCacheService] ❌ isCached failed for $url: $e');
       return false;
     }
   }
@@ -80,7 +80,7 @@ class WebCacheService {
       final normalizedUrl = UrlUtils.normalizeUrl(url);
 
       if (kDebugMode) {
-        gemmaLog(
+        edgeAiLog(
           'WebCacheService: getCachedBlobUrl($url) normalized: $normalizedUrl',
         );
       }
@@ -89,7 +89,7 @@ class WebCacheService {
       final cached = await _cacheInterop.has(cacheName, normalizedUrl);
       if (!cached) {
         if (kDebugMode) {
-          gemmaLog('[WebCacheService] ⚠️  Not cached: $normalizedUrl');
+          edgeAiLog('[WebCacheService] ⚠️  Not cached: $normalizedUrl');
         }
         return null;
       }
@@ -98,7 +98,7 @@ class WebCacheService {
       final blobUrl = await _cacheInterop.getBlobUrl(cacheName, normalizedUrl);
 
       if (blobUrl == null) {
-        gemmaLog(
+        edgeAiLog(
           '[WebCacheService] ❌ Failed to create blob URL for $normalizedUrl',
         );
         // Cache corrupted? Delete metadata
@@ -107,12 +107,12 @@ class WebCacheService {
       }
 
       if (kDebugMode) {
-        gemmaLog('[WebCacheService] ✅ Created blob URL: $blobUrl');
+        edgeAiLog('[WebCacheService] ✅ Created blob URL: $blobUrl');
       }
 
       return blobUrl;
     } catch (e) {
-      gemmaLog('[WebCacheService] ❌ getCachedBlobUrl failed for $url: $e');
+      edgeAiLog('[WebCacheService] ❌ getCachedBlobUrl failed for $url: $e');
       return null;
     }
   }
@@ -128,7 +128,7 @@ class WebCacheService {
       final normalizedUrl = UrlUtils.normalizeUrl(url);
 
       if (kDebugMode) {
-        gemmaLog(
+        edgeAiLog(
           'WebCacheService: cacheModel($url) size: ${data.length} bytes, normalized: $normalizedUrl',
         );
       }
@@ -147,14 +147,14 @@ class WebCacheService {
       );
 
       if (kDebugMode) {
-        gemmaLog('[WebCacheService] ✅ Successfully cached $url');
+        edgeAiLog('[WebCacheService] ✅ Successfully cached $url');
       }
     } catch (e) {
-      gemmaLog('[WebCacheService] ❌ cacheModel failed for $url: $e');
+      edgeAiLog('[WebCacheService] ❌ cacheModel failed for $url: $e');
 
       // Handle QuotaExceededError
       if (e.toString().contains('quota')) {
-        gemmaLog(
+        edgeAiLog(
           '[WebCacheService] ⚠️  Storage quota exceeded, attempting cleanup',
         );
         await _cleanupOldEntries();
@@ -170,10 +170,10 @@ class WebCacheService {
               cacheKey: normalizedUrl,
             ),
           );
-          gemmaLog('[WebCacheService] ✅ Cached after cleanup: $url');
+          edgeAiLog('[WebCacheService] ✅ Cached after cleanup: $url');
           return;
         } catch (retryError) {
-          gemmaLog('[WebCacheService] ❌ Retry failed: $retryError');
+          edgeAiLog('[WebCacheService] ❌ Retry failed: $retryError');
         }
       }
 
@@ -187,7 +187,7 @@ class WebCacheService {
   Future<void> clearCache() async {
     try {
       if (kDebugMode) {
-        gemmaLog('[WebCacheService] 🗑️ Clearing cache');
+        edgeAiLog('[WebCacheService] 🗑️ Clearing cache');
       }
 
       // Delete Cache API
@@ -203,10 +203,10 @@ class WebCacheService {
       }
 
       if (kDebugMode) {
-        gemmaLog('[WebCacheService] ✅ Cache cleared');
+        edgeAiLog('[WebCacheService] ✅ Cache cleared');
       }
     } catch (e) {
-      gemmaLog('[WebCacheService] ❌ clearCache failed: $e');
+      edgeAiLog('[WebCacheService] ❌ clearCache failed: $e');
       rethrow;
     }
   }
@@ -220,7 +220,7 @@ class WebCacheService {
       final granted = await _cacheInterop.requestPersistentStorage();
 
       if (kDebugMode) {
-        gemmaLog(
+        edgeAiLog(
           '[WebCacheService] ${granted ? "✅" : "⚠️ "} Persistent storage ${granted ? "granted" : "denied"}',
         );
       }
@@ -231,7 +231,7 @@ class WebCacheService {
 
       return granted;
     } catch (e) {
-      gemmaLog('[WebCacheService] ❌ requestPersistentStorage failed: $e');
+      edgeAiLog('[WebCacheService] ❌ requestPersistentStorage failed: $e');
       return false;
     }
   }
@@ -244,12 +244,12 @@ class WebCacheService {
       final quota = await _cacheInterop.getStorageQuota();
 
       if (kDebugMode) {
-        gemmaLog('[WebCacheService] 📊 Storage quota: $quota');
+        edgeAiLog('[WebCacheService] 📊 Storage quota: $quota');
       }
 
       return quota;
     } catch (e) {
-      gemmaLog('[WebCacheService] ❌ getStorageQuota failed: $e');
+      edgeAiLog('[WebCacheService] ❌ getStorageQuota failed: $e');
       return StorageQuota(0, 0);
     }
   }
@@ -260,12 +260,12 @@ class WebCacheService {
       final urls = await _cacheInterop.getAllKeys(cacheName);
 
       if (kDebugMode) {
-        gemmaLog('[WebCacheService] 🔍 Found ${urls.length} cached URLs');
+        edgeAiLog('[WebCacheService] 🔍 Found ${urls.length} cached URLs');
       }
 
       return urls;
     } catch (e) {
-      gemmaLog('[WebCacheService] ❌ getCachedUrls failed: $e');
+      edgeAiLog('[WebCacheService] ❌ getCachedUrls failed: $e');
       return [];
     }
   }
@@ -287,10 +287,10 @@ class WebCacheService {
       await prefs.setString(key, json);
 
       if (kDebugMode) {
-        gemmaLog('[WebCacheService] 💾 Saved metadata for ${metadata.url}');
+        edgeAiLog('[WebCacheService] 💾 Saved metadata for ${metadata.url}');
       }
     } catch (e) {
-      gemmaLog('[WebCacheService] ❌ _saveMetadata failed: $e');
+      edgeAiLog('[WebCacheService] ❌ _saveMetadata failed: $e');
     }
   }
 
@@ -302,10 +302,10 @@ class WebCacheService {
       await prefs.remove(key);
 
       if (kDebugMode) {
-        gemmaLog('[WebCacheService] 🗑️ Deleted metadata for $url');
+        edgeAiLog('[WebCacheService] 🗑️ Deleted metadata for $url');
       }
     } catch (e) {
-      gemmaLog('[WebCacheService] ❌ _deleteMetadata failed: $e');
+      edgeAiLog('[WebCacheService] ❌ _deleteMetadata failed: $e');
     }
   }
 
@@ -325,7 +325,7 @@ class WebCacheService {
               final metadata = CacheMetadata.fromJson(json);
               metadataList.add(metadata);
             } catch (e) {
-              gemmaLog('[WebCacheService] ❌ Failed to parse metadata: $e');
+              edgeAiLog('[WebCacheService] ❌ Failed to parse metadata: $e');
               // Invalid metadata - delete it
               await prefs.remove(key);
             }
@@ -335,7 +335,7 @@ class WebCacheService {
 
       return metadataList;
     } catch (e) {
-      gemmaLog('[WebCacheService] ❌ _getAllMetadata failed: $e');
+      edgeAiLog('[WebCacheService] ❌ _getAllMetadata failed: $e');
       return [];
     }
   }
@@ -346,7 +346,7 @@ class WebCacheService {
   Future<void> _cleanupOldEntries() async {
     try {
       if (kDebugMode) {
-        gemmaLog('[WebCacheService] 🗑️ Running cleanup');
+        edgeAiLog('[WebCacheService] 🗑️ Running cleanup');
       }
 
       final now = DateTime.now();
@@ -370,7 +370,7 @@ class WebCacheService {
           deletedCount++;
 
           if (kDebugMode) {
-            gemmaLog(
+            edgeAiLog(
               '[WebCacheService] 🗑️ Deleted old entry: ${meta.url} (age: ${age.inDays} days)',
             );
           }
@@ -378,7 +378,7 @@ class WebCacheService {
       }
 
       if (kDebugMode) {
-        gemmaLog(
+        edgeAiLog(
           '[WebCacheService] ✅ Cleanup complete, deleted $deletedCount entries',
         );
       }
@@ -390,7 +390,7 @@ class WebCacheService {
         now.millisecondsSinceEpoch,
       );
     } catch (e) {
-      gemmaLog('[WebCacheService] ❌ _cleanupOldEntries failed: $e');
+      edgeAiLog('[WebCacheService] ❌ _cleanupOldEntries failed: $e');
     }
   }
 
@@ -416,7 +416,7 @@ class WebCacheService {
       if (enableCache) {
         final cachedBlobUrl = await getCachedBlobUrl(cacheKey);
         if (cachedBlobUrl != null) {
-          gemmaLog('[WebCacheService] ✅ Found in cache: $cacheKey');
+          edgeAiLog('[WebCacheService] ✅ Found in cache: $cacheKey');
           _fileSystem.registerUrl(targetPath, cachedBlobUrl);
           yield 100; // Instant completion
           return;
@@ -424,7 +424,7 @@ class WebCacheService {
       }
 
       // 2. Load data with progress tracking
-      gemmaLog(
+      edgeAiLog(
         '[WebCacheService] 📥 Loading: $cacheKey (cache: ${enableCache ? "enabled" : "disabled"})',
       );
 
@@ -473,18 +473,18 @@ class WebCacheService {
         // 5. Register in file system
         _fileSystem.registerUrl(targetPath, blobUrl);
 
-        gemmaLog('[WebCacheService] ✅ Cached and registered: $cacheKey');
+        edgeAiLog('[WebCacheService] ✅ Cached and registered: $cacheKey');
       } else {
         // Create temporary blob URL without caching
         final blobUrl = _cacheInterop.createBlobUrl(loadedData!);
         _fileSystem.registerUrl(targetPath, blobUrl);
 
-        gemmaLog('[WebCacheService] ✅ Registered (no cache): $cacheKey');
+        edgeAiLog('[WebCacheService] ✅ Registered (no cache): $cacheKey');
       }
 
       yield 100; // Final completion
     } catch (e) {
-      gemmaLog(
+      edgeAiLog(
         '[WebCacheService] ❌ getOrCacheAndRegisterWithProgress failed: $e',
       );
       rethrow;

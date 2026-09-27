@@ -2,7 +2,7 @@ PODS:
   - background_downloader (0.0.1):
     - Flutter
   - Flutter (1.0.0)
-  - flutter_gemma (0.12.6):
+  - flutter_edge_ai (0.12.6):
     - Flutter
     - MediaPipeTasksGenAI (= 0.10.24)
     - MediaPipeTasksGenAIC (= 0.10.24)
@@ -33,7 +33,7 @@ PODS:
 DEPENDENCIES:
   - background_downloader (from `.symlinks/plugins/background_downloader/ios`)
   - Flutter (from `Flutter`)
-  - flutter_gemma (from `.symlinks/plugins/flutter_gemma/ios`)
+  - flutter_edge_ai (from `.symlinks/plugins/flutter_edge_ai/ios`)
   - integration_test (from `.symlinks/plugins/integration_test/ios`)
   - large_file_handler (from `.symlinks/plugins/large_file_handler/ios`)
   - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
@@ -51,8 +51,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/background_downloader/ios"
   Flutter:
     :path: Flutter
-  flutter_gemma:
-    :path: ".symlinks/plugins/flutter_gemma/ios"
+  flutter_edge_ai:
+    :path: ".symlinks/plugins/flutter_edge_ai/ios"
   integration_test:
     :path: ".symlinks/plugins/integration_test/ios"
   large_file_handler:
@@ -63,7 +63,7 @@ EXTERNAL SOURCES:
 SPEC CHECKSUMS:
   background_downloader: 50e91d979067b82081aba359d7d916b3ba5fadad
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
-  flutter_gemma: 7ce2780a9f4afaa3ba14efc24841415994e3b2c0
+  flutter_edge_ai: 7ce2780a9f4afaa3ba14efc24841415994e3b2c0
   integration_test: 4a889634ef21a45d28d50d622cf412dc6d9f586e
   large_file_handler: b37481e9b4972562ffcdc8f75700f47cd592bcec
   MediaPipeTasksGenAI: 076ba7032a6e9da16db9c7cf0c3b67c751c18bc1

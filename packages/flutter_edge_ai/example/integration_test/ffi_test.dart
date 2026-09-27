@@ -30,12 +30,12 @@ void main() {
 
   group('Gemma 3 1B (text only)', () {
     testWidgets('CPU sync', (tester) async {
-      await FlutterGemma.installModel(
+      await FlutterEdgeAi.installModel(
         modelType: ModelType.gemmaIt,
         fileType: ModelFileType.litertlm,
       ).fromFile(_gemma3_1bPath).install();
 
-      final model = await FlutterGemma.getActiveModel(
+      final model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 512,
         preferredBackend: PreferredBackend.cpu,
       );
@@ -52,12 +52,12 @@ void main() {
     });
 
     testWidgets('GPU streaming', (tester) async {
-      await FlutterGemma.installModel(
+      await FlutterEdgeAi.installModel(
         modelType: ModelType.gemmaIt,
         fileType: ModelFileType.litertlm,
       ).fromFile(_gemma3_1bPath).install();
 
-      final model = await FlutterGemma.getActiveModel(
+      final model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 512,
         preferredBackend: PreferredBackend.gpu,
       );
@@ -82,12 +82,12 @@ void main() {
 
   group('Gemma 4 E2B (multimodal)', () {
     testWidgets('GPU text only', (tester) async {
-      await FlutterGemma.installModel(
+      await FlutterEdgeAi.installModel(
         modelType: ModelType.gemmaIt,
         fileType: ModelFileType.litertlm,
       ).fromFile(_gemma4Path).install();
 
-      final model = await FlutterGemma.getActiveModel(
+      final model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 512,
         preferredBackend: PreferredBackend.gpu,
       );
@@ -106,12 +106,12 @@ void main() {
     });
 
     testWidgets('GPU streaming', (tester) async {
-      await FlutterGemma.installModel(
+      await FlutterEdgeAi.installModel(
         modelType: ModelType.gemmaIt,
         fileType: ModelFileType.litertlm,
       ).fromFile(_gemma4Path).install();
 
-      final model = await FlutterGemma.getActiveModel(
+      final model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 512,
         preferredBackend: PreferredBackend.gpu,
       );
@@ -134,12 +134,12 @@ void main() {
     });
 
     testWidgets('GPU with image', (tester) async {
-      await FlutterGemma.installModel(
+      await FlutterEdgeAi.installModel(
         modelType: ModelType.gemmaIt,
         fileType: ModelFileType.litertlm,
       ).fromFile(_gemma4Path).install();
 
-      final model = await FlutterGemma.getActiveModel(
+      final model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 512,
         preferredBackend: PreferredBackend.gpu,
         supportImage: true,
@@ -175,12 +175,12 @@ void main() {
       ).readAsBytesSync();
       print('[Gemma4 audio] Loaded ${testAudio.length} bytes');
 
-      await FlutterGemma.installModel(
+      await FlutterEdgeAi.installModel(
         modelType: ModelType.gemmaIt,
         fileType: ModelFileType.litertlm,
       ).fromFile(_gemma4Path).install();
 
-      final model = await FlutterGemma.getActiveModel(
+      final model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 512,
         preferredBackend: PreferredBackend.gpu,
         supportAudio: true,
@@ -212,12 +212,12 @@ void main() {
 
   group('Gemma 3n E2B (multimodal)', () {
     testWidgets('CPU text only', (tester) async {
-      await FlutterGemma.installModel(
+      await FlutterEdgeAi.installModel(
         modelType: ModelType.gemmaIt,
         fileType: ModelFileType.litertlm,
       ).fromFile(_gemma3nPath).install();
 
-      final model = await FlutterGemma.getActiveModel(
+      final model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 512,
         preferredBackend: PreferredBackend.cpu,
       );
@@ -234,12 +234,12 @@ void main() {
     });
 
     testWidgets('GPU text only', (tester) async {
-      await FlutterGemma.installModel(
+      await FlutterEdgeAi.installModel(
         modelType: ModelType.gemmaIt,
         fileType: ModelFileType.litertlm,
       ).fromFile(_gemma3nPath).install();
 
-      final model = await FlutterGemma.getActiveModel(
+      final model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 512,
         preferredBackend: PreferredBackend.gpu,
       );
@@ -258,12 +258,12 @@ void main() {
     });
 
     testWidgets('GPU streaming', (tester) async {
-      await FlutterGemma.installModel(
+      await FlutterEdgeAi.installModel(
         modelType: ModelType.gemmaIt,
         fileType: ModelFileType.litertlm,
       ).fromFile(_gemma3nPath).install();
 
-      final model = await FlutterGemma.getActiveModel(
+      final model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 512,
         preferredBackend: PreferredBackend.gpu,
       );
@@ -284,12 +284,12 @@ void main() {
     });
 
     testWidgets('GPU with image', (tester) async {
-      await FlutterGemma.installModel(
+      await FlutterEdgeAi.installModel(
         modelType: ModelType.gemmaIt,
         fileType: ModelFileType.litertlm,
       ).fromFile(_gemma3nPath).install();
 
-      final model = await FlutterGemma.getActiveModel(
+      final model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 512,
         preferredBackend: PreferredBackend.gpu,
         supportImage: true,
@@ -325,12 +325,12 @@ void main() {
       ).readAsBytesSync();
       print('[Gemma3n audio] Loaded ${testAudio.length} bytes');
 
-      await FlutterGemma.installModel(
+      await FlutterEdgeAi.installModel(
         modelType: ModelType.gemmaIt,
         fileType: ModelFileType.litertlm,
       ).fromFile(_gemma3nPath).install();
 
-      final model = await FlutterGemma.getActiveModel(
+      final model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 512,
         preferredBackend: PreferredBackend.cpu,
         supportAudio: true,

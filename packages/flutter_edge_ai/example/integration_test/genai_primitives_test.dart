@@ -24,7 +24,7 @@ const _gemma4Url =
 
 const _token = String.fromEnvironment('HUGGINGFACE_TOKEN');
 
-String get _androidDir => '/data/local/tmp/flutter_gemma_test';
+String get _androidDir => '/data/local/tmp/flutter_edge_ai_test';
 String get _macosDir =>
     '${Platform.environment['HOME']}/Library/Containers/dev.flutterberlin.flutterGemmaExample55/Data/Documents';
 String get _linuxDir => '${Platform.environment['HOME']}/models';
@@ -64,12 +64,12 @@ String? _localPath(String filename) {
 Future<void> _install() async {
   final localPath = _localPath('gemma-4-E2B-it.litertlm');
   if (localPath != null && File(localPath).existsSync()) {
-    await FlutterGemma.installModel(
+    await FlutterEdgeAi.installModel(
       modelType: ModelType.gemma4,
       fileType: ModelFileType.litertlm,
     ).fromFile(localPath).install();
   } else {
-    await FlutterGemma.installModel(
+    await FlutterEdgeAi.installModel(
       modelType: ModelType.gemma4,
       fileType: ModelFileType.litertlm,
     ).fromNetwork(_gemma4Url, token: _token).install();
@@ -83,7 +83,7 @@ InferenceModel? _sharedModel;
 
 Future<InferenceModel> _ensureModel(int maxTokens) async {
   if (_sharedModel != null) return _sharedModel!;
-  _sharedModel = await FlutterGemma.getActiveModel(
+  _sharedModel = await FlutterEdgeAi.getActiveModel(
     maxTokens: maxTokens,
     preferredBackend: PreferredBackend.gpu,
     supportImage: true,

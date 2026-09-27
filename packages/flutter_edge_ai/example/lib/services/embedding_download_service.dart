@@ -51,8 +51,8 @@ class EmbeddingModelDownloadService {
       );
 
       // Check if both files are installed using actual filenames
-      final modelInstalled = await FlutterGemma.isModelInstalled(modelFilename);
-      final tokenizerInstalled = await FlutterGemma.isModelInstalled(
+      final modelInstalled = await FlutterEdgeAi.isModelInstalled(modelFilename);
+      final tokenizerInstalled = await FlutterEdgeAi.isModelInstalled(
         tokenizerFilename,
       );
 
@@ -85,7 +85,7 @@ class EmbeddingModelDownloadService {
       double tokenizerProgress = 0;
 
       // Start building the installer
-      var builder = FlutterGemma.installEmbedder();
+      var builder = FlutterEdgeAi.installEmbedder();
 
       // Add model source based on sourceType
       switch (model.sourceType) {
@@ -152,8 +152,8 @@ class EmbeddingModelDownloadService {
       );
 
       // Use Modern API to properly uninstall (deletes metadata + files)
-      await FlutterGemma.uninstallModel(modelFilename);
-      await FlutterGemma.uninstallModel(tokenizerFilename);
+      await FlutterEdgeAi.uninstallModel(modelFilename);
+      await FlutterEdgeAi.uninstallModel(tokenizerFilename);
     } catch (e) {
       if (kDebugMode) {
         debugPrint('Error deleting embedding model: $e');
@@ -165,10 +165,10 @@ class EmbeddingModelDownloadService {
   Future<bool> isEmbeddingModelInstalled() async {
     try {
       // Modern API: Check if both files are installed
-      final modelInstalled = await FlutterGemma.isModelInstalled(
+      final modelInstalled = await FlutterEdgeAi.isModelInstalled(
         model.filename,
       );
-      final tokenizerInstalled = await FlutterGemma.isModelInstalled(
+      final tokenizerInstalled = await FlutterEdgeAi.isModelInstalled(
         model.tokenizerFilename,
       );
       return modelInstalled && tokenizerInstalled;

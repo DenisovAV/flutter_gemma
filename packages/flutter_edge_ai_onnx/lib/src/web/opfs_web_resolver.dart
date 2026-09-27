@@ -1,7 +1,7 @@
 // Resolves `opfs://<filename>` paths — what core registers for the active
 // model under `WebStorageMode.streaming` (`WebDownloadService.registerUrl`,
 // consumed by both engine-side `EmbeddingModel` construction paths in
-// `flutter_gemma_web.dart`) — into a `blob:` URL that both `fetch()`
+// `flutter_edge_ai_web.dart`) — into a `blob:` URL that both `fetch()`
 // (tokenizer.json) and `ort.InferenceSession.create()` (the model file) can
 // actually load. Neither understands the OPFS-private `opfs://` scheme;
 // passing it straight through leaves both calls unable to read the file.

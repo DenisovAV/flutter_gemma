@@ -4,19 +4,19 @@ import 'package:flutter_edge_ai/core/domain/platform_types.dart';
 
 /// Default `VectorStoreRepository` when no RAG package is wired in.
 ///
-/// As of 1.0, flutter_gemma core ships NO built-in RAG backend on any platform
+/// As of 1.0, flutter_edge_ai core ships NO built-in RAG backend on any platform
 /// — RAG is opt-in. Add a RAG package and pass its store to
-/// `FlutterGemma.initialize(vectorStore: ...)`. Every method throws a clear,
+/// `FlutterEdgeAi.initialize(vectorStore: ...)`. Every method throws a clear,
 /// actionable error naming the available packages so a consumer who calls RAG
 /// without wiring a store knows exactly what to do.
 class UnconfiguredVectorStore implements VectorStoreRepository {
   static Never _fail() => throw StateError(
     'No vector store is configured. flutter_gemma 1.0 ships no built-in RAG '
     'backend. Add a RAG package to pubspec.yaml and pass its store to '
-    'FlutterGemma.initialize(vectorStore: ...):\n'
-    '  • flutter_gemma_rag_sqlite  → SqliteVectorStore() (native) / '
+    'FlutterEdgeAi.initialize(vectorStore: ...):\n'
+    '  • flutter_edge_ai_sqlite  → SqliteVectorStore() (native) / '
     'WebSqliteVectorStore() (web)\n'
-    '  • flutter_gemma_rag_qdrant  → QdrantVectorStore() (native only)',
+    '  • flutter_edge_ai_qdrant  → QdrantVectorStore() (native only)',
   );
 
   @override

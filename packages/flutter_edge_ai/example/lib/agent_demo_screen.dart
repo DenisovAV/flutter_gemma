@@ -6,7 +6,7 @@ import 'package:flutter_edge_ai_example/loading_widget.dart';
 import 'package:flutter_edge_ai_example/models/model.dart';
 import 'package:flutter_edge_ai_example/universal_download_screen.dart';
 
-/// Demonstrates `flutter_gemma_agent`: the bundled starter skills (ported from
+/// Demonstrates `flutter_edge_ai_agent`: the bundled starter skills (ported from
 /// google-ai-edge/gallery, Apache-2.0) driving a Gemma 4 model through the
 /// agentic tool-calling loop.
 ///
@@ -15,7 +15,7 @@ import 'package:flutter_edge_ai_example/universal_download_screen.dart';
 /// the model is installed, this screen loads the bundled SKILL.md skills via
 /// [AssetSkillSource] and mounts [AgentChatView] over an [AgentSession]; the
 /// executors (text / JS / native-intent) were registered globally in
-/// `bootstrapGemma` via `FlutterGemma.initialize(skillExecutors: …)`.
+/// `bootstrapGemma` via `FlutterEdgeAi.initialize(skillExecutors: …)`.
 class AgentDemoScreen extends StatefulWidget {
   const AgentDemoScreen({super.key});
 
@@ -73,7 +73,7 @@ class _AgentDemoScreenState extends State<AgentDemoScreen> {
     });
 
     try {
-      final model = await FlutterGemma.getActiveModel(
+      final model = await FlutterEdgeAi.getActiveModel(
         maxTokens: _model.maxTokens,
         preferredBackend: _model.preferredBackend,
       );
@@ -85,7 +85,7 @@ class _AgentDemoScreenState extends State<AgentDemoScreen> {
 
       // No `executors:` here: the text / JS / native-intent executors were
       // registered globally in `bootstrapGemma` via
-      // `FlutterGemma.initialize(skillExecutors: …)`, so `fromModel` reads them
+      // `FlutterEdgeAi.initialize(skillExecutors: …)`, so `fromModel` reads them
       // from the core registry (the recommended path). To override for one
       // session, pass an explicit list:
       //   executors: [TextSkillExecutor(), JsSkillExecutor(sourceFor: …), …]

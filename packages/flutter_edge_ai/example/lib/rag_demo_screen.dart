@@ -35,7 +35,7 @@ class _RagDemoScreenState extends State<RagDemoScreen> {
   );
 
   /// The active RAG vector-store backend. Switched at runtime via the
-  /// SegmentedButton below: `FlutterGemma.reset()` tears down the DI singleton
+  /// SegmentedButton below: `FlutterEdgeAi.reset()` tears down the DI singleton
   /// (and the current store), then [bootstrapGemma] re-initializes with the new
   /// store. The installed embedder + active model survive (they live in the
   /// platform plugin instance + prefs, not the DI singleton).
@@ -73,7 +73,7 @@ class _RagDemoScreenState extends State<RagDemoScreen> {
   Future<void> _checkEmbeddingModel() async {
     // Check if embedding model is already initialized
     final hasModel =
-        FlutterGemmaPlugin.instance.initializedEmbeddingModel != null;
+        FlutterEdgeAiPlugin.instance.initializedEmbeddingModel != null;
 
     setState(() {
       _hasEmbeddingModel = hasModel;
@@ -85,7 +85,7 @@ class _RagDemoScreenState extends State<RagDemoScreen> {
   }
 
   /// Swap the active vector-store backend at runtime. Tears down the current
-  /// store + DI singleton via [FlutterGemma.reset], then re-bootstraps with the
+  /// store + DI singleton via [FlutterEdgeAi.reset], then re-bootstraps with the
   /// new store. The installed embedder + active model survive (held in the
   /// platform plugin instance + prefs, not the DI singleton). The switch resets
   /// the demo to an uninitialized state — the new store is empty, so the user
@@ -107,7 +107,7 @@ class _RagDemoScreenState extends State<RagDemoScreen> {
       // Close the current store (release its native handle) AND reset the
       // singleton before re-bootstrapping — dispose() does both, so the
       // qdrant-edge shard / sqlite connection isn't leaked.
-      await FlutterGemma.dispose();
+      await FlutterEdgeAi.dispose();
       await bootstrapGemma(ragBackend: next);
 
       setState(() {
@@ -139,7 +139,7 @@ class _RagDemoScreenState extends State<RagDemoScreen> {
       // the previous type — the prior data is gone with the closed store).
       var recovered = false;
       try {
-        await FlutterGemma.dispose();
+        await FlutterEdgeAi.dispose();
         await bootstrapGemma(ragBackend: previous);
         recovered = true;
       } catch (e2) {
@@ -175,9 +175,9 @@ class _RagDemoScreenState extends State<RagDemoScreen> {
       // a shard DIRECTORY. RagBackend.storageName encodes the right shape so
       // the two stores never collide on disk.
       final dbPath = await _getDatabasePath(_ragBackend.storageName);
-      await FlutterGemmaPlugin.instance.initializeVectorStore(dbPath);
+      await FlutterEdgeAiPlugin.instance.initializeVectorStore(dbPath);
 
-      final stats = await FlutterGemmaPlugin.instance.getVectorStoreStats();
+      final stats = await FlutterEdgeAiPlugin.instance.getVectorStoreStats();
 
       setState(() {
         _isInitialized = true;
@@ -214,7 +214,7 @@ class _RagDemoScreenState extends State<RagDemoScreen> {
 
       // Batch embedding - one call instead of multiple
       final embeddingModel =
-          FlutterGemmaPlugin.instance.initializedEmbeddingModel!;
+          FlutterEdgeAiPlugin.instance.initializedEmbeddingModel!;
       final embeddings = await embeddingModel.generateEmbeddings(
         contents,
         taskType: TaskType.retrievalDocument,
@@ -225,7 +225,7 @@ class _RagDemoScreenState extends State<RagDemoScreen> {
       // qdrant-edge's `Filter` DSL.
       for (int i = 0; i < sampleDocuments.length; i++) {
         final category = sampleDocuments[i]['category'] ?? 'general';
-        await FlutterGemmaPlugin.instance.addDocumentWithEmbedding(
+        await FlutterEdgeAiPlugin.instance.addDocumentWithEmbedding(
           id: sampleDocuments[i]['id']!,
           content: sampleDocuments[i]['content']!,
           embedding: embeddings[i],
@@ -235,7 +235,7 @@ class _RagDemoScreenState extends State<RagDemoScreen> {
 
       stopwatch.stop();
 
-      final stats = await FlutterGemmaPlugin.instance.getVectorStoreStats();
+      final stats = await FlutterEdgeAiPlugin.instance.getVectorStoreStats();
 
       setState(() {
         _stats = stats;
@@ -266,9 +266,9 @@ class _RagDemoScreenState extends State<RagDemoScreen> {
     });
 
     try {
-      await FlutterGemmaPlugin.instance.clearVectorStore();
+      await FlutterEdgeAiPlugin.instance.clearVectorStore();
 
-      final stats = await FlutterGemmaPlugin.instance.getVectorStoreStats();
+      final stats = await FlutterEdgeAiPlugin.instance.getVectorStoreStats();
 
       setState(() {
         _stats = stats;
@@ -314,7 +314,7 @@ class _RagDemoScreenState extends State<RagDemoScreen> {
               must: [FieldEquals(key: 'category', value: category)],
             );
 
-      final results = await FlutterGemmaPlugin.instance.searchSimilar(
+      final results = await FlutterEdgeAiPlugin.instance.searchSimilar(
         query: query,
         topK: _topK,
         threshold: _threshold,
@@ -409,7 +409,7 @@ class _RagDemoScreenState extends State<RagDemoScreen> {
           children: [
             // Runtime vector-store switcher: SQLite <-> Qdrant. Qdrant is
             // native-only, so its segment is disabled on web (with a tooltip).
-            // Switching calls FlutterGemma.reset() + re-bootstraps with the new
+            // Switching calls FlutterEdgeAi.reset() + re-bootstraps with the new
             // store while preserving the installed embedder + active model.
             _buildBackendSwitcher(),
             const SizedBox(height: 16),

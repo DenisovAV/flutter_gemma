@@ -1,4 +1,4 @@
-// Native-only advanced/test surface for `flutter_gemma_onnx` (ONNX web PR,
+// Native-only advanced/test surface for `flutter_edge_ai_onnx` (ONNX web PR,
 // `feat/onnx-web`, barrel-split Task 1). Reached only via the top-level
 // barrel's conditional export:
 //
@@ -10,7 +10,7 @@
 // (advanced FFI client access) and the plain-ORT embedding forward-pass
 // pieces ([OnnxEmbeddingForwardPass],
 // [OrtClient]) used by tests/advanced callers that build a custom client.
-// Mirrors `flutter_gemma_litertlm`'s `litert_bindings_stub.dart` pattern: the
+// Mirrors `flutter_edge_ai_litertlm`'s `litert_bindings_stub.dart` pattern: the
 // web arm (`native_exports_stub.dart`) exports NO symbols at all — web
 // engine packages build their own JS-interop-backed equivalents instead (see
 // `src/web/`).

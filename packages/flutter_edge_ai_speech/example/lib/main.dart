@@ -1,15 +1,15 @@
-// Agentic voice loop demo for flutter_gemma_speech.
+// Agentic voice loop demo for flutter_edge_ai_speech.
 //
 // One screen, two modes over the SAME on-device pipeline (STT → LLM → TTS):
 //   • Tools  — VoiceSession.fromChat(onToolCall:): the LLM can call app tools
 //              (get_current_time / show_alert) mid-turn; the app runs them and
-//              the model speaks the result. Needs only flutter_gemma_speech +
-//              flutter_gemma (core function-calling loop) + the litertlm engine.
+//              the model speaks the result. Needs only flutter_edge_ai_speech +
+//              flutter_edge_ai (core function-calling loop) + the litertlm engine.
 //   • Agent  — VoiceSession.custom(responder: agentVoiceResponder(agent)): the
-//              full flutter_gemma_agent drives skills (e.g. "calculate the hash
+//              full flutter_edge_ai_agent drives skills (e.g. "calculate the hash
 //              of hello" → the bundled calculate-hash JS skill) and the final
 //              answer is spoken. The agent glue lives here in the app, so
-//              flutter_gemma_speech never depends on flutter_gemma_agent.
+//              flutter_edge_ai_speech never depends on flutter_edge_ai_agent.
 //
 // Speak by holding the mic button, or tap "Demo turn" to run the bundled clip
 // (no microphone needed). The LLM (Gemma 4 E2B, .litertlm) loads from a
@@ -44,7 +44,7 @@ const _llmFileName = 'gemma-4-E2B-it.litertlm';
 const _ttsUrl =
     'https://huggingface.co/sasha-denisov/inflect-nano-v2-litert/resolve/main/';
 
-// flutter_gemma brand palette (matches the main example's screens).
+// flutter_edge_ai brand palette (matches the main example's screens).
 const _kNavy = Color(0xFF0b2351);
 const _kCard = Color(0xFF1a3a5c);
 const _kAccent = Color(0xFF2a5a8c);
@@ -150,7 +150,7 @@ class _VoiceHomePageState extends State<VoiceHomePage> {
     });
     try {
       final token = _tokenController.text.trim();
-      await FlutterGemma.initialize(
+      await FlutterEdgeAi.initialize(
         huggingFaceToken: token.isEmpty ? null : token,
         sttBackends: const [LiteRtSttBackend()],
         ttsBackends: const [LiteRtTtsBackend()],
@@ -158,7 +158,7 @@ class _VoiceHomePageState extends State<VoiceHomePage> {
       );
 
       setState(() => _status = 'Installing STT (Moonshine)…');
-      await FlutterGemma.installStt()
+      await FlutterEdgeAi.installStt()
           .modelFromNetwork(_sttModelUrl, token: token.isEmpty ? null : token)
           .tokenizerFromNetwork(
             _sttTokenizerUrl,
@@ -169,7 +169,7 @@ class _VoiceHomePageState extends State<VoiceHomePage> {
 
       setState(() => _status = 'Installing LLM (Gemma 4 E2B)…');
       final staged = await _stagedLlmPath();
-      final llm = FlutterGemma.installModel(
+      final llm = FlutterEdgeAi.installModel(
         modelType: ModelType.gemma4,
         fileType: ModelFileType.litertlm,
       );
@@ -186,16 +186,16 @@ class _VoiceHomePageState extends State<VoiceHomePage> {
       }
 
       setState(() => _status = 'Installing TTS (Inflect)…');
-      await FlutterGemma.installTts()
+      await FlutterEdgeAi.installTts()
           .fromNetwork(_ttsUrl)
           .ofType(TtsModelType.inflect)
           .install();
 
-      _recognizer = await FlutterGemma.getActiveStt();
-      _synthesizer = await FlutterGemma.getActiveTts();
+      _recognizer = await FlutterEdgeAi.getActiveStt();
+      _synthesizer = await FlutterEdgeAi.getActiveTts();
       // CPU: the voice path loads Inflect (Metal) alongside the LLM; a concurrent
       // Metal GPU load is flaky on desktop — CPU keeps the demo deterministic.
-      _model = await FlutterGemma.getActiveModel(
+      _model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 4096,
         preferredBackend: PreferredBackend.cpu,
       );
@@ -286,7 +286,7 @@ class _VoiceHomePageState extends State<VoiceHomePage> {
       );
     } else {
       // Full agent over the bundled skills (calculate-hash JS, etc.). The skills
-      // ship in flutter_gemma_agent's own assets, so no bundling here.
+      // ship in flutter_edge_ai_agent's own assets, so no bundling here.
       final source = AssetSkillSource();
       final skills = await source.load();
       final registry = SkillRegistry()..addAll(skills, selected: true);

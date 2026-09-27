@@ -30,10 +30,10 @@ void main() {
 
   setUp(() async {
     fakeDocuments = await Directory.systemTemp.createTemp(
-      'flutter_gemma_docs_',
+      'flutter_edge_ai_docs_',
     );
     fakeAppSupport = await Directory.systemTemp.createTemp(
-      'flutter_gemma_appsupport_',
+      'flutter_edge_ai_appsupport_',
     );
     mockProvider = _FixedPathProviderPlatform(
       documentsPath: fakeDocuments.path,
@@ -95,7 +95,7 @@ void main() {
 
         // Arrange: write a file to the "legacy Documents" location so that the
         // fallback probe in getTargetPath finds it. The "new" location at
-        // <appSupport>/flutter_gemma/old_model.litertlm is left empty so the
+        // <appSupport>/flutter_edge_ai/old_model.litertlm is left empty so the
         // probe fires.
         final legacyFile = File(
           p.join(fakeDocuments.path, 'old_model.litertlm'),
@@ -151,7 +151,7 @@ void main() {
         final expectedPath = await service.getTargetPath('roundtrip.bin');
 
         // ModelFileSystemManager.getModelFilePath must return the same value.
-        // It is defined in a `part` file of flutter_gemma_mobile, so we call
+        // It is defined in a `part` file of flutter_edge_ai_mobile, so we call
         // the service directly (same underlying implementation).
         final storageDir = await service.getModelStorageDirectory();
         expect(expectedPath, startsWith(storageDir));

@@ -11,7 +11,7 @@
          foreground service does NOT activate at all (background_downloader's
          displayNotification() bails out before calling setForeground() when
          it isn't granted) — declaring it here is necessary but not
-         sufficient. flutter_gemma now requests it at runtime automatically
+         sufficient. flutter_edge_ai now requests it at runtime automatically
          before starting a foreground download. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Required on Android 14+ (API 34+) for foreground downloads (#356
@@ -22,7 +22,7 @@
          android:foregroundServiceType on that service's manifest entry —
          otherwise it throws IllegalArgumentException:
          "foregroundServiceType ... is not a subset of ... 0x00000000".
-         This is host-app responsibility (flutter_gemma does not impose it on
+         This is host-app responsibility (flutter_edge_ai does not impose it on
          every consumer — see README's Foreground Service section). -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
@@ -30,7 +30,7 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <application
-        android:label="flutter_gemma_example"
+        android:label="flutter_edge_ai_example"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true"

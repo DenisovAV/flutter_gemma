@@ -21,12 +21,12 @@ import 'package:path_provider/path_provider.dart';
 /// populated from `qwen3SupportedLanguages` — see Task 5.4's brief for why
 /// language, not voice, is the v1-selectable dimension: the model ships
 /// exactly one voice, no voice picker). Language is a create-time param
-/// (`FlutterGemma.getActiveTts(language: ...)`) — changing it re-creates the
+/// (`FlutterEdgeAi.getActiveTts(language: ...)`) — changing it re-creates the
 /// synthesizer (closes the old one, installs/activates again), reloading
 /// the ~1.9 GB model.
 ///
 /// `createFile` (not raw `dart:io`) is used to write the WAV to a temp file
-/// so this screen still compiles for web, where `flutter_gemma_speech` has
+/// so this screen still compiles for web, where `flutter_edge_ai_speech` has
 /// no TTS arm (the init call surfaces that as [_initError] instead).
 class TtsScreen extends StatefulWidget {
   final TtsModel model;
@@ -75,7 +75,7 @@ class _TtsScreenState extends State<TtsScreen> {
   /// singleton for the same active model, so a language change alone (same
   /// [_model], new [_language]) would otherwise silently keep serving the
   /// OLD language unless the old instance is closed first (see
-  /// `FlutterGemma.getActiveTts`'s doc).
+  /// `FlutterEdgeAi.getActiveTts`'s doc).
   Future<void> _initializeTtsModel() async {
     setState(() {
       _isInitializing = true;
@@ -86,7 +86,7 @@ class _TtsScreenState extends State<TtsScreen> {
     _synth = null;
     await oldSynth?.close();
     try {
-      await FlutterGemma.installTts()
+      await FlutterEdgeAi.installTts()
           .fromNetwork(_model.baseUrl)
           .ofType(_model.ttsModelType)
           .withProgress((percent) {
@@ -95,7 +95,7 @@ class _TtsScreenState extends State<TtsScreen> {
           })
           .install();
 
-      final synth = await FlutterGemma.getActiveTts(
+      final synth = await FlutterEdgeAi.getActiveTts(
         language: _isQwen3 ? _language : null,
       );
 

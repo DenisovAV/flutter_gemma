@@ -18,7 +18,7 @@ import 'skill_registry.dart';
 import 'skill_result.dart';
 import 'secret_store.dart';
 
-/// Orchestrates the agent turn over flutter_gemma's existing function-calling.
+/// Orchestrates the agent turn over flutter_edge_ai's existing function-calling.
 ///
 /// Given an [InferenceChat] created with the [agentTools] (and the skill
 /// discovery list injected into its system prompt) plus the [registry] of

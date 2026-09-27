@@ -25,7 +25,7 @@ String transformersRepoIdFromSource(ModelSource source) {
     AssetSource() || FileSource() => throw UnsupportedError(
       'ONNX web text generation identifies its model by Hugging Face repo id '
       '(NetworkSource) or a self-hosted id (BundledSource); got a '
-      '${source.runtimeType}. Use FlutterGemma.installModel().fromNetwork('
+      '${source.runtimeType}. Use FlutterEdgeAi.installModel().fromNetwork('
       "'https://huggingface.co/<owner>/<name>') or .fromBundled('<owner>/"
       "<name>').",
     ),

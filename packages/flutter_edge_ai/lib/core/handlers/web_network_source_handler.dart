@@ -7,7 +7,7 @@ import 'package:flutter_edge_ai/core/services/download_service.dart';
 import 'package:flutter_edge_ai/core/services/model_repository.dart';
 import 'package:flutter_edge_ai/core/infrastructure/web_cache_service.dart';
 import 'package:path/path.dart' as path;
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 
 /// Handles installation of models from network URLs on web platform
 ///
@@ -113,7 +113,7 @@ class WebNetworkSourceHandler implements SourceHandler {
 
       await repository.saveModel(modelInfo);
     } on DownloadCancelledException {
-      gemmaLog('[WebNetworkSourceHandler] ⏸️  Installation cancelled');
+      edgeAiLog('[WebNetworkSourceHandler] ⏸️  Installation cancelled');
       rethrow;
     } on DownloadException catch (e) {
       final errorMsg = switch (e.error) {
@@ -126,10 +126,10 @@ class WebNetworkSourceHandler implements SourceHandler {
         CanceledError() => 'Canceled',
         UnknownError(:final message) => 'Unknown Error: $message',
       };
-      gemmaLog('[WebNetworkSourceHandler] ❌ Download failed: $errorMsg');
+      edgeAiLog('[WebNetworkSourceHandler] ❌ Download failed: $errorMsg');
       rethrow;
     } catch (e) {
-      gemmaLog(
+      edgeAiLog(
         '[WebNetworkSourceHandler] ❌ Failed to install network model: $e',
       );
       rethrow;

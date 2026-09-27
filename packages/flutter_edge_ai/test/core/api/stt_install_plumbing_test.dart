@@ -1,6 +1,6 @@
 // Unit test for the core STT install/get plumbing (Task 2.1).
 //
-// Mirrors the embedder path: FlutterGemma.installStt()
+// Mirrors the embedder path: FlutterEdgeAi.installStt()
 // .modelFromFile(...).tokenizerFromFile(...).ofType(...).install() sets an
 // active SttModelSpec, hasActiveStt() flips true, and getActiveStt()
 // dispatches through the SttRegistry to the registered backend, returning
@@ -40,12 +40,12 @@ void main() {
 
   setUp(() async {
     fakeDocuments = await Directory.systemTemp.createTemp(
-      'flutter_gemma_docs_',
+      'flutter_edge_ai_docs_',
     );
     fakeAppSupport = await Directory.systemTemp.createTemp(
-      'flutter_gemma_appsupport_',
+      'flutter_edge_ai_appsupport_',
     );
-    sourceDir = await Directory.systemTemp.createTemp('flutter_gemma_src_');
+    sourceDir = await Directory.systemTemp.createTemp('flutter_edge_ai_src_');
     mockProvider = _FixedPathProviderPlatform(
       documentsPath: fakeDocuments.path,
       appSupportPath: fakeAppSupport.path,
@@ -54,10 +54,10 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     ServiceRegistry.reset();
     SttRegistry.instance.reset();
-    // The default FlutterGemmaPlugin instance (and its model manager) is a
+    // The default FlutterEdgeAiPlugin instance (and its model manager) is a
     // process-wide singleton that outlives each test — clear any active STT
     // identity a previous test left behind so tests stay independent.
-    await FlutterGemmaPlugin.instance.modelManager.clearActiveSttIdentity();
+    await FlutterEdgeAiPlugin.instance.modelManager.clearActiveSttIdentity();
   });
 
   tearDown(() async {
@@ -75,14 +75,14 @@ void main() {
       'installStt().ofType().install() sets active spec; getActiveStt() dispatches to the registered backend',
       () async {
         final fakeBackend = _FakeSttBackend();
-        await FlutterGemma.initialize(sttBackends: [fakeBackend]);
+        await FlutterEdgeAi.initialize(sttBackends: [fakeBackend]);
 
         final modelFile = File(path.join(sourceDir.path, 'model.tflite'));
         await modelFile.writeAsBytes(_fakeModelBytes);
         final tokenizerFile = File(path.join(sourceDir.path, 'tokenizer.json'));
         await tokenizerFile.writeAsBytes(_fakeTokenizerBytes);
 
-        final installation = await FlutterGemma.installStt()
+        final installation = await FlutterEdgeAi.installStt()
             .modelFromFile(modelFile.path)
             .tokenizerFromFile(tokenizerFile.path)
             .ofType(SttModelType.moonshine)
@@ -91,9 +91,9 @@ void main() {
         expect(installation.spec.sttModelType, SttModelType.moonshine);
         expect(installation.spec, isA<SttModelSpec>());
 
-        expect(FlutterGemma.hasActiveStt(), isTrue);
+        expect(FlutterEdgeAi.hasActiveStt(), isTrue);
 
-        final recognizer = await FlutterGemma.getActiveStt();
+        final recognizer = await FlutterEdgeAi.getActiveStt();
         expect(recognizer, isA<_FakeSpeechRecognizer>());
         expect(fakeBackend.lastSpec?.sttModelType, SttModelType.moonshine);
         expect(fakeBackend.lastConfig?.modelPath, isNotEmpty);
@@ -102,7 +102,7 @@ void main() {
     );
 
     test('installStt().install() without ofType() throws StateError', () async {
-      await FlutterGemma.initialize(sttBackends: [_FakeSttBackend()]);
+      await FlutterEdgeAi.initialize(sttBackends: [_FakeSttBackend()]);
 
       final modelFile = File(path.join(sourceDir.path, 'model.tflite'));
       await modelFile.writeAsBytes(_fakeModelBytes);
@@ -110,7 +110,7 @@ void main() {
       await tokenizerFile.writeAsBytes(_fakeTokenizerBytes);
 
       expect(
-        () => FlutterGemma.installStt()
+        () => FlutterEdgeAi.installStt()
             .modelFromFile(modelFile.path)
             .tokenizerFromFile(tokenizerFile.path)
             .install(),
@@ -119,9 +119,9 @@ void main() {
     });
 
     test('getActiveStt() throws when no active STT model is set', () async {
-      await FlutterGemma.initialize(sttBackends: [_FakeSttBackend()]);
-      expect(FlutterGemma.hasActiveStt(), isFalse);
-      expect(() => FlutterGemma.getActiveStt(), throwsStateError);
+      await FlutterEdgeAi.initialize(sttBackends: [_FakeSttBackend()]);
+      expect(FlutterEdgeAi.hasActiveStt(), isFalse);
+      expect(() => FlutterEdgeAi.getActiveStt(), throwsStateError);
     });
   });
 }

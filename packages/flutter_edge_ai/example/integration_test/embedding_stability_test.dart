@@ -31,14 +31,14 @@ void main() {
     (tester) async {
       await registerTestEngines();
 
-      await FlutterGemma.installEmbedder()
+      await FlutterEdgeAi.installEmbedder()
           .modelFromAsset(
             'assets/models/embeddinggemma-300M_seq256_mixed-precision.tflite',
           )
           .tokenizerFromAsset('assets/models/sentencepiece.model')
           .install();
 
-      final model = await FlutterGemma.getActiveEmbedder();
+      final model = await FlutterEdgeAi.getActiveEmbedder();
 
       try {
         // 1. Non-zero embeddings

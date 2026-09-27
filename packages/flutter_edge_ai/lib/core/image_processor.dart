@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
-import 'utils/gemma_log.dart';
+import 'utils/edge_ai_log.dart';
 
 /// Comprehensive image processing utilities to prevent AI image corruption
 /// and ensure proper vision encoder compatibility.
@@ -20,14 +20,14 @@ class ImageProcessor {
     String? originalFormat,
   }) async {
     try {
-      gemmaLog('ImageProcessor: Starting image processing...');
+      edgeAiLog('ImageProcessor: Starting image processing...');
 
       // Step 1: Validate input
       _validateImageBytes(imageBytes);
 
       // Step 2: Decode image to check format and get dimensions
       final decodedImage = await _decodeImage(imageBytes);
-      gemmaLog(
+      edgeAiLog(
         'ImageProcessor: Original image - Format: ${originalFormat ?? 'unknown'}, '
         'Width: ${decodedImage.width}, Height: ${decodedImage.height}',
       );
@@ -38,24 +38,24 @@ class ImageProcessor {
         _targetWidth,
         _targetHeight,
       );
-      gemmaLog(
+      edgeAiLog(
         'ImageProcessor: Image resized to ${_targetWidth}x$_targetHeight',
       );
 
       // Step 4: Convert to optimal format (PNG for lossless quality)
       final processedBytes = await _encodeToPng(resizedImage);
-      gemmaLog('ImageProcessor: Image converted to PNG format');
+      edgeAiLog('ImageProcessor: Image converted to PNG format');
 
       // Step 5: Create Base64 encoded version for transmission
       final base64String = _encodeBase64Safe(processedBytes);
-      gemmaLog(
+      edgeAiLog(
         'ImageProcessor: Base64 encoding completed (${base64String.length} chars)',
       );
 
       // Step 6: Validate final output
       _validateProcessedImage(processedBytes, base64String);
 
-      gemmaLog('ImageProcessor: Image processing completed successfully');
+      edgeAiLog('ImageProcessor: Image processing completed successfully');
 
       return ProcessedImage(
         originalBytes: imageBytes,
@@ -67,7 +67,7 @@ class ImageProcessor {
         originalFormat: originalFormat ?? detectFormat(imageBytes),
       );
     } catch (e) {
-      gemmaLog('ImageProcessor: Error processing image - $e');
+      edgeAiLog('ImageProcessor: Error processing image - $e');
       throw ImageProcessingException('Failed to process image: $e');
     }
   }
@@ -86,7 +86,7 @@ class ImageProcessor {
 
     // Check for minimum viable image size (roughly 100x100 pixels in most formats)
     if (imageBytes.length < 1024) {
-      gemmaLog(
+      edgeAiLog(
         'ImageProcessor: Warning - Image appears very small (${imageBytes.length} bytes)',
       );
     }

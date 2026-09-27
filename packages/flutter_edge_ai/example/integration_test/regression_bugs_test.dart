@@ -28,7 +28,7 @@ String get _macosDir =>
     '${Platform.environment['HOME']}/Library/Containers/dev.flutterberlin.flutterGemmaExample55/Data/Documents';
 String get _linuxDir => '${Platform.environment['HOME']}/models';
 String get _windowsDir => '${Platform.environment['USERPROFILE']}\\models';
-const String _androidDir = '/data/local/tmp/flutter_gemma_test';
+const String _androidDir = '/data/local/tmp/flutter_edge_ai_test';
 
 Future<void> _installGemma4() async {
   final candidates = [
@@ -39,14 +39,14 @@ Future<void> _installGemma4() async {
   ];
   for (final path in candidates) {
     if (File(path).existsSync()) {
-      await FlutterGemma.installModel(
+      await FlutterEdgeAi.installModel(
         modelType: ModelType.gemmaIt,
         fileType: ModelFileType.litertlm,
       ).fromFile(path).install();
       return;
     }
   }
-  await FlutterGemma.installModel(
+  await FlutterEdgeAi.installModel(
     modelType: ModelType.gemmaIt,
     fileType: ModelFileType.litertlm,
   ).fromNetwork(_gemma4Url, token: _token).install();
@@ -85,7 +85,7 @@ void main() {
     //
     // Either way, at least one assertion catches the bug.
     Future<void> runStochasticSeedCheck(PreferredBackend backend) async {
-      final model = await FlutterGemma.getActiveModel(
+      final model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 4096,
         preferredBackend: backend,
         supportImage: true,
@@ -153,7 +153,7 @@ void main() {
     testWidgets(
       'CPU honors temperature=0.0 (greedy) — output is seed-invariant',
       (_) async {
-        final model = await FlutterGemma.getActiveModel(
+        final model = await FlutterEdgeAi.getActiveModel(
           maxTokens: 4096,
           preferredBackend: PreferredBackend.cpu,
           supportImage: true,
@@ -218,7 +218,7 @@ void main() {
     // default (typically topK=1, temperature=1.0, type=TOP_P) producing
     // ambiguous results.
     testWidgets('CPU honors topK=1 (deterministic across seeds)', (_) async {
-      final model = await FlutterGemma.getActiveModel(
+      final model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 4096,
         preferredBackend: PreferredBackend.cpu,
         supportImage: true,
@@ -270,7 +270,7 @@ void main() {
     testWidgets('GPU temperature=0.0 produces same-seed-stable output', (
       _,
     ) async {
-      final model = await FlutterGemma.getActiveModel(
+      final model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 4096,
         preferredBackend: PreferredBackend.gpu,
         supportImage: true,
@@ -312,7 +312,7 @@ void main() {
     }, timeout: const Timeout(Duration(minutes: 5)));
 
     testWidgets('GPU topK=1 produces same-seed-stable output', (_) async {
-      final model = await FlutterGemma.getActiveModel(
+      final model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 4096,
         preferredBackend: PreferredBackend.gpu,
         supportImage: true,
@@ -378,7 +378,7 @@ void main() {
     }, timeout: const Timeout(Duration(minutes: 5)));
 
     testWidgets('GPU produces deterministic output across runs', (_) async {
-      final model = await FlutterGemma.getActiveModel(
+      final model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 4096,
         preferredBackend: PreferredBackend.gpu,
         supportImage: true,
@@ -432,7 +432,7 @@ void main() {
     testWidgets('non-existent loraPath must not be silently accepted', (
       _,
     ) async {
-      final model = await FlutterGemma.getActiveModel(
+      final model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 4096,
         preferredBackend: PreferredBackend.cpu,
         supportImage: true,
@@ -500,7 +500,7 @@ void main() {
     testWidgets(
       'non-empty tools list must engage native function calling or throw',
       (_) async {
-        final model = await FlutterGemma.getActiveModel(
+        final model = await FlutterEdgeAi.getActiveModel(
           maxTokens: 4096,
           preferredBackend: PreferredBackend.cpu,
           supportImage: true,
@@ -574,7 +574,7 @@ void main() {
     testWidgets('stopGeneration after close is a no-op (no UAF crash)', (
       _,
     ) async {
-      final model = await FlutterGemma.getActiveModel(
+      final model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 4096,
         preferredBackend: PreferredBackend.cpu,
         supportImage: true,
@@ -635,7 +635,7 @@ void main() {
         // Distinct maxTokens forces the singleton-reuse path to rebuild —
         // otherwise a model from an earlier test comes back without the
         // requested backend being re-evaluated.
-        final model = await FlutterGemma.getActiveModel(
+        final model = await FlutterEdgeAi.getActiveModel(
           maxTokens: 2048,
           preferredBackend: PreferredBackend.npu,
         );
@@ -684,7 +684,7 @@ void main() {
     testWidgets('close() during active stream must terminate cleanly', (
       _,
     ) async {
-      final model = await FlutterGemma.getActiveModel(
+      final model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 4096,
         preferredBackend: PreferredBackend.cpu,
         supportImage: true,

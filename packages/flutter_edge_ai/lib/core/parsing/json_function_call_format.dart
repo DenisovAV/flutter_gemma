@@ -2,7 +2,7 @@ import 'package:flutter_edge_ai/core/model_response.dart';
 
 import 'function_call_format.dart';
 import 'json_parsing_utils.dart';
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 
 /// JSON-based function call format (default).
 ///
@@ -110,9 +110,9 @@ class JsonFunctionCallFormat extends FunctionCallFormat {
 
     if (match != null) {
       final jsonStr = match.group(1)!.trim();
-      gemmaLog(
+      edgeAiLog(
         'JsonFormat: Found tool_code XML block: $jsonStr',
-        level: GemmaLogLevel.verbose,
+        level: EdgeAiLogLevel.verbose,
       );
       return JsonParsingUtils.parseJsonString(jsonStr);
     }
@@ -126,9 +126,9 @@ class JsonFunctionCallFormat extends FunctionCallFormat {
 
     if (match != null) {
       final jsonStr = match.group(1)!.trim();
-      gemmaLog(
+      edgeAiLog(
         'JsonFormat: Found tool_code markdown block: $jsonStr',
-        level: GemmaLogLevel.verbose,
+        level: EdgeAiLogLevel.verbose,
       );
       return JsonParsingUtils.parseJsonString(jsonStr);
     }
@@ -142,9 +142,9 @@ class JsonFunctionCallFormat extends FunctionCallFormat {
 
     if (match != null) {
       final jsonStr = match.group(1)!.trim();
-      gemmaLog(
+      edgeAiLog(
         'JsonFormat: Found markdown json block: $jsonStr',
-        level: GemmaLogLevel.verbose,
+        level: EdgeAiLogLevel.verbose,
       );
       return JsonParsingUtils.parseJsonString(jsonStr);
     }
@@ -155,9 +155,9 @@ class JsonFunctionCallFormat extends FunctionCallFormat {
     if (match != null) {
       final jsonStr = match.group(1)!.trim();
       if (jsonStr.startsWith('{') && jsonStr.contains('"name"')) {
-        gemmaLog(
+        edgeAiLog(
           'JsonFormat: Found markdown code block: $jsonStr',
-          level: GemmaLogLevel.verbose,
+          level: EdgeAiLogLevel.verbose,
         );
         return JsonParsingUtils.parseJsonString(jsonStr);
       }
@@ -169,9 +169,9 @@ class JsonFunctionCallFormat extends FunctionCallFormat {
   FunctionCallResponse? _parseDirectJson(String content) {
     final trimmed = content.trim();
     if (trimmed.startsWith('{') && trimmed.contains('"name"')) {
-      gemmaLog(
+      edgeAiLog(
         'JsonFormat: Found direct JSON: $trimmed',
-        level: GemmaLogLevel.verbose,
+        level: EdgeAiLogLevel.verbose,
       );
       return JsonParsingUtils.parseJsonString(trimmed);
     }

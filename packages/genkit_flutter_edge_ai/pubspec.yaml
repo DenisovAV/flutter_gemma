@@ -6,7 +6,7 @@ repository: https://github.com/DenisovAV/flutter_gemma
 issue_tracker: https://github.com/DenisovAV/flutter_gemma/issues
 topics:
   - genkit
-  - flutter-gemma
+  - flutter-edge-ai
   - llm
   - on-device-ai
   - embeddings

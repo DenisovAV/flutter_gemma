@@ -6,7 +6,7 @@
 import 'package:flutter_edge_ai/core/registry/embedding_backend_provider.dart';
 import 'package:flutter_edge_ai/core/registry/runtime_config.dart';
 import 'package:flutter_edge_ai/core/registry/embedding_tokenizer_registry.dart';
-import 'package:flutter_edge_ai/flutter_gemma_interface.dart' show EmbeddingModel;
+import 'package:flutter_edge_ai/flutter_edge_ai_interface.dart' show EmbeddingModel;
 import 'package:flutter_edge_ai/core/model_management/model_specs.dart'
     show EmbeddingModelSpec;
 

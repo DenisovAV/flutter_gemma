@@ -31,7 +31,7 @@ void main() {
   testWidgets('iOS litertlm: text inference', (tester) async {
     await registerTestEngines();
 
-    await FlutterGemma.installModel(
+    await FlutterEdgeAi.installModel(
           modelType: ModelType.gemmaIt,
           fileType: ModelFileType.litertlm,
         )
@@ -39,7 +39,7 @@ void main() {
         .withProgress((p) => print('[Download] $p%'))
         .install();
 
-    final model = await FlutterGemma.getActiveModel(
+    final model = await FlutterEdgeAi.getActiveModel(
       maxTokens: 512,
       preferredBackend: PreferredBackend.gpu,
     );
@@ -68,7 +68,7 @@ void main() {
     final imageBytes = await _loadTestImage();
     print('[Vision/litertlm] Image: ${imageBytes.length} bytes');
 
-    final model = await FlutterGemma.getActiveModel(
+    final model = await FlutterEdgeAi.getActiveModel(
       maxTokens: 4096,
       preferredBackend: PreferredBackend.gpu,
       supportImage: true,
@@ -106,7 +106,7 @@ void main() {
     final audioBytes = await _loadTestAudio();
     print('[Audio/litertlm] Audio: ${audioBytes.length} bytes');
 
-    final model = await FlutterGemma.getActiveModel(
+    final model = await FlutterEdgeAi.getActiveModel(
       maxTokens: 4096,
       preferredBackend: PreferredBackend.gpu,
       supportAudio: true,

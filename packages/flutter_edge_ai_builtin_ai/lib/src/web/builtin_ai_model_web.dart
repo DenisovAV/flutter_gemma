@@ -7,8 +7,8 @@ import 'package:flutter_edge_ai/core/chat.dart';
 import 'package:flutter_edge_ai/core/lifecycle/close_notifier.dart';
 import 'package:flutter_edge_ai/core/model.dart';
 import 'package:flutter_edge_ai/core/tool.dart';
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
-import 'package:flutter_edge_ai/flutter_gemma_interface.dart'
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai_interface.dart'
     show InferenceModel, InferenceModelSession;
 import 'package:flutter_edge_ai/core/domain/platform_types.dart'
     show PreferredBackend;
@@ -34,7 +34,7 @@ void resetDroppedParamWarningsWeb() => _droppedParamsWarned.clear();
 
 void _warnParamDroppedOnce(String param, String detail) {
   if (!_droppedParamsWarned.add(param)) return;
-  gemmaLog(
+  edgeAiLog(
     '[BuiltInAI/web] $param is not supported by the Chrome Prompt API; $detail',
   );
 }
@@ -47,7 +47,7 @@ void resetVisionUnsupportedWarningWeb() => _visionUnsupportedWarned = false;
 void _warnVisionIgnoredOnce() {
   if (_visionUnsupportedWarned) return;
   _visionUnsupportedWarned = true;
-  gemmaLog(
+  edgeAiLog(
     '[BuiltInAI/web] Vision input is not wired on the web Prompt API path '
     '(v1, text-only) — images are dropped. Track: expectedInputs:[{type:"image"}].',
   );
@@ -117,7 +117,7 @@ class BuiltInAiModelWeb extends InferenceModel with CloseNotifier {
     if (enableThinking) {
       if (!_thinkingUnsupportedWarned) {
         _thinkingUnsupportedWarned = true;
-        gemmaLog(
+        edgeAiLog(
           '[BuiltInAI/web] Thinking mode is not supported by the Chrome '
           'Prompt API; the flag is ignored.',
         );
@@ -216,7 +216,7 @@ class BuiltInAiModelWeb extends InferenceModel with CloseNotifier {
         clamped = true;
       }
       if (clamped) {
-        gemmaLog(
+        edgeAiLog(
           '[BuiltInAI/web] Clamped sampler params to the browser\'s reported '
           'max (temperature=$clampedTemp, topK=$clampedTopK).',
         );
@@ -226,7 +226,7 @@ class BuiltInAiModelWeb extends InferenceModel with CloseNotifier {
       // `params()` is best-effort — a browser that fails/omits it just skips
       // the clamp; `create()` itself is the source of truth for validation.
       if (kDebugMode) {
-        gemmaLog('[BuiltInAI/web] LanguageModel.params() failed: $e');
+        edgeAiLog('[BuiltInAI/web] LanguageModel.params() failed: $e');
       }
       return (temperature, topK);
     }

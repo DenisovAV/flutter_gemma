@@ -1,4 +1,4 @@
-/// Full desktop integration tests via FlutterGemma plugin API.
+/// Full desktop integration tests via FlutterEdgeAi plugin API.
 /// Tests: text sync, streaming, vision, audio, thinking mode.
 ///
 /// Run: cd example && flutter test integration_test/desktop_full_test.dart -d macos
@@ -24,7 +24,7 @@ late Uint8List _testImage;
 late Uint8List _testAudio;
 
 Future<void> _install(String path) async {
-  await FlutterGemma.installModel(
+  await FlutterEdgeAi.installModel(
     modelType: ModelType.gemmaIt,
     fileType: ModelFileType.litertlm,
   ).fromFile(path).install();
@@ -45,7 +45,7 @@ void main() {
   group('Gemma3-1B text', () {
     testWidgets('sync CPU', (t) async {
       await _install(_gemma3_1bPath);
-      final model = await FlutterGemma.getActiveModel(
+      final model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 512,
         preferredBackend: PreferredBackend.cpu,
       );
@@ -60,7 +60,7 @@ void main() {
 
     testWidgets('stream GPU', (t) async {
       await _install(_gemma3_1bPath);
-      final model = await FlutterGemma.getActiveModel(
+      final model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 512,
         preferredBackend: PreferredBackend.gpu,
       );
@@ -84,7 +84,7 @@ void main() {
   group('Gemma4 E2B', () {
     testWidgets('sync GPU', (t) async {
       await _install(_gemma4Path);
-      final model = await FlutterGemma.getActiveModel(
+      final model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 512,
         preferredBackend: PreferredBackend.gpu,
       );
@@ -101,7 +101,7 @@ void main() {
 
     testWidgets('stream GPU', (t) async {
       await _install(_gemma4Path);
-      final model = await FlutterGemma.getActiveModel(
+      final model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 512,
         preferredBackend: PreferredBackend.gpu,
       );
@@ -121,7 +121,7 @@ void main() {
 
     testWidgets('vision GPU', (t) async {
       await _install(_gemma4Path);
-      final model = await FlutterGemma.getActiveModel(
+      final model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 512,
         preferredBackend: PreferredBackend.gpu,
         supportImage: true,
@@ -148,7 +148,7 @@ void main() {
 
     testWidgets('audio GPU', (t) async {
       await _install(_gemma4Path);
-      final model = await FlutterGemma.getActiveModel(
+      final model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 512,
         preferredBackend: PreferredBackend.gpu,
         supportAudio: true,
@@ -174,7 +174,7 @@ void main() {
 
     testWidgets('thinking GPU', (t) async {
       await _install(_gemma4Path);
-      final model = await FlutterGemma.getActiveModel(
+      final model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 2048,
         preferredBackend: PreferredBackend.gpu,
       );
@@ -217,7 +217,7 @@ void main() {
   group('Gemma3n E2B', () {
     testWidgets('sync CPU', (t) async {
       await _install(_gemma3nPath);
-      final model = await FlutterGemma.getActiveModel(
+      final model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 512,
         preferredBackend: PreferredBackend.cpu,
       );
@@ -232,7 +232,7 @@ void main() {
 
     testWidgets('stream GPU', (t) async {
       await _install(_gemma3nPath);
-      final model = await FlutterGemma.getActiveModel(
+      final model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 512,
         preferredBackend: PreferredBackend.gpu,
       );
@@ -252,7 +252,7 @@ void main() {
 
     testWidgets('vision GPU', (t) async {
       await _install(_gemma3nPath);
-      final model = await FlutterGemma.getActiveModel(
+      final model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 512,
         preferredBackend: PreferredBackend.gpu,
         supportImage: true,
@@ -279,7 +279,7 @@ void main() {
 
     testWidgets('audio CPU', (t) async {
       await _install(_gemma3nPath);
-      final model = await FlutterGemma.getActiveModel(
+      final model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 512,
         preferredBackend: PreferredBackend.cpu,
         supportAudio: true,
@@ -305,7 +305,7 @@ void main() {
 
     testWidgets('audio GPU', (t) async {
       await _install(_gemma3nPath);
-      final model = await FlutterGemma.getActiveModel(
+      final model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 512,
         preferredBackend: PreferredBackend.gpu,
         supportAudio: true,

@@ -1,4 +1,4 @@
-// Covers the FlutterGemma.rag.* namespace and removeDocument (interface →
+// Covers the FlutterEdgeAi.rag.* namespace and removeDocument (interface →
 // platform shell → vectorStoreRepository): add 2 docs, remove one, assert the
 // store reports one left, and that removing an absent id is a no-op.
 //
@@ -21,7 +21,7 @@ void main() {
   late String dbPath;
 
   setUpAll(() async {
-    await FlutterGemma.initialize(
+    await FlutterEdgeAi.initialize(
       vectorStore: SqliteVectorStore(),
       inferenceEngines: const [LiteRtLmEngine()],
       embeddingBackends: const [LiteRtEmbeddingBackend()],
@@ -31,37 +31,37 @@ void main() {
   });
 
   testWidgets(
-    'FlutterGemma.rag namespace + removeDocument',
+    'FlutterEdgeAi.rag namespace + removeDocument',
     (t) async {
-      await FlutterGemma.rag.initialize(dbPath);
-      await FlutterGemma.rag.clear();
+      await FlutterEdgeAi.rag.initialize(dbPath);
+      await FlutterEdgeAi.rag.clear();
 
-      await FlutterGemma.rag.addDocumentWithEmbedding(
+      await FlutterEdgeAi.rag.addDocumentWithEmbedding(
         id: 'a',
         content: 'apple',
         embedding: [1.0, 0.0, 0.0],
       );
-      await FlutterGemma.rag.addDocumentWithEmbedding(
+      await FlutterEdgeAi.rag.addDocumentWithEmbedding(
         id: 'b',
         content: 'banana',
         embedding: [0.0, 1.0, 0.0],
       );
 
-      var stats = await FlutterGemma.rag.stats();
+      var stats = await FlutterEdgeAi.rag.stats();
       print('[E] after add: count=${stats.documentCount}');
       expect(stats.documentCount, 2);
 
       // The new plumbed path: rag.removeDocument → plugin → shell → repo.
-      await FlutterGemma.rag.removeDocument(id: 'a');
+      await FlutterEdgeAi.rag.removeDocument(id: 'a');
 
-      stats = await FlutterGemma.rag.stats();
+      stats = await FlutterEdgeAi.rag.stats();
       print('[E] after removeDocument(a): count=${stats.documentCount}');
       expect(stats.documentCount, 1, reason: 'exactly one doc removed');
 
       // removing an absent id is a no-op (must not throw)
-      await FlutterGemma.rag.removeDocument(id: 'a');
+      await FlutterEdgeAi.rag.removeDocument(id: 'a');
 
-      await FlutterGemma.rag.clear();
+      await FlutterEdgeAi.rag.clear();
       try {
         await ServiceRegistry.instance.vectorStoreRepository.close();
       } catch (_) {}

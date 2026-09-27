@@ -1,4 +1,4 @@
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 import 'package:flutter_edge_ai/core/di/service_registry.dart';
 import 'package:flutter_edge_ai/core/model_management/model_specs.dart';
 import 'package:flutter_edge_ai/core/utils/file_name_utils.dart';
@@ -12,7 +12,7 @@ import 'package:flutter_edge_ai/core/services/model_repository.dart' as repo;
 ///
 /// Usage:
 /// ```dart
-/// await FlutterGemma.installEmbedder()
+/// await FlutterEdgeAi.installEmbedder()
 ///   .modelFromNetwork('https://example.com/model.tflite', token: 'hf_...')
 ///   .tokenizerFromNetwork('https://example.com/tokenizer.model', token: 'hf_...')
 ///   .withModelProgress((p) => print('Model: $p%'))
@@ -116,7 +116,7 @@ class EmbeddingInstallationBuilder {
   /// ```dart
   /// final cancelToken = CancelToken();
   ///
-  /// final future = FlutterGemma.installEmbedder()
+  /// final future = FlutterEdgeAi.installEmbedder()
   ///   .modelFromNetwork(modelUrl)
   ///   .tokenizerFromNetwork(tokenizerUrl)
   ///   .withCancelToken(cancelToken)
@@ -178,7 +178,7 @@ class EmbeddingInstallationBuilder {
     );
 
     if (isModelInstalled && isTokenizerInstalled) {
-      gemmaLog(
+      edgeAiLog(
         'ℹ️  Embedding model already installed: $modelFilename + $tokenizerFilename (skipping download)',
       );
     } else {
@@ -186,7 +186,7 @@ class EmbeddingInstallationBuilder {
 
       // Install model file if not already installed
       if (!isModelInstalled) {
-        gemmaLog('📥 Installing embedding model...');
+        edgeAiLog('📥 Installing embedding model...');
         final modelHandler = handlerRegistry.getHandler(_modelSource!);
         if (_onModelProgress != null) {
           await for (final progress in modelHandler!.installWithProgress(
@@ -206,12 +206,12 @@ class EmbeddingInstallationBuilder {
           );
         }
       } else {
-        gemmaLog('ℹ️  Embedding model file already installed: $modelFilename');
+        edgeAiLog('ℹ️  Embedding model file already installed: $modelFilename');
       }
 
       // Install tokenizer file if not already installed
       if (!isTokenizerInstalled) {
-        gemmaLog('📥 Installing tokenizer...');
+        edgeAiLog('📥 Installing tokenizer...');
         final tokenizerHandler = handlerRegistry.getHandler(
           effectiveTokenizerSource,
         );
@@ -233,15 +233,15 @@ class EmbeddingInstallationBuilder {
           );
         }
       } else {
-        gemmaLog('ℹ️  Tokenizer file already installed: $tokenizerFilename');
+        edgeAiLog('ℹ️  Tokenizer file already installed: $tokenizerFilename');
       }
     }
 
     // AUTO-SET as active embedding model (even if already installed)
-    final manager = FlutterGemmaPlugin.instance.modelManager;
+    final manager = FlutterEdgeAiPlugin.instance.modelManager;
     manager.setActiveModel(spec);
 
-    gemmaLog('✅ Embedding model installed and set as active: ${spec.name}');
+    edgeAiLog('✅ Embedding model installed and set as active: ${spec.name}');
 
     return EmbeddingInstallation(spec: spec);
   }

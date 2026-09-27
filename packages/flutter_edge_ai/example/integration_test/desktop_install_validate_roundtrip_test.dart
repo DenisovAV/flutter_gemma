@@ -2,7 +2,7 @@
 //
 // Regression guard for the bug where isModelInstalled() looked in
 // getApplicationDocumentsDirectory() while downloads landed in
-// Application Support/flutter_gemma/ (desktop) or LOCALAPPDATA/flutter_gemma/
+// Application Support/flutter_edge_ai/ (desktop) or LOCALAPPDATA/flutter_edge_ai/
 // (Windows), causing "Active model is no longer installed" immediately after
 // a successful install on any clean desktop machine.
 //
@@ -17,7 +17,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:path/path.dart' as p;
 
-import 'package:flutter_edge_ai/core/api/flutter_gemma.dart';
+import 'package:flutter_edge_ai/core/api/flutter_edge_ai.dart';
 import 'package:flutter_edge_ai/core/di/service_registry.dart';
 import 'package:flutter_edge_ai/core/model.dart';
 import 'inference_test_helpers.dart' show registerTestEngines;
@@ -37,7 +37,7 @@ void main() {
       // Create a 2 MB dummy file in a temp dir so the test has no network
       // dependency and no asset bundling requirement. 2 MB exceeds the 1 MB
       // minimum size check in ModelFileSystemManager.isFileValid().
-      fixtureDir = await Directory.systemTemp.createTemp('flutter_gemma_rt_');
+      fixtureDir = await Directory.systemTemp.createTemp('flutter_edge_ai_rt_');
       fixtureFile = File(p.join(fixtureDir.path, fixtureBasename));
       await fixtureFile.writeAsBytes(List.filled(2 * 1024 * 1024, 0xAB));
     });
@@ -55,18 +55,18 @@ void main() {
     setUp(() async {
       await registerTestEngines();
       // Clean state: remove leftover metadata from a prior run.
-      final alreadyInstalled = await FlutterGemma.isModelInstalled(
+      final alreadyInstalled = await FlutterEdgeAi.isModelInstalled(
         fixtureBasename,
       );
       if (alreadyInstalled) {
-        await FlutterGemma.uninstallModel(fixtureBasename);
+        await FlutterEdgeAi.uninstallModel(fixtureBasename);
       }
     });
 
     tearDown(() async {
       // Make sure the next test starts with the fixture not installed.
-      if (await FlutterGemma.isModelInstalled(fixtureBasename)) {
-        await FlutterGemma.uninstallModel(fixtureBasename);
+      if (await FlutterEdgeAi.isModelInstalled(fixtureBasename)) {
+        await FlutterEdgeAi.uninstallModel(fixtureBasename);
       }
     });
 
@@ -75,13 +75,13 @@ void main() {
       (tester) async {
         // Step 1 — install. FileSource does no copying; it registers the
         // external path directly. This exercises the metadata path.
-        await FlutterGemma.installModel(
+        await FlutterEdgeAi.installModel(
           modelType: ModelType.gemmaIt,
         ).fromFile(fixtureFile.path).install();
 
         // Step 2 — metadata check (repository layer).
         expect(
-          await FlutterGemma.isModelInstalled(fixtureBasename),
+          await FlutterEdgeAi.isModelInstalled(fixtureBasename),
           isTrue,
           reason: 'Repository must record the model after install',
         );
@@ -125,9 +125,9 @@ void main() {
         }
 
         // Step 4 — clean up.
-        await FlutterGemma.uninstallModel(fixtureBasename);
+        await FlutterEdgeAi.uninstallModel(fixtureBasename);
         expect(
-          await FlutterGemma.isModelInstalled(fixtureBasename),
+          await FlutterEdgeAi.isModelInstalled(fixtureBasename),
           isFalse,
           reason: 'Model must be unregistered after uninstall',
         );
@@ -144,11 +144,11 @@ void main() {
         const assetBasename = 'test_image.jpg';
 
         // Clean up any leftover from a prior run.
-        if (await FlutterGemma.isModelInstalled(assetBasename)) {
-          await FlutterGemma.uninstallModel(assetBasename);
+        if (await FlutterEdgeAi.isModelInstalled(assetBasename)) {
+          await FlutterEdgeAi.uninstallModel(assetBasename);
         }
 
-        await FlutterGemma.installModel(
+        await FlutterEdgeAi.installModel(
           modelType: ModelType.gemmaIt,
         ).fromAsset(assetPath).install();
 
@@ -182,7 +182,7 @@ void main() {
               'getTargetPath() parent must equal getModelStorageDirectory()',
         );
 
-        await FlutterGemma.uninstallModel(assetBasename);
+        await FlutterEdgeAi.uninstallModel(assetBasename);
       },
     );
   });

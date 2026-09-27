@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 import 'package:flutter/foundation.dart';
@@ -225,7 +225,7 @@ class WebJsInterop {
       _revokeBlobUrlJs(blobUrl.toJS);
     } catch (e) {
       // Ignore errors during cleanup
-      gemmaLog('Warning: Failed to revoke blob URL: $e');
+      edgeAiLog('Warning: Failed to revoke blob URL: $e');
     }
   }
 
@@ -260,11 +260,11 @@ class WebJsInterop {
     final chunks = <Uint8List>[];
     int bytesReceived = 0;
 
-    gemmaLog('🌊 Starting stream: contentLength=${contentLength ?? "unknown"}');
+    edgeAiLog('🌊 Starting stream: contentLength=${contentLength ?? "unknown"}');
 
     // Warn about large files
     if (contentLength != null && contentLength > 2 * 1024 * 1024 * 1024) {
-      gemmaLog(
+      edgeAiLog(
         'Warning: Large file detected (${contentLength ~/ 1024 / 1024}MB). '
         'May encounter memory limits on some browsers.',
       );

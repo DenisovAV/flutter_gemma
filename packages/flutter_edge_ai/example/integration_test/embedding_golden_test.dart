@@ -2,7 +2,7 @@
 // decoupling plan Task 1 / I0 checkpoint).
 //
 // Captures a fixed set of embeddings on the PRE-refactor tree
-// (`packages/flutter_gemma_embeddings` LiteRT-backed) into a checked-in JSON
+// (`packages/flutter_edge_ai_embeddings` LiteRT-backed) into a checked-in JSON
 // golden file, then on every subsequent run asserts the current SDK produces
 // bit-for-bit (or ≤1e-6 per-component) identical vectors. This is the only
 // test that can catch a silently-added normalization/pooling step on the
@@ -12,7 +12,7 @@
 // Capture procedure (must be run on the PRE-refactor tree, deliberately,
 // not by CI):
 //   git stash -u                     # park the refactor
-//   cd packages/flutter_gemma/example && flutter pub get
+//   cd packages/flutter_edge_ai/example && flutter pub get
 //   flutter test integration_test/embedding_golden_test.dart -d macos
 //   # test FAILS (by design) and writes the candidate golden to
 //   # integration_test/goldens/embedding_golden.json — inspect it, then:
@@ -71,7 +71,7 @@ void main() {
     await registerTestEngines();
 
     try {
-      await FlutterGemma.installEmbedder()
+      await FlutterEdgeAi.installEmbedder()
           .modelFromAsset(_modelPath)
           .tokenizerFromAsset(_tokenizerPath)
           .install();
@@ -95,7 +95,7 @@ void main() {
       rethrow;
     }
 
-    final embedder = await FlutterGemma.getActiveEmbedder();
+    final embedder = await FlutterEdgeAi.getActiveEmbedder();
 
     final captured = <String, List<double>>{};
     try {

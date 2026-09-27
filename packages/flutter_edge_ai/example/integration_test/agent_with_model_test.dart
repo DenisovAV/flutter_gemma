@@ -44,7 +44,7 @@ const _gemma4File = 'gemma-4-E2B-it.litertlm';
 const _token = String.fromEnvironment('HUGGINGFACE_TOKEN');
 
 // ── Local model dirs (same layout as litertlm_ffi_test.dart) ──
-String get _androidDir => '/data/local/tmp/flutter_gemma_test';
+String get _androidDir => '/data/local/tmp/flutter_edge_ai_test';
 String get _macosDir =>
     '${Platform.environment['HOME']}/Library/Containers/dev.flutterberlin.flutterGemmaExample55/Data/Documents';
 String get _linuxDir => '${Platform.environment['HOME']}/models';
@@ -65,15 +65,15 @@ String? _localPath(String filename) {
 /// Install the Gemma 4 E2B `.litertlm` model: from file when present locally
 /// (macOS/Android/Desktop), otherwise from network (iOS).
 Future<void> _installGemma4() async {
-  if (FlutterGemma.hasActiveModel()) return;
+  if (FlutterEdgeAi.hasActiveModel()) return;
   final local = _localPath(_gemma4File);
   if (local != null && File(local).existsSync()) {
-    await FlutterGemma.installModel(
+    await FlutterEdgeAi.installModel(
       modelType: ModelType.gemma4,
       fileType: ModelFileType.litertlm,
     ).fromFile(local).install();
   } else {
-    await FlutterGemma.installModel(
+    await FlutterEdgeAi.installModel(
       modelType: ModelType.gemma4,
       fileType: ModelFileType.litertlm,
     ).fromNetwork(_gemma4Url, token: _token).install();
@@ -94,7 +94,7 @@ Future<AgentSession> _session(
   int maxIterations = 10,
   List<SkillExecutor>? executors,
 }) async {
-  final model = await FlutterGemma.getActiveModel(
+  final model = await FlutterEdgeAi.getActiveModel(
     maxTokens: 4096,
     preferredBackend: PreferredBackend.gpu,
   );

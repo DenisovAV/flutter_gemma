@@ -3,7 +3,7 @@ import 'package:flutter_edge_ai/core/model_response.dart';
 import 'function_call_format.dart';
 import 'json_function_call_format.dart';
 import 'json_parsing_utils.dart';
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 
 /// Qwen/Mistral tool call format.
 ///
@@ -84,9 +84,9 @@ class QwenFunctionCallFormat extends FunctionCallFormat {
 
     if (match != null) {
       final jsonStr = match.group(1)!.trim();
-      gemmaLog(
+      edgeAiLog(
         'QwenFormat: Found tool_call block: $jsonStr',
-        level: GemmaLogLevel.verbose,
+        level: EdgeAiLogLevel.verbose,
       );
       return JsonParsingUtils.parseJsonString(jsonStr);
     }

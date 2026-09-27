@@ -5,7 +5,7 @@ import 'package:genai_primitives/genai_primitives.dart';
 
 import '../message.dart';
 
-/// Converts a genai_primitives [ChatMessage] into flutter_gemma [Message]s.
+/// Converts a genai_primitives [ChatMessage] into flutter_edge_ai [Message]s.
 ///
 /// One ChatMessage may yield >1 Message (tool results become sibling messages).
 /// The text/media parts collapse into a single [Message] emitted FIRST, then
@@ -38,10 +38,10 @@ Future<List<Message>> messagesFromChatMessage(ChatMessage message) async {
         audio = _routeMedia(bytes, mimeType, images, audio);
       case LinkPart():
         throw UnsupportedError(
-          'LinkPart is not resolved by flutter_gemma: an on-device model needs '
+          'LinkPart is not resolved by flutter_edge_ai: an on-device model needs '
           'the media bytes, and this inference layer does not fetch URLs or read '
           'files. Resolve the link yourself and pass a DataPart with the bytes. '
-          '(For URL/web content behind a permission gate, use flutter_gemma_agent.)',
+          '(For URL/web content behind a permission gate, use flutter_edge_ai_agent.)',
         );
       case ToolPart(kind: ToolPartKind.result, :final toolName, :final result):
         if (!isUser) {
@@ -105,7 +105,7 @@ Future<List<Message>> messagesFromChatMessage(ChatMessage message) async {
   return messages;
 }
 
-/// Converts a list of [ChatMessage]s to flutter_gemma [Message]s in order,
+/// Converts a list of [ChatMessage]s to flutter_edge_ai [Message]s in order,
 /// concatenating each message's expansion (see [messagesFromChatMessage]).
 Future<List<Message>> messagesFromChatMessages(
   List<ChatMessage> messages,

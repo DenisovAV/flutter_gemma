@@ -2,8 +2,8 @@
 ///
 /// Prerequisites:
 ///   macOS:   models in ~/Library/Containers/.../Documents/
-///   Android: adb push models to /data/local/tmp/flutter_gemma_test/
-///   iOS:     models downloaded via FlutterGemma.installModel()
+///   Android: adb push models to /data/local/tmp/flutter_edge_ai_test/
+///   iOS:     models downloaded via FlutterEdgeAi.installModel()
 ///
 /// Run:
 ///   flutter test integration_test/litertlm_ffi_test.dart -d <device>
@@ -26,7 +26,7 @@ const _gemma4Url =
 const _token = String.fromEnvironment('HUGGINGFACE_TOKEN');
 
 // ── Local paths ──
-String get _androidDir => '/data/local/tmp/flutter_gemma_test';
+String get _androidDir => '/data/local/tmp/flutter_edge_ai_test';
 String get _macosDir =>
     '${Platform.environment['HOME']}/Library/Containers/dev.flutterberlin.flutterGemmaExample55/Data/Documents';
 String get _linuxDir => '${Platform.environment['HOME']}/models';
@@ -41,12 +41,12 @@ Future<void> _install({
   required String networkUrl,
 }) async {
   if (localPath != null && File(localPath).existsSync()) {
-    await FlutterGemma.installModel(
+    await FlutterEdgeAi.installModel(
       modelType: ModelType.gemmaIt,
       fileType: ModelFileType.litertlm,
     ).fromFile(localPath).install();
   } else {
-    await FlutterGemma.installModel(
+    await FlutterEdgeAi.installModel(
       modelType: ModelType.gemmaIt,
       fileType: ModelFileType.litertlm,
     ).fromNetwork(networkUrl, token: _token).install();
@@ -96,7 +96,7 @@ Future<InferenceModel> _ensureModel(
     _sharedModel = null;
   }
   _sharedBackend = backend;
-  _sharedModel = await FlutterGemma.getActiveModel(
+  _sharedModel = await FlutterEdgeAi.getActiveModel(
     maxTokens: maxTokens,
     preferredBackend: backend,
     supportImage: true,
@@ -658,7 +658,7 @@ void main() {
         markTestSkipped('no NPU-compiled model staged for this host');
         return null;
       }
-      await FlutterGemma.installModel(
+      await FlutterEdgeAi.installModel(
         modelType: ModelType.gemma4,
         fileType: ModelFileType.litertlm,
       ).fromFile(npuModelPath).install();
@@ -670,7 +670,7 @@ void main() {
       // model wasn't staged so the test silently skipped, and even with a model
       // the catch would have hidden the dispatch_lib_dir failure. "No model" is
       // a legit skip (handled above); "model present but engine threw" is a FAIL.
-      final model = await FlutterGemma.getActiveModel(
+      final model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 4096,
         preferredBackend: PreferredBackend.npu,
       );
@@ -797,9 +797,9 @@ void main() {
       print('[Desktop storage] Resolved target path:     $resolved');
 
       // Phase 5 contract:
-      //   - Windows: under %LOCALAPPDATA%\flutter_gemma\ (truly local,
+      //   - Windows: under %LOCALAPPDATA%\flutter_edge_ai\ (truly local,
       //     never OneDrive- or Domain-synced).
-      //   - macOS/Linux: under getApplicationSupportDirectory()/flutter_gemma/.
+      //   - macOS/Linux: under getApplicationSupportDirectory()/flutter_edge_ai/.
       if (Platform.isWindows) {
         expect(
           localAppData,
@@ -824,9 +824,9 @@ void main() {
         );
       }
       expect(
-        resolved.contains('flutter_gemma'),
+        resolved.contains('flutter_edge_ai'),
         isTrue,
-        reason: 'Path should be namespaced under flutter_gemma/',
+        reason: 'Path should be namespaced under flutter_edge_ai/',
       );
 
       // It should NOT land directly under Documents (where 0.15.0 and
@@ -869,11 +869,11 @@ void main() {
     }
 
     setUpAll(() async {
-      await FlutterGemma.installEmbedder()
+      await FlutterEdgeAi.installEmbedder()
           .modelFromFile(await resolveAsset(modelName))
           .tokenizerFromFile(await resolveAsset(tokenizerName))
           .install();
-      embModel = await FlutterGemma.getActiveEmbedder();
+      embModel = await FlutterEdgeAi.getActiveEmbedder();
     });
 
     tearDownAll(() async {

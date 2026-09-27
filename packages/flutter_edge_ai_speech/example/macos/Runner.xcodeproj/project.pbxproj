@@ -68,7 +68,7 @@
 		331C80D7294CF71000263BE5 /* RunnerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerTests.swift; sourceTree = "<group>"; };
 		333000ED22D3DE5D00554162 /* Warnings.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Warnings.xcconfig; sourceTree = "<group>"; };
 		335BBD1A22A9A15E00E9071D /* GeneratedPluginRegistrant.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = GeneratedPluginRegistrant.swift; sourceTree = "<group>"; };
-		33CC10ED2044A3C60003C045 /* flutter_gemma_speech_example.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = flutter_gemma_speech_example.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		33CC10ED2044A3C60003C045 /* flutter_edge_ai_speech_example.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = flutter_edge_ai_speech_example.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		33CC10F02044A3C60003C045 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		33CC10F22044A3C60003C045 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Assets.xcassets; path = Runner/Assets.xcassets; sourceTree = "<group>"; };
 		33CC10F52044A3C60003C045 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Base; path = Base.lproj/MainMenu.xib; sourceTree = "<group>"; };
@@ -147,7 +147,7 @@
 		33CC10EE2044A3C60003C045 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				33CC10ED2044A3C60003C045 /* flutter_gemma_speech_example.app */,
+				33CC10ED2044A3C60003C045 /* flutter_edge_ai_speech_example.app */,
 				331C80D5294CF71000263BE5 /* RunnerTests.xctest */,
 			);
 			name = Products;
@@ -244,7 +244,7 @@
 				33CC10EB2044A3C60003C045 /* Resources */,
 				33CC110E2044A8840003C045 /* Bundle Framework */,
 				3399D490228B24CF009A79C7 /* ShellScript */,
-				CB7ABA147F1E41772657B0F3 /* [flutter_gemma] Setup LiteRT-LM macOS */,
+				CB7ABA147F1E41772657B0F3 /* [flutter_edge_ai] Setup LiteRT-LM macOS */,
 				1DCA1728DF4A3A9DC6FF3B63 /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
@@ -257,7 +257,7 @@
 				78A3181F2AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage */,
 			);
 			productName = Runner;
-			productReference = 33CC10ED2044A3C60003C045 /* flutter_gemma_speech_example.app */;
+			productReference = 33CC10ED2044A3C60003C045 /* flutter_edge_ai_speech_example.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -411,7 +411,7 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
-		CB7ABA147F1E41772657B0F3 /* [flutter_gemma] Setup LiteRT-LM macOS */ = {
+		CB7ABA147F1E41772657B0F3 /* [flutter_edge_ai] Setup LiteRT-LM macOS */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -421,15 +421,15 @@
 			inputPaths = (
 				"$(BUILT_PRODUCTS_DIR)/$(PRODUCT_NAME).app/Contents/Frameworks/LiteRtLm.framework/Versions/A/LiteRtLm",
 			);
-			name = "[flutter_gemma] Setup LiteRT-LM macOS";
+			name = "[flutter_edge_ai] Setup LiteRT-LM macOS";
 			outputFileListPaths = (
 			);
 			outputPaths = (
-				"$(DERIVED_FILE_DIR)/flutter_gemma_litertlm_macos.stamp",
+				"$(DERIVED_FILE_DIR)/flutter_edge_ai_litertlm_macos.stamp",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "        set -e\n        FRAMEWORKS=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Frameworks\"\n        if [ ! -d \"${FRAMEWORKS}\" ]; then\n          exit 0\n        fi\n        # Sweep any leftover lib*.dylib symlinks from older flutter_gemma versions.\n        for base in LiteRtMetalAccelerator LiteRtTopKMetalSampler GemmaModelConstraintProvider; do\n          rm -f \"${FRAMEWORKS}/lib${base}.dylib\"\n        done\n        # Wrap each upstream dylib into a .framework bundle inside the app's\n        # Contents/Frameworks/ so dlopen(\"@executable_path/../Frameworks/<X>.framework/<X>\")\n        # (the path our patched gpu_registry.cc uses) resolves at runtime.\n        #\n        # Resolve the dylib source directory in this order:\n        # 1. Native Assets cache — where hook/build.dart fetches them on\n        #    `flutter pub get`. This is the ONLY source an installed app sees:\n        #    prebuilt/ is .gitignored and excluded from the pub package.\n        # 2. This repo's own prebuilt/, for working on the plugin with a\n        #    freshly built bundle and a cold cache.\n        #\n        # Two candidates were removed here because neither could ever fire: a\n        # .symlinks/plugins/flutter_gemma path (flutter_gemma_litertlm declares\n        # no macOS plugin, so Flutter creates no symlink for it), and a\n        # flutter_gemma/native path (the prebuilts moved to\n        # flutter_gemma_litertlm at the monorepo split).\n        for candidate in             \"${HOME}/Library/Caches/flutter_gemma/native/macos_arm64\"             \"${SRCROOT}/../../../flutter_gemma_litertlm/native/litert_lm/prebuilt/macos_arm64\"; do\n          if [ -f \"${candidate}/libGemmaModelConstraintProvider.dylib\" ]; then\n            PLUGIN_PREBUILT=\"${candidate}\"\n            break\n          fi\n        done\n        if [ -z \"${PLUGIN_PREBUILT:-}\" ]; then\n          echo \"[flutter_gemma] ERROR: Could not find macOS companion dylibs in either of:\"\n          echo \"  - $HOME/Library/Caches/flutter_gemma/native/macos_arm64/\"\n          echo \"  - $SRCROOT/../../../flutter_gemma_litertlm/native/litert_lm/prebuilt/macos_arm64/\"\n          echo \"  Run 'flutter clean && flutter pub get' to repopulate the Native Assets cache.\"\n          exit 1\n        fi\n        echo \"[flutter_gemma] Using companion dylibs from: ${PLUGIN_PREBUILT}\"\n        for base in GemmaModelConstraintProvider LiteRtMetalAccelerator LiteRtTopKMetalSampler; do\n          src=\"${PLUGIN_PREBUILT}/lib${base}.dylib\"\n          if [ ! -f \"${src}\" ]; then\n            echo \"[flutter_gemma] WARNING: ${src} not found — runtime dlopen will fail\"\n            continue\n          fi\n          fw_dir=\"${FRAMEWORKS}/${base}.framework\"\n          mkdir -p \"${fw_dir}/Versions/A/Resources\"\n          cp \"${src}\" \"${fw_dir}/Versions/A/${base}\"\n          # Set install_name to the @rpath the patched LiteRtLm dlopens.\n          install_name_tool -id \"@rpath/${base}.framework/Versions/A/${base}\" \\\n            \"${fw_dir}/Versions/A/${base}\" 2>/dev/null || true\n          # Symlinks Apple expects in a versioned framework bundle.\n          (cd \"${fw_dir}\" && ln -sfh A Versions/Current && ln -sfh \"Versions/Current/${base}\" \"${base}\" && ln -sfh \"Versions/Current/Resources\" Resources)\n          # Minimal Info.plist so the framework is well-formed.\n          cat > \"${fw_dir}/Versions/A/Resources/Info.plist\" <<EOF\n<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist version=\"1.0\">\n<dict>\n  <key>CFBundleExecutable</key><string>${base}</string>\n  <key>CFBundleIdentifier</key><string>dev.flutterberlin.flutter_gemma.${base}</string>\n  <key>CFBundleVersion</key><string>1</string>\n  <key>CFBundleShortVersionString</key><string>1.0</string>\n  <key>CFBundlePackageType</key><string>FMWK</string>\n</dict>\n</plist>\nEOF\n          # Re-sign the framework binary: install_name_tool above invalidated\n          # its code signature, and unlike LiteRtLm these hand-copied companion\n          # frameworks are not re-signed by Xcode — an unsigned/modified page\n          # trips CODESIGNING \"Invalid Page\" at dlopen. Ad-hoc sign like LiteRtLm.\n          codesign --force --sign - \"${fw_dir}/Versions/A/${base}\" 2>/dev/null || true\n          echo \"[flutter_gemma] copied ${base}.framework\"\n        done\n        # Patch LiteRtLm.dylib's LC_LOAD_DYLIB reference to GemmaModelConstraintProvider\n        # to point at the framework path we just created, since the upstream\n        # prebuilt ships with @rpath/libGemmaModelConstraintProvider.dylib.\n        # Our own LiteRtLm was linked with -headerpad_max_install_names so this\n        # in-bundle install_name_tool -change fits comfortably.\n        LITERTLM=\"${FRAMEWORKS}/LiteRtLm.framework/Versions/A/LiteRtLm\"\n        if [ -f \"${LITERTLM}\" ]; then\n          install_name_tool -change \\\n            @rpath/libGemmaModelConstraintProvider.dylib \\\n            @rpath/GemmaModelConstraintProvider.framework/Versions/A/GemmaModelConstraintProvider \\\n            \"${LITERTLM}\" 2>/dev/null || true\n          codesign --force --sign - \"${LITERTLM}\" 2>/dev/null || true\n        fi\n        # Write the declared output so Xcode marks the phase up-to-date and\n        # orders it deterministically (avoids the Flutter Assemble cycle).\n        mkdir -p \"$(dirname \"${SCRIPT_OUTPUT_FILE_0}\")\"\n        touch \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			shellScript = "        set -e\n        FRAMEWORKS=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Frameworks\"\n        if [ ! -d \"${FRAMEWORKS}\" ]; then\n          exit 0\n        fi\n        # Sweep any leftover lib*.dylib symlinks from older flutter_edge_ai versions.\n        for base in LiteRtMetalAccelerator LiteRtTopKMetalSampler GemmaModelConstraintProvider; do\n          rm -f \"${FRAMEWORKS}/lib${base}.dylib\"\n        done\n        # Wrap each upstream dylib into a .framework bundle inside the app's\n        # Contents/Frameworks/ so dlopen(\"@executable_path/../Frameworks/<X>.framework/<X>\")\n        # (the path our patched gpu_registry.cc uses) resolves at runtime.\n        #\n        # Resolve the dylib source directory in this order:\n        # 1. Native Assets cache — where hook/build.dart fetches them on\n        #    `flutter pub get`. This is the ONLY source an installed app sees:\n        #    prebuilt/ is .gitignored and excluded from the pub package.\n        # 2. This repo's own prebuilt/, for working on the plugin with a\n        #    freshly built bundle and a cold cache.\n        #\n        # Two candidates were removed here because neither could ever fire: a\n        # .symlinks/plugins/flutter_edge_ai path (flutter_edge_ai_litertlm declares\n        # no macOS plugin, so Flutter creates no symlink for it), and a\n        # flutter_gemma/native path (the prebuilts moved to\n        # flutter_edge_ai_litertlm at the monorepo split).\n        for candidate in             \"${HOME}/Library/Caches/flutter_gemma/native/macos_arm64\"             \"${SRCROOT}/../../../flutter_edge_ai_litertlm/native/litert_lm/prebuilt/macos_arm64\"; do\n          if [ -f \"${candidate}/libGemmaModelConstraintProvider.dylib\" ]; then\n            PLUGIN_PREBUILT=\"${candidate}\"\n            break\n          fi\n        done\n        if [ -z \"${PLUGIN_PREBUILT:-}\" ]; then\n          echo \"[flutter_edge_ai] ERROR: Could not find macOS companion dylibs in either of:\"\n          echo \"  - $HOME/Library/Caches/flutter_gemma/native/macos_arm64/\"\n          echo \"  - $SRCROOT/../../../flutter_edge_ai_litertlm/native/litert_lm/prebuilt/macos_arm64/\"\n          echo \"  Run 'flutter clean && flutter pub get' to repopulate the Native Assets cache.\"\n          exit 1\n        fi\n        echo \"[flutter_edge_ai] Using companion dylibs from: ${PLUGIN_PREBUILT}\"\n        for base in GemmaModelConstraintProvider LiteRtMetalAccelerator LiteRtTopKMetalSampler; do\n          src=\"${PLUGIN_PREBUILT}/lib${base}.dylib\"\n          if [ ! -f \"${src}\" ]; then\n            echo \"[flutter_edge_ai] WARNING: ${src} not found — runtime dlopen will fail\"\n            continue\n          fi\n          fw_dir=\"${FRAMEWORKS}/${base}.framework\"\n          mkdir -p \"${fw_dir}/Versions/A/Resources\"\n          cp \"${src}\" \"${fw_dir}/Versions/A/${base}\"\n          # Set install_name to the @rpath the patched LiteRtLm dlopens.\n          install_name_tool -id \"@rpath/${base}.framework/Versions/A/${base}\" \\\n            \"${fw_dir}/Versions/A/${base}\" 2>/dev/null || true\n          # Symlinks Apple expects in a versioned framework bundle.\n          (cd \"${fw_dir}\" && ln -sfh A Versions/Current && ln -sfh \"Versions/Current/${base}\" \"${base}\" && ln -sfh \"Versions/Current/Resources\" Resources)\n          # Minimal Info.plist so the framework is well-formed.\n          cat > \"${fw_dir}/Versions/A/Resources/Info.plist\" <<EOF\n<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist version=\"1.0\">\n<dict>\n  <key>CFBundleExecutable</key><string>${base}</string>\n  <key>CFBundleIdentifier</key><string>dev.flutterberlin.flutter_gemma.${base}</string>\n  <key>CFBundleVersion</key><string>1</string>\n  <key>CFBundleShortVersionString</key><string>1.0</string>\n  <key>CFBundlePackageType</key><string>FMWK</string>\n</dict>\n</plist>\nEOF\n          # Re-sign the framework binary: install_name_tool above invalidated\n          # its code signature, and unlike LiteRtLm these hand-copied companion\n          # frameworks are not re-signed by Xcode — an unsigned/modified page\n          # trips CODESIGNING \"Invalid Page\" at dlopen. Ad-hoc sign like LiteRtLm.\n          codesign --force --sign - \"${fw_dir}/Versions/A/${base}\" 2>/dev/null || true\n          echo \"[flutter_edge_ai] copied ${base}.framework\"\n        done\n        # Patch LiteRtLm.dylib's LC_LOAD_DYLIB reference to GemmaModelConstraintProvider\n        # to point at the framework path we just created, since the upstream\n        # prebuilt ships with @rpath/libGemmaModelConstraintProvider.dylib.\n        # Our own LiteRtLm was linked with -headerpad_max_install_names so this\n        # in-bundle install_name_tool -change fits comfortably.\n        LITERTLM=\"${FRAMEWORKS}/LiteRtLm.framework/Versions/A/LiteRtLm\"\n        if [ -f \"${LITERTLM}\" ]; then\n          install_name_tool -change \\\n            @rpath/libGemmaModelConstraintProvider.dylib \\\n            @rpath/GemmaModelConstraintProvider.framework/Versions/A/GemmaModelConstraintProvider \\\n            \"${LITERTLM}\" 2>/dev/null || true\n          codesign --force --sign - \"${LITERTLM}\" 2>/dev/null || true\n        fi\n        # Write the declared output so Xcode marks the phase up-to-date and\n        # orders it deterministically (avoids the Flutter Assemble cycle).\n        mkdir -p \"$(dirname \"${SCRIPT_OUTPUT_FILE_0}\")\"\n        touch \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 		};
 		DC0B8155E287F1AAB3A45800 /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -513,7 +513,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = dev.flutterberlin.flutterGemmaSpeechExample.RunnerTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/flutter_gemma_speech_example.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/flutter_gemma_speech_example";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/flutter_edge_ai_speech_example.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/flutter_edge_ai_speech_example";
 			};
 			name = Debug;
 		};
@@ -528,7 +528,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = dev.flutterberlin.flutterGemmaSpeechExample.RunnerTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/flutter_gemma_speech_example.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/flutter_gemma_speech_example";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/flutter_edge_ai_speech_example.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/flutter_edge_ai_speech_example";
 			};
 			name = Release;
 		};
@@ -543,7 +543,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = dev.flutterberlin.flutterGemmaSpeechExample.RunnerTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/flutter_gemma_speech_example.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/flutter_gemma_speech_example";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/flutter_edge_ai_speech_example.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/flutter_edge_ai_speech_example";
 			};
 			name = Profile;
 		};

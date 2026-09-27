@@ -139,7 +139,7 @@ class _Fixture {
     ).createSync(recursive: true);
 
     final stub = File('${root.path}/stub.c')
-      ..writeAsStringSync('int flutter_gemma_stub(void) { return 0; }\n');
+      ..writeAsStringSync('int flutter_edge_ai_stub(void) { return 0; }\n');
 
     // The companions, as the Native Assets cache holds them.
     for (final base in _companions) {

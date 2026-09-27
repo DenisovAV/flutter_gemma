@@ -33,7 +33,7 @@ import 'dart:typed_data';
 import 'package:ffi/ffi.dart';
 import 'package:flutter_edge_ai/core/domain/platform_types.dart'
     show PreferredBackend;
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 import 'package:flutter_edge_ai_litertlm/litert_bindings.dart';
 
 import '../model/tts_model_profile.dart';
@@ -249,7 +249,7 @@ class InflectTtsCore {
         );
       }
 
-      gemmaLog(
+      edgeAiLog(
         '[InflectTtsCore] loaded: backend=$backend, ${loaded.length} graphs '
         'compiled (neuralG2p=${g2p != null})',
       );
@@ -319,7 +319,7 @@ class InflectTtsCore {
       return e.ceil();
     });
     if (clamped) {
-      gemmaLog(
+      edgeAiLog(
         '[InflectTtsCore] clamped a non-finite/oversized duration frame — '
         'model output looks degenerate; audio may be distorted for that span.',
       );
@@ -334,7 +334,7 @@ class InflectTtsCore {
     // truncate rather than OOM. Loud log (no silent masking) — this only fires
     // on degenerate output, and the audio will be cut short for that turn.
     if (tFrames > _maxTotalFrames) {
-      gemmaLog(
+      edgeAiLog(
         '[InflectTtsCore] total length-regulated frames $tFrames exceeds cap '
         '$_maxTotalFrames — truncating; model output looks degenerate, audio '
         'will be cut short.',
@@ -413,7 +413,7 @@ class InflectTtsCore {
     // Loud once (not per-sample) — NaN-to-silence is a degrade path, not
     // normal, so a fully-silent map would mask genuinely-broken decoder output.
     if (nanSamples > 0) {
-      gemmaLog(
+      edgeAiLog(
         '[InflectTtsCore] $nanSamples/${wav.length} decoder samples were NaN '
         '— mapped to silence; model output looks degenerate.',
       );

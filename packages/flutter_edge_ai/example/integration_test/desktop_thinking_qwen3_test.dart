@@ -20,12 +20,12 @@ void main() {
       await registerTestEngines();
 
       // Install Qwen3 model
-      await FlutterGemma.installModel(
+      await FlutterEdgeAi.installModel(
         modelType: ModelType.qwen3,
         fileType: ModelFileType.litertlm,
       ).fromNetwork(modelUrl).install();
 
-      final model = await FlutterGemma.getActiveModel(maxTokens: 512);
+      final model = await FlutterEdgeAi.getActiveModel(maxTokens: 512);
       try {
         // Create chat WITHOUT thinking mode
         final chat = await model.createChat(
@@ -72,7 +72,7 @@ void main() {
     (tester) async {
       await registerTestEngines();
 
-      final model = await FlutterGemma.getActiveModel(maxTokens: 512);
+      final model = await FlutterEdgeAi.getActiveModel(maxTokens: 512);
       try {
         // Create chat WITH thinking mode
         final chat = await model.createChat(

@@ -5,8 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_edge_ai/core/extensions.dart';
 import 'package:flutter_edge_ai/core/message.dart';
 import 'package:flutter_edge_ai/core/model.dart';
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
-import 'package:flutter_edge_ai/flutter_gemma_interface.dart'
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai_interface.dart'
     show InferenceModelSession, SessionMetrics;
 
 import '../pigeon.g.dart';
@@ -164,7 +164,7 @@ class BuiltInAiSession extends InferenceModelSession {
       // char heuristic so token budgeting never hard-fails.
       if (!_tokenFallbackWarned) {
         _tokenFallbackWarned = true;
-        gemmaLog(
+        edgeAiLog(
           '[BuiltInAI] countTokens is unavailable on this host (${e.code}); '
           'falling back to a (text.length / 4) estimate. Counts are approximate.',
         );

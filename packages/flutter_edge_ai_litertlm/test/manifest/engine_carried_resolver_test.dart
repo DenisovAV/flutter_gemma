@@ -5,9 +5,9 @@
 // the seam `initialize()` itself uses, so no init path and no storage mock.
 // What core does with the handover (explicit list first, equal-priority tie,
 // dedup) is core's contract, tested in
-// flutter_gemma/test/core/registry/resolver_registration_test.dart.
+// flutter_edge_ai/test/core/registry/resolver_registration_test.dart.
 
-import 'package:flutter_edge_ai/flutter_edge_ai.dart' show FlutterGemma;
+import 'package:flutter_edge_ai/flutter_edge_ai.dart' show FlutterEdgeAi;
 import 'package:flutter_edge_ai_litertlm/flutter_edge_ai_litertlm.dart'
     show LiteRtLmEngine;
 import 'package:flutter_edge_ai_litertlm/src/manifest/litertlm_manifest_resolver.dart';
@@ -15,7 +15,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('LiteRtLmEngine contributes LitertlmManifestResolver', () {
-    final derived = FlutterGemma.engineHuggingFaceResolvers(const [
+    final derived = FlutterEdgeAi.engineHuggingFaceResolvers(const [
       LiteRtLmEngine(),
     ]);
     expect(derived, hasLength(1));
@@ -23,7 +23,7 @@ void main() {
   });
 
   test('the carried resolver is the canonical const instance (dedup seam)', () {
-    final derived = FlutterGemma.engineHuggingFaceResolvers(const [
+    final derived = FlutterEdgeAi.engineHuggingFaceResolvers(const [
       LiteRtLmEngine(),
     ]);
     expect(derived.single, same(const LitertlmManifestResolver()));

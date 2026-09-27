@@ -4,7 +4,7 @@ import 'package:uuid/uuid.dart';
 /// qdrant-edge `PointId::Uuid`.
 ///
 /// qdrant-edge stores points keyed by `PointId`, which is either a `u64`
-/// integer or a UUID — arbitrary Strings are not accepted. flutter_gemma's
+/// integer or a UUID — arbitrary Strings are not accepted. flutter_edge_ai's
 /// public RAG API has always exposed `String id` (e.g. `"doc_42"`,
 /// `"section-3-paragraph-7"`), so we need a stable surjection from String
 /// to UUID at the storage boundary.

@@ -3,18 +3,18 @@ import 'package:flutter_edge_ai/core/domain/platform_types.dart'
 import 'package:flutter_edge_ai/core/model.dart' show ModelFileType, ModelType;
 
 /// Runtime defaults resolved from a Hugging Face repo's deployment metadata
-/// (e.g. a `litertlm_manifest.json`), in flutter_gemma's own runtime vocabulary.
+/// (e.g. a `litertlm_manifest.json`), in flutter_edge_ai's own runtime vocabulary.
 ///
 /// Every field is nullable: `null` means "the manifest is silent — use the SDK
 /// default". These are the *how-to-run* knobs the app passes to
-/// [FlutterGemma.getActiveModel] / `createSession`, NOT install-time identity.
+/// [FlutterEdgeAi.getActiveModel] / `createSession`, NOT install-time identity.
 /// They are **overridable defaults**, never authoritative config baked into the
 /// model — an explicit argument at the call site always wins over the field
 /// here, which in turn wins over the SDK default.
 ///
 /// Kept as its own value object (separate from [ResolvedHfModel]'s identity
 /// fields) so the identity record — [InferenceModelSpec] — never grows runtime
-/// fields, preserving flutter_gemma's install-vs-runtime separation. It also
+/// fields, preserving flutter_edge_ai's install-vs-runtime separation. It also
 /// makes the merge a pure function: `explicit ?? defaults?.x ?? sdkDefault`.
 class ModelRuntimeDefaults {
   /// Context-window size (`maxTokens`), if the manifest declares one
@@ -91,10 +91,10 @@ class ResolvedHfFile {
 }
 
 /// A model resolved from a Hugging Face repo's deployment metadata into
-/// flutter_gemma's install + runtime vocabulary.
+/// flutter_edge_ai's install + runtime vocabulary.
 ///
 /// Install identity — [modelType] / [fileType] for
-/// [FlutterGemma.installModel], and [url] for the download (install from [url]
+/// [FlutterEdgeAi.installModel], and [url] for the download (install from [url]
 /// via `fromNetwork` so the resolver's revision is honoured; see [url]) — is
 /// kept apart from [runtime], the overridable defaults the app applies at
 /// `getActiveModel` / `createSession`. That split mirrors how Hugging Face
@@ -118,7 +118,7 @@ class ResolvedHfModel {
   final ModelFileType fileType;
 
   /// The model family (`gemmaIt`/`gemma4`/`qwen3`/…), if the resolver can map
-  /// the repo's declared architecture to one. Pass to [FlutterGemma.installModel]'s
+  /// the repo's declared architecture to one. Pass to [FlutterEdgeAi.installModel]'s
   /// required `modelType`. Null when the resolver can't determine it — the app
   /// must then supply it. Not cosmetic: `ModelType` drives runtime branching
   /// (tool-call format, thinking-tag handling).
@@ -174,8 +174,8 @@ class ResolvedHfModel {
 /// A pluggable resolver that turns a Hugging Face repo id into a
 /// [ResolvedHfModel] by reading that repo's deployment metadata.
 ///
-/// Implemented in an engine package — e.g. `flutter_gemma_litertlm` reads
-/// `litertlm_manifest.json` — and passed to `FlutterGemma.initialize` via
+/// Implemented in an engine package — e.g. `flutter_edge_ai_litertlm` reads
+/// `litertlm_manifest.json` — and passed to `FlutterEdgeAi.initialize` via
 /// `huggingFaceResolvers:`. Core selects one via the same probe-chain shape as
 /// [InferenceEngineProvider] (highest [priority], first-registered breaks
 /// ties), but the discriminator differs: an engine's `canHandle` inspects an

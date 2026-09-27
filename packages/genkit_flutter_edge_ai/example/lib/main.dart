@@ -16,7 +16,7 @@ void main() async {
   // the providers from the packages this example depends on — MediaPipe for
   // .task/.bin models, LiteRT-LM for .litertlm models, and the LiteRT
   // embedding backend for the embeddings demo.
-  await FlutterGemma.initialize(
+  await FlutterEdgeAi.initialize(
     inferenceEngines: const [LiteRtLmEngine(), MediaPipeEngine()],
     embeddingBackends: const [LiteRtEmbeddingBackend()],
     embeddingTokenizers: const [GemmaEmbeddingTokenizers()],
@@ -30,7 +30,7 @@ class App extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Genkit Flutter Gemma',
+      title: 'Genkit Flutter Edge AI',
       theme: ThemeData(
         colorSchemeSeed: Colors.deepPurple,
         brightness: Brightness.dark,
@@ -71,7 +71,7 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Genkit Flutter Gemma')),
+      appBar: AppBar(title: const Text('Genkit Flutter Edge AI')),
       body: IndexedStack(
         index: _currentIndex,
         children: [

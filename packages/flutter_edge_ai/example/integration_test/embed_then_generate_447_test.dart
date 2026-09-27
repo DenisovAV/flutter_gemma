@@ -13,7 +13,7 @@
 // it and never has been.
 //
 // Needs both models pushed to the device:
-//   adb push gemma-4-E2B-it.litertlm  /data/local/tmp/flutter_gemma_test/
+//   adb push gemma-4-E2B-it.litertlm  /data/local/tmp/flutter_edge_ai_test/
 //   adb push embeddinggemma-300M_seq256_mixed-precision.tflite  ...
 //   adb push sentencepiece.model  ...
 //
@@ -27,7 +27,7 @@ import 'package:integration_test/integration_test.dart';
 import 'inference_test_helpers.dart' show registerTestEngines;
 import 'loader_order_447_support.dart';
 
-String _p(String name) => '/data/local/tmp/flutter_gemma_test/$name';
+String _p(String name) => '/data/local/tmp/flutter_edge_ai_test/$name';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -52,13 +52,13 @@ void main() {
       // ── STEP 1: embeddings FIRST. This is the step that used to decide, for
       // the whole process, whether the LLM path's stream-ABI probe could see
       // anything.
-      await FlutterGemma.installEmbedder()
+      await FlutterEdgeAi.installEmbedder()
           .modelFromFile(
             _p('embeddinggemma-300M_seq256_mixed-precision.tflite'),
           )
           .tokenizerFromFile(_p('sentencepiece.model'))
           .install();
-      final embedder = await FlutterGemma.getActiveEmbedder();
+      final embedder = await FlutterEdgeAi.getActiveEmbedder();
       final vector = await embedder.generateEmbedding('warm up the embedder');
       expect(vector, isNotEmpty, reason: 'the embedding path itself must work');
       expect(
@@ -72,12 +72,12 @@ void main() {
 
       // ── STEP 2: generate. On an affected process this yields zero chunks and
       // an error synthesised from registers the caller never wrote, then aborts.
-      await FlutterGemma.installModel(
+      await FlutterEdgeAi.installModel(
         modelType: ModelType.gemmaIt,
         fileType: ModelFileType.litertlm,
       ).fromFile(_p('gemma-4-E2B-it.litertlm')).install();
 
-      final model = await FlutterGemma.getActiveModel(
+      final model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 1024,
         preferredBackend: PreferredBackend.cpu,
       );

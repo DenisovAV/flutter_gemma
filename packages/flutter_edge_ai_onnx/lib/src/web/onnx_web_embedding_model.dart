@@ -3,7 +3,7 @@
 // `CommonEmbeddingModel`/`EmbeddingWorker` (those are `Isolate.spawn`-based,
 // which has no web equivalent; `dart:isolate`'s `Isolate.spawn` is
 // unsupported on web). Mirrors the LiteRT web embedding arm's precedent
-// (`flutter_gemma_litertlm`'s `WebEmbeddingModel`): everything runs on the
+// (`flutter_edge_ai_litertlm`'s `WebEmbeddingModel`): everything runs on the
 // main thread. `ort.env.wasm.proxy` (pushing ORT itself into a Web Worker)
 // is a possible follow-on if main-thread WASM execution proves too janky for
 // the UI thread — not wired in v1.
@@ -17,8 +17,8 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart' show VoidCallback;
 import 'package:flutter_edge_ai/core/lifecycle/close_notifier.dart';
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart' show gemmaLog;
-import 'package:flutter_edge_ai/flutter_gemma_interface.dart'
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart' show edgeAiLog;
+import 'package:flutter_edge_ai/flutter_edge_ai_interface.dart'
     show EmbeddingModel, TaskType;
 import 'package:flutter_edge_ai/core/embedding/forward_pass.dart'
     show EmbeddingOutputContract, ForwardResult;
@@ -98,7 +98,7 @@ class OnnxWebEmbeddingModel extends EmbeddingModel with CloseNotifier {
       await pass.close();
       rethrow;
     }
-    gemmaLog('[OnnxWebEmbeddingModel] loaded: dim=${pass.outputDimension}');
+    edgeAiLog('[OnnxWebEmbeddingModel] loaded: dim=${pass.outputDimension}');
   }
 
   Future<List<double>> _embedOne(String text, TaskType taskType) async {

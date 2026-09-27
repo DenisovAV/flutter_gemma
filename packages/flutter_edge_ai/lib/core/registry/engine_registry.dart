@@ -1,10 +1,10 @@
 import 'package:flutter/foundation.dart' show kDebugMode;
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 import 'package:flutter_edge_ai/core/registry/inference_engine_provider.dart';
 import 'package:flutter_edge_ai/core/model_management/model_specs.dart'
     show InferenceModelSpec;
 
-/// Holds inference engines registered via `FlutterGemma.initialize`.
+/// Holds inference engines registered via `FlutterEdgeAi.initialize`.
 /// Selection is a probe-chain: the registered engine with the highest
 /// [InferenceEngineProvider.priority] whose [InferenceEngineProvider.canHandle]
 /// is true wins (first-registered breaks ties). No central file-type map —
@@ -36,8 +36,8 @@ class EngineRegistry {
     if (kDebugMode &&
         indexed.length > 1 &&
         indexed[0].$2.priority == indexed[1].$2.priority) {
-      gemmaLog(
-        '[flutter_gemma] Ambiguous: '
+      edgeAiLog(
+        '[flutter_edge_ai] Ambiguous: '
         '${indexed.map((e) => e.$2.name).join(", ")} all handle this spec at '
         'priority ${indexed[0].$2.priority}; using "${indexed[0].$2.name}" '
         '(first registered).',

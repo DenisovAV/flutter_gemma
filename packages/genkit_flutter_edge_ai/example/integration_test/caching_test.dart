@@ -25,7 +25,7 @@ void main() {
     final response1 = await ai.generate(
       model: testModelRef,
       prompt: 'Say one.',
-      config: FlutterGemmaModelOptions(maxTokens: 128),
+      config: FlutterEdgeAiModelOptions(maxTokens: 128),
     );
     expect(response1.text, isNotEmpty, reason: 'First call should succeed');
     print('[Reuse] Response 1: "${response1.text}"');
@@ -34,7 +34,7 @@ void main() {
     final response2 = await ai.generate(
       model: testModelRef,
       prompt: 'Say two.',
-      config: FlutterGemmaModelOptions(maxTokens: 128),
+      config: FlutterEdgeAiModelOptions(maxTokens: 128),
     );
     expect(response2.text, isNotEmpty, reason: 'Second call should succeed');
     print('[Reuse] Response 2: "${response2.text}"');
@@ -46,7 +46,7 @@ void main() {
     final response1 = await ai.generate(
       model: testModelRef,
       prompt: 'Say hello.',
-      config: FlutterGemmaModelOptions(maxTokens: 1024),
+      config: FlutterEdgeAiModelOptions(maxTokens: 1024),
     );
     expect(response1.text, isNotEmpty,
         reason: 'Call with maxTokens=1024 should succeed');
@@ -56,7 +56,7 @@ void main() {
     final response2 = await ai.generate(
       model: testModelRef,
       prompt: 'Say goodbye.',
-      config: FlutterGemmaModelOptions(maxTokens: 512),
+      config: FlutterEdgeAiModelOptions(maxTokens: 512),
     );
     expect(response2.text, isNotEmpty,
         reason: 'Call with maxTokens=512 should succeed after recreation');

@@ -2,8 +2,8 @@
 library;
 
 // Web-arm counterpart of `builtin_restore_test.dart` (which only exercises
-// MobileModelManager, since flutter_gemma_default_web.dart makes
-// FlutterGemmaPlugin.instance unusable outside a real plugin registration on
+// MobileModelManager, since flutter_edge_ai_default_web.dart makes
+// FlutterEdgeAiPlugin.instance unusable outside a real plugin registration on
 // web). Proves the WebModelManager._restoreActiveInferenceModel() builtIn
 // early-return fix: without it, a restored builtIn active model would be
 // silently dropped on every page reload, because

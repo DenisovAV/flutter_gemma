@@ -60,7 +60,7 @@ void main() {
     // The path under test: no `file:`, so the registered resolver fetches the
     // manifest and picks the revision-pinned variant itself.
     final install =
-        await FlutterGemma.installModel(
+        await FlutterEdgeAi.installModel(
               modelType: ModelType.general,
               fileType: ModelFileType.litertlm,
             )
@@ -79,7 +79,7 @@ void main() {
     final defaults = install.runtime!;
     // `defaults:` is the whole point of the one-call path — applying them is
     // what the issue means by "did it need a manual override".
-    final model = await FlutterGemma.getActiveModel(defaults: defaults);
+    final model = await FlutterEdgeAi.getActiveModel(defaults: defaults);
 
     try {
       final session = await model.createSession();

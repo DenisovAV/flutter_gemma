@@ -1,5 +1,5 @@
 import 'package:flutter_edge_ai/core/registry/runtime_config.dart';
-import 'package:flutter_edge_ai/flutter_gemma_interface.dart'
+import 'package:flutter_edge_ai/flutter_edge_ai_interface.dart'
     show SpeechRecognizer;
 import 'package:flutter_edge_ai/core/model_management/model_specs.dart'
     show SttModelSpec;
@@ -8,7 +8,7 @@ import 'package:flutter_edge_ai/core/model_management/model_specs.dart'
 /// probe-chain shape as [EmbeddingBackendProvider]/[InferenceEngineProvider]:
 /// selected by probing the STT model spec, highest-priority first match.
 ///
-/// Passed to `FlutterGemma.initialize` via `sttBackends:`.
+/// Passed to `FlutterEdgeAi.initialize` via `sttBackends:`.
 abstract class SttBackendProvider {
   /// Human-readable name for diagnostics / error messages.
   String get name;

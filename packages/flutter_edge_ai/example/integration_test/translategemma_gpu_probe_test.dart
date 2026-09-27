@@ -35,12 +35,12 @@ void main() {
         reason: 'pre-stage $_modelName in $docs',
       );
 
-      await FlutterGemma.installModel(
+      await FlutterEdgeAi.installModel(
         modelType: ModelType.gemmaIt,
         fileType: ModelFileType.litertlm,
       ).fromFile(modelPath).install();
 
-      final model = await FlutterGemma.getActiveModel(
+      final model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 1024,
         preferredBackend: PreferredBackend.gpu,
       );

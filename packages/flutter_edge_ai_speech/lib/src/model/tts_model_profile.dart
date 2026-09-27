@@ -27,7 +27,7 @@ enum TtsPipelineKind {
   /// Qwen3-TTS: autoregressive codec-token LM (talker, prefill+decode over a
   /// threaded KV cache) → 15-step MTP residual-codebook inner loop →
   /// windowed codec decoder → 24 kHz PCM. Dispatched to `Qwen3TtsCore`
-  /// (`flutter_gemma_speech/lib/src/qwen3/qwen3_tts_core.dart`) by the
+  /// (`flutter_edge_ai_speech/lib/src/qwen3/qwen3_tts_core.dart`) by the
   /// background worker — this pipeline kind never reaches the Matcha-only
   /// `TtsCore`/`TtsTextFrontend` path, which fail-loud on it instead of
   /// silently running Matcha behavior against a Qwen3 bundle.
@@ -149,7 +149,7 @@ final class MatchaProfile extends TtsModelProfile {
 /// basenames (`talker_int4.tflite`, `mtp_fp32.tflite`,
 /// `codec_decoder_fp32.tflite`, `tokenizer.json`, plus the 4 `Qwen3Tables`
 /// npy/npz basenames; see `TtsModelTypeManifest.manifest` for
-/// `TtsModelType.qwen3` in `flutter_gemma`'s `model_specs.dart`). So this
+/// `TtsModelType.qwen3` in `flutter_edge_ai`'s `model_specs.dart`). So this
 /// variant carries NO file-role fields at all — none of Matcha's roles (a
 /// single text-encoder/decoder/vocoder trio) has a clean 1:1 equivalent in
 /// the AR-codec pipeline's talker/MTP/codec-decoder split, and inventing one

@@ -26,7 +26,7 @@ void main() {
     (t) async {
       await registerTestEngines();
 
-      await FlutterGemma.installModel(
+      await FlutterEdgeAi.installModel(
             modelType: ModelType.gemmaIt,
             fileType: ModelFileType.litertlm,
           )
@@ -36,7 +36,7 @@ void main() {
           )
           .install();
 
-      final model = await FlutterGemma.getActiveModel(
+      final model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 4096,
         preferredBackend: PreferredBackend.gpu,
       );

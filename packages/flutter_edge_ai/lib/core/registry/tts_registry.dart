@@ -1,10 +1,10 @@
 import 'package:flutter/foundation.dart' show kDebugMode;
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 import 'package:flutter_edge_ai/core/registry/tts_backend_provider.dart';
 import 'package:flutter_edge_ai/core/model_management/model_specs.dart'
     show TtsModelSpec;
 
-/// Holds TTS backends registered via `FlutterGemma.initialize`.
+/// Holds TTS backends registered via `FlutterEdgeAi.initialize`.
 /// Same probe-chain selection as `EmbeddingRegistry`/`EngineRegistry`.
 class TtsRegistry {
   TtsRegistry._();
@@ -29,8 +29,8 @@ class TtsRegistry {
     if (kDebugMode &&
         indexed.length > 1 &&
         indexed[0].$2.priority == indexed[1].$2.priority) {
-      gemmaLog(
-        '[flutter_gemma] Ambiguous TTS backend: '
+      edgeAiLog(
+        '[flutter_edge_ai] Ambiguous TTS backend: '
         '${indexed.map((e) => e.$2.name).join(", ")} all handle this spec at '
         'priority ${indexed[0].$2.priority}; using "${indexed[0].$2.name}".',
       );

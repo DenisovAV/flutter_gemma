@@ -16,7 +16,7 @@ const _url =
 InferenceModel? _model;
 
 Future<String> _run(PreferredBackend backend) async {
-  _model = await FlutterGemma.getActiveModel(
+  _model = await FlutterEdgeAi.getActiveModel(
     maxTokens: 2048,
     preferredBackend: backend,
   );
@@ -45,7 +45,7 @@ void main() {
   testWidgets(
     'Qwen2.5-1.5B install + text (CPU + GPU)',
     (t) async {
-      await FlutterGemma.installModel(
+      await FlutterEdgeAi.installModel(
         modelType: ModelType.general,
         fileType: ModelFileType.litertlm,
       ).fromNetwork(_url).install();

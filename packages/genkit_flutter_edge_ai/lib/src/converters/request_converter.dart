@@ -11,7 +11,7 @@ import 'file_reader.dart';
 ///
 /// Returns `null` if no system messages are present or all contain empty text.
 /// Throws if a system message has content parts but no extractable text
-/// (e.g. only media parts), since flutter_gemma only supports text system
+/// (e.g. only media parts), since flutter_edge_ai only supports text system
 /// instructions.
 ///
 /// Used to pass system instructions natively via `createChat(systemInstruction:)`.
@@ -35,7 +35,7 @@ String? extractSystemInstruction(List<Message> messages) {
   return buffer.isEmpty ? null : buffer.toString();
 }
 
-/// Converts Genkit [ModelRequest] messages to flutter_gemma [gemma.Message] list.
+/// Converts Genkit [ModelRequest] messages to flutter_edge_ai [gemma.Message] list.
 ///
 /// Key mapping rules:
 /// - `Role.system` → Skipped (handled via [extractSystemInstruction] + `createChat(systemInstruction:)`)

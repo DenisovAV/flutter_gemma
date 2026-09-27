@@ -1,4 +1,4 @@
-/// Built-in OS AI engine for flutter_gemma (Gemini Nano / Apple Foundation
+/// Built-in OS AI engine for flutter_edge_ai (Gemini Nano / Apple Foundation
 /// Models / Chrome Prompt API).
 library;
 
@@ -11,7 +11,7 @@ export 'src/builtin_ai_hugging_face_resolver.dart'
     show BuiltInAiHuggingFaceResolver;
 
 // Swapped arm — native (dart:ffi true on Android/iOS/macOS) vs web
-// (dart2js/dart2wasm, dart:ffi false). Mirrors flutter_gemma_litertlm's
+// (dart2js/dart2wasm, dart:ffi false). Mirrors flutter_edge_ai_litertlm's
 // barrel split exactly.
 export 'src/web/builtin_ai_engine_web.dart'
     if (dart.library.ffi) 'src/builtin_ai_engine.dart'; // BuiltInAiEngine

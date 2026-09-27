@@ -1,10 +1,10 @@
-/// ONNX Runtime on-device engines for flutter_gemma: text generation
+/// ONNX Runtime on-device engines for flutter_edge_ai: text generation
 /// (`OnnxEngine`, native macOS/Linux/Windows/Android/iOS arm via ORT-GenAI
 /// PLUS a web arm via Transformers.js, see below) and embeddings
 /// (`OnnxEmbeddingBackend`, productionized on native + web).
 ///
 /// Opt-in. Add to pubspec.yaml and pass instances to
-/// `FlutterGemma.initialize(...)`.
+/// `FlutterEdgeAi.initialize(...)`.
 ///
 /// **Inference (`OnnxEngine`)** — see [OnnxEngine]'s doc comment.
 /// - **Native** (macOS/Linux/Windows/Android/iOS): text-only, greedy
@@ -33,13 +33,13 @@
 /// import 'package:flutter_edge_ai_embeddings/flutter_edge_ai_embeddings.dart';
 /// import 'package:flutter_edge_ai_onnx/flutter_edge_ai_onnx.dart';
 ///
-/// await FlutterGemma.initialize(
+/// await FlutterEdgeAi.initialize(
 ///   inferenceEngines: [OnnxEngine()],
 ///   embeddingBackends: [OnnxEmbeddingBackend()],
 ///   embeddingTokenizers: [GemmaEmbeddingTokenizers()],
 /// );
 ///
-/// await FlutterGemma.installEmbedder()
+/// await FlutterEdgeAi.installEmbedder()
 ///     .modelFromAsset('assets/models/all-MiniLM-L6-v2.onnx')
 ///     .tokenizerFromAsset('assets/models/tokenizer.json')
 ///     .install();
@@ -48,7 +48,7 @@ library;
 
 // `OnnxEngine`/`OnnxEmbeddingBackend` are conditionally exported so the SAME
 // public API compiles on both native (dart:ffi) and web — mirrors
-// `flutter_gemma_litertlm`'s barrel exactly. See `src/web/` for the web
+// `flutter_edge_ai_litertlm`'s barrel exactly. See `src/web/` for the web
 // arms and each web file's module doc for what differs from native.
 export 'src/web/onnx_engine_web.dart'
     if (dart.library.ffi) 'src/onnx_engine.dart';
@@ -59,7 +59,7 @@ export 'src/web/onnx_embedding_backend_web.dart'
 // FFI client, the plain-ORT embedding forward pass, or a custom `OrtClient`
 // (fakes for unit tests). Exports NO symbols on web — see
 // `src/native_exports_stub.dart`'s doc for why (mirrors
-// `flutter_gemma_litertlm`'s `litert_bindings_stub.dart`).
+// `flutter_edge_ai_litertlm`'s `litert_bindings_stub.dart`).
 export 'src/native_exports_stub.dart'
     if (dart.library.ffi) 'src/native_exports.dart';
 

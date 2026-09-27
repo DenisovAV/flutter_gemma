@@ -22,7 +22,7 @@ void main() {
       await registerTestEngines();
 
       // 2. Download model from network
-      await FlutterGemma.installModel(
+      await FlutterEdgeAi.installModel(
             modelType: ModelType.functionGemma,
             fileType: ModelFileType.task,
           )
@@ -32,18 +32,18 @@ void main() {
 
       // 3. Verify active model
       expect(
-        FlutterGemma.hasActiveModel(),
+        FlutterEdgeAi.hasActiveModel(),
         isTrue,
         reason: 'Active model should be set after install',
       );
 
       // 4. Verify model installed on disk
-      final isInstalled = await FlutterGemma.isModelInstalled(_taskFilename);
+      final isInstalled = await FlutterEdgeAi.isModelInstalled(_taskFilename);
       expect(isInstalled, isTrue, reason: 'Model file should exist on disk');
 
       // 5. Cache check — second install should be instant (no re-download)
       final stopwatch = Stopwatch()..start();
-      await FlutterGemma.installModel(
+      await FlutterEdgeAi.installModel(
         modelType: ModelType.functionGemma,
         fileType: ModelFileType.task,
       ).fromNetwork(_taskUrl).install();

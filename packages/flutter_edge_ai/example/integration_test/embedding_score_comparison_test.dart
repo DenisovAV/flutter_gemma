@@ -19,12 +19,12 @@ void main() {
   testWidgets('Embedding score comparison', (WidgetTester tester) async {
     await registerTestEngines();
 
-    await FlutterGemma.installEmbedder()
+    await FlutterEdgeAi.installEmbedder()
         .modelFromAsset(_modelPath)
         .tokenizerFromAsset(_tokenizerPath)
         .install();
 
-    final model = await FlutterGemma.getActiveEmbedder();
+    final model = await FlutterEdgeAi.getActiveEmbedder();
 
     try {
       final queryEmb = await model.generateEmbedding(

@@ -43,12 +43,12 @@ void main() {
   testWidgets('the output language is per-call and needs no reload', (_) async {
     // Everything that can throw lives in the test body, never in setUp: under
     // some runners a throwing setUp is reported as a pass.
-    await FlutterGemma.initialize(
+    await FlutterEdgeAi.initialize(
       huggingFaceToken: _token.isEmpty ? null : _token,
       sttBackends: const [LiteRtSttBackend()],
     );
 
-    await FlutterGemma.installStt()
+    await FlutterEdgeAi.installStt()
         .modelFromNetwork(_modelUrl, token: _token.isEmpty ? null : _token)
         .tokenizerFromNetwork(
           _tokenizerUrl,
@@ -63,7 +63,7 @@ void main() {
       _wavHeaderBytes,
     );
 
-    final recognizer = await FlutterGemma.getActiveStt();
+    final recognizer = await FlutterEdgeAi.getActiveStt();
     try {
       final english = await recognizer.transcribe(pcm);
       debugPrint('STT-LANG<<<en|$english>>>');
@@ -84,7 +84,7 @@ void main() {
 
       // The second `getActiveStt` is where the shipped bug lived: it returned
       // the recognizer built for the first language and said nothing.
-      final retargeted = await FlutterGemma.getActiveStt(language: 'de');
+      final retargeted = await FlutterEdgeAi.getActiveStt(language: 'de');
       expect(
         identical(retargeted, recognizer),
         isTrue,

@@ -7,10 +7,10 @@ import 'package:flutter_edge_ai_agent/flutter_edge_ai_agent.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// A fake [AssetBundle] that resolves the package's bundled-asset keys
-/// (`packages/flutter_gemma_agent/assets/...`) back to files on disk, so the
+/// (`packages/flutter_edge_ai_agent/assets/...`) back to files on disk, so the
 /// test exercises the REAL bundled SKILL.md files without a running engine.
 class _DiskBundle extends AssetBundle {
-  static const _prefix = 'packages/flutter_gemma_agent/';
+  static const _prefix = 'packages/flutter_edge_ai_agent/';
 
   @override
   Future<String> loadString(String key, {bool cache = true}) async {
@@ -52,15 +52,15 @@ void main() {
     test('asset keys carry the package prefix', () {
       expect(
         AssetSkillSource.skillMdKey('calculate-hash'),
-        'packages/flutter_gemma_agent/assets/skills/calculate-hash/SKILL.md',
+        'packages/flutter_edge_ai_agent/assets/skills/calculate-hash/SKILL.md',
       );
       expect(
         AssetSkillSource.scriptKey('qr-code'),
-        'packages/flutter_gemma_agent/assets/skills/qr-code/scripts/index.html',
+        'packages/flutter_edge_ai_agent/assets/skills/qr-code/scripts/index.html',
       );
       expect(
         AssetSkillSource.scriptKey('x', 'query.html'),
-        'packages/flutter_gemma_agent/assets/skills/x/scripts/query.html',
+        'packages/flutter_edge_ai_agent/assets/skills/x/scripts/query.html',
       );
     });
 
@@ -109,7 +109,7 @@ void main() {
       expect(jsSource, isA<AssetJsSource>());
       expect(
         (jsSource as AssetJsSource).assetKey,
-        'packages/flutter_gemma_agent/assets/skills/'
+        'packages/flutter_edge_ai_agent/assets/skills/'
         'interactive-map/scripts/index.html',
       );
     });

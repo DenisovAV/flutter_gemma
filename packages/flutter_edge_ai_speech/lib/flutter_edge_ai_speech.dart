@@ -1,15 +1,15 @@
-/// On-device speech-to-text and text-to-speech for flutter_gemma, via the
+/// On-device speech-to-text and text-to-speech for flutter_edge_ai, via the
 /// LiteRT C API + `dart:ffi`.
 ///
 /// Opt-in. Add to pubspec.yaml and pass instances to
-/// `FlutterGemma.initialize(sttBackends: [LiteRtSttBackend()], ttsBackends:
+/// `FlutterEdgeAi.initialize(sttBackends: [LiteRtSttBackend()], ttsBackends:
 /// [LiteRtTtsBackend()])`.
 ///
 /// ```dart
 /// import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 /// import 'package:flutter_edge_ai_speech/flutter_edge_ai_speech.dart';
 ///
-/// await FlutterGemma.initialize(
+/// await FlutterEdgeAi.initialize(
 ///   sttBackends: [LiteRtSttBackend()],
 ///   ttsBackends: [LiteRtTtsBackend()],
 /// );

@@ -1,12 +1,12 @@
-/// MediaPipe (.task) on-device inference engine for flutter_gemma.
+/// MediaPipe (.task) on-device inference engine for flutter_edge_ai.
 ///
 /// Opt-in. Add to pubspec.yaml and pass an instance to
-/// `FlutterGemma.initialize(inferenceEngines: [MediaPipeEngine()])`.
+/// `FlutterEdgeAi.initialize(inferenceEngines: [MediaPipeEngine()])`.
 ///
 /// ```dart
 /// import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 /// import 'package:flutter_edge_ai_mediapipe/flutter_edge_ai_mediapipe.dart';
-/// await FlutterGemma.initialize(inferenceEngines: [MediaPipeEngine()]);
+/// await FlutterEdgeAi.initialize(inferenceEngines: [MediaPipeEngine()]);
 /// ```
 library flutter_edge_ai_mediapipe;
 

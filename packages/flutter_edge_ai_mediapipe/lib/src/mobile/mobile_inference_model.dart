@@ -7,12 +7,12 @@ import 'package:flutter_edge_ai/core/chat.dart';
 import 'package:flutter_edge_ai/core/lifecycle/close_notifier.dart';
 import 'package:flutter_edge_ai/core/model.dart';
 import 'package:flutter_edge_ai/core/tool.dart';
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
-import 'package:flutter_edge_ai/flutter_gemma_interface.dart'
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai_interface.dart'
     show InferenceModel, InferenceModelSession;
 
 // MobileInferenceModel exposes `activeBackend` as part of the [InferenceModel]
-// contract, whose type is core's PreferredBackend (from package:flutter_gemma).
+// contract, whose type is core's PreferredBackend (from package:flutter_edge_ai).
 // The MediaPipe→core enum bridge lives in the engine; this model stores core's
 // value type directly so the override is valid and core's type never tangles
 // with the package's own pigeon enum.
@@ -154,7 +154,7 @@ class MobileInferenceModel extends InferenceModel with CloseNotifier {
       // MediaPipe's `maxTokens` is a single total (input + output) set at
       // model creation; LlmInferenceSessionOptions has no per-session output
       // cap. Honor the call but make the limitation explicit.
-      gemmaLog(
+      edgeAiLog(
         '[MediaPipe] maxOutputTokens ($maxOutputTokens) is not supported on '
         'the .task path (no session-level output cap); ignoring. Use a smaller '
         'maxTokens on createModel, or the .litertlm engine, to bound output.',
@@ -166,7 +166,7 @@ class MobileInferenceModel extends InferenceModel with CloseNotifier {
     // native session with a clean KV cache. The completer is cleared in
     // the `finally` below once creation settles, so a *sequential* second
     // call falls through to the native createSession — which closes the
-    // prior session and creates a new one (FlutterGemmaPlugin.createSession
+    // prior session and creates a new one (FlutterEdgeAiPlugin.createSession
     // does `session?.close(); session = engine.createSession(...)`) —
     // instead of returning the stale wrapper. Without this, the cached
     // completer made every later createChat reuse the first session, so

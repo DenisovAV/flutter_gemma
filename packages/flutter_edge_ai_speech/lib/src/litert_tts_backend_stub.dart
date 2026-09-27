@@ -1,11 +1,11 @@
 import 'package:flutter_edge_ai/core/registry/tts_backend_provider.dart';
 import 'package:flutter_edge_ai/core/registry/runtime_config.dart';
-import 'package:flutter_edge_ai/flutter_gemma_interface.dart'
+import 'package:flutter_edge_ai/flutter_edge_ai_interface.dart'
     show SpeechSynthesizer;
 import 'package:flutter_edge_ai/core/model_management/model_specs.dart'
     show TtsModelSpec;
 
-/// Web stub for [LiteRtTtsBackend] — `flutter_gemma_speech` has no web TTS
+/// Web stub for [LiteRtTtsBackend] — `flutter_edge_ai_speech` has no web TTS
 /// arm (native-only). Registers cleanly so `initialize` doesn't break on
 /// web, but building a model throws.
 class LiteRtTtsBackend implements TtsBackendProvider {
@@ -26,7 +26,7 @@ class LiteRtTtsBackend implements TtsBackendProvider {
     RuntimeConfig config,
   ) async {
     throw UnsupportedError(
-      'flutter_gemma_speech has no web TTS arm (native-only).',
+      'flutter_edge_ai_speech has no web TTS arm (native-only).',
     );
   }
 }

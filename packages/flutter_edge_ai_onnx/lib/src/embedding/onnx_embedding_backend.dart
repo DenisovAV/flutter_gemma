@@ -1,5 +1,5 @@
 // ONNX Runtime embedding backend (Phase 2 — plain-ORT embedding forward
-// pass, hardened plan Task 3). Mirrors `flutter_gemma_litertlm`'s
+// pass, hardened plan Task 3). Mirrors `flutter_edge_ai_litertlm`'s
 // `LiteRtEmbeddingBackend` shape: builds a `ForwardPassDescriptor` and hands
 // it to the runtime-agnostic `CommonEmbeddingModel`.
 
@@ -9,7 +9,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_edge_ai/core/registry/embedding_backend_provider.dart';
 import 'package:flutter_edge_ai/core/registry/runtime_config.dart';
-import 'package:flutter_edge_ai/flutter_gemma_interface.dart' show EmbeddingModel;
+import 'package:flutter_edge_ai/flutter_edge_ai_interface.dart' show EmbeddingModel;
 import 'package:flutter_edge_ai/core/model_management/model_specs.dart'
     show EmbeddingModelSpec;
 import 'package:flutter_edge_ai/core/embedding/common_embedding_model.dart'

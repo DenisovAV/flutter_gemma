@@ -20,7 +20,7 @@ import 'package:flutter_edge_ai/core/model_management/model_specs.dart'
 /// implementation:
 ///
 /// ```dart
-/// FlutterGemma.initialize(
+/// FlutterEdgeAi.initialize(
 ///   embeddingBackends: [LiteRtEmbeddingBackend()],
 ///   embeddingTokenizers: [GemmaEmbeddingTokenizers()],
 /// );

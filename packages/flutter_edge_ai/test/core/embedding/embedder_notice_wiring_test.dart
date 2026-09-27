@@ -2,8 +2,8 @@ import 'dart:async';
 // Pins the WIRING of noticeEmbedderBackendIgnored, which the unit tests for the
 // notice itself cannot see.
 //
-// Why each shell is driven DIRECTLY instead of through `FlutterGemma
-// .getActiveEmbedder`: on a desktop test host `FlutterGemmaPlugin.instance`
+// Why each shell is driven DIRECTLY instead of through `FlutterEdgeAi
+// .getActiveEmbedder`: on a desktop test host `FlutterEdgeAiPlugin.instance`
 // resolves to the desktop shell, and desktop was the one shell that already
 // called the notice on its create path. A test that went through the facade
 // would have been green while mobile and web stayed silent on the first — and
@@ -24,9 +24,9 @@ import 'package:flutter_edge_ai/core/registry/embedding_backend_provider.dart';
 import 'package:flutter_edge_ai/core/registry/embedding_registry.dart';
 import 'package:flutter_edge_ai/core/registry/runtime_config.dart';
 import 'package:flutter_edge_ai/core/domain/platform_types.dart';
-import 'package:flutter_edge_ai/desktop/flutter_gemma_desktop.dart';
-import 'package:flutter_edge_ai/flutter_gemma_interface.dart';
-import 'package:flutter_edge_ai/mobile/flutter_gemma_mobile.dart';
+import 'package:flutter_edge_ai/desktop/flutter_edge_ai_desktop.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai_interface.dart';
+import 'package:flutter_edge_ai/mobile/flutter_edge_ai_mobile.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -52,7 +52,7 @@ void main() {
       printed.where((l) => l.contains('preferredBackend'));
 
   /// One call, no prior embedder — the shape an app actually uses.
-  Future<void> firstCall(FlutterGemmaPlugin plugin) async {
+  Future<void> firstCall(FlutterEdgeAiPlugin plugin) async {
     await expectLater(
       plugin.createEmbeddingModel(preferredBackend: PreferredBackend.gpu),
       throwsStateError,
@@ -61,7 +61,7 @@ void main() {
 
   group('the notice reaches the first call, not only a reuse', () {
     test('mobile', () async {
-      await firstCall(FlutterGemmaMobile());
+      await firstCall(FlutterEdgeAiMobile());
       expect(
         notices(),
         hasLength(1),
@@ -72,7 +72,7 @@ void main() {
     });
 
     test('desktop', () async {
-      await firstCall(FlutterGemmaDesktop.instance);
+      await firstCall(FlutterEdgeAiDesktop.instance);
       expect(notices(), hasLength(1));
     });
   });
@@ -91,7 +91,7 @@ void main() {
     test(
       'a different model file rebuilds instead of serving the cache',
       () async {
-        final plugin = FlutterGemmaMobile();
+        final plugin = FlutterEdgeAiMobile();
 
         final first = await plugin.createEmbeddingModel(
           modelPath: '/a.tflite',
@@ -123,7 +123,7 @@ void main() {
       // that waited for it let the second caller start its own build: two
       // worker isolates, two compiles, and the loser orphaned with nobody to
       // close it.
-      final plugin = FlutterGemmaMobile();
+      final plugin = FlutterEdgeAiMobile();
       backend.gate = Completer<void>();
 
       final a = plugin.createEmbeddingModel(
@@ -282,9 +282,9 @@ void main() {
       // log is new in this branch, and an earlier revision of it read the name
       // off the active spec, which would have reported another model's name to
       // a caller who passed explicit paths.
-      final plugin = FlutterGemmaDesktop.instance;
+      final plugin = FlutterEdgeAiDesktop.instance;
       addTearDown(() => plugin.initializedEmbeddingModel?.close());
-      // `FlutterGemmaDesktop.instance` is a process singleton and its manager
+      // `FlutterEdgeAiDesktop.instance` is a process singleton and its manager
       // holds the active spec in memory, which `setUp`'s mock preferences do
       // not reach. Without this, every later desktop test in this file inherits
       // an active embedder it never asked for.
@@ -324,7 +324,7 @@ void main() {
     });
 
     test('a different tokenizer alone is also a different embedder', () async {
-      final plugin = FlutterGemmaMobile();
+      final plugin = FlutterEdgeAiMobile();
       await plugin.createEmbeddingModel(
         modelPath: '/a.tflite',
         tokenizerPath: '/sentencepiece.model',
@@ -344,7 +344,7 @@ void main() {
 
   test('a backend that embeddings DO use stays quiet', () async {
     await expectLater(
-      FlutterGemmaMobile().createEmbeddingModel(
+      FlutterEdgeAiMobile().createEmbeddingModel(
         preferredBackend: PreferredBackend.cpu,
       ),
       throwsStateError,
@@ -354,11 +354,11 @@ void main() {
 }
 
 /// The two shells a VM test can construct. Web is absent because
-/// `FlutterGemmaWeb` needs `dart:js_interop`; its wiring is covered by the same
+/// `FlutterEdgeAiWeb` needs `dart:js_interop`; its wiring is covered by the same
 /// shared cache and by the web integration suites.
-final _shells = <({String name, FlutterGemmaPlugin Function() create})>[
-  (name: 'mobile', create: FlutterGemmaMobile.new),
-  (name: 'desktop', create: () => FlutterGemmaDesktop.instance),
+final _shells = <({String name, FlutterEdgeAiPlugin Function() create})>[
+  (name: 'mobile', create: FlutterEdgeAiMobile.new),
+  (name: 'desktop', create: () => FlutterEdgeAiDesktop.instance),
 ];
 
 /// Counts how many times the shell actually asked for a model to be built, and

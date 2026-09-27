@@ -1,7 +1,7 @@
 /// Native arm of the [readTextFile] seam.
 ///
 /// `dart:io` lives HERE and nowhere near `wordpiece_embedding_tokenizer.dart`.
-/// That file is imported directly by `flutter_gemma_onnx`'s **web** embedding
+/// That file is imported directly by `flutter_edge_ai_onnx`'s **web** embedding
 /// arm, and an unconditional `import 'dart:io'` makes a whole library
 /// uncompilable for web — which is why
 /// `WordPieceEmbeddingTokenizer.fromPath` was deleted outright in #449 rather

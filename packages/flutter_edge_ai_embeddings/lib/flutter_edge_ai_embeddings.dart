@@ -1,19 +1,19 @@
-/// The embedding tokenizers for flutter_gemma.
+/// The embedding tokenizers for flutter_edge_ai.
 ///
 /// Gemma SentencePiece and BERT-family WordPiece, task-type prefixing, and the
 /// routing that picks between them — registered as a [GemmaEmbeddingTokenizers]
 /// provider. The seam engine packages implement, the isolate worker and the
-/// pooling live in `flutter_gemma` itself, so no engine depends on this.
+/// pooling live in `flutter_edge_ai` itself, so no engine depends on this.
 ///
 /// To actually run embeddings, add an engine package that provides an
-/// `EmbeddingBackendProvider` — e.g. `flutter_gemma_litertlm`'s
+/// `EmbeddingBackendProvider` — e.g. `flutter_edge_ai_litertlm`'s
 /// `LiteRtEmbeddingBackend` — and register it:
 ///
 /// ```dart
 /// import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 /// import 'package:flutter_edge_ai_litertlm/flutter_edge_ai_litertlm.dart';
 ///
-/// await FlutterGemma.initialize(
+/// await FlutterEdgeAi.initialize(
 ///   embeddingBackends: [LiteRtEmbeddingBackend()],
 ///   embeddingTokenizers: [GemmaEmbeddingTokenizers()],
 /// );
@@ -21,14 +21,14 @@
 ///
 /// See the embedder decoupling design (docs/superpowers/specs/
 /// 2026-08-17-flutter-gemma-onnx-engine-design.md §2, §11 D3/D4) for why the
-/// seam exists: it lets `flutter_gemma_litertlm` and (later)
-/// `flutter_gemma_onnx` share one tokenizer/worker/pooling implementation
+/// seam exists: it lets `flutter_edge_ai_litertlm` and (later)
+/// `flutter_edge_ai_onnx` share one tokenizer/worker/pooling implementation
 /// instead of each reimplementing the isolate facade.
 library;
 
 // The runtime-agnostic `ForwardPass` seam (design doc §2, §11 D3/D4): pure
-// Dart, no engine dependency. Engine packages (flutter_gemma_litertlm,
-// flutter_gemma_onnx) implement `EmbeddingForwardPass` and build a
+// Dart, no engine dependency. Engine packages (flutter_edge_ai_litertlm,
+// flutter_edge_ai_onnx) implement `EmbeddingForwardPass` and build a
 // `ForwardPassDescriptor` from a top-level factory tear-off to plug into the
 // common embedder below.
 // Moved to core so an engine package can implement the seam without depending
@@ -61,7 +61,7 @@ export 'src/tokenizer_provider.dart';
 // over any `ForwardPassDescriptor`. Conditional export — the real worker
 // needs `dart:isolate` semantics that only make sense on native platforms;
 // web engine packages build their own `EmbeddingModel` directly (see
-// `flutter_gemma_litertlm`'s web arm) and never reach this file.
+// `flutter_edge_ai_litertlm`'s web arm) and never reach this file.
 export 'package:flutter_edge_ai/core/embedding/common_embedding_model.dart'
     if (dart.library.js_interop)
         'package:flutter_edge_ai/core/embedding/common_embedding_model_stub.dart';

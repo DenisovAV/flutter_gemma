@@ -1,9 +1,9 @@
 import 'dart:async';
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_edge_ai/core/lifecycle/close_notifier.dart';
-import 'package:flutter_edge_ai/flutter_gemma_interface.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai_interface.dart';
 
 import 'web_runtime.dart';
 import 'litert_web_embeddings.dart';
@@ -105,7 +105,7 @@ class WebEmbeddingModel extends EmbeddingModel with CloseNotifier {
       // litert_embeddings.js: once it has loaded, a different prefix is
       // discarded there without a word. Say so here instead.
       if (_loadedWasmPath != null && _loadedWasmPath != wasmPath) {
-        gemmaLog(
+        edgeAiLog(
           'LiteRtWebRuntime.wasmPath changed to $wasmPath after the runtime '
           'was loaded from $_loadedWasmPath — the new value is ignored. Set it '
           'before the first embedding.',
@@ -119,7 +119,7 @@ class WebEmbeddingModel extends EmbeddingModel with CloseNotifier {
       _loadedWasmPath ??= wasmPath;
       _isInitialized = true;
       if (kDebugMode) {
-        gemmaLog('✅ LiteRT embeddings initialized successfully');
+        edgeAiLog('✅ LiteRT embeddings initialized successfully');
       }
     } catch (e) {
       throw Exception('Failed to initialize LiteRT embeddings: $e');
@@ -144,7 +144,7 @@ class WebEmbeddingModel extends EmbeddingModel with CloseNotifier {
       return await LiteRTWebEmbeddings.generateEmbedding(text);
     } catch (e) {
       if (kDebugMode) {
-        gemmaLog('❌ Failed to generate embedding: $e');
+        edgeAiLog('❌ Failed to generate embedding: $e');
       }
       rethrow;
     }
@@ -173,12 +173,12 @@ class WebEmbeddingModel extends EmbeddingModel with CloseNotifier {
       }
       final embeddings = await LiteRTWebEmbeddings.generateEmbeddings(texts);
       if (kDebugMode) {
-        gemmaLog('✅ Generated ${embeddings.length} embeddings');
+        edgeAiLog('✅ Generated ${embeddings.length} embeddings');
       }
       return embeddings;
     } catch (e) {
       if (kDebugMode) {
-        gemmaLog('❌ Failed to generate embeddings: $e');
+        edgeAiLog('❌ Failed to generate embeddings: $e');
       }
       rethrow;
     }
@@ -215,11 +215,11 @@ class WebEmbeddingModel extends EmbeddingModel with CloseNotifier {
       try {
         await LiteRTWebEmbeddings.dispose();
         if (kDebugMode) {
-          gemmaLog('✅ LiteRT embeddings disposed');
+          edgeAiLog('✅ LiteRT embeddings disposed');
         }
       } catch (e) {
         if (kDebugMode) {
-          gemmaLog('⚠️  Warning: Failed to dispose LiteRT embeddings: $e');
+          edgeAiLog('⚠️  Warning: Failed to dispose LiteRT embeddings: $e');
         }
       }
     });

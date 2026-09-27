@@ -77,7 +77,7 @@ class _TranslateScreenState extends State<TranslateScreen> {
         token = await AuthTokenService.loadToken();
       }
 
-      await FlutterGemma.installModel(
+      await FlutterEdgeAi.installModel(
         modelType: widget.model.modelType,
         fileType: widget.model.fileType,
       ).fromNetwork(widget.model.url, token: token).withProgress((percent) {
@@ -89,7 +89,7 @@ class _TranslateScreenState extends State<TranslateScreen> {
         debugPrint('[TranslateScreen] Model installed, getting active…');
       }
 
-      final model = await FlutterGemma.getActiveModel(
+      final model = await FlutterEdgeAi.getActiveModel(
         maxTokens: widget.model.maxTokens,
         preferredBackend: widget.model.preferredBackend,
       );

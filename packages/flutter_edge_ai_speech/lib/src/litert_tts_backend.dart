@@ -1,6 +1,6 @@
 import 'package:flutter_edge_ai/core/registry/tts_backend_provider.dart';
 import 'package:flutter_edge_ai/core/registry/runtime_config.dart';
-import 'package:flutter_edge_ai/flutter_gemma_interface.dart'
+import 'package:flutter_edge_ai/flutter_edge_ai_interface.dart'
     show SpeechSynthesizer;
 import 'package:flutter_edge_ai/core/model_management/model_specs.dart'
     show TtsModelSpec;
@@ -38,7 +38,7 @@ class LiteRtTtsBackend implements TtsBackendProvider {
     // profile — this backend never hardcodes a model.
     //
     // config.language is Qwen3-only — threaded from
-    // `FlutterGemma.getActiveTts(language: ...)` through `RuntimeConfig`;
+    // `FlutterEdgeAi.getActiveTts(language: ...)` through `RuntimeConfig`;
     // null falls back to `LiteRtSpeechSynthesizer.create`'s own `'english'`
     // default. Matcha ignores it (no language parameter). No `voice` here:
     // v1 never surfaces a voice picker anywhere in the public API, so this

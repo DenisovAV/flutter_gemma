@@ -12,7 +12,7 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
     // at most one streams at a time — the shared event channel stays
     // unambiguous. Guarded by `sessionMapQueue` for thread-safe access.
     private var sessionMap: [Int64: InferenceSession] = [:]
-    private let sessionMapQueue = DispatchQueue(label: "flutter_gemma.sessionMap")
+    private let sessionMapQueue = DispatchQueue(label: "flutter_edge_ai.sessionMap")
 
     // 0.15.2: embedding migrated to the shared Dart-FFI + LiteRT path
     // (see `lib/core/litert/litert_embedding_model.dart`). The pigeon
@@ -75,7 +75,7 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
         }
 
         if enableThinking == true {
-            print("[FlutterGemma] Warning: enableThinking=true is not supported on iOS (MediaPipe). " +
+            print("[FlutterEdgeAi] Warning: enableThinking=true is not supported on iOS (MediaPipe). " +
                   "Use Android or Desktop with .litertlm models for Gemma 4 thinking mode.")
         }
 

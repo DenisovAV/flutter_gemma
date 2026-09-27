@@ -1,6 +1,6 @@
 PODS:
   - Flutter (1.0.0)
-  - flutter_gemma_mediapipe (1.0.5):
+  - flutter_edge_ai_mediapipe (1.0.5):
     - Flutter
     - MediaPipeTasksGenAI (= 0.10.33)
     - MediaPipeTasksGenAIC (= 0.10.33)
@@ -18,7 +18,7 @@ PODS:
 
 DEPENDENCIES:
   - Flutter (from `Flutter`)
-  - flutter_gemma_mediapipe (from `.symlinks/plugins/flutter_gemma_mediapipe/ios`)
+  - flutter_edge_ai_mediapipe (from `.symlinks/plugins/flutter_edge_ai_mediapipe/ios`)
   - flutter_inappwebview_ios (from `.symlinks/plugins/flutter_inappwebview_ios/ios`)
 
 SPEC REPOS:
@@ -30,14 +30,14 @@ SPEC REPOS:
 EXTERNAL SOURCES:
   Flutter:
     :path: Flutter
-  flutter_gemma_mediapipe:
-    :path: ".symlinks/plugins/flutter_gemma_mediapipe/ios"
+  flutter_edge_ai_mediapipe:
+    :path: ".symlinks/plugins/flutter_edge_ai_mediapipe/ios"
   flutter_inappwebview_ios:
     :path: ".symlinks/plugins/flutter_inappwebview_ios/ios"
 
 SPEC CHECKSUMS:
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
-  flutter_gemma_mediapipe: e8c8d30b68dc890d7b2a305fe028d44e9c831899
+  flutter_edge_ai_mediapipe: e8c8d30b68dc890d7b2a305fe028d44e9c831899
   flutter_inappwebview_ios: b89ba3482b96fb25e00c967aae065701b66e9b99
   MediaPipeTasksGenAI: 8eed8e6d03fe26d30c4205cb5295ec7b394432ad
   MediaPipeTasksGenAIC: cb098ecea44e248efe8fe7e2f62b4cb0df781802

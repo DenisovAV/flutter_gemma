@@ -1,11 +1,11 @@
-// packages/flutter_gemma_speech/lib/src/litert/mel_filter_assets.dart
+// packages/flutter_edge_ai_speech/lib/src/litert/mel_filter_assets.dart
 //
 // Resolves a profile's `melFilterAsset` name to its bundled filterbank
 // matrix. Compiled-into-source (not a Flutter `assets:` bundle + rootBundle)
 // on purpose: the frontend runs inside the STT background isolate
 // (stt_worker.dart), which has no Flutter asset-bundle access without extra
 // isolate-binding ceremony — a compiled Dart constant works identically
-// everywhere with zero I/O. All 6 flutter_gemma target platforms are
+// everywhere with zero I/O. All 6 flutter_edge_ai target platforms are
 // little-endian, so a direct `.buffer.asFloat32List()` view over the
 // base64-decoded bytes is safe (matches the bytes' generation endianness).
 library;

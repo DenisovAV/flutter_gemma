@@ -1,4 +1,4 @@
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 import 'package:flutter_edge_ai/core/di/service_registry.dart';
 import 'package:flutter_edge_ai/core/model_management/model_specs.dart';
 import 'package:flutter_edge_ai/flutter_edge_ai.dart';
@@ -12,7 +12,7 @@ import 'package:flutter_edge_ai/core/services/model_repository.dart' as repo;
 ///
 /// Usage:
 /// ```dart
-/// await FlutterGemma.installTts()
+/// await FlutterEdgeAi.installTts()
 ///   .fromNetwork('https://example.com/matcha/', token: 'hf_...')
 ///   .ofType(TtsModelType.matcha)
 ///   .withProgress((p) => print('$p%'))
@@ -130,9 +130,9 @@ class TtsInstallationBuilder {
       final file = files[i];
 
       if (await repository.isInstalled(file.filename)) {
-        gemmaLog('ℹ️  TTS bundle file already installed: ${file.filename}');
+        edgeAiLog('ℹ️  TTS bundle file already installed: ${file.filename}');
       } else {
-        gemmaLog('📥 Installing TTS bundle file: ${file.filename}...');
+        edgeAiLog('📥 Installing TTS bundle file: ${file.filename}...');
         final handler = handlerRegistry.getHandler(file.source);
         await handler!.install(
           file.source,
@@ -146,10 +146,10 @@ class TtsInstallationBuilder {
     }
 
     // AUTO-SET as active TTS model (even if already installed).
-    final manager = FlutterGemmaPlugin.instance.modelManager;
+    final manager = FlutterEdgeAiPlugin.instance.modelManager;
     manager.setActiveModel(spec);
 
-    gemmaLog('✅ TTS model installed and set as active: ${spec.name}');
+    edgeAiLog('✅ TTS model installed and set as active: ${spec.name}');
 
     return TtsInstallation(spec: spec);
   }

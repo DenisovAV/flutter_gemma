@@ -35,13 +35,13 @@ flutter:
     platforms:
       android:
         package: dev.flutterberlin.flutter_gemma_builtin_ai
-        pluginClass: FlutterGemmaBuiltInAiPlugin
+        pluginClass: FlutterEdgeAiBuiltInAiPlugin
       ios:
-        pluginClass: FlutterGemmaBuiltInAiPlugin
+        pluginClass: FlutterEdgeAiBuiltInAiPlugin
         sharedDarwinSource: true
       macos:
-        pluginClass: FlutterGemmaBuiltInAiPlugin
+        pluginClass: FlutterEdgeAiBuiltInAiPlugin
         sharedDarwinSource: true
       web:
-        pluginClass: FlutterGemmaBuiltInAiWeb
-        fileName: flutter_gemma_builtin_ai_web.dart
+        pluginClass: FlutterEdgeAiBuiltInAiWeb
+        fileName: flutter_edge_ai_builtin_ai_web.dart

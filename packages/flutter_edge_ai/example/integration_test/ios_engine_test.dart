@@ -12,7 +12,7 @@ void main() {
 
     // Install model from network (Gemma 3 1B, smallest)
     print('Installing model...');
-    await FlutterGemma.installModel(
+    await FlutterEdgeAi.installModel(
           modelType: ModelType.gemmaIt,
           fileType: ModelFileType.litertlm,
         )
@@ -24,7 +24,7 @@ void main() {
     print('Model installed');
 
     // Create model via plugin
-    final model = await FlutterGemma.getActiveModel(
+    final model = await FlutterEdgeAi.getActiveModel(
       maxTokens: 512,
       preferredBackend: PreferredBackend.cpu,
     );

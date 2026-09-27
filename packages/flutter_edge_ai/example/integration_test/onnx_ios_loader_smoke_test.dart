@@ -11,7 +11,7 @@
 // "image not found" — the exact failure mode a bare, unanchored
 // `<name>.framework/<name>` leaf name produces on iOS's dyld 4 (dyld 4
 // cannot resolve framework names alone the way macOS's dyld does; see
-// `flutter_gemma_litertlm/lib/src/ffi/litert_lm_client.dart`'s
+// `flutter_edge_ai_litertlm/lib/src/ffi/litert_lm_client.dart`'s
 // `@executable_path/Frameworks/` precedent, and `gen_ai_client.dart`'s
 // `_candidateNames`/`ort_ffi_client.dart`'s `_openOnnxRuntime` iOS branches).
 //
@@ -26,7 +26,7 @@
 // distinguishable so this test fails loudly (not silently) if the anchor
 // regresses. Real end-to-end generation is covered by
 // `onnx_inference_smoke_test.dart` (Android) and the desktop host-smoke
-// tests in `flutter_gemma_onnx/test/`; an on-device iOS throughput/RAM
+// tests in `flutter_edge_ai_onnx/test/`; an on-device iOS throughput/RAM
 // go/no-go is a separate, later gate (see `onnx_engine.dart`'s
 // `_isSupportedHost` doc).
 //

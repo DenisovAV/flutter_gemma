@@ -30,12 +30,12 @@ void main() {
   testWidgets(
     'moonshine transcribes the bundled clip via the public STT API',
     (_) async {
-      await FlutterGemma.initialize(
+      await FlutterEdgeAi.initialize(
         huggingFaceToken: _token.isEmpty ? null : _token,
         sttBackends: const [LiteRtSttBackend()],
       );
 
-      await FlutterGemma.installStt()
+      await FlutterEdgeAi.installStt()
           .modelFromNetwork(_modelUrl, token: _token.isEmpty ? null : _token)
           .tokenizerFromNetwork(
             _tokenizerUrl,
@@ -44,7 +44,7 @@ void main() {
           .ofType(SttModelType.moonshine)
           .install();
 
-      final recognizer = await FlutterGemma.getActiveStt();
+      final recognizer = await FlutterEdgeAi.getActiveStt();
 
       // Bundled 16 kHz mono 16-bit PCM WAV.
       final wav = await rootBundle.load('assets/test/test_audio.wav');

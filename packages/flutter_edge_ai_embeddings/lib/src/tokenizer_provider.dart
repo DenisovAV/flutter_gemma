@@ -19,7 +19,7 @@ import 'tokenizer_router.dart'
 /// Register it beside the embedding backends that will use it:
 ///
 /// ```dart
-/// FlutterGemma.initialize(
+/// FlutterEdgeAi.initialize(
 ///   embeddingBackends: [LiteRtEmbeddingBackend()],
 ///   embeddingTokenizers: [GemmaEmbeddingTokenizers()],
 /// );

@@ -133,7 +133,7 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
   }
 
   /// Built-in OS model "install": no file download — register the bundled
-  /// identity so [FlutterGemma.getActiveModel] resolves the built-in engine,
+  /// identity so [FlutterEdgeAi.getActiveModel] resolves the built-in engine,
   /// then ask the OS to make the model ready ([BuiltInAi.ensureReady], which
   /// downloads the feature if the OS reports it as downloadable). Availability
   /// failures come back as [BuiltInAiUnavailableException]; surface the message
@@ -145,7 +145,7 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
       _progress = 0.0;
     });
     try {
-      await FlutterGemma.installModel(
+      await FlutterEdgeAi.installModel(
         modelType: model.modelType,
         fileType: ModelFileType.builtIn,
       ).fromBundled(model.filename).install();

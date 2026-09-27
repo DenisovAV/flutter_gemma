@@ -46,7 +46,7 @@ void main() {
       prompt: 'What is the weather in Moscow?',
       tools: [weatherTool],
       returnToolRequests: true,
-      config: FlutterGemmaModelOptions(maxTokens: 512),
+      config: FlutterEdgeAiModelOptions(maxTokens: 512),
     );
 
     final text = response.text;

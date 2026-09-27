@@ -10,7 +10,7 @@ import 'skill_result.dart';
 /// [SkillExecutorProvider] contract, so the very same instances can be:
 ///
 ///  1. registered through core via
-///     `FlutterGemma.initialize(skillExecutors: [JsSkillExecutor(), …])`
+///     `FlutterEdgeAi.initialize(skillExecutors: [JsSkillExecutor(), …])`
 ///     (the recommended path — they land in core's `SkillExecutorRegistry`,
 ///     which `AgentSession.fromModel` reads when no explicit list is passed),
 ///     or

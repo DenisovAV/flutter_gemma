@@ -27,7 +27,7 @@ FRAMEWORKS="$1"
 SOURCE_DIR="$2"
 
 if [ -z "${FRAMEWORKS}" ]; then
-  echo "[flutter_gemma] usage: $0 <frameworks_dir> [source_dir]" >&2
+  echo "[flutter_edge_ai] usage: $0 <frameworks_dir> [source_dir]" >&2
   exit 2
 fi
 
@@ -38,7 +38,7 @@ fi
 
 COMPANIONS="GemmaModelConstraintProvider LiteRtMetalAccelerator LiteRtTopKMetalSampler"
 
-# Sweep any leftover lib*.dylib symlinks from older flutter_gemma versions.
+# Sweep any leftover lib*.dylib symlinks from older flutter_edge_ai versions.
 for base in ${COMPANIONS}; do
   rm -f "${FRAMEWORKS}/lib${base}.dylib"
 done
@@ -56,7 +56,7 @@ if [ -n "${SOURCE_DIR}" ]; then
 else
   for candidate in \
       "${HOME}/Library/Caches/flutter_gemma/native/macos_arm64" \
-      "${SRCROOT}/../../../flutter_gemma_litertlm/native/litert_lm/prebuilt/macos_arm64"; do
+      "${SRCROOT}/../../../flutter_edge_ai_litertlm/native/litert_lm/prebuilt/macos_arm64"; do
     if [ -f "${candidate}/libGemmaModelConstraintProvider.dylib" ]; then
       PLUGIN_PREBUILT="${candidate}"
       break
@@ -65,14 +65,14 @@ else
 fi
 
 if [ -z "${PLUGIN_PREBUILT:-}" ] || [ ! -d "${PLUGIN_PREBUILT}" ]; then
-  echo "[flutter_gemma] ERROR: Could not find macOS companion dylibs in either of:"
+  echo "[flutter_edge_ai] ERROR: Could not find macOS companion dylibs in either of:"
   echo "  - \$HOME/Library/Caches/flutter_gemma/native/macos_arm64/"
-  echo "  - \$SRCROOT/../../../flutter_gemma_litertlm/native/litert_lm/prebuilt/macos_arm64/"
+  echo "  - \$SRCROOT/../../../flutter_edge_ai_litertlm/native/litert_lm/prebuilt/macos_arm64/"
   echo "  Run 'flutter clean && flutter pub get' to repopulate the Native Assets cache."
   exit 1
 fi
 
-echo "[flutter_gemma] Using companion dylibs from: ${PLUGIN_PREBUILT}"
+echo "[flutter_edge_ai] Using companion dylibs from: ${PLUGIN_PREBUILT}"
 
 # Wrap each upstream dylib into a .framework bundle inside the app's
 # Contents/Frameworks/ so dlopen("@executable_path/../Frameworks/<X>.framework/<X>")
@@ -84,7 +84,7 @@ for base in ${COMPANIONS}; do
     # TopK Metal sampler), so this is a note, not a failure. The one that MUST
     # be present is whichever LiteRtLm names in its load commands, and the
     # post-condition at the end fails the build if that one is missing.
-    echo "[flutter_gemma] note: ${src} not found — ${base}.framework not staged"
+    echo "[flutter_edge_ai] note: ${src} not found — ${base}.framework not staged"
     continue
   fi
   fw_dir="${FRAMEWORKS}/${base}.framework"
@@ -116,7 +116,7 @@ EOF
   # silenced: a failed re-sign is a bundle that dies at launch, and `set -e`
   # turning it into a build error is the whole point of this script.
   codesign --force --sign - "${fw_dir}/Versions/A/${base}"
-  echo "[flutter_gemma] copied ${base}.framework"
+  echo "[flutter_edge_ai] copied ${base}.framework"
 done
 
 # Point LiteRtLm's LC_LOAD_DYLIB entries at the frameworks staged above.
@@ -138,7 +138,7 @@ if [ -f "${LITERTLM}" ]; then
         "${old}" \
         "@rpath/${base}.framework/Versions/A/${base}" \
         "${LITERTLM}"
-      echo "[flutter_gemma] repointed ${old} -> ${base}.framework"
+      echo "[flutter_edge_ai] repointed ${old} -> ${base}.framework"
     done
   done
 
@@ -148,7 +148,7 @@ if [ -f "${LITERTLM}" ]; then
             | grep -E "/lib(GemmaModelConstraintProvider|LiteRtMetalAccelerator|LiteRtTopKMetalSampler)\.dylib\$" \
             || true)
   if [ -n "${stale}" ]; then
-    echo "[flutter_gemma] ERROR: LiteRtLm still loads companion dylibs that are" >&2
+    echo "[flutter_edge_ai] ERROR: LiteRtLm still loads companion dylibs that are" >&2
     echo "  not staged in the app bundle — it would fail dlopen at launch:" >&2
     echo "${stale}" | sed 's/^/    /' >&2
     exit 1

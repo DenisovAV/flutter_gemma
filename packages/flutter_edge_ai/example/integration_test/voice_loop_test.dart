@@ -7,7 +7,7 @@
 // audio -> turn-complete all landed with real (non-empty, non-silent)
 // content.
 //
-// Run: cd packages/flutter_gemma/example && \
+// Run: cd packages/flutter_edge_ai/example && \
 //   flutter test integration_test/voice_loop_test.dart -d <device> \
 //     --dart-define=HF_TOKEN=$HF_TOKEN
 import 'dart:io';
@@ -56,13 +56,13 @@ final _hfToken = _hfTokenStandard.isNotEmpty
 /// Prefer a device-local staged model file (no network, no token) — the
 /// convention the other integration tests use. Desktop and iOS read it from the
 /// app documents dir as `gemma3-1b-it-int4.litertlm`; Android (Firebase Test
-/// Lab) reads it from `/data/local/tmp/flutter_gemma_test/`.
+/// Lab) reads it from `/data/local/tmp/flutter_edge_ai_test/`.
 /// Returns null when no staged file is present (CI → network install).
 Future<String?> _stagedLlmPath() async {
   // Android (Firebase Test Lab): the model is pushed to the device via
-  // `--other-files /data/local/tmp/flutter_gemma_test/...` — no network/token.
+  // `--other-files /data/local/tmp/flutter_edge_ai_test/...` — no network/token.
   if (Platform.isAndroid) {
-    const p = '/data/local/tmp/flutter_gemma_test/gemma3-1b-it-int4.litertlm';
+    const p = '/data/local/tmp/flutter_edge_ai_test/gemma3-1b-it-int4.litertlm';
     return File(p).existsSync() ? p : null;
   }
   if (!(Platform.isMacOS ||
@@ -85,14 +85,14 @@ void main() {
       // 1. Register the STT/TTS/inference backends and install + activate
       //    STT (moonshine), a small no-tools LLM (Gemma 3 1B), and TTS
       //    (Inflect).
-      await FlutterGemma.initialize(
+      await FlutterEdgeAi.initialize(
         huggingFaceToken: _hfToken.isEmpty ? null : _hfToken,
         sttBackends: const [LiteRtSttBackend()],
         ttsBackends: const [LiteRtTtsBackend()],
         inferenceEngines: const [LiteRtLmEngine()],
       );
 
-      await FlutterGemma.installStt()
+      await FlutterEdgeAi.installStt()
           .modelFromNetwork(
             _sttModelUrl,
             token: _hfToken.isEmpty ? null : _hfToken,
@@ -111,7 +111,7 @@ void main() {
       // is reported loudly below: a silent fallback would hide a broken
       // `--other-files` push and burn 0.5 GB per run on a path the test was
       // written to avoid.
-      final llm = FlutterGemma.installModel(
+      final llm = FlutterEdgeAi.installModel(
         modelType: ModelType.gemmaIt,
         fileType: ModelFileType.litertlm,
       );
@@ -131,7 +131,7 @@ void main() {
               'No device-local staged LLM and no HuggingFace token, so the '
               'gated network fallback cannot authenticate. Stage the model '
               '(Android: --other-files '
-              '/data/local/tmp/flutter_gemma_test/gemma3-1b-it-int4.litertlm; '
+              '/data/local/tmp/flutter_edge_ai_test/gemma3-1b-it-int4.litertlm; '
               'desktop/iOS: app documents dir) or pass '
               '--dart-define=HUGGINGFACE_TOKEN=...',
         );
@@ -143,18 +143,18 @@ void main() {
             .install();
       }
 
-      await FlutterGemma.installTts()
+      await FlutterEdgeAi.installTts()
           .fromNetwork(_ttsModelUrl)
           .ofType(TtsModelType.inflect)
           .install();
 
-      final recognizer = await FlutterGemma.getActiveStt();
-      final synthesizer = await FlutterGemma.getActiveTts();
+      final recognizer = await FlutterEdgeAi.getActiveStt();
+      final synthesizer = await FlutterEdgeAi.getActiveTts();
       // CPU LLM: the voice path loads the Inflect TTS graphs (Metal) alongside
       // the LLM; a concurrent GPU (Metal) engine_create dies mid-weight-convert
       // on macOS. Same CPU pin as voice_tools/voice_agent. Android/desktop GPU
       // is unaffected, but CPU keeps this release gate green on every platform.
-      final model = await FlutterGemma.getActiveModel(
+      final model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 1024,
         preferredBackend: PreferredBackend.cpu,
       );

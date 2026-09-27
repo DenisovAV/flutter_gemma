@@ -1,4 +1,4 @@
-import 'package:flutter_edge_ai/core/api/flutter_gemma.dart';
+import 'package:flutter_edge_ai/core/api/flutter_edge_ai.dart';
 import 'package:flutter_edge_ai/core/registry/hugging_face_resolver.dart';
 import 'package:flutter_edge_ai/core/registry/hugging_face_resolver_source.dart';
 import 'package:flutter_edge_ai/core/domain/platform_types.dart'
@@ -9,7 +9,7 @@ import 'package:flutter_edge_ai/core/model_management/model_specs.dart'
 import 'package:flutter_edge_ai/core/registry/hugging_face_resolver_registry.dart';
 import 'package:flutter_edge_ai/core/registry/inference_engine_provider.dart';
 import 'package:flutter_edge_ai/core/registry/runtime_config.dart';
-import 'package:flutter_edge_ai/flutter_gemma_interface.dart' show InferenceModel;
+import 'package:flutter_edge_ai/flutter_edge_ai_interface.dart' show InferenceModel;
 import 'package:flutter_test/flutter_test.dart';
 
 /// Minimal fake resolver — probe-chain selection is what these tests exercise,
@@ -155,21 +155,21 @@ void main() {
 
   group('getActiveModel defaults merge (mergeRuntimeDefault)', () {
     test('explicit argument wins over manifest default and SDK default', () {
-      expect(FlutterGemma.mergeRuntimeDefault(512, 2048, 1024), 512);
-      expect(FlutterGemma.mergeRuntimeDefault(true, false, false), isTrue);
+      expect(FlutterEdgeAi.mergeRuntimeDefault(512, 2048, 1024), 512);
+      expect(FlutterEdgeAi.mergeRuntimeDefault(true, false, false), isTrue);
     });
 
     test('manifest default wins when the explicit argument is omitted', () {
-      expect(FlutterGemma.mergeRuntimeDefault(null, 2048, 1024), 2048);
-      expect(FlutterGemma.mergeRuntimeDefault<bool>(null, true, false), isTrue);
+      expect(FlutterEdgeAi.mergeRuntimeDefault(null, 2048, 1024), 2048);
+      expect(FlutterEdgeAi.mergeRuntimeDefault<bool>(null, true, false), isTrue);
     });
 
     test(
       'SDK default applies when both are null (unchanged legacy behaviour)',
       () {
-        expect(FlutterGemma.mergeRuntimeDefault<int>(null, null, 1024), 1024);
+        expect(FlutterEdgeAi.mergeRuntimeDefault<int>(null, null, 1024), 1024);
         expect(
-          FlutterGemma.mergeRuntimeDefault<bool>(null, null, false),
+          FlutterEdgeAi.mergeRuntimeDefault<bool>(null, null, false),
           isFalse,
         );
       },
@@ -181,7 +181,7 @@ void main() {
     () {
       HuggingFaceResolverRegistry.instance.reset();
       expect(
-        FlutterGemma.resolveHuggingFace('org/repo'),
+        FlutterEdgeAi.resolveHuggingFace('org/repo'),
         throwsA(isA<StateError>()),
       );
     },
@@ -190,7 +190,7 @@ void main() {
   group('engineHuggingFaceResolvers (auto-derivation from engines)', () {
     test('collects a resolver only from engines that provide one', () {
       final r = _R('litertlm', 0);
-      final derived = FlutterGemma.engineHuggingFaceResolvers([
+      final derived = FlutterEdgeAi.engineHuggingFaceResolvers([
         _EngineWithResolver(r),
         _PlainEngine(), // no HuggingFaceResolverSource → skipped
       ]);
@@ -200,7 +200,7 @@ void main() {
 
     test('empty when no engine implements HuggingFaceResolverSource', () {
       expect(
-        FlutterGemma.engineHuggingFaceResolvers([_PlainEngine()]),
+        FlutterEdgeAi.engineHuggingFaceResolvers([_PlainEngine()]),
         isEmpty,
       );
     });
@@ -213,7 +213,7 @@ void main() {
       // explicit resolver wins on equal priority (findFor: first-registered).
       HuggingFaceResolverRegistry.instance.registerAll([explicit]);
       HuggingFaceResolverRegistry.instance.registerAll(
-        FlutterGemma.engineHuggingFaceResolvers([engine]),
+        FlutterEdgeAi.engineHuggingFaceResolvers([engine]),
       );
       expect(
         HuggingFaceResolverRegistry.instance.findFor('o/r')!.name,

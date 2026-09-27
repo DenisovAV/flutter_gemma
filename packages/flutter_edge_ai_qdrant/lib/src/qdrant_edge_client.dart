@@ -33,7 +33,7 @@ enum Distance {
 /// One search hit returned by [QdrantEdgeClient.search].
 class SearchHit {
   /// Point ID as stored — typically a UUIDv5 string for points written via
-  /// flutter_gemma's high-level repository.
+  /// flutter_edge_ai's high-level repository.
   final String id;
 
   /// Similarity score per the shard's [Distance] metric. Cosine returns
@@ -76,7 +76,7 @@ class QdrantShardLockedException extends QdrantException {
 /// This backs [QdrantVectorStore]; it is not meant for direct use by
 /// application code. It owns exactly one [qe.EdgeShard] (the on-disk shard) and
 /// adapts the typed SDK API to the JSON-payload / JSON-filter surface the rest
-/// of flutter_gemma's RAG layer expects.
+/// of flutter_edge_ai's RAG layer expects.
 ///
 /// The native engine is delivered by the `qdrant_edge` package's Native Assets
 /// build hook — there is no manual `DynamicLibrary.open`; the SDK's generated

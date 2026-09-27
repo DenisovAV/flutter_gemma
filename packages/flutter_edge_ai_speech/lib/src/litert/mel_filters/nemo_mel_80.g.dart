@@ -1,4 +1,4 @@
-// packages/flutter_gemma_speech/lib/src/litert/mel_filters/nemo_mel_80.g.dart
+// packages/flutter_edge_ai_speech/lib/src/litert/mel_filters/nemo_mel_80.g.dart
 //
 // GENERATED DATA FILE — DO NOT EDIT MANUALLY.
 // Source: librosa.filters.mel(sr=16000, n_fft=512, n_mels=80, fmin=0,

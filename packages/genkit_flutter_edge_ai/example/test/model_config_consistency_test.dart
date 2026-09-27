@@ -14,7 +14,7 @@ import '../integration_test/test_helpers.dart';
 /// `TestModelConfig` values, so it runs under `flutter test` without a target.
 void main() {
   /// The fileType every model file with [extension] must declare, per
-  /// flutter_gemma's `ModelFileType` doc comments (core/model.dart):
+  /// flutter_edge_ai's `ModelFileType` doc comments (core/model.dart):
   ///   .task            → ModelFileType.task     (MediaPipe)
   ///   .bin / .tflite   → ModelFileType.binary   (manual templates)
   ///   .litertlm        → ModelFileType.litertlm (LiteRT-LM)

@@ -1,7 +1,7 @@
 /// Model specification value types — `dart:io`-free, shared across all
 /// platforms (mobile, desktop, web).
 ///
-/// These types used to be `part of` `flutter_gemma_mobile.dart`, which pulled
+/// These types used to be `part of` `flutter_edge_ai_mobile.dart`, which pulled
 /// `dart:io` (and `path_provider`) into the public import graph and broke
 /// dart2wasm compatibility (pub.dev "Platform support" WASM check). They are
 /// extracted here as a standalone, platform-neutral library so the public API

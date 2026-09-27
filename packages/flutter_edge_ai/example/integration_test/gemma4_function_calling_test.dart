@@ -58,13 +58,13 @@ const _setVolumeTool = Tool(
 
 Future<void> _installModel() async {
   await registerTestEngines();
-  await FlutterGemma.installModel(
+  await FlutterEdgeAi.installModel(
     modelType: ModelType.gemma4,
     fileType: ModelFileType.litertlm,
   ).fromFile(_gemma4Path).install();
 }
 
-Future<InferenceModel> _openModel() async => FlutterGemma.getActiveModel(
+Future<InferenceModel> _openModel() async => FlutterEdgeAi.getActiveModel(
   maxTokens: 2048,
   preferredBackend: PreferredBackend.gpu,
 );

@@ -1,11 +1,11 @@
-// Native Assets hook for flutter_gemma_rag_sqlite.
+// Native Assets hook for flutter_edge_ai_sqlite.
 //
 // Registers the per-platform `sqlite-vec` (`vec0`) loadable extension as a
 // CodeAsset so the bundled library is resolvable at runtime via
 // `DynamicLibrary.open` (see SqliteVectorStore._resolveVec0Path).
 //
 // The loadables are FETCHED from a versioned GitHub Release, the same shape
-// `flutter_gemma_litertlm` uses. They used to be committed into the package
+// `flutter_edge_ai_litertlm` uses. They used to be committed into the package
 // under `native/sqlite_vec/prebuilt/` and read locally, on the reasoning that
 // ~1 MB was too small to be worth a download. That was wrong twice over:
 //
@@ -69,7 +69,7 @@ const _assetName = 'src/native/vec0';
 const _bundleVersion = '0.1.9';
 
 const _releaseTag = 'native-sqlite-vec-v$_bundleVersion';
-const _markerFileName = '.flutter_gemma_sqlite_vec_version';
+const _markerFileName = '.flutter_edge_ai_sqlite_vec_version';
 const _releaseBase =
     'https://github.com/DenisovAV/flutter_gemma/releases/download/$_releaseTag';
 
@@ -208,7 +208,7 @@ void _invalidateCacheIfStale() {
     }
     if (cached != null) {
       stderr.writeln(
-        'flutter_gemma_rag_sqlite: dropped cached sqlite-vec $cached '
+        'flutter_edge_ai_sqlite: dropped cached sqlite-vec $cached '
         '(now pinned to $_bundleVersion)',
       );
     }
@@ -237,7 +237,7 @@ Directory? _resolveLibDir(String dirName, Uri packageRoot, OS os) {
     // silent, so a build log could not tell you which bytes were registered —
     // and a leftover prebuilt/ overrides the pinned release indefinitely.
     stderr.writeln(
-      'flutter_gemma_rag_sqlite: using LOCAL prebuilt for $dirName '
+      'flutter_edge_ai_sqlite: using LOCAL prebuilt for $dirName '
       '(${localDir.path}) — the $_releaseTag pin is bypassed',
     );
     return localDir;
@@ -276,7 +276,7 @@ Future<Directory?> _downloadAndExtract(String dirName, OS os) async {
 
     final url = '$_releaseBase/$archiveName';
     stderr.writeln(
-      'flutter_gemma_rag_sqlite: downloading sqlite-vec $_bundleVersion '
+      'flutter_edge_ai_sqlite: downloading sqlite-vec $_bundleVersion '
       'for $dirName from $url ...',
     );
 
@@ -286,7 +286,7 @@ Future<Directory?> _downloadAndExtract(String dirName, OS os) async {
       final response = await request.close();
       if (response.statusCode != 200) {
         throw StateError(
-          'flutter_gemma_rag_sqlite: could not download sqlite-vec for '
+          'flutter_edge_ai_sqlite: could not download sqlite-vec for '
           '$dirName — HTTP ${response.statusCode} from $url.\n'
           'This platform HAS a registered checksum, so the archive is expected '
           'to exist. Check network access to github.com, or that release tag '
@@ -308,7 +308,7 @@ Future<Directory?> _downloadAndExtract(String dirName, OS os) async {
       // GitHub served are not the bytes this package version was built against
       // — a re-uploaded tag (#316), a corrupted transfer, or a MITM.
       throw StateError(
-        'flutter_gemma_rag_sqlite: CHECKSUM MISMATCH for $archiveName.\n'
+        'flutter_edge_ai_sqlite: CHECKSUM MISMATCH for $archiveName.\n'
         '  expected $expectedChecksum\n'
         '  actual   $actualChecksum\n'
         'The archive served by $_releaseBase does not match what sqlite-vec '
@@ -334,13 +334,13 @@ Future<Directory?> _downloadAndExtract(String dirName, OS os) async {
       ]);
       if (result.exitCode != 0) {
         throw StateError(
-          'flutter_gemma_rag_sqlite: failed to extract $archiveName '
+          'flutter_edge_ai_sqlite: failed to extract $archiveName '
           '(tar exit ${result.exitCode}): ${result.stderr}',
         );
       }
       if (!_hasLib(tmpDir, os)) {
         throw StateError(
-          'flutter_gemma_rag_sqlite: $archiveName extracted but '
+          'flutter_edge_ai_sqlite: $archiveName extracted but '
           '${_bundledFileName(os)} is not in it. The archive on $_releaseTag '
           'is not the one this hook expects.',
         );
@@ -355,14 +355,14 @@ Future<Directory?> _downloadAndExtract(String dirName, OS os) async {
     // The marker is written by the caller, once a target has resolved by
     // EITHER path — see the note there.
     stderr.writeln(
-      'flutter_gemma_rag_sqlite: sqlite-vec $dirName ready (checksum verified)',
+      'flutter_edge_ai_sqlite: sqlite-vec $dirName ready (checksum verified)',
     );
     return targetDir;
   } on StateError {
     rethrow;
   } catch (e) {
     throw StateError(
-      'flutter_gemma_rag_sqlite: could not prepare sqlite-vec for $dirName: $e',
+      'flutter_edge_ai_sqlite: could not prepare sqlite-vec for $dirName: $e',
     );
   }
 }
@@ -396,7 +396,7 @@ void _assertIosMinos(File lib, IOSSdk? sdk) {
 
   final b = ByteData.sublistView(lib.readAsBytesSync());
   if (b.lengthInBytes < 32) {
-    throw StateError('flutter_gemma_rag_sqlite: ${lib.path} is not a Mach-O.');
+    throw StateError('flutter_edge_ai_sqlite: ${lib.path} is not a Mach-O.');
   }
   final ncmds = b.getUint32(16, Endian.little);
   var off = 32;
@@ -411,7 +411,7 @@ void _assertIosMinos(File lib, IOSSdk? sdk) {
       final minos = '${v >> 16}.${(v >> 8) & 0xff}';
       if (platform != wantPlatform || minos != '13.0') {
         throw StateError(
-          'flutter_gemma_rag_sqlite: ${lib.path} declares platform $platform '
+          'flutter_edge_ai_sqlite: ${lib.path} declares platform $platform '
           'minos $minos; expected platform $wantPlatform minos 13.0. An iOS '
           'slice with any other value is App Store rejection ITMS-90208. '
           'Re-run native/sqlite_vec/build_local.sh, which normalizes it, and '
@@ -422,7 +422,7 @@ void _assertIosMinos(File lib, IOSSdk? sdk) {
     }
     if (cmd == lcVersionMinIphoneos) {
       throw StateError(
-        'flutter_gemma_rag_sqlite: ${lib.path} carries the legacy '
+        'flutter_edge_ai_sqlite: ${lib.path} carries the legacy '
         'LC_VERSION_MIN_IPHONEOS instead of LC_BUILD_VERSION. That is what '
         "asg017's upstream tarball ships; build_local.sh re-stamps it. This "
         'binary was not normalized.',
@@ -431,7 +431,7 @@ void _assertIosMinos(File lib, IOSSdk? sdk) {
     off += size;
   }
   throw StateError(
-    'flutter_gemma_rag_sqlite: ${lib.path} has no version load command, so its '
+    'flutter_edge_ai_sqlite: ${lib.path} has no version load command, so its '
     'minimum OS cannot be checked. Refusing to bundle it.',
   );
 }
@@ -539,7 +539,7 @@ void main(List<String> args) async {
 /// replacement happens to be the same size, which is exactly what re-stamping
 /// a Mach-O load command produces.
 ///
-/// Byte-identical in `flutter_gemma_litertlm` and `flutter_gemma_onnx`; the
+/// Byte-identical in `flutter_edge_ai_litertlm` and `flutter_edge_ai_onnx`; the
 /// packages publish independently and cannot share it.
 bool _sameBytes(File a, File b) {
   if (a.lengthSync() != b.lengthSync()) return false;

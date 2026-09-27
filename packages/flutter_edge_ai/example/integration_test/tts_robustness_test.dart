@@ -19,7 +19,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:flutter_edge_ai/flutter_edge_ai.dart'
-    show FlutterGemma, TtsModelType;
+    show FlutterEdgeAi, TtsModelType;
 import 'package:flutter_edge_ai_speech/flutter_edge_ai_speech.dart'
     show LiteRtTtsBackend;
 
@@ -41,14 +41,14 @@ void main() {
   testWidgets(
     'punctuation: "Sure, I can help with that." synthesizes without throwing (non-silent)',
     (_) async {
-      await FlutterGemma.initialize(ttsBackends: const [LiteRtTtsBackend()]);
+      await FlutterEdgeAi.initialize(ttsBackends: const [LiteRtTtsBackend()]);
 
-      await FlutterGemma.installTts()
+      await FlutterEdgeAi.installTts()
           .fromNetwork(_modelUrl)
           .ofType(TtsModelType.matcha)
           .install();
 
-      final synth = await FlutterGemma.getActiveTts();
+      final synth = await FlutterEdgeAi.getActiveTts();
 
       try {
         final pcm = await synth.synthesize('Sure, I can help with that.');
@@ -74,14 +74,14 @@ void main() {
   testWidgets(
     'number: "Meet in 2023." synthesizes without throwing (non-silent, verifies number normalization)',
     (_) async {
-      await FlutterGemma.initialize(ttsBackends: const [LiteRtTtsBackend()]);
+      await FlutterEdgeAi.initialize(ttsBackends: const [LiteRtTtsBackend()]);
 
-      await FlutterGemma.installTts()
+      await FlutterEdgeAi.installTts()
           .fromNetwork(_modelUrl)
           .ofType(TtsModelType.matcha)
           .install();
 
-      final synth = await FlutterGemma.getActiveTts();
+      final synth = await FlutterEdgeAi.getActiveTts();
 
       try {
         final pcm = await synth.synthesize('Meet in 2023.');
@@ -107,14 +107,14 @@ void main() {
   testWidgets(
     'OOV via neural: "Chomsky syntax." synthesizes without throwing (non-silent, routes through dp_g2p)',
     (_) async {
-      await FlutterGemma.initialize(ttsBackends: const [LiteRtTtsBackend()]);
+      await FlutterEdgeAi.initialize(ttsBackends: const [LiteRtTtsBackend()]);
 
-      await FlutterGemma.installTts()
+      await FlutterEdgeAi.installTts()
           .fromNetwork(_modelUrl)
           .ofType(TtsModelType.matcha)
           .install();
 
-      final synth = await FlutterGemma.getActiveTts();
+      final synth = await FlutterEdgeAi.getActiveTts();
 
       try {
         final pcm = await synth.synthesize('Chomsky syntax.');
@@ -140,14 +140,14 @@ void main() {
   testWidgets(
     'chunking: "One. Two. Three." (3 clauses) synthesizes without throwing and is longer than a one-clause clip',
     (_) async {
-      await FlutterGemma.initialize(ttsBackends: const [LiteRtTtsBackend()]);
+      await FlutterEdgeAi.initialize(ttsBackends: const [LiteRtTtsBackend()]);
 
-      await FlutterGemma.installTts()
+      await FlutterEdgeAi.installTts()
           .fromNetwork(_modelUrl)
           .ofType(TtsModelType.matcha)
           .install();
 
-      final synth = await FlutterGemma.getActiveTts();
+      final synth = await FlutterEdgeAi.getActiveTts();
 
       try {
         // Baseline: a single clause, for a loose "multi-clause is longer"
@@ -189,14 +189,14 @@ void main() {
   testWidgets(
     'non-speech clause: "Sounds good! 👍" skips the emoji clause and still speaks the rest',
     (_) async {
-      await FlutterGemma.initialize(ttsBackends: const [LiteRtTtsBackend()]);
+      await FlutterEdgeAi.initialize(ttsBackends: const [LiteRtTtsBackend()]);
 
-      await FlutterGemma.installTts()
+      await FlutterEdgeAi.installTts()
           .fromNetwork(_modelUrl)
           .ofType(TtsModelType.matcha)
           .install();
 
-      final synth = await FlutterGemma.getActiveTts();
+      final synth = await FlutterEdgeAi.getActiveTts();
 
       try {
         // The "👍" clause maps to zero symbols; the fix skips it instead of

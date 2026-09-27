@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Build a sqlite3.wasm with sqlite-vec (vec0) statically linked in, for the web
-# arm of flutter_gemma_rag_sqlite. Proven end-to-end (PoC #2, 2026-06-21): the
+# arm of flutter_edge_ai_sqlite. Proven end-to-end (PoC #2, 2026-06-21): the
 # resulting wasm runs in headless Chromium, vec0 KNN returns TEXT ids — see
 # tool/verify_web_vec0.mjs.
 #

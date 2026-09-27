@@ -6,10 +6,10 @@ import 'package:genkit/plugin.dart';
 /// Registry name of the context-window trimmer. Shared by the plugin's
 /// [GenkitPlugin.middleware] registration and the [trimContext] ref so the two
 /// can never drift apart.
-const kContextWindowMiddlewareName = 'flutter-gemma-context-window';
+const kContextWindowMiddlewareName = 'flutter-edge-ai-context-window';
 
 /// Context window assumed when a request carries no `maxTokens` config. Matches
-/// flutter_gemma's own default and the `kv_cache_max_len` baked into every
+/// flutter_edge_ai's own default and the `kv_cache_max_len` baked into every
 /// supported `.litertlm` model.
 const _kDefaultContextWindow = 1024;
 
@@ -163,7 +163,7 @@ class ContextWindowMiddleware extends GenerateMiddleware {
     // budget. Never log "fit budget" when it didn't — a misleading success line
     // sends a debugging engineer the wrong way.
     final finalTotal = result.fold<int>(0, (s, m) => s + _estimateTokens(m));
-    const logName = 'genkit.flutter_gemma.context_window';
+    const logName = 'genkit.flutter_edge_ai.context_window';
     if (finalTotal > budget) {
       developer.log(
         'could not fit budget $budget: pinned system + most-recent messages '
@@ -228,7 +228,7 @@ GenerateMiddlewareDef<Map<String, dynamic>> contextWindowMiddlewareDef() {
 ///
 /// ```dart
 /// await ai.generate(
-///   model: flutterGemma.model('gemma-3-nano'),
+///   model: flutterEdgeAi.model('gemma-3-nano'),
 ///   prompt: '…',
 ///   use: [trimContext(maxInputTokens: 800)],
 /// );

@@ -3,7 +3,7 @@
 //
 // Built and used ENTIRELY inside the embedding worker isolate (same
 // isolate-affinity rule as `LiteRtEmbeddingForwardPass` in
-// `flutter_gemma_litertlm`): the native handles this class holds
+// `flutter_edge_ai_litertlm`): the native handles this class holds
 // (`OrtEnv`/`OrtSession`/... pointers) cannot cross an isolate boundary, so
 // `createOnnxEmbeddingForwardPass`'s `load()` constructs this client fresh
 // inside the receiving isolate, never before.
@@ -56,7 +56,7 @@ ffi.DynamicLibrary _openOnnxRuntime() {
     // The open MUST use the `@executable_path/Frameworks/` anchor — iOS
     // dyld 4 cannot resolve a bare `<name>.framework/<name>` leaf name (same
     // reasoning, and same anchor shape, as
-    // `flutter_gemma_litertlm/lib/src/ffi/litert_lm_client.dart`'s
+    // `flutter_edge_ai_litertlm/lib/src/ffi/litert_lm_client.dart`'s
     // `LiteRtLm.framework`/`StreamProxy.framework` opens, and
     // `gen_ai_client.dart`'s `_candidateNames` iOS branch).
     try {

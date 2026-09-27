@@ -3,7 +3,7 @@
 //
 // Its two companions establish the linker mechanism in the abstract. This one
 // exercises the REAL entry point: `LiteRtBindings.open()`, which is what the
-// embedding forward pass and every flutter_gemma_speech core call reach for.
+// embedding forward pass and every flutter_edge_ai_speech core call reach for.
 // Before the fix it called a plain `DynamicLibrary.open`, and an app that
 // embedded or transcribed anything before generating left stream_proxy.c's ABI
 // probe permanently blind.

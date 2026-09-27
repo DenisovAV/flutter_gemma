@@ -18,7 +18,7 @@ void main() {
   late String databasePath;
 
   setUpAll(() async {
-    await FlutterGemma.initialize(
+    await FlutterEdgeAi.initialize(
       vectorStore: SqliteVectorStore(),
       inferenceEngines: const [LiteRtLmEngine()],
       embeddingBackends: const [LiteRtEmbeddingBackend()],
@@ -29,12 +29,12 @@ void main() {
   });
 
   Future<void> initStore() async {
-    await FlutterGemmaPlugin.instance.initializeVectorStore(databasePath);
+    await FlutterEdgeAiPlugin.instance.initializeVectorStore(databasePath);
   }
 
   Future<void> cleanupStore() async {
     try {
-      await FlutterGemmaPlugin.instance.clearVectorStore();
+      await FlutterEdgeAiPlugin.instance.clearVectorStore();
     } catch (_) {}
     // Close the store so the underlying sqlite3 database handle is released
     // before deleting the file. On Windows an open handle locks the file and
@@ -56,7 +56,7 @@ void main() {
   group('VectorStore Integration Tests', () {
     testWidgets('Test 1: Initialize VectorStore', (tester) async {
       await initStore();
-      final stats = await FlutterGemmaPlugin.instance.getVectorStoreStats();
+      final stats = await FlutterEdgeAiPlugin.instance.getVectorStoreStats();
       expect(stats.documentCount, 0);
       expect(stats.vectorDimension, 0);
       await cleanupStore();
@@ -64,14 +64,14 @@ void main() {
 
     testWidgets('Test 2: Add Document with Embedding', (tester) async {
       await initStore();
-      await FlutterGemmaPlugin.instance.addDocumentWithEmbedding(
+      await FlutterEdgeAiPlugin.instance.addDocumentWithEmbedding(
         id: 'doc1',
         content: 'Hello, world!',
         embedding: [1.0, 0.0, 0.0],
         metadata: '{"source": "test"}',
       );
 
-      final stats = await FlutterGemmaPlugin.instance.getVectorStoreStats();
+      final stats = await FlutterEdgeAiPlugin.instance.getVectorStoreStats();
       expect(stats.documentCount, 1);
       expect(stats.vectorDimension, 3);
       await cleanupStore();
@@ -79,17 +79,17 @@ void main() {
 
     testWidgets('Test 3: Search Similar Documents', (tester) async {
       await initStore();
-      await FlutterGemmaPlugin.instance.addDocumentWithEmbedding(
+      await FlutterEdgeAiPlugin.instance.addDocumentWithEmbedding(
         id: 'doc1',
         content: 'Document about cats',
         embedding: [1.0, 0.0, 0.0],
       );
-      await FlutterGemmaPlugin.instance.addDocumentWithEmbedding(
+      await FlutterEdgeAiPlugin.instance.addDocumentWithEmbedding(
         id: 'doc2',
         content: 'Document about dogs',
         embedding: [0.9, 0.1, 0.0],
       );
-      await FlutterGemmaPlugin.instance.addDocumentWithEmbedding(
+      await FlutterEdgeAiPlugin.instance.addDocumentWithEmbedding(
         id: 'doc3',
         content: 'Document about cars',
         embedding: [0.0, 1.0, 0.0],
@@ -113,14 +113,14 @@ void main() {
     testWidgets('Test 4: Get Stats', (tester) async {
       await initStore();
       for (int i = 0; i < 5; i++) {
-        await FlutterGemmaPlugin.instance.addDocumentWithEmbedding(
+        await FlutterEdgeAiPlugin.instance.addDocumentWithEmbedding(
           id: 'doc$i',
           content: 'Document $i',
           embedding: [i.toDouble(), 0.0, 0.0],
         );
       }
 
-      final stats = await FlutterGemmaPlugin.instance.getVectorStoreStats();
+      final stats = await FlutterEdgeAiPlugin.instance.getVectorStoreStats();
       expect(stats.documentCount, 5);
       expect(stats.vectorDimension, 3);
       await cleanupStore();
@@ -128,18 +128,18 @@ void main() {
 
     testWidgets('Test 5: Clear Store', (tester) async {
       await initStore();
-      await FlutterGemmaPlugin.instance.addDocumentWithEmbedding(
+      await FlutterEdgeAiPlugin.instance.addDocumentWithEmbedding(
         id: 'doc1',
         content: 'Document 1',
         embedding: [1.0, 0.0, 0.0],
       );
 
-      var stats = await FlutterGemmaPlugin.instance.getVectorStoreStats();
+      var stats = await FlutterEdgeAiPlugin.instance.getVectorStoreStats();
       expect(stats.documentCount, 1);
 
-      await FlutterGemmaPlugin.instance.clearVectorStore();
+      await FlutterEdgeAiPlugin.instance.clearVectorStore();
 
-      stats = await FlutterGemmaPlugin.instance.getVectorStoreStats();
+      stats = await FlutterEdgeAiPlugin.instance.getVectorStoreStats();
       expect(stats.documentCount, 0);
       await cleanupStore();
     });
@@ -148,7 +148,7 @@ void main() {
       tester,
     ) async {
       await initStore();
-      await FlutterGemmaPlugin.instance.addDocumentWithEmbedding(
+      await FlutterEdgeAiPlugin.instance.addDocumentWithEmbedding(
         id: 'doc1',
         content: 'Document 1',
         embedding: [1.0, 0.0, 0.0],
@@ -156,7 +156,7 @@ void main() {
 
       // ArgumentError is an Error, not Exception — use throwsA
       await expectLater(
-        () => FlutterGemmaPlugin.instance.addDocumentWithEmbedding(
+        () => FlutterEdgeAiPlugin.instance.addDocumentWithEmbedding(
           id: 'doc2',
           content: 'Document 2',
           embedding: [1.0, 0.0, 0.0, 0.0], // 4D instead of 3D
@@ -170,7 +170,7 @@ void main() {
       await initStore();
       final originalEmbedding = [0.123456789, -0.987654321, 0.5, 0.0, 1.0];
 
-      await FlutterGemmaPlugin.instance.addDocumentWithEmbedding(
+      await FlutterEdgeAiPlugin.instance.addDocumentWithEmbedding(
         id: 'doc1',
         content: 'Test document',
         embedding: originalEmbedding,
@@ -191,13 +191,13 @@ void main() {
 
     testWidgets('Test 8: Metadata Storage and Retrieval', (tester) async {
       await initStore();
-      await FlutterGemmaPlugin.instance.addDocumentWithEmbedding(
+      await FlutterEdgeAiPlugin.instance.addDocumentWithEmbedding(
         id: 'doc1',
         content: 'Document with metadata',
         embedding: [1.0, 0.0, 0.0],
         metadata: '{"author": "Alice", "date": "2024-11-18"}',
       );
-      await FlutterGemmaPlugin.instance.addDocumentWithEmbedding(
+      await FlutterEdgeAiPlugin.instance.addDocumentWithEmbedding(
         id: 'doc2',
         content: 'Document without metadata',
         embedding: [0.9, 0.1, 0.0],
@@ -219,17 +219,17 @@ void main() {
 
     testWidgets('Test 9: Threshold Filtering', (tester) async {
       await initStore();
-      await FlutterGemmaPlugin.instance.addDocumentWithEmbedding(
+      await FlutterEdgeAiPlugin.instance.addDocumentWithEmbedding(
         id: 'doc1',
         content: 'Very similar',
         embedding: [1.0, 0.0, 0.0],
       );
-      await FlutterGemmaPlugin.instance.addDocumentWithEmbedding(
+      await FlutterEdgeAiPlugin.instance.addDocumentWithEmbedding(
         id: 'doc2',
         content: 'Somewhat similar',
         embedding: [0.7, 0.7, 0.0],
       );
-      await FlutterGemmaPlugin.instance.addDocumentWithEmbedding(
+      await FlutterEdgeAiPlugin.instance.addDocumentWithEmbedding(
         id: 'doc3',
         content: 'Not similar',
         embedding: [0.0, 1.0, 0.0],
@@ -260,24 +260,24 @@ void main() {
 
     testWidgets('Test 10: INSERT OR REPLACE - Document Update', (tester) async {
       await initStore();
-      await FlutterGemmaPlugin.instance.addDocumentWithEmbedding(
+      await FlutterEdgeAiPlugin.instance.addDocumentWithEmbedding(
         id: 'doc1',
         content: 'Original content',
         embedding: [1.0, 0.0, 0.0],
         metadata: '{"version": 1}',
       );
 
-      var stats = await FlutterGemmaPlugin.instance.getVectorStoreStats();
+      var stats = await FlutterEdgeAiPlugin.instance.getVectorStoreStats();
       expect(stats.documentCount, 1);
 
-      await FlutterGemmaPlugin.instance.addDocumentWithEmbedding(
+      await FlutterEdgeAiPlugin.instance.addDocumentWithEmbedding(
         id: 'doc1',
         content: 'Updated content',
         embedding: [0.0, 1.0, 0.0],
         metadata: '{"version": 2}',
       );
 
-      stats = await FlutterGemmaPlugin.instance.getVectorStoreStats();
+      stats = await FlutterEdgeAiPlugin.instance.getVectorStoreStats();
       expect(stats.documentCount, 1);
 
       final results = await ServiceRegistry.instance.vectorStoreRepository

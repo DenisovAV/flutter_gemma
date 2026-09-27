@@ -1,7 +1,7 @@
 {
   "impl": "DartVectorStoreRepository (sqlite3 + local_hnsw)",
   "platform": "windows",
-  "os_version": "Windows Server 2022 (GCE flutter-gemma-gpu, us-central1-a, NVidia T4, embeddings ran on CPU)",
+  "os_version": "Windows Server 2022 (GCE flutter-edge-ai-gpu, us-central1-a, NVidia T4, embeddings ran on CPU)",
   "embedding_dim": 768,
   "corpus_chars_per_doc_avg": 361,
   "timestamp": "2026-05-19T00:00:00Z",

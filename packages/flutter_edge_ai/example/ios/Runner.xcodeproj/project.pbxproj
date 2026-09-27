@@ -72,7 +72,7 @@
 		F7A8C0A12D0F000000000003 /* RunnerUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RunnerUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		78E0A7A72DC9AD7400C4905E /* FlutterGeneratedPluginSwiftPackage */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = FlutterGeneratedPluginSwiftPackage; path = Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage; sourceTree = "<group>"; };
 		784666492D4C4C64000A1A5F /* FlutterFramework */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = FlutterFramework; path = Flutter/ephemeral/Packages/.packages/FlutterFramework; sourceTree = "<group>"; };
-		78DABEA22ED26510000E7860 /* flutter_gemma */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = flutter_gemma; path = ../../ios/flutter_gemma; sourceTree = "<group>"; };
+		78DABEA22ED26510000E7860 /* flutter_edge_ai */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = flutter_edge_ai; path = ../../ios/flutter_edge_ai; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -124,7 +124,7 @@
 		9740EEB11CF90186004384FC /* Flutter */ = {
 			isa = PBXGroup;
 			children = (
-				78DABEA22ED26510000E7860 /* flutter_gemma */,
+				78DABEA22ED26510000E7860 /* flutter_edge_ai */,
 				784666492D4C4C64000A1A5F /* FlutterFramework */,
 				78E0A7A72DC9AD7400C4905E /* FlutterGeneratedPluginSwiftPackage */,
 				3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */,
@@ -198,7 +198,7 @@
 				9705A1C41CF9048500538489 /* Embed Frameworks */,
 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
 				42F9AD361A8968AA697F843D /* [CP] Copy Pods Resources */,
-				899D228D8844E0850FF8A76B /* [flutter_gemma] Setup LiteRT-LM iOS */,
+				899D228D8844E0850FF8A76B /* [flutter_edge_ai] Setup LiteRT-LM iOS */,
 			);
 			buildRules = (
 			);
@@ -219,7 +219,7 @@
 				F7A8C0A12D0F000000000012 /* Resources */,
 				B8CC58BE8642F70FCF2DD33C /* [CP] Copy Pods Resources */,
 				F7A8C0A12D0F000000000031 /* Embed Flutter Framework */,
-				670D28A18186124603F5F88C /* [flutter_gemma] Setup LiteRT-LM iOS */,
+				670D28A18186124603F5F88C /* [flutter_edge_ai] Setup LiteRT-LM iOS */,
 			);
 			buildRules = (
 			);
@@ -328,7 +328,7 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-resources.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		670D28A18186124603F5F88C /* [flutter_gemma] Setup LiteRT-LM iOS */ = {
+		670D28A18186124603F5F88C /* [flutter_edge_ai] Setup LiteRT-LM iOS */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -337,7 +337,7 @@
 			);
 			inputPaths = (
 			);
-			name = "[flutter_gemma] Setup LiteRT-LM iOS";
+			name = "[flutter_edge_ai] Setup LiteRT-LM iOS";
 			outputFileListPaths = (
 			);
 			outputPaths = (
@@ -368,7 +368,7 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
-		899D228D8844E0850FF8A76B /* [flutter_gemma] Setup LiteRT-LM iOS */ = {
+		899D228D8844E0850FF8A76B /* [flutter_edge_ai] Setup LiteRT-LM iOS */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -377,7 +377,7 @@
 			);
 			inputPaths = (
 			);
-			name = "[flutter_gemma] Setup LiteRT-LM iOS";
+			name = "[flutter_edge_ai] Setup LiteRT-LM iOS";
 			outputFileListPaths = (
 			);
 			outputPaths = (

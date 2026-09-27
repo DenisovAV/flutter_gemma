@@ -5,9 +5,9 @@ import 'vision_encoder_validator.dart';
 import 'image_error_handler.dart';
 import 'message.dart';
 import 'model.dart';
-import 'utils/gemma_log.dart';
+import 'utils/edge_ai_log.dart';
 
-/// Main integration class for handling multimodal image processing in Flutter Gemma
+/// Main integration class for handling multimodal image processing in Flutter Edge AI
 /// to prevent AI image corruption and repeating text pattern issues.
 class MultimodalImageHandler {
   /// Processes and validates an image for use with AI models
@@ -19,7 +19,7 @@ class MultimodalImageHandler {
     bool enableProcessing = true,
   }) async {
     try {
-      gemmaLog(
+      edgeAiLog(
         'MultimodalImageHandler: Starting image processing for $modelType...',
       );
 
@@ -61,7 +61,7 @@ class MultimodalImageHandler {
         }
       }
 
-      gemmaLog(
+      edgeAiLog(
         'MultimodalImageHandler: Image processing completed successfully',
       );
 
@@ -72,7 +72,7 @@ class MultimodalImageHandler {
         validationPassed: enableValidation,
       );
     } catch (e) {
-      gemmaLog('MultimodalImageHandler: Image processing failed - $e');
+      edgeAiLog('MultimodalImageHandler: Image processing failed - $e');
 
       // Handle the error and provide recovery suggestions
       final errorResult = ImageErrorHandler.handleImageProcessingError(
@@ -103,7 +103,7 @@ class MultimodalImageHandler {
       originalFormat: originalFormat,
     );
 
-    gemmaLog(
+    edgeAiLog(
       'MultimodalImageHandler: Image processed - ${processedImage.width}x${processedImage.height}, '
       'Format: ${processedImage.format}, Base64 Length: ${processedImage.base64Length}',
     );
@@ -119,7 +119,7 @@ class MultimodalImageHandler {
     bool isUser = true,
   }) {
     try {
-      gemmaLog(
+      edgeAiLog(
         'MultimodalImageHandler: Creating multimodal message for $modelType...',
       );
 
@@ -139,7 +139,7 @@ class MultimodalImageHandler {
         isUser: isUser,
       );
     } catch (e) {
-      gemmaLog(
+      edgeAiLog(
         'MultimodalImageHandler: Failed to create multimodal message - $e',
       );
 
@@ -157,7 +157,7 @@ class MultimodalImageHandler {
     required ModelType modelType,
   }) {
     try {
-      gemmaLog(
+      edgeAiLog(
         'MultimodalImageHandler: Creating tokenized prompt for $modelType...',
       );
 
@@ -174,18 +174,18 @@ class MultimodalImageHandler {
         1,
       );
       if (!hasValidTokens) {
-        gemmaLog(
+        edgeAiLog(
           'MultimodalImageHandler: Warning - Prompt may have tokenization issues',
         );
       }
 
-      gemmaLog(
+      edgeAiLog(
         'MultimodalImageHandler: Tokenized prompt created (${prompt.length} chars)',
       );
 
       return prompt;
     } catch (e) {
-      gemmaLog('MultimodalImageHandler: Tokenization failed - $e');
+      edgeAiLog('MultimodalImageHandler: Tokenization failed - $e');
 
       // Run the error handler for its diagnostics, then throw — returning a
       // text-only fallback prompt silently drops the image and makes the model
@@ -209,7 +209,7 @@ class MultimodalImageHandler {
     required ProcessedImage? processedImage,
   }) {
     try {
-      gemmaLog('MultimodalImageHandler: Validating model response...');
+      edgeAiLog('MultimodalImageHandler: Validating model response...');
 
       // Detect corruption patterns
       final corruptionResult = ImageErrorHandler.detectResponseCorruption(
@@ -217,13 +217,13 @@ class MultimodalImageHandler {
       );
 
       if (corruptionResult.isCorrupted) {
-        gemmaLog(
+        edgeAiLog(
           'MultimodalImageHandler: Corruption detected with ${corruptionResult.confidence.toStringAsFixed(2)} confidence',
         );
 
         // Log detailed analysis
-        gemmaLog('Corruption Analysis: ${corruptionResult.analysis}');
-        gemmaLog('Suggested Action: ${corruptionResult.suggestedAction}');
+        edgeAiLog('Corruption Analysis: ${corruptionResult.analysis}');
+        edgeAiLog('Suggested Action: ${corruptionResult.suggestedAction}');
 
         return ResponseValidationResult(
           isValid: false,
@@ -237,7 +237,7 @@ class MultimodalImageHandler {
         );
       }
 
-      gemmaLog('MultimodalImageHandler: Response validation passed');
+      edgeAiLog('MultimodalImageHandler: Response validation passed');
 
       // Return success result when no corruption detected
       return ResponseValidationResult(
@@ -250,7 +250,7 @@ class MultimodalImageHandler {
         originalResponse: response,
       );
     } catch (e) {
-      gemmaLog('MultimodalImageHandler: Response validation failed - $e');
+      edgeAiLog('MultimodalImageHandler: Response validation failed - $e');
 
       return ResponseValidationResult(
         isValid: false,
@@ -338,7 +338,7 @@ class MultimodalImageHandler {
 
       return null;
     } catch (e) {
-      gemmaLog('Error extracting Base64 from prompt: $e');
+      edgeAiLog('Error extracting Base64 from prompt: $e');
       return null;
     }
   }
@@ -352,7 +352,7 @@ class MultimodalImageHandler {
     String? response,
   }) {
     try {
-      gemmaLog('MultimodalImageHandler: Creating diagnostic report...');
+      edgeAiLog('MultimodalImageHandler: Creating diagnostic report...');
 
       final format = ImageProcessor.detectFormat(imageBytes);
       final sizeInKB = imageBytes.length / 1024;
@@ -377,10 +377,10 @@ class MultimodalImageHandler {
         hasResponse: response != null,
       );
 
-      gemmaLog('MultimodalImageHandler: Diagnostic report created');
+      edgeAiLog('MultimodalImageHandler: Diagnostic report created');
       return report;
     } catch (e) {
-      gemmaLog('MultimodalImageHandler: Diagnostic report failed - $e');
+      edgeAiLog('MultimodalImageHandler: Diagnostic report failed - $e');
       rethrow;
     }
   }

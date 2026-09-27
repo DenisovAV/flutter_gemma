@@ -1,14 +1,14 @@
 /// SQLite vector search (sqlite-vec / vec0) on-device RAG vector store for
-/// flutter_gemma.
+/// flutter_edge_ai.
 ///
 /// Opt-in package. Add it to pubspec.yaml and pass an instance to
-/// `FlutterGemma.initialize(vectorStore: ...)`:
+/// `FlutterEdgeAi.initialize(vectorStore: ...)`:
 ///
 /// ```dart
 /// import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 /// import 'package:flutter_edge_ai_sqlite/flutter_edge_ai_sqlite.dart';
 ///
-/// await FlutterGemma.initialize(
+/// await FlutterEdgeAi.initialize(
 ///   vectorStore: kIsWeb ? WebSqliteVectorStore() : SqliteVectorStore(),
 /// );
 /// ```

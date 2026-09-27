@@ -47,12 +47,12 @@ void main() {
     (tester) async {
       await registerTestEngines();
 
-      await FlutterGemma.installEmbedder()
+      await FlutterEdgeAi.installEmbedder()
           .modelFromAsset(_modelPath)
           .tokenizerFromAsset(_tokenizerPath)
           .install();
 
-      final model = await FlutterGemma.getActiveEmbedder();
+      final model = await FlutterEdgeAi.getActiveEmbedder();
 
       try {
         // ===== MODE 1: Single prefix (query prefix for everything) =====

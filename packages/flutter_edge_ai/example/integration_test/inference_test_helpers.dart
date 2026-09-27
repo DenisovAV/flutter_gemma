@@ -4,7 +4,7 @@
 // Prerequisites: push models to device before running tests:
 //   ./scripts/prepare_test_models.sh [device_id]
 //
-// Models are loaded from /data/local/tmp/flutter_gemma_test/ on device.
+// Models are loaded from /data/local/tmp/flutter_edge_ai_test/ on device.
 
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_edge_ai/flutter_edge_ai.dart';
@@ -23,19 +23,19 @@ void initIntegrationTest() {
 /// the tests need.
 ///
 /// As of 1.0, `.litertlm` inference and LiteRT embeddings are provided by the
-/// `flutter_gemma_litertlm` package (embedder decoupling, 1.5.0: the
-/// `LiteRtEmbeddingBackend` moved there from `flutter_gemma_embeddings`,
+/// `flutter_edge_ai_litertlm` package (embedder decoupling, 1.5.0: the
+/// `LiteRtEmbeddingBackend` moved there from `flutter_edge_ai_embeddings`,
 /// which is now a runtime-agnostic pipeline with no concrete backend of its
-/// own), NOT core; on-device STT is provided by `flutter_gemma_speech`. The
+/// own), NOT core; on-device STT is provided by `flutter_edge_ai_speech`. The
 /// integration tests
 /// drive the SDK directly, so each test must register the providers via the
-/// public `FlutterGemma.initialize` opt-in API. Registration is idempotent
+/// public `FlutterEdgeAi.initialize` opt-in API. Registration is idempotent
 /// (the registry dedups by instance), so calling this in every `setUpAll` —
-/// even alongside a test's own `FlutterGemma.initialize(...)` — is safe.
+/// even alongside a test's own `FlutterEdgeAi.initialize(...)` — is safe.
 /// Forwards [maxDownloadRetries] so callers can replace their bare
-/// `FlutterGemma.initialize(maxDownloadRetries: N)` with this one call.
+/// `FlutterEdgeAi.initialize(maxDownloadRetries: N)` with this one call.
 Future<void> registerTestEngines({int maxDownloadRetries = 3}) {
-  return FlutterGemma.initialize(
+  return FlutterEdgeAi.initialize(
     maxDownloadRetries: maxDownloadRetries,
     inferenceEngines: const [LiteRtLmEngine(), MediaPipeEngine()],
     embeddingBackends: const [LiteRtEmbeddingBackend()],
@@ -45,7 +45,7 @@ Future<void> registerTestEngines({int maxDownloadRetries = 3}) {
 }
 
 /// Device path where models are pushed via adb.
-const _deviceModelDir = '/data/local/tmp/flutter_gemma_test';
+const _deviceModelDir = '/data/local/tmp/flutter_edge_ai_test';
 
 /// Platform-aware model configuration for inference tests.
 /// Models loaded from device filesystem (pushed via adb).
@@ -83,7 +83,7 @@ class TestModelConfig {
 Future<void> ensureModelInstalled([TestModelConfig? config]) async {
   config ??= TestModelConfig.forCurrentPlatform();
 
-  if (FlutterGemma.hasActiveModel()) {
+  if (FlutterEdgeAi.hasActiveModel()) {
     debugPrint('[Test] Active model found, skipping install');
     return;
   }
@@ -95,7 +95,7 @@ Future<void> ensureModelInstalled([TestModelConfig? config]) async {
 Future<void> forceInstallModel(TestModelConfig config) async {
   debugPrint('[Test] Installing model from file: ${config.filePath}');
 
-  await FlutterGemma.installModel(
+  await FlutterEdgeAi.installModel(
     modelType: ModelType.functionGemma,
     fileType: config.fileType,
   ).fromFile(config.filePath).install();
@@ -105,7 +105,7 @@ Future<void> forceInstallModel(TestModelConfig config) async {
 
 /// Create a test model with conservative settings.
 Future<InferenceModel> createTestModel({int maxTokens = 512}) async {
-  return await FlutterGemma.getActiveModel(
+  return await FlutterEdgeAi.getActiveModel(
     maxTokens: maxTokens,
     preferredBackend: PreferredBackend.cpu,
   );

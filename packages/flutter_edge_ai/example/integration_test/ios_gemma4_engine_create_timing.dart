@@ -30,7 +30,7 @@ void main() {
       await registerTestEngines();
 
       final installStart = DateTime.now();
-      await FlutterGemma.installModel(
+      await FlutterEdgeAi.installModel(
             modelType: ModelType.gemmaIt, // user uses gemmaIt, not gemma4
             fileType: ModelFileType.litertlm,
           )
@@ -43,7 +43,7 @@ void main() {
       print('[TIMING] installModel: ${installMs}ms');
 
       final modelStart = DateTime.now();
-      final model = await FlutterGemma.getActiveModel(
+      final model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 2048, // user value (we used 4096 before)
         supportAudio: true, // user enables audio
         supportImage: true, // user enables vision

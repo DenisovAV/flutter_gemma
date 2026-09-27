@@ -3,7 +3,7 @@
 //
 // The other #447 tests all run in a process where our own load order wins. This
 // one covers the residual case: app or third-party code opens libLiteRtLm
-// locally before flutter_gemma runs at all (a plain `DynamicLibrary.open`, or a
+// locally before flutter_edge_ai runs at all (a plain `DynamicLibrary.open`, or a
 // Java `System.loadLibrary`, which is RTLD_NOW *without* RTLD_GLOBAL). bionic
 // never promotes, so the condition is permanent and our fix cannot repair it.
 //
@@ -55,7 +55,7 @@ void main() {
       );
 
       // Stand in for the third party. This is the exact call that caused #447,
-      // now made deliberately and from outside flutter_gemma.
+      // now made deliberately and from outside flutter_edge_ai.
       DynamicLibrary.open(_lib);
       expect(
         globallyVisible(controlSymbol),
@@ -85,7 +85,7 @@ void main() {
       // handle it is handed, so ambient visibility was never its concern, and
       // breaking it here would punish an app for a condition it does not depend
       // on. A warning is printed — deliberately with `print`, so it survives
-      // release builds, unlike gemmaLog and developer.log.
+      // release builds, unlike edgeAiLog and developer.log.
       final lib = openLiteRtLmPreferringDefaultScope(_lib);
       expect(
         lib.providesSymbol(controlSymbol),

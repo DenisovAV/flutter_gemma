@@ -1,4 +1,4 @@
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 import 'package:flutter_edge_ai/core/services/model_repository.dart';
 
 /// In-memory implementation of ModelRepository
@@ -28,7 +28,7 @@ class InMemoryModelRepository implements ModelRepository {
     if (info.id.isEmpty) {
       throw ArgumentError('Model ID cannot be empty');
     }
-    gemmaLog('[InMemoryModelRepository] 💾 Saving model: ${info.id}');
+    edgeAiLog('[InMemoryModelRepository] 💾 Saving model: ${info.id}');
     _models[info.id] = info;
   }
 
@@ -38,7 +38,7 @@ class InMemoryModelRepository implements ModelRepository {
       throw ArgumentError('Model ID cannot be empty');
     }
     final model = _models[id];
-    gemmaLog(
+    edgeAiLog(
       '[InMemoryModelRepository] ${model != null ? "✅ Loaded" : "❌ Not found"}: $id',
     );
     return model;
@@ -50,7 +50,7 @@ class InMemoryModelRepository implements ModelRepository {
       throw ArgumentError('Model ID cannot be empty');
     }
     final existed = _models.remove(id) != null;
-    gemmaLog(
+    edgeAiLog(
       '[InMemoryModelRepository] ${existed ? "🗑️  Deleted" : "⚠️  Not found"}: $id',
     );
   }
@@ -58,7 +58,7 @@ class InMemoryModelRepository implements ModelRepository {
   @override
   Future<List<ModelInfo>> listInstalled() async {
     final models = _models.values.toList();
-    gemmaLog(
+    edgeAiLog(
       '[InMemoryModelRepository] 📋 Listing ${models.length} installed models',
     );
     return models;
@@ -70,7 +70,7 @@ class InMemoryModelRepository implements ModelRepository {
       throw ArgumentError('Model ID cannot be empty');
     }
     final installed = _models.containsKey(id);
-    gemmaLog(
+    edgeAiLog(
       '[InMemoryModelRepository] ${installed ? "✅" : "❌"} isInstalled($id): $installed',
     );
     return installed;
@@ -83,7 +83,7 @@ class InMemoryModelRepository implements ModelRepository {
   void clear() {
     final count = _models.length;
     _models.clear();
-    gemmaLog('[InMemoryModelRepository] 🧹 Cleared $count models from memory');
+    edgeAiLog('[InMemoryModelRepository] 🧹 Cleared $count models from memory');
   }
 
   /// Gets the current number of installed models

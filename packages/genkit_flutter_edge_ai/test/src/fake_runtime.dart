@@ -1,11 +1,11 @@
 import 'package:flutter_edge_ai/flutter_edge_ai.dart' as gemma;
-import 'package:genkit_flutter_edge_ai/src/flutter_gemma_runtime.dart';
+import 'package:genkit_flutter_edge_ai/src/flutter_edge_ai_runtime.dart';
 
-/// Test double for [FlutterGemmaRuntime].
+/// Test double for [FlutterEdgeAiRuntime].
 ///
 /// Allows tests to configure model and embedder responses
-/// without depending on the real flutter_gemma static API.
-class FakeRuntime implements FlutterGemmaRuntime {
+/// without depending on the real flutter_edge_ai static API.
+class FakeRuntime implements FlutterEdgeAiRuntime {
   FakeRuntime({FakeInferenceModel? model, FakeEmbeddingModel? embedder})
     : modelToReturn = model ?? FakeInferenceModel(),
       embedderToReturn = embedder ?? FakeEmbeddingModel();

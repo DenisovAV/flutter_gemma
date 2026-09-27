@@ -18,7 +18,7 @@ extension DownloadErrorMessage on DownloadError {
       UnauthorizedError() =>
         'Authentication required (HTTP 401).\n'
             'Please provide a valid HuggingFace token using:\n'
-            'FlutterGemma.initialize(huggingFaceToken: "hf_...")',
+            'FlutterEdgeAi.initialize(huggingFaceToken: "hf_...")',
       ForbiddenError() =>
         'Access forbidden (HTTP 403).\n'
             'Your HuggingFace token is either invalid or does not have access to this model.\n'

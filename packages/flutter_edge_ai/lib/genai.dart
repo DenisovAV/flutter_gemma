@@ -1,6 +1,6 @@
-/// genai_primitives adoption surface for flutter_gemma (#181).
+/// genai_primitives adoption surface for flutter_edge_ai (#181).
 ///
-/// A side barrel (NOT re-exported from `flutter_gemma.dart`) so genai_primitives
+/// A side barrel (NOT re-exported from `flutter_edge_ai.dart`) so genai_primitives
 /// 0.x churn stays contained. Import `package:flutter_edge_ai/genai.dart` to use
 /// [ChatMessage] with [InferenceChat.sendMessage] / [generateContent].
 library;

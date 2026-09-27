@@ -12,7 +12,7 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-        // flutter_local_notifications, pulled in by flutter_gemma_agent, needs it.
+        // flutter_local_notifications, pulled in by flutter_edge_ai_agent, needs it.
         isCoreLibraryDesugaringEnabled = true
     }
 

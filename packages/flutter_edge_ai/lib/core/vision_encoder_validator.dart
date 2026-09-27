@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'image_processor.dart';
-import 'utils/gemma_log.dart';
+import 'utils/edge_ai_log.dart';
 
 /// Validates images for compatibility with AI vision encoders to prevent
 /// corruption that causes models to interpret images as repeating text patterns.
@@ -18,7 +18,7 @@ class VisionEncoderValidator {
     String? originalFormat,
   }) {
     try {
-      gemmaLog('VisionEncoderValidator: Validating image for $encoderType...');
+      edgeAiLog('VisionEncoderValidator: Validating image for $encoderType...');
 
       // Get appropriate specifications
       final specs = _getSpecsForEncoder(encoderType);
@@ -51,7 +51,7 @@ class VisionEncoderValidator {
         return compatibilityValidation;
       }
 
-      gemmaLog(
+      edgeAiLog(
         'VisionEncoderValidator: Image validation passed for $encoderType',
       );
 
@@ -62,7 +62,7 @@ class VisionEncoderValidator {
         suggestions: [],
       );
     } catch (e) {
-      gemmaLog('VisionEncoderValidator: Validation failed - $e');
+      edgeAiLog('VisionEncoderValidator: Validation failed - $e');
       return ValidationResult(
         isValid: false,
         encoderType: encoderType,

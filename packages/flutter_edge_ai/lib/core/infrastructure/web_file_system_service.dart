@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_edge_ai/core/services/file_system_service.dart';
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 
 /// Web implementation of FileSystemService using URL-based storage
 ///
@@ -26,7 +26,7 @@ class WebFileSystemService implements FileSystemService {
     // On web, we can't write files to local file system
     // Instead, we create a blob URL via WebJsInterop (handled by WebDownloadService)
     // For now, this is primarily used for registration
-    gemmaLog(
+    edgeAiLog(
       'WebFileSystemService: writeFile called for $path (${data.length} bytes)',
     );
 
@@ -57,12 +57,12 @@ class WebFileSystemService implements FileSystemService {
     // Blob URL revocation is handled by BlobUrlManager (integrated via WebDownloadService)
     // The cleanup callback (_onBlobUrlRemoved) will be invoked if this is a blob URL
     if (url != null && wasBlob == true) {
-      gemmaLog('WebFileSystemService: Triggering blob URL cleanup for $path');
+      edgeAiLog('WebFileSystemService: Triggering blob URL cleanup for $path');
       _onBlobUrlRemoved?.call(url);
     }
 
     if (url != null) {
-      gemmaLog('WebFileSystemService: Removed URL mapping for $path');
+      edgeAiLog('WebFileSystemService: Removed URL mapping for $path');
     }
   }
 
@@ -113,7 +113,7 @@ class WebFileSystemService implements FileSystemService {
     // Use absolute path starting with / to ensure proper resolution
     final assetPath = '/$resourceName';
 
-    gemmaLog(
+    edgeAiLog(
       'WebFileSystemService: Bundled resource path for $resourceName: $assetPath',
     );
 
@@ -129,7 +129,7 @@ class WebFileSystemService implements FileSystemService {
     // On web, external paths are URLs
     _urlMappings[filename] = externalPath;
 
-    gemmaLog(
+    edgeAiLog(
       'WebFileSystemService: Registered external file $filename -> $externalPath',
     );
   }
@@ -184,7 +184,7 @@ class WebFileSystemService implements FileSystemService {
     // Trigger cleanup callback for all blob URLs
     for (final entry in _urlMappings.entries) {
       if (_isBlobUrl[entry.key] == true) {
-        gemmaLog(
+        edgeAiLog(
           'WebFileSystemService: Triggering blob URL cleanup for ${entry.key}',
         );
         _onBlobUrlRemoved?.call(entry.value);
@@ -193,7 +193,7 @@ class WebFileSystemService implements FileSystemService {
 
     _urlMappings.clear();
     _isBlobUrl.clear();
-    gemmaLog('WebFileSystemService: Cleared all URL mappings');
+    edgeAiLog('WebFileSystemService: Cleared all URL mappings');
   }
 
   /// Callback for blob URL removal (set by BlobUrlManager)

@@ -14,10 +14,10 @@ void main() {
 
   setUp(() async {
     fakeDocuments = await Directory.systemTemp.createTemp(
-      'flutter_gemma_docs_',
+      'flutter_edge_ai_docs_',
     );
     fakeAppSupport = await Directory.systemTemp.createTemp(
-      'flutter_gemma_appsupport_',
+      'flutter_edge_ai_appsupport_',
     );
     PathProviderPlatform.instance = _FixedPathProviderPlatform(
       documentsPath: fakeDocuments.path,

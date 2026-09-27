@@ -100,7 +100,7 @@ abstract class EmbeddingModelInterface extends BaseModel {
 ///
 /// Translation in this example doesn't introduce a new plugin API — under
 /// the hood we still go through `InferenceModel.createSession()` from
-/// `flutter_gemma`. The discriminator is the prompt format and the language
+/// `flutter_edge_ai`. The discriminator is the prompt format and the language
 /// list, both carried by `promptStrategy`.
 abstract class TranslateModelInterface extends BaseModel {
   /// Preferred backend (CPU/GPU)

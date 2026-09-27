@@ -37,7 +37,7 @@ void main() {
   testWidgets(
     'voice + tools: fixed transcript -> tool runs -> spoken reply',
     (tester) async {
-      await FlutterGemma.initialize(
+      await FlutterEdgeAi.initialize(
         ttsBackends: const [LiteRtTtsBackend()],
         inferenceEngines: const [LiteRtLmEngine()],
       );
@@ -47,23 +47,23 @@ void main() {
         isNotNull,
         reason:
             'stage $_llmFileName to the app documents dir (desktop/iOS) or '
-            '/data/local/tmp/flutter_gemma_test/ (Android)',
+            '/data/local/tmp/flutter_edge_ai_test/ (Android)',
       );
-      await FlutterGemma.installModel(
+      await FlutterEdgeAi.installModel(
         modelType: ModelType.gemmaIt,
         fileType: ModelFileType.litertlm,
       ).fromFile(llmPath!).install();
-      await FlutterGemma.installTts()
+      await FlutterEdgeAi.installTts()
           .fromNetwork(_ttsUrl)
           .ofType(TtsModelType.inflect)
           .install();
 
-      final synth = await FlutterGemma.getActiveTts();
+      final synth = await FlutterEdgeAi.getActiveTts();
       // CPU: this gate exercises the tool-calling LOOP, not GPU perf. On desktop
       // the litertlm default is GPU (Metal/Dawn), which is flaky for concurrent
       // model loads (a documented desktop-voice caveat) — pin CPU for a
       // deterministic correctness gate.
-      final model = await FlutterGemma.getActiveModel(
+      final model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 1024,
         preferredBackend: PreferredBackend.cpu,
       );

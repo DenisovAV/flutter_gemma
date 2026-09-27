@@ -23,7 +23,7 @@ void _runLifecycleTest(TestModelConfig config, String label) {
 
       // --- Cycle 1: maxTokens=512 ---
       print('[Lifecycle/$label] Cycle 1: maxTokens=512');
-      var model = await FlutterGemma.getActiveModel(
+      var model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 512,
         preferredBackend: PreferredBackend.cpu,
       );
@@ -45,7 +45,7 @@ void _runLifecycleTest(TestModelConfig config, String label) {
 
       // --- Cycle 2: maxTokens=256, different config ---
       print('[Lifecycle/$label] Cycle 2: maxTokens=256');
-      model = await FlutterGemma.getActiveModel(
+      model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 256,
         preferredBackend: PreferredBackend.cpu,
       );

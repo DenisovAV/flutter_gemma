@@ -51,7 +51,7 @@ void main() {
     (tester) async {
       if (_skipJsNoHarnessWebview()) return;
 
-      await FlutterGemma.initialize(
+      await FlutterEdgeAi.initialize(
         ttsBackends: const [LiteRtTtsBackend()],
         inferenceEngines: const [LiteRtLmEngine()],
       );
@@ -61,13 +61,13 @@ void main() {
         isNotNull,
         reason:
             'stage $_llmFileName to the app documents dir (desktop/iOS) or '
-            '/data/local/tmp/flutter_gemma_test/ (Android)',
+            '/data/local/tmp/flutter_edge_ai_test/ (Android)',
       );
-      await FlutterGemma.installModel(
+      await FlutterEdgeAi.installModel(
         modelType: ModelType.gemma4,
         fileType: ModelFileType.litertlm,
       ).fromFile(llmPath!).install();
-      await FlutterGemma.installTts()
+      await FlutterEdgeAi.installTts()
           .fromNetwork(_ttsUrl)
           .ofType(TtsModelType.inflect)
           .install();
@@ -81,7 +81,7 @@ void main() {
       // concurrent Metal GPU load is flaky on desktop (agent_with_model_test can
       // use GPU because it has no TTS). This gate proves the agent->voice loop,
       // not GPU perf — pin CPU for determinism.
-      final model = await FlutterGemma.getActiveModel(
+      final model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 4096,
         preferredBackend: PreferredBackend.cpu,
       );
@@ -93,7 +93,7 @@ void main() {
           JsSkillExecutor(sourceFor: assetSource.jsSkillSourceFor),
         ],
       );
-      final synth = await FlutterGemma.getActiveTts();
+      final synth = await FlutterEdgeAi.getActiveTts();
 
       final session = VoiceSession.custom(
         recognizer: FixedTranscriptRecognizer('Calculate the hash of hello'),

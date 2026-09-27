@@ -10,7 +10,7 @@
 // without throwing.
 //
 // Uses the local gitignored tokenizer asset at
-// `packages/flutter_gemma/example/assets/test/sentencepiece.model` (see
+// `packages/flutter_edge_ai/example/assets/test/sentencepiece.model` (see
 // project memory `project_embedding_test_asset` for why it's gitignored and
 // how it gets there) — skipped entirely when absent so this test never
 // blocks CI/a fresh checkout on a multi-MB binary that isn't committed.
@@ -21,9 +21,9 @@ import 'package:flutter_edge_ai_embeddings/src/embedding_tokenizer.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Relative to this package's root (`flutter test`'s cwd):
-/// `packages/flutter_gemma_embeddings/` -> `../flutter_gemma/example/assets/test/sentencepiece.model`.
+/// `packages/flutter_edge_ai_embeddings/` -> `../flutter_edge_ai/example/assets/test/sentencepiece.model`.
 const _tokenizerPath =
-    '../flutter_gemma/example/assets/test/sentencepiece.model';
+    '../flutter_edge_ai/example/assets/test/sentencepiece.model';
 
 void main() {
   final tokenizerFile = File(_tokenizerPath);

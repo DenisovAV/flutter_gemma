@@ -23,20 +23,20 @@
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="genkit_flutter_gemma_example">
+  <meta name="apple-mobile-web-app-title" content="genkit_flutter_edge_ai_example">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>genkit_flutter_gemma_example</title>
+  <title>genkit_flutter_edge_ai_example</title>
   <link rel="manifest" href="manifest.json">
 
   <!-- This app registers LiteRtLmEngine, MediaPipeEngine and
        LiteRtEmbeddingBackend (lib/main.dart), and each of the three needs its
        own JS in the page before Dart touches it. ONNX and sqlite-vec are NOT
        registered here, so their shims are deliberately absent — see
-       packages/flutter_gemma/example/web/index.html for the full set. -->
+       packages/flutter_edge_ai/example/web/index.html for the full set. -->
 
   <!-- MediaPipe GenAI for inference (.task models) -->
   <script type="module">
@@ -65,7 +65,7 @@
 
   <!-- LiteRT.js embeddings bundle. The four files beside this one
        (litert.js, litert_embeddings.js, sentencepiece.js, tensorflow.js) are
-       copied from flutter_gemma_litertlm/web/ — that package owns them since
+       copied from flutter_edge_ai_litertlm/web/ — that package owns them since
        1.8.0. -->
   <script type="module" src="litert_embeddings.js"></script>
 

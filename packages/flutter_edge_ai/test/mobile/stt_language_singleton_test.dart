@@ -1,7 +1,7 @@
 // #500: `getActiveStt(language:)` must take effect on EVERY call, not just the
 // first one in a process.
 //
-// The STT singleton cache (FlutterGemmaMobile.createSttModel) keys its "reuse
+// The STT singleton cache (FlutterEdgeAiMobile.createSttModel) keys its "reuse
 // the existing recognizer" branch on the active model's name. The first fix for
 // #500 added a `language` parameter and stopped there, so the second
 // `getActiveStt(language: 'de')` for the same active model returned the
@@ -16,7 +16,7 @@
 // on the recognizer and retargeting costs nothing. This test pins THAT — the
 // recognizer is reused, not rebuilt, and its language follows the request.
 //
-// A real end-to-end test against the ACTUAL FlutterGemmaMobile/FlutterGemma
+// A real end-to-end test against the ACTUAL FlutterEdgeAiMobile/FlutterEdgeAi
 // facade, not a simulation of the completer logic — the bug lived in the shell,
 // so a test that reimplements the shell would have passed while shipping it.
 //
@@ -50,10 +50,10 @@ void main() {
 
   setUp(() async {
     fakeDocuments = await Directory.systemTemp.createTemp(
-      'flutter_gemma_docs_',
+      'flutter_edge_ai_docs_',
     );
     fakeAppSupport = await Directory.systemTemp.createTemp(
-      'flutter_gemma_appsupport_',
+      'flutter_edge_ai_appsupport_',
     );
     PathProviderPlatform.instance = _FixedPathProviderPlatform(
       documentsPath: fakeDocuments.path,
@@ -87,7 +87,7 @@ void main() {
     );
     SttRegistry.instance.registerAll([backend]);
 
-    await FlutterGemma.installStt()
+    await FlutterEdgeAi.installStt()
         .modelFromNetwork('https://example.com/whisper.tflite')
         .tokenizerFromNetwork('https://example.com/tokenizer.json')
         .ofType(SttModelType.whisper)
@@ -102,7 +102,7 @@ void main() {
     // shell that stops forwarding it fails here.
     final backend = await installWhisper();
 
-    final recognizer = await FlutterGemma.getActiveStt(language: 'de');
+    final recognizer = await FlutterEdgeAi.getActiveStt(language: 'de');
     addTearDown(recognizer.close);
 
     expect(backend.lastConfig?.language, 'de');
@@ -114,12 +114,12 @@ void main() {
       'recognizer instead of silently reusing the first language', () async {
     final backend = await installWhisper();
 
-    final first = await FlutterGemma.getActiveStt(language: 'en');
+    final first = await FlutterEdgeAi.getActiveStt(language: 'en');
     addTearDown(first.close);
     expect(first.language, 'en');
     expect(backend.createModelCallCount, 1);
 
-    final second = await FlutterGemma.getActiveStt(language: 'de');
+    final second = await FlutterEdgeAi.getActiveStt(language: 'de');
 
     // The singleton is REUSED — no reload, no isolate respawn, and the caller's
     // existing handle is not closed underneath them.
@@ -139,11 +139,11 @@ void main() {
     // would strand a caller who explicitly asked to go back to the default.
     final backend = await installWhisper();
 
-    final recognizer = await FlutterGemma.getActiveStt(language: 'de');
+    final recognizer = await FlutterEdgeAi.getActiveStt(language: 'de');
     addTearDown(recognizer.close);
     expect(recognizer.language, 'de');
 
-    final again = await FlutterGemma.getActiveStt();
+    final again = await FlutterEdgeAi.getActiveStt();
 
     expect(identical(again, recognizer), isTrue);
     expect(again.language, isNull);
@@ -155,7 +155,7 @@ void main() {
     () async {
       final backend = await installWhisper();
 
-      final recognizer = await FlutterGemma.getActiveStt(language: 'de');
+      final recognizer = await FlutterEdgeAi.getActiveStt(language: 'de');
       addTearDown(recognizer.close);
       await recognizer.transcribe(Uint8List(16), language: 'fr');
 
@@ -179,14 +179,14 @@ void main() {
         loadDelay: const Duration(milliseconds: 500),
       );
 
-      final first = FlutterGemma.getActiveStt(); // deliberately not awaited
+      final first = FlutterEdgeAi.getActiveStt(); // deliberately not awaited
       // Wait for the first load to actually START. Without this the test relied
       // on the first call finishing its file-path preamble before the second
       // one did; on a loaded machine the I/O finished in the other order, the
       // 'de' call built the model and the null call retargeted it back, so it
       // was green alone and red in tool/test_all.sh.
       await backend.loadStarted.future;
-      final second = await FlutterGemma.getActiveStt(language: 'de');
+      final second = await FlutterEdgeAi.getActiveStt(language: 'de');
       addTearDown(second.close);
       final firstResolved = await first;
 
@@ -201,7 +201,7 @@ void main() {
     // On the legacy arm it returned the first call's recognizer unchanged.
     final backend = await installWhisper();
 
-    final first = await FlutterGemmaPlugin.instance.createSttModel(
+    final first = await FlutterEdgeAiPlugin.instance.createSttModel(
       modelPath: '/tmp/whisper.tflite',
       tokenizerPath: '/tmp/tokenizer.json',
       language: 'de',
@@ -209,7 +209,7 @@ void main() {
     addTearDown(first.close);
     expect(first.language, 'de');
 
-    final second = await FlutterGemmaPlugin.instance.createSttModel(
+    final second = await FlutterEdgeAiPlugin.instance.createSttModel(
       modelPath: '/tmp/whisper.tflite',
       tokenizerPath: '/tmp/tokenizer.json',
       language: 'fr',
@@ -230,12 +230,12 @@ void main() {
       // failed. A call documented to throw instead broke the recognizer.
       final backend = await installWhisper(rejectLanguage: true);
 
-      final recognizer = await FlutterGemma.getActiveStt();
+      final recognizer = await FlutterEdgeAi.getActiveStt();
       addTearDown(recognizer.close);
       expect(recognizer.language, isNull);
 
       await expectLater(
-        FlutterGemma.getActiveStt(language: 'de'),
+        FlutterEdgeAi.getActiveStt(language: 'de'),
         throwsArgumentError,
       );
 

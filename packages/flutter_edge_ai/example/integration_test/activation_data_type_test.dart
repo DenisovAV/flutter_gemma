@@ -63,8 +63,8 @@
 /// Prerequisites (otherwise the model is downloaded: E2B 2.59 GB, E4B 3.66 GB,
 /// E2B web 2.01 GB):
 ///   macOS:   gemma-4-E2B-it.litertlm in ~/Library/Containers/.../Documents/
-///   Android: adb push gemma-4-E4B-it.litertlm /data/local/tmp/flutter_gemma_test/
-///   iOS, web: downloaded via FlutterGemma.installModel()
+///   Android: adb push gemma-4-E4B-it.litertlm /data/local/tmp/flutter_edge_ai_test/
+///   iOS, web: downloaded via FlutterEdgeAi.installModel()
 ///
 /// Run, native:
 ///   flutter test integration_test/activation_data_type_test.dart -d <device>
@@ -116,7 +116,7 @@ Future<void>? _installed;
 Future<void> _install() => _installed ??= () async {
   await registerTestEngines();
   final local = localModelFile(_file);
-  final builder = FlutterGemma.installModel(
+  final builder = FlutterEdgeAi.installModel(
     modelType: ModelType.gemma4,
     fileType: ModelFileType.litertlm,
   );
@@ -240,7 +240,7 @@ Future<_Run> _askAll(ActivationDataType? type) async {
   final log = _deliveries(64);
   final text = _logText(log);
   final inLog = _figures(text).toSet();
-  final model = await FlutterGemma.getActiveModel(
+  final model = await FlutterEdgeAi.getActiveModel(
     maxTokens: 4096,
     preferredBackend: PreferredBackend.gpu,
     activationDataType: type,

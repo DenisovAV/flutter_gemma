@@ -1,6 +1,6 @@
 // ignore_for_file: avoid_print
 
-// Integration test: basic smoke test for genkit_flutter_gemma.
+// Integration test: basic smoke test for genkit_flutter_edge_ai.
 // Run: flutter test integration_test/smoke_test.dart -d <device>
 
 import 'package:flutter_test/flutter_test.dart';
@@ -20,7 +20,7 @@ void main() {
     final response = await ai.generate(
       model: testModelRef,
       prompt: 'Say hello in one sentence.',
-      config: FlutterGemmaModelOptions(maxTokens: 128),
+      config: FlutterEdgeAiModelOptions(maxTokens: 128),
     );
 
     final text = response.text;

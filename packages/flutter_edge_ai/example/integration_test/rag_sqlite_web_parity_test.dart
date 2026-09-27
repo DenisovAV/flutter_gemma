@@ -2,7 +2,7 @@
 ///
 /// Run with:
 ///   chromedriver --port=4444 &          # must match your Chrome major version
-///   cd packages/flutter_gemma/example
+///   cd packages/flutter_edge_ai/example
 ///   flutter drive \
 ///     --driver=test_driver/integration_test.dart \
 ///     --target=integration_test/rag_sqlite_web_parity_test.dart \
@@ -10,7 +10,7 @@
 ///
 /// WHY THIS FILE EXISTS
 ///
-/// `flutter_gemma_rag_sqlite`'s README says both arms "speak the same `vec0` SQL
+/// `flutter_edge_ai_sqlite`'s README says both arms "speak the same `vec0` SQL
 /// dialect, so KNN and `Filter` behave identically across all six platforms".
 /// Until this file that was an assertion nobody checked: every one of the
 /// package's VM tests ran on the VM, and the web arm had none. Metadata

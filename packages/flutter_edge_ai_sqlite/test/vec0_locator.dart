@@ -5,7 +5,7 @@
 // the migration proof-of-concept. Nothing puts a file there, so the keystone
 // test was red on every machine where someone had not hand-downloaded one, and
 // 23 more suites skipped themselves for the same reason. Since CI ran only
-// packages/flutter_gemma, nobody saw either.
+// packages/flutter_edge_ai, nobody saw either.
 //
 // The artifact is fetched by hook/build.dart into the shared download cache
 // (`<cache>/sqlite_vec/<plat>/`), so that is the first place to look; a local
@@ -45,7 +45,7 @@ List<String> get vec0Candidates {
         ? const []
         : [
             'native/sqlite_vec/prebuilt/$host/$_libName',
-            'packages/flutter_gemma_rag_sqlite/native/sqlite_vec/prebuilt/$host/$_libName',
+            'packages/flutter_edge_ai_sqlite/native/sqlite_vec/prebuilt/$host/$_libName',
           ],
   );
 }

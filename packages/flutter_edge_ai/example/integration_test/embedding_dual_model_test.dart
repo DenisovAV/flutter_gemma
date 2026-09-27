@@ -74,14 +74,14 @@ void main() {
       await registerTestEngines();
 
       // --- EmbeddingGemma ---
-      await FlutterGemma.installEmbedder()
+      await FlutterEdgeAi.installEmbedder()
           .modelFromAsset(
             'assets/models/embeddinggemma-300M_seq256_mixed-precision.tflite',
           )
           .tokenizerFromAsset('assets/models/sentencepiece.model')
           .install();
 
-      var model = await FlutterGemma.getActiveEmbedder();
+      var model = await FlutterEdgeAi.getActiveEmbedder();
       try {
         await verifyEmbeddings(model, 'EmbeddingGemma-BPE');
       } finally {
@@ -89,12 +89,12 @@ void main() {
       }
 
       // --- Gecko 64 ---
-      await FlutterGemma.installEmbedder()
+      await FlutterEdgeAi.installEmbedder()
           .modelFromAsset('assets/models/Gecko_64_quant.tflite')
           .tokenizerFromAsset('assets/models/sentencepiece.model')
           .install();
 
-      model = await FlutterGemma.getActiveEmbedder();
+      model = await FlutterEdgeAi.getActiveEmbedder();
       try {
         await verifyEmbeddings(
           model,

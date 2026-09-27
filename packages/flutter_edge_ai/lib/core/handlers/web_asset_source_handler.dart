@@ -6,7 +6,7 @@ import 'package:flutter_edge_ai/core/infrastructure/web_file_system_service.dart
 import 'package:flutter_edge_ai/core/infrastructure/web_cache_service.dart';
 import 'package:flutter_edge_ai/core/services/model_repository.dart';
 import 'package:path/path.dart' as path;
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 
 /// Handles installation of models from Flutter assets on web platform
 ///
@@ -77,7 +77,7 @@ class WebAssetSourceHandler implements SourceHandler {
       yield* cacheService.getOrCacheAndRegisterWithProgress(
         cacheKey: cacheKey,
         loader: (onProgress) async {
-          gemmaLog(
+          edgeAiLog(
             '[WebAssetSourceHandler] Loading asset: ${source.normalizedPath}',
           );
 
@@ -93,7 +93,7 @@ class WebAssetSourceHandler implements SourceHandler {
             );
           }
 
-          gemmaLog(
+          edgeAiLog(
             '[WebAssetSourceHandler] Asset loaded: ${bytes.length} bytes',
           );
           onProgress(1.0);
@@ -118,7 +118,7 @@ class WebAssetSourceHandler implements SourceHandler {
 
       await repository.saveModel(modelInfo);
     } catch (e) {
-      gemmaLog('[WebAssetSourceHandler] ❌ Failed to install asset: $e');
+      edgeAiLog('[WebAssetSourceHandler] ❌ Failed to install asset: $e');
       rethrow;
     }
   }

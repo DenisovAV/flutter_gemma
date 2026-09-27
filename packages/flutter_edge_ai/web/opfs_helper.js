@@ -1,5 +1,5 @@
 /**
- * OPFS (Origin Private File System) Helper for Flutter Gemma
+ * OPFS (Origin Private File System) Helper for Flutter Edge AI
  *
  * Provides OPFS-based storage for large model files (>2GB) to bypass
  * ArrayBuffer memory limitations in browsers.
@@ -13,7 +13,7 @@
  * Browser support: Requires OPFS (Chrome 86+, Edge 86+, Safari 15.2+)
  */
 
-window.flutterGemmaOPFS = {
+window.flutterEdgeAiOPFS = {
   /**
    * Check if a model is already cached in OPFS
    * @param {string} filename - Model filename (used as cache key)

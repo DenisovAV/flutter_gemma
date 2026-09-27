@@ -27,10 +27,10 @@ void main() {
 
   setUp(() async {
     fakeDocuments = await Directory.systemTemp.createTemp(
-      'flutter_gemma_docs_',
+      'flutter_edge_ai_docs_',
     );
     fakeAppSupport = await Directory.systemTemp.createTemp(
-      'flutter_gemma_appsupport_',
+      'flutter_edge_ai_appsupport_',
     );
     mockProvider = _FixedPathProviderPlatform(
       documentsPath: fakeDocuments.path,
@@ -64,7 +64,7 @@ void main() {
         // Simulate app restart: ServiceRegistry boots fresh, then the model
         // manager restores the previously-active model identity from prefs.
         await ServiceRegistry.initialize();
-        final manager = FlutterGemmaPlugin.instance.modelManager;
+        final manager = FlutterEdgeAiPlugin.instance.modelManager;
         await manager.ensureInitialized();
 
         final spec = manager.activeInferenceModel as InferenceModelSpec;

@@ -1,7 +1,7 @@
 import 'package:flutter_edge_ai/flutter_edge_ai.dart' as gemma;
 import 'package:genkit/plugin.dart';
 
-/// Converts Genkit [ToolDefinition] list to flutter_gemma [gemma.Tool] list.
+/// Converts Genkit [ToolDefinition] list to flutter_edge_ai [gemma.Tool] list.
 ///
 /// Maps:
 /// - `ToolDefinition.name` → `Tool.name`

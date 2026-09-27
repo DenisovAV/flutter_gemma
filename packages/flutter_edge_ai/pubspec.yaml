@@ -67,21 +67,21 @@ flutter:
     platforms:
       android:
         package: dev.flutterberlin.flutter_gemma
-        pluginClass: FlutterGemmaPlugin
+        pluginClass: FlutterEdgeAiPlugin
       ios:
-        pluginClass: FlutterGemmaPlugin
+        pluginClass: FlutterEdgeAiPlugin
       web:
-        pluginClass: FlutterGemmaWeb
-        fileName: web/flutter_gemma_web.dart
+        pluginClass: FlutterEdgeAiWeb
+        fileName: web/flutter_edge_ai_web.dart
       macos:
-        pluginClass: FlutterGemmaPlugin
-        dartPluginClass: FlutterGemmaDesktop
+        pluginClass: FlutterEdgeAiPlugin
+        dartPluginClass: FlutterEdgeAiDesktop
       windows:
-        pluginClass: FlutterGemmaPlugin
-        dartPluginClass: FlutterGemmaDesktop
+        pluginClass: FlutterEdgeAiPlugin
+        dartPluginClass: FlutterEdgeAiDesktop
       linux:
-        pluginClass: FlutterGemmaPlugin
-        dartPluginClass: FlutterGemmaDesktop
+        pluginClass: FlutterEdgeAiPlugin
+        dartPluginClass: FlutterEdgeAiDesktop
 
   # To add assets to your plugin package, add an assets section, like this:
   # assets:

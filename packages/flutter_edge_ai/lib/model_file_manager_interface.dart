@@ -57,12 +57,12 @@ abstract class ModelFileManager {
   Future<void> ensureModelReady(String filename, String url);
 
   /// Legacy API: Installs model from Flutter assets (debug only)
-  @Deprecated('Use FlutterGemma.installModel().fromAsset() instead')
+  @Deprecated('Use FlutterEdgeAi.installModel().fromAsset() instead')
   Future<void> installModelFromAsset(String path, {String? loraPath});
 
   /// Legacy API: Installs model from Flutter assets with progress tracking (debug only)
   @Deprecated(
-    'Use FlutterGemma.installModel().fromAsset().withProgress() instead',
+    'Use FlutterEdgeAi.installModel().fromAsset().withProgress() instead',
   )
   Stream<int> installModelFromAssetWithProgress(
     String path, {
@@ -70,7 +70,7 @@ abstract class ModelFileManager {
   });
 
   /// Legacy API: Sets direct path to existing model files
-  @Deprecated('Use FlutterGemma.installModel().fromFile() instead')
+  @Deprecated('Use FlutterEdgeAi.installModel().fromFile() instead')
   Future<void> setModelPath(String path, {String? loraPath});
 
   /// Clears current model cache/state
@@ -123,11 +123,11 @@ abstract class ModelFileManager {
   }
 
   /// Legacy API: Sets path to LoRA weights for current model
-  @Deprecated('Use FlutterGemma.installModel().withLoraFromFile() instead')
+  @Deprecated('Use FlutterEdgeAi.installModel().withLoraFromFile() instead')
   Future<void> setLoraWeightsPath(String path);
 
   /// Legacy API: Removes LoRA weights from current model
-  @Deprecated('Reinstall model without LoRA using FlutterGemma.installModel()')
+  @Deprecated('Reinstall model without LoRA using FlutterEdgeAi.installModel()')
   Future<void> deleteLoraWeights();
 
   /// Legacy API: Deletes current active model (legacy method without parameters)

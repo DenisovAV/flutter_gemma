@@ -23,24 +23,24 @@ void main() {
       await registerTestEngines();
 
       // 2. Install model + tokenizer from assets
-      await FlutterGemma.installEmbedder()
+      await FlutterEdgeAi.installEmbedder()
           .modelFromAsset(_modelPath)
           .tokenizerFromAsset(_tokenizerPath)
           .install();
 
       // 3. Verify active model
       expect(
-        FlutterGemma.hasActiveEmbedder(),
+        FlutterEdgeAi.hasActiveEmbedder(),
         isTrue,
         reason: 'Active embedding model should be set after install',
       );
 
       // 4. Verify model installed on disk
-      final isInstalled = await FlutterGemma.isModelInstalled(_modelFilename);
+      final isInstalled = await FlutterEdgeAi.isModelInstalled(_modelFilename);
       expect(isInstalled, isTrue, reason: 'Model file should exist on disk');
 
       // 5. Create embedder and run inference
-      final model = await FlutterGemma.getActiveEmbedder();
+      final model = await FlutterEdgeAi.getActiveEmbedder();
 
       try {
         // 6a. Generate embedding — should be 768D, non-zero

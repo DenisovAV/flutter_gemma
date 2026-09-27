@@ -302,7 +302,7 @@ void main() {
       // cannot adopt it. On device that is a real shape — a background isolate,
       // or a store the app forgot to close across a route change. It used to
       // report an empty index and tell nobody: the only notification went to
-      // gemmaLog, which is debug-only, so a release build said nothing at all.
+      // edgeAiLog, which is debug-only, so a release build said nothing at all.
       final holder = QdrantVectorStore();
       await holder.initialize(shardDir.path);
       await holder.addDocument(id: 'a', content: 'x', embedding: vec(4, 1));

@@ -224,7 +224,7 @@ void main() {
       // qdrant-edge holds the WAL exclusively. A second store on the same path
       // — a second isolate, a second app process, a store the caller forgot to
       // close — cannot adopt the shard. Before: adoption failure went to
-      // gemmaLog, which is `if (!kDebugMode) return;`, so a RELEASE build told
+      // edgeAiLog, which is `if (!kDebugMode) return;`, so a RELEASE build told
       // nobody and every read answered "empty" over an intact corpus.
       final holder = QdrantVectorStore();
       await holder.initialize(tmp.path);
@@ -254,7 +254,7 @@ void main() {
 
     test('a genuinely cold store stays quiet', () async {
       // NOT a regression pin: the pre-fix code passes this too, because back
-      // then adoption threw, was swallowed into gemmaLog, and getStats()
+      // then adoption threw, was swallowed into edgeAiLog, and getStats()
       // returned 0 — which is what this asserts. What it actually guards is
       // the fix OVER-correcting. qdrant-edge raises the same error for
       // "nothing here" as for "here but unreadable", so a latch that keyed on
@@ -637,7 +637,7 @@ void main() {
       // shape — and the one the lane's own comment cites. Advancing the lane
       // with `run.then((_) {}, onError: (_) {})` registered a listener on the
       // CALLER's future, which marks the error handled globally: no zone
-      // error, no FlutterError.onError, no crash reporter, and gemmaLog is
+      // error, no FlutterError.onError, no crash reporter, and edgeAiLog is
       // debug-only. The release's headline error went nowhere at all, and the
       // same lane ate clear()'s partial-delete report — which throws instead
       // of logging for exactly that reason.

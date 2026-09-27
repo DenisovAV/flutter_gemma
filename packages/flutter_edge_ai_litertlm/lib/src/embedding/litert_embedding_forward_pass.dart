@@ -2,10 +2,10 @@
 // embedder decoupling seam (embedder decoupling plan Task 4).
 //
 // This is the FFI body that used to live in
-// `flutter_gemma_embeddings/lib/src/litert/litert_embedding_core.dart`
+// `flutter_edge_ai_embeddings/lib/src/litert/litert_embedding_core.dart`
 // (`EmbeddingCore`), ported verbatim MINUS tokenization — tokenization
 // (BOS/EOS + prefix, Invariant I1) now lives in
-// `flutter_gemma_embeddings/lib/src/embedding_tokenizer.dart` and is applied
+// `flutter_edge_ai_embeddings/lib/src/embedding_tokenizer.dart` and is applied
 // by the common worker before `run()` is ever called here. This file keeps
 // only the native lifecycle: env/model/options/compile, seqLen/dim
 // auto-detect, the pad/truncate + Int32/Float32 tensor forward pass
@@ -23,7 +23,7 @@
 // `meanPoolAndNormalize` a second time.
 
 import 'dart:ffi';
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 
 import 'package:ffi/ffi.dart';
 // Imported by file rather than through core's barrel: the seam is plain,
@@ -35,14 +35,14 @@ import 'package:flutter_edge_ai/core/embedding/forward_pass.dart'
 // Public, native-only bindings library (not the package barrel): this file
 // is native-only — never reached on web — so it always needs the real FFI
 // bindings. Going through this package's own top-level barrel
-// (`flutter_gemma_litertlm.dart`)'s `if (dart.library.ffi)` conditional
+// (`flutter_edge_ai_litertlm.dart`)'s `if (dart.library.ffi)` conditional
 // export is for cross-platform consumers that must also compile on web;
 // `flutter analyze` resolves that conditional to the (empty) web stub, so
 // importing the concrete file would appear undefined during analysis.
 // `litert_bindings.dart` is this package's unconditional public export of
 // the same bindings for native-only leaves — imported here as an
 // intra-package import for the same reason capability packages
-// (flutter_gemma_embeddings pre-refactor, flutter_gemma_speech) use it.
+// (flutter_edge_ai_embeddings pre-refactor, flutter_edge_ai_speech) use it.
 import 'package:flutter_edge_ai_litertlm/litert_bindings.dart';
 
 /// Backend selector for the LiteRT embedding forward pass. Only `cpu` is
@@ -204,7 +204,7 @@ class LiteRtEmbeddingForwardPass implements EmbeddingForwardPass {
         dim = _pinnedDim;
       }
 
-      gemmaLog(
+      edgeAiLog(
         '[LiteRtEmbeddingForwardPass] loaded: seqLen=$seqLen, dim=$dim, '
         'backend=$backend',
       );
@@ -229,7 +229,7 @@ class LiteRtEmbeddingForwardPass implements EmbeddingForwardPass {
   /// right-padded with 0 / truncated to the compiled input's `seqLen` —
   /// tokenization itself (BOS/EOS + prefix) already happened before this is
   /// called (Invariant I1's second half; the first half — tokenize+BOS/EOS —
-  /// lives in `flutter_gemma_embeddings`).
+  /// lives in `flutter_edge_ai_embeddings`).
   @override
   Future<ForwardResult> run({
     required List<int> tokenIds,
@@ -295,7 +295,7 @@ class LiteRtEmbeddingForwardPass implements EmbeddingForwardPass {
         'embedders are single-input exports with masking and pooling baked '
         'into the graph (EmbeddingGemma / Gecko from litert-community). A '
         'multi-input BERT / MiniLM export belongs on the ONNX backend: add '
-        'flutter_gemma_onnx, register OnnxEmbeddingBackend, and install the '
+        'flutter_edge_ai_onnx, register OnnxEmbeddingBackend, and install the '
         '.onnx export of the same model.',
       );
     } finally {

@@ -4,7 +4,7 @@
 // committed golden PCM captured from this deterministic pipeline (fixed
 // CFM seed).
 //
-// Run: cd packages/flutter_gemma/example && \
+// Run: cd packages/flutter_edge_ai/example && \
 //   flutter test integration_test/tts_matcha_test.dart -d macos
 import 'dart:math' as math;
 import 'dart:typed_data';
@@ -14,7 +14,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:flutter_edge_ai/flutter_edge_ai.dart'
-    show FlutterGemma, TtsModelType;
+    show FlutterEdgeAi, TtsModelType;
 import 'package:flutter_edge_ai_speech/flutter_edge_ai_speech.dart'
     show LiteRtTtsBackend;
 
@@ -27,14 +27,14 @@ void main() {
   testWidgets(
     'Matcha synthesizes "Hello world." byte-identical to the golden PCM',
     (_) async {
-      await FlutterGemma.initialize(ttsBackends: const [LiteRtTtsBackend()]);
+      await FlutterEdgeAi.initialize(ttsBackends: const [LiteRtTtsBackend()]);
 
-      await FlutterGemma.installTts()
+      await FlutterEdgeAi.installTts()
           .fromNetwork(_modelUrl)
           .ofType(TtsModelType.matcha)
           .install();
 
-      final synth = await FlutterGemma.getActiveTts();
+      final synth = await FlutterEdgeAi.getActiveTts();
 
       try {
         final pcm = await synth.synthesize('Hello world.');

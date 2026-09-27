@@ -1,4 +1,4 @@
-part of '../../../mobile/flutter_gemma_mobile.dart';
+part of '../../../mobile/flutter_edge_ai_mobile.dart';
 
 /// Unified file system operations for model management (Mobile only)
 ///
@@ -73,7 +73,7 @@ class ModelFileSystemManager {
       // Basic size check - model files should be at least the minimum size
       final sizeInBytes = await file.length();
       if (sizeInBytes < minSizeBytes) {
-        gemmaLog(
+        edgeAiLog(
           'File $filePath too small: $sizeInBytes bytes (minimum: $minSizeBytes)',
         );
         return false;
@@ -81,7 +81,7 @@ class ModelFileSystemManager {
 
       return true;
     } catch (e) {
-      gemmaLog('Error validating file $filePath: $e');
+      edgeAiLog('Error validating file $filePath: $e');
       return false;
     }
   }
@@ -90,7 +90,7 @@ class ModelFileSystemManager {
   ///
   /// Delegates to [FileSystemService.getTargetPath] so that the correct
   /// storage directory is used on every platform (Android/iOS: Documents;
-  /// desktop: Application Support/flutter_gemma/; legacy Desktop: Documents
+  /// desktop: Application Support/flutter_edge_ai/; legacy Desktop: Documents
   /// fallback with a debug-print nudge to re-install).
   static Future<String> getModelFilePath(String filename) async {
     return ServiceRegistry.instance.fileSystemService.getTargetPath(filename);
@@ -187,7 +187,7 @@ class ModelFileSystemManager {
           }
         }
       } catch (e) {
-        gemmaLog('Fragment scan failed (non-fatal): $e');
+        edgeAiLog('Fragment scan failed (non-fatal): $e');
       }
     }
 
@@ -252,7 +252,7 @@ class ModelFileSystemManager {
 
       return false;
     } catch (e) {
-      gemmaLog('Failed to check active task for $filename: $e');
+      edgeAiLog('Failed to check active task for $filename: $e');
       return true; // Assume has task to be safe
     }
   }
@@ -270,7 +270,7 @@ class ModelFileSystemManager {
     List<String>? supportedExtensions,
     bool enableResumeDetection = true,
   }) async {
-    gemmaLog('⚠️  cleanupOrphanedFiles() called explicitly by user');
+    edgeAiLog('⚠️  cleanupOrphanedFiles() called explicitly by user');
 
     final orphaned = await getOrphanedFiles(
       protectedFiles: protectedFiles,
@@ -282,13 +282,13 @@ class ModelFileSystemManager {
       try {
         await File(info.path).delete();
         deletedCount++;
-        gemmaLog('Deleted orphaned file: ${info.filename}');
+        edgeAiLog('Deleted orphaned file: ${info.filename}');
       } catch (e) {
-        gemmaLog('Failed to delete ${info.filename}: $e');
+        edgeAiLog('Failed to delete ${info.filename}: $e');
       }
     }
 
-    gemmaLog('Cleaned up $deletedCount orphaned files');
+    edgeAiLog('Cleaned up $deletedCount orphaned files');
     return deletedCount;
   }
 
@@ -307,10 +307,10 @@ class ModelFileSystemManager {
 
       if (await file.exists()) {
         await file.delete();
-        gemmaLog('Deleted model file: $filename');
+        edgeAiLog('Deleted model file: $filename');
       }
     } catch (e) {
-      gemmaLog('Failed to delete model file $filename: $e');
+      edgeAiLog('Failed to delete model file $filename: $e');
       throw ModelStorageException(
         'Failed to delete model file: $filename',
         e,
@@ -327,7 +327,7 @@ class ModelFileSystemManager {
         await directory.create(recursive: true);
       }
     } catch (e) {
-      gemmaLog('Failed to create directory $dirPath: $e');
+      edgeAiLog('Failed to create directory $dirPath: $e');
       throw ModelStorageException(
         'Failed to create directory: $dirPath',
         e,
@@ -345,7 +345,7 @@ class ModelFileSystemManager {
       }
       return 0;
     } catch (e) {
-      gemmaLog('Failed to get file size for $filePath: $e');
+      edgeAiLog('Failed to get file size for $filePath: $e');
       return 0;
     }
   }
@@ -371,7 +371,7 @@ class ModelFileSystemManager {
       // Platform-specific validation for bundled files
       if (file.source is BundledSource) {
         if (!await _validateBundledResource(filePath)) {
-          gemmaLog('Bundled resource validation failed: ${file.filename}');
+          edgeAiLog('Bundled resource validation failed: ${file.filename}');
           return false;
         }
       } else {
@@ -379,7 +379,7 @@ class ModelFileSystemManager {
         final minSize = file.minimumSizeBytes ?? getMinimumSize(file.extension);
 
         if (!await isFileValid(filePath, minSizeBytes: minSize)) {
-          gemmaLog('Model file validation failed: ${file.filename}');
+          edgeAiLog('Model file validation failed: ${file.filename}');
           return false;
         }
       }
@@ -444,7 +444,7 @@ class ModelFileSystemManager {
 
   /// Cleans up failed download files for a model specification
   static Future<void> cleanupFailedDownload(ModelSpec spec) async {
-    gemmaLog('Cleaning up failed download for model: ${spec.name}');
+    edgeAiLog('Cleaning up failed download for model: ${spec.name}');
 
     for (final file in spec.files) {
       try {
@@ -452,10 +452,10 @@ class ModelFileSystemManager {
         final fileObj = File(filePath);
         if (await fileObj.exists()) {
           await fileObj.delete();
-          gemmaLog('Cleaned up partial file: ${file.filename}');
+          edgeAiLog('Cleaned up partial file: ${file.filename}');
         }
       } catch (e) {
-        gemmaLog('Failed to cleanup file ${file.filename}: $e');
+        edgeAiLog('Failed to cleanup file ${file.filename}: $e');
       }
     }
   }

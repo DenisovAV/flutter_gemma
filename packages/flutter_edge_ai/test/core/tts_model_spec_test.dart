@@ -257,7 +257,7 @@ void main() {
   });
 
   test('filename is namespaced by ttsModelType; prefsKey stays the plain '
-      'manifest name (flutter_gemma_speech TtsModelProfile contract)', () {
+      'manifest name (flutter_edge_ai_speech TtsModelProfile contract)', () {
     final spec = TtsModelSpec.fromManifest(
       name: 'matcha',
       ttsModelType: TtsModelType.matcha,
@@ -285,7 +285,7 @@ void main() {
     );
     // No double-prefix (matcha__matcha__config.json).
     expect(configFile.filename, 'matcha__config.json');
-    // prefsKey stays plain so flutter_gemma_speech's
+    // prefsKey stays plain so flutter_edge_ai_speech's
     // paths[profile.configFile] lookup (keyed by 'config.json') still
     // resolves — this is the regression guard for the restore path.
     expect(configFile.prefsKey, 'config.json');

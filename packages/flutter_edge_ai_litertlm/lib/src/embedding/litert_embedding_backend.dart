@@ -1,5 +1,5 @@
 // LiteRT C API embedding backend — native arm (embedder decoupling plan
-// Task 4). Moved from `flutter_gemma_embeddings/lib/src/litert_embedding_backend.dart`
+// Task 4). Moved from `flutter_edge_ai_embeddings/lib/src/litert_embedding_backend.dart`
 // unchanged in shape: builds a `ForwardPassDescriptor` for
 // `createLiteRtEmbeddingForwardPass` and hands it to the runtime-agnostic
 // `CommonEmbeddingModel`.
@@ -7,7 +7,7 @@
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_edge_ai/core/registry/embedding_backend_provider.dart';
 import 'package:flutter_edge_ai/core/registry/runtime_config.dart';
-import 'package:flutter_edge_ai/flutter_gemma_interface.dart' show EmbeddingModel;
+import 'package:flutter_edge_ai/flutter_edge_ai_interface.dart' show EmbeddingModel;
 import 'package:flutter_edge_ai/core/model_management/model_specs.dart'
     show EmbeddingModelSpec;
 import 'package:flutter_edge_ai/core/embedding/common_embedding_model.dart'

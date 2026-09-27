@@ -5,8 +5,8 @@ import 'package:flutter_edge_ai/core/chat.dart';
 import 'package:flutter_edge_ai/core/lifecycle/close_notifier.dart';
 import 'package:flutter_edge_ai/core/model.dart';
 import 'package:flutter_edge_ai/core/tool.dart';
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
-import 'package:flutter_edge_ai/flutter_gemma_interface.dart'
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai_interface.dart'
     show InferenceModel, InferenceModelSession;
 import 'package:flutter_edge_ai/core/domain/platform_types.dart'
     show PreferredBackend;
@@ -25,7 +25,7 @@ void resetThinkingUnsupportedWarning() => _thinkingUnsupportedWarned = false;
 void _warnThinkingIgnoredOnce() {
   if (_thinkingUnsupportedWarned) return;
   _thinkingUnsupportedWarned = true;
-  gemmaLog(
+  edgeAiLog(
     '[BuiltInAI] Thinking mode is not supported by built-in OS models '
     '(Gemini Nano / Apple Foundation Models); the flag is ignored.',
   );

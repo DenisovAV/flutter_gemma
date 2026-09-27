@@ -2,7 +2,7 @@ part of '../model_specs.dart';
 
 /// Speech-to-text model families supported by the pluggable STT backends.
 /// Only [moonshine] has a shipped [SttModelProfile]/pipeline
-/// (`flutter_gemma_speech`); the others are follow-ons that need a log-mel
+/// (`flutter_edge_ai_speech`); the others are follow-ons that need a log-mel
 /// frontend.
 enum SttModelType { moonshine, whisper, parakeet }
 

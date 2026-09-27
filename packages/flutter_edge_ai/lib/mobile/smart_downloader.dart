@@ -9,7 +9,7 @@ import 'package:path/path.dart' as p;
 import 'package:flutter_edge_ai/core/domain/download_error.dart';
 import 'package:flutter_edge_ai/core/domain/download_exception.dart';
 import 'package:flutter_edge_ai/core/model_management/cancel_token.dart';
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 
 /// Decision for a failed download: whether to resume, do a fresh retry, or give
 /// up. Extracted so the resume-attempt cap (#355) is unit-testable.
@@ -41,10 +41,10 @@ String computeTaskId(BaseDirectory base, String directory, String filename) =>
 /// [Task.split] maps an absolute path onto background_downloader's BaseDirectory
 /// model, but a target NOT under one of its recognized bases falls back to
 /// [BaseDirectory.root] with the drive/root STRIPPED from [splitDirectory]. The
-/// case that bites us is Windows' `%LOCALAPPDATA%\flutter_gemma`: LocalAppData is
+/// case that bites us is Windows' `%LOCALAPPDATA%\flutter_edge_ai`: LocalAppData is
 /// not a background_downloader base (path_provider maps applicationSupport →
 /// Roaming, applicationDocuments → Documents), so split returns root +
-/// `Users\..\AppData\Local\flutter_gemma`. On Windows the root base resolves to
+/// `Users\..\AppData\Local\flutter_edge_ai`. On Windows the root base resolves to
 /// `''` (not the drive), so the reconstructed filePath is `$CWD`-relative and the
 /// file lands in the wrong place while getReadTargetPath / validateModelFiles
 /// look at the absolute path — `install()` "succeeds" but `isModelInstalled()`
@@ -236,7 +236,7 @@ ResumeAction decideFailedDownloadAction({
 /// - Auto-detects resume support based on server (HuggingFace = no resume)
 /// - Android foreground service for large files, opt in with `foreground: true`
 /// Raised when the download-updates fan-out is torn down while a download is
-/// still in flight — i.e. the host called `FlutterGemma.dispose()`/`reset()`.
+/// still in flight — i.e. the host called `FlutterEdgeAi.dispose()`/`reset()`.
 ///
 /// A distinct type because it must NOT be retried: the generic `catch` in
 /// `_downloadWithSmartRetry` treats anything else as transient and restarts,
@@ -251,7 +251,7 @@ class DownloadUpdatesReleasedException implements Exception {
   @override
   String toString() =>
       'Download updates were released while task $taskId was still running '
-      '(FlutterGemma.dispose() or reset() during a download)';
+      '(FlutterEdgeAi.dispose() or reset() during a download)';
 }
 
 class SmartDownloader {
@@ -259,7 +259,7 @@ class SmartDownloader {
   /// Single source of truth — cleanup / resume code that queries or resets
   /// tasks must use this exact group, or it operates on an empty set and
   /// silently no-ops (this is what caused the #383 leak amplifier: three call
-  /// sites used the stale literal `'flutter_gemma_downloads'`).
+  /// sites used the stale literal `'flutter_edge_ai_downloads'`).
   static const String downloadGroup = 'smart_downloads';
 
   /// Scheduling priority for model downloads — and it must differ per platform.
@@ -340,13 +340,13 @@ class SmartDownloader {
       await downloader.configure(
         androidConfig: [(Config.runInForeground, Config.always)],
       );
-      gemmaLog('📲 SmartDownloader: Configured for ALWAYS foreground');
+      edgeAiLog('📲 SmartDownloader: Configured for ALWAYS foreground');
     } else if (foreground == false) {
       // Never foreground
       await downloader.configure(
         androidConfig: [(Config.runInForeground, Config.never)],
       );
-      gemmaLog('📲 SmartDownloader: Configured for NEVER foreground');
+      edgeAiLog('📲 SmartDownloader: Configured for NEVER foreground');
     } else {
       // Deliberately writes NOTHING on the default path.
       //
@@ -363,7 +363,7 @@ class SmartDownloader {
       // If the host has its own default notification config with a `running`
       // notification, our tasks inherit it and the host's own threshold
       // applies, which is the correct owner.
-      gemmaLog(
+      edgeAiLog(
         '📲 SmartDownloader: AUTO foreground — leaving the app-wide '
         'runInForeground config untouched',
       );
@@ -417,13 +417,13 @@ class SmartDownloader {
       } catch (e) {
         // Distinguishable from a normal denial (#357 review minor): this is an
         // unexpected throw from the request call itself, not a user decision.
-        gemmaLog(
+        edgeAiLog(
           '❌ SmartDownloader: POST_NOTIFICATIONS request threw (not a denial): $e',
         );
         status = PermissionStatus.requestError;
       }
 
-      gemmaLog('📲 SmartDownloader: POST_NOTIFICATIONS request → $status');
+      edgeAiLog('📲 SmartDownloader: POST_NOTIFICATIONS request → $status');
 
       // #357 review (Bug B): `gemmaLog` is a no-op in release builds
       // (`if (!kDebugMode) return`), so the line above gives ZERO signal in
@@ -432,7 +432,7 @@ class SmartDownloader {
       // long background download may be killed by the OS — surface that as a
       // clearly distinguishable warning rather than silently degrading.
       if (status != PermissionStatus.granted) {
-        gemmaLog(
+        edgeAiLog(
           '⚠️ SmartDownloader: POST_NOTIFICATIONS not granted ($status) — '
           'foreground service will NOT activate; a long background download '
           'may be killed. Have the host app pre-request POST_NOTIFICATIONS.',
@@ -460,7 +460,7 @@ class SmartDownloader {
   /// its one subscription — which `asBroadcastStream()` does — means every later
   /// `FileDownloader().updates.listen(...)`, in the host app or in any other
   /// package, throws "Stream has already been listened to". Merely depending on
-  /// flutter_gemma made background_downloader unusable for the app's own
+  /// flutter_edge_ai made background_downloader unusable for the app's own
   /// downloads.
   ///
   /// `registerCallbacks(group:)` is the supported alternative and is a strict
@@ -490,7 +490,7 @@ class SmartDownloader {
     // registration left over from an earlier download would keep intercepting
     // our tasks and the host's hub — fed by `updates` — would receive nothing
     // at all, hanging every download that resolved to it.
-    // NOT absorbing here. A hub is the host saying "route flutter_gemma's
+    // NOT absorbing here. A hub is the host saying "route flutter_edge_ai's
     // updates to me", and group callbacks outrank the `updates` stream that
     // feeds it — so leaving any callback registered, even a silent one, starves
     // the hub and hangs every download that resolves to it. Which is precisely
@@ -500,7 +500,7 @@ class SmartDownloader {
 
   /// Clears injected hub configuration (e.g. registry reset / dispose).
   ///
-  /// Also releases the group callbacks, so a host that disposes flutter_gemma
+  /// Also releases the group callbacks, so a host that disposes flutter_edge_ai
   /// gets `background_downloader` back in the state it found it — our group
   /// entry removed, its `updates` stream never having been touched.
   static void clearConfiguration() {
@@ -593,7 +593,7 @@ class SmartDownloader {
         // callback we silence its warning, so we owe the equivalent — a
         // download whose updates go nowhere looks identical to a stalled one
         // until a watchdog fires 90s later.
-        gemmaLog(
+        edgeAiLog(
           '⚠️ SmartDownloader: dropping ${update.runtimeType} for '
           '${update.task.taskId} — no listener attached',
         );
@@ -704,17 +704,17 @@ class SmartDownloader {
       cancellationListener = cancelToken.whenCancelled.asStream().listen((
         _,
       ) async {
-        gemmaLog('🚫 Cancellation requested');
+        edgeAiLog('🚫 Cancellation requested');
 
         // Cancel the actual download task
         if (currentTaskId != null) {
-          gemmaLog('🚫 Cancelling task: $currentTaskId');
+          edgeAiLog('🚫 Cancelling task: $currentTaskId');
           try {
             await FileDownloader().cancelTaskWithId(
               currentTaskId!,
             ); // ← ADD: Actually cancel the task
           } catch (e) {
-            gemmaLog('⚠️ Failed to cancel task: $e');
+            edgeAiLog('⚠️ Failed to cancel task: $e');
           }
           // Also clear any pending resume watchdog so a cancelled download
           // doesn't leave a Timer holding the (now-closed) progress stream
@@ -815,11 +815,11 @@ class SmartDownloader {
     late final String directory;
     late final String filename;
 
-    gemmaLog(
+    edgeAiLog(
       '🔵 _downloadWithSmartRetry called - attempt $currentAttempt/$maxRetries',
     );
-    gemmaLog('🔵 URL: $url');
-    gemmaLog('🔵 Target: $targetPath');
+    edgeAiLog('🔵 URL: $url');
+    edgeAiLog('🔵 Target: $targetPath');
 
     // Declare listener outside try block so it's accessible in catch
     StreamSubscription? listener;
@@ -829,7 +829,7 @@ class SmartDownloader {
         filePath: targetPath,
       );
       taskId = computeTaskId(baseDirectory, directory, filename);
-      gemmaLog('🔵 TaskId: $taskId');
+      edgeAiLog('🔵 TaskId: $taskId');
 
       // Directory background_downloader will actually write into — corrected
       // for the root-fallback case (Windows %LOCALAPPDATA%). The stored `taskId`
@@ -846,7 +846,7 @@ class SmartDownloader {
       // Check if task already exists (e.g., after app restart or sleep/wake)
       final existingTask = await downloader.taskForId(taskId);
       if (existingTask != null) {
-        gemmaLog(
+        edgeAiLog(
           '🔵 Task $taskId already in progress, attaching to existing...',
         );
 
@@ -870,13 +870,13 @@ class SmartDownloader {
               // true today, but an ordering dependency with nothing holding it.
               if (percents == null) return;
               _cancelResumeWatchdog(update.task.taskId);
-              gemmaLog('📊 Progress (existing): $percents%');
+              edgeAiLog('📊 Progress (existing): $percents%');
               if (!progress.isClosed) {
                 progress.add(percents);
               }
             } else if (update is TaskStatusUpdate) {
               _cancelResumeWatchdog(update.task.taskId);
-              gemmaLog('📡 TaskStatusUpdate (existing): ${update.status}');
+              edgeAiLog('📡 TaskStatusUpdate (existing): ${update.status}');
               if (update.status == TaskStatus.complete) {
                 if (!progress.isClosed) {
                   progress.add(100);
@@ -930,7 +930,7 @@ class SmartDownloader {
                 // constraint, quota — no further event ever arrives. Without a
                 // re-arm on BOTH, the sequence paused[arm] -> enqueued[disarm]
                 // leaves the download hanging unbounded with no error at all.
-                gemmaLog(
+                edgeAiLog(
                   '⏸️ ${update.status} (existing) — re-arming resume watchdog',
                 );
                 _armResumeWatchdog(
@@ -981,7 +981,7 @@ class SmartDownloader {
         // this brings the reattach path in line.
         if (existingTask is DownloadTask &&
             await downloader.taskCanResume(existingTask)) {
-          gemmaLog('🔵 Existing task $taskId is resumable — resuming');
+          edgeAiLog('🔵 Existing task $taskId is resumable — resuming');
           await downloader.resume(existingTask);
         }
 
@@ -1017,7 +1017,7 @@ class SmartDownloader {
       // HuggingFace uses weak ETags - resume not reliable
       // Other servers (GCS, Kaggle, custom) - resume usually works
       final allowPause = !_isHuggingFaceUrl(url);
-      gemmaLog(
+      edgeAiLog(
         '🔵 allowPause: $allowPause (HuggingFace: ${_isHuggingFaceUrl(url)})',
       );
 
@@ -1043,7 +1043,7 @@ class SmartDownloader {
         (update) async {
           if (update.task.taskId != task.taskId) return;
 
-          gemmaLog(
+          edgeAiLog(
             '📡 Received update for task ${task.taskId}: ${update.runtimeType}',
           );
 
@@ -1054,13 +1054,13 @@ class SmartDownloader {
             // Disarm only for REAL progress — see the reattach listener.
             if (percents == null) return;
             _cancelResumeWatchdog(update.task.taskId);
-            gemmaLog('📊 Progress: $percents%');
+            edgeAiLog('📊 Progress: $percents%');
             if (!progress.isClosed) {
               progress.add(percents);
             }
           } else if (update is TaskStatusUpdate) {
             _cancelResumeWatchdog(update.task.taskId);
-            gemmaLog(
+            edgeAiLog(
               '📡 TaskStatusUpdate: ${update.status}, HTTP: ${update.responseStatusCode}',
             );
 
@@ -1080,13 +1080,13 @@ class SmartDownloader {
                 break;
 
               case TaskStatus.failed:
-                gemmaLog('🔴 SmartDownloader: TaskStatus.failed detected');
-                gemmaLog(
+                edgeAiLog('🔴 SmartDownloader: TaskStatus.failed detected');
+                edgeAiLog(
                   '🔴 HTTP Status Code from update: ${update.responseStatusCode}',
                 );
-                gemmaLog('🔴 Exception: ${update.exception}');
-                gemmaLog('🔴 Progress closed: ${progress.isClosed}');
-                gemmaLog('🔴 Current attempt: $currentAttempt');
+                edgeAiLog('🔴 Exception: ${update.exception}');
+                edgeAiLog('🔴 Progress closed: ${progress.isClosed}');
+                edgeAiLog('🔴 Current attempt: $currentAttempt');
 
                 // Try to get HTTP code from multiple sources
                 int? httpCode = update.responseStatusCode;
@@ -1096,7 +1096,7 @@ class SmartDownloader {
                   if (update.exception is TaskHttpException) {
                     httpCode = (update.exception as TaskHttpException)
                         .httpResponseCode;
-                    gemmaLog(
+                    edgeAiLog(
                       '🔴 HTTP Status Code from TaskHttpException: $httpCode',
                     );
                   }
@@ -1147,7 +1147,7 @@ class SmartDownloader {
                   await listener?.cancel();
                   if (!completer.isCompleted) completer.complete();
                 } else {
-                  gemmaLog(
+                  edgeAiLog(
                     '🔄 Resume pending - keeping listener active '
                     '(resumeAttempt now $localResumeAttempt)',
                   );
@@ -1167,7 +1167,7 @@ class SmartDownloader {
                 break;
 
               case TaskStatus.notFound:
-                gemmaLog(
+                edgeAiLog(
                   '🔴 SmartDownloader: TaskStatus.notFound detected (404)',
                 );
 
@@ -1217,7 +1217,7 @@ class SmartDownloader {
                 if (!shouldRearmWatchdog(update.status, sawPause: sawPause)) {
                   break;
                 }
-                gemmaLog('⏸️ ${update.status} — re-arming resume watchdog');
+                edgeAiLog('⏸️ ${update.status} — re-arming resume watchdog');
                 _armResumeWatchdog(
                   taskId: task.taskId,
                   progress: progress,
@@ -1256,9 +1256,9 @@ class SmartDownloader {
       // Notify about new listener
       onListenerCreated?.call(listener);
 
-      gemmaLog('🔵 Enqueueing task ${task.taskId}...');
+      edgeAiLog('🔵 Enqueueing task ${task.taskId}...');
       final result = await downloader.enqueue(task);
-      gemmaLog('🔵 Enqueue result: $result');
+      edgeAiLog('🔵 Enqueue result: $result');
       if (!result) {
         throw const DownloadException(
           DownloadError.network('enqueue() returned false'),
@@ -1269,15 +1269,15 @@ class SmartDownloader {
       onTaskCreated?.call(task.taskId); // ← ADD: Notify task created
 
       // ✅ Wait for download to complete
-      gemmaLog('🔵 Waiting for download completion...');
+      edgeAiLog('🔵 Waiting for download completion...');
       await completer.future;
-      gemmaLog('🔵 Download completed!');
+      edgeAiLog('🔵 Download completed!');
 
       // Ensure listener is canceled after completion
       await listener.cancel();
     } catch (e) {
-      gemmaLog('❌ Exception in _downloadWithSmartRetry: $e');
-      gemmaLog('❌ Stack trace: ${StackTrace.current}');
+      edgeAiLog('❌ Exception in _downloadWithSmartRetry: $e');
+      edgeAiLog('❌ Stack trace: ${StackTrace.current}');
 
       // Cancel listener before retry
       await listener?.cancel();
@@ -1296,7 +1296,7 @@ class SmartDownloader {
       }
 
       if (currentAttempt < maxRetries) {
-        gemmaLog(
+        edgeAiLog(
           '⚠️ Retrying after exception... attempt ${currentAttempt + 1}/$maxRetries',
         );
         await Future.delayed(
@@ -1364,27 +1364,27 @@ class SmartDownloader {
     required int resumeAttempt,
     void Function()? onSettle,
   }) async {
-    gemmaLog('🟡 _handleFailedDownload called');
-    gemmaLog('🟡 httpStatusCode: $httpStatusCode');
-    gemmaLog('🟡 progress.isClosed: ${progress.isClosed}');
+    edgeAiLog('🟡 _handleFailedDownload called');
+    edgeAiLog('🟡 httpStatusCode: $httpStatusCode');
+    edgeAiLog('🟡 progress.isClosed: ${progress.isClosed}');
 
     // Check if error is retryable based on HTTP status code
     if (httpStatusCode != null) {
-      gemmaLog('🟢 httpStatusCode is not null: $httpStatusCode');
+      edgeAiLog('🟢 httpStatusCode is not null: $httpStatusCode');
 
       // Auth errors (401, 403) and not-found (404) should NOT be retried
       if (httpStatusCode == 401) {
-        gemmaLog('🟢 Detected 401 - stopping immediately');
+        edgeAiLog('🟢 Detected 401 - stopping immediately');
         if (!progress.isClosed) {
-          gemmaLog('🟢 Adding error to progress stream');
+          edgeAiLog('🟢 Adding error to progress stream');
           progress.addError(
             const DownloadException(DownloadError.unauthorized()),
             StackTrace.current,
           );
           progress.close();
-          gemmaLog('🟢 Progress stream closed');
+          edgeAiLog('🟢 Progress stream closed');
         } else {
-          gemmaLog('⚠️ Progress already closed - cannot add error!');
+          edgeAiLog('⚠️ Progress already closed - cannot add error!');
         }
         return false; // Stop immediately, no resume pending
       }
@@ -1421,7 +1421,7 @@ class SmartDownloader {
     } catch (e) {
       // ❌ (not ⚠️): an unexpected throw, distinct from a normal
       // canResume=false decision (#357 review minor).
-      gemmaLog('❌ taskCanResume threw: $e — treating as not resumable');
+      edgeAiLog('❌ taskCanResume threw: $e — treating as not resumable');
     }
 
     final action = decideFailedDownloadAction(
@@ -1433,7 +1433,7 @@ class SmartDownloader {
     );
 
     if (action == ResumeAction.resume) {
-      gemmaLog(
+      edgeAiLog(
         '🔄 Resuming task ${task.taskId} '
         // +1: human-readable 1-indexed; the cap comparison is 0-indexed
         '(resume attempt ${resumeAttempt + 1}/$kMaxResumeAttempts)...',
@@ -1447,14 +1447,14 @@ class SmartDownloader {
         // caller stalled for the full 90s watchdog window for nothing.
         final resumed = await downloader.resume(task);
         if (!resumed) {
-          gemmaLog(
+          edgeAiLog(
             '⚠️ resume() returned false (no resume data / enqueue failed) — '
             'falling through to retry/give-up',
           );
           // Fall through to the bounded retry/give-up logic below — do NOT
           // arm the watchdog or return true.
         } else {
-          gemmaLog('🔄 Resume triggered, waiting for status update...');
+          edgeAiLog('🔄 Resume triggered, waiting for status update...');
           // Resume was accepted - let event loop handle the result.
           // If resume succeeds → TaskStatus.complete will fire.
           // If resume fails (e.g., weak ETag) → TaskStatus.failed will fire and
@@ -1469,7 +1469,7 @@ class SmartDownloader {
           return true; // ✅ Resume pending - caller should keep listener active!
         }
       } catch (e) {
-        gemmaLog('⚠️ resume() threw: $e — falling through to retry/give-up');
+        edgeAiLog('⚠️ resume() threw: $e — falling through to retry/give-up');
         // resume() was never accepted, so no status event will ever arrive
         // for it — do NOT arm the watchdog or return true here, that would
         // leave the listener waiting forever. Fall through to the bounded
@@ -1554,7 +1554,7 @@ class SmartDownloader {
     _resumeWatchdogs[taskId] = armResumeWatchdog(
       progress: progress,
       onTimeout: () {
-        gemmaLog(
+        edgeAiLog(
           '⏱️ Resume watchdog fired for $taskId — cancelling + closing as failed',
         );
         _resumeWatchdogs.remove(taskId);

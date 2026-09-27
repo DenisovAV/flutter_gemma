@@ -1,10 +1,10 @@
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_edge_ai/core/registry/hugging_face_resolver.dart';
 import 'package:flutter_edge_ai/core/model.dart' show ModelFileType;
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 
 /// Holds Hugging Face manifest resolvers registered via
-/// `FlutterGemma.initialize`. Same probe-chain selection as [EngineRegistry]:
+/// `FlutterEdgeAi.initialize`. Same probe-chain selection as [EngineRegistry]:
 /// the registered resolver with the highest [HuggingFaceResolver.priority] whose
 /// [HuggingFaceResolver.canResolve] is true wins (first-registered breaks ties).
 /// No central format map — a resolver self-selects.
@@ -38,8 +38,8 @@ class HuggingFaceResolverRegistry {
     if (kDebugMode &&
         indexed.length > 1 &&
         indexed[0].$2.priority == indexed[1].$2.priority) {
-      gemmaLog(
-        '[flutter_gemma] Ambiguous HF resolver: '
+      edgeAiLog(
+        '[flutter_edge_ai] Ambiguous HF resolver: '
         '${indexed.map((e) => e.$2.name).join(", ")} all handle "$repo" at '
         'priority ${indexed[0].$2.priority}; using "${indexed[0].$2.name}" '
         '(first registered).',

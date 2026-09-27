@@ -4,7 +4,7 @@
 //
 // Prerequisites: push models to device via adb:
 //   ./scripts/prepare_test_models.sh [device_id]
-//   adb push functiongemma-270M-it.litertlm /data/local/tmp/flutter_gemma_test/
+//   adb push functiongemma-270M-it.litertlm /data/local/tmp/flutter_edge_ai_test/
 
 import 'dart:io' show Platform;
 
@@ -16,7 +16,7 @@ import 'inference_test_helpers.dart';
 
 bool get _isAndroid => !kIsWeb && Platform.isAndroid;
 
-const _deviceModelDir = '/data/local/tmp/flutter_gemma_test';
+const _deviceModelDir = '/data/local/tmp/flutter_edge_ai_test';
 const _taskPath = '$_deviceModelDir/functiongemma-270M-it.task';
 const _litertlmPath = '$_deviceModelDir/functiongemma-270M-it.litertlm';
 
@@ -31,7 +31,7 @@ void main() {
 
       // --- Engine 1: MediaPipe (.task) ---
       print('[DualEngine] Testing MediaPipe (.task)...');
-      await FlutterGemma.installModel(
+      await FlutterEdgeAi.installModel(
         modelType: ModelType.functionGemma,
         fileType: ModelFileType.task,
       ).fromFile(_taskPath).install();
@@ -55,7 +55,7 @@ void main() {
 
       // --- Engine 2: LiteRT-LM (.litertlm) ---
       print('[DualEngine] Testing LiteRT-LM (.litertlm)...');
-      await FlutterGemma.installModel(
+      await FlutterEdgeAi.installModel(
         modelType: ModelType.functionGemma,
         fileType: ModelFileType.task,
       ).fromFile(_litertlmPath).install();

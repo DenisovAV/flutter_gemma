@@ -9,7 +9,7 @@ library;
 import 'dart:async';
 import 'dart:js_interop';
 import 'package:flutter_edge_ai/core/infrastructure/web_opfs_interop.dart';
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 
 /// Service for OPFS file management
 ///
@@ -23,7 +23,7 @@ class WebOPFSService {
 
   WebOPFSService(this._opfs);
 
-  /// Factory constructor using global window.flutterGemmaOPFS
+  /// Factory constructor using global window.flutterEdgeAiOPFS
   factory WebOPFSService.fromWindow() {
     return WebOPFSService(opfsInterop);
   }
@@ -36,7 +36,7 @@ class WebOPFSService {
       final result = await _opfs.isModelCached(filename.toJS).toDart;
       return result.toDart;
     } catch (e) {
-      gemmaLog('[WebOPFSService] Error checking cache for $filename: $e');
+      edgeAiLog('[WebOPFSService] Error checking cache for $filename: $e');
       return false;
     }
   }
@@ -50,7 +50,7 @@ class WebOPFSService {
       if (result == null) return null;
       return result.toDartInt;
     } catch (e) {
-      gemmaLog('[WebOPFSService] Error getting size for $filename: $e');
+      edgeAiLog('[WebOPFSService] Error getting size for $filename: $e');
       return null;
     }
   }
@@ -76,7 +76,7 @@ class WebOPFSService {
     JSAny? abortSignal,
   }) async {
     try {
-      gemmaLog('[WebOPFSService] Starting download: $filename');
+      edgeAiLog('[WebOPFSService] Starting download: $filename');
 
       // Create JS callback for progress
       final jsProgressCallback = (JSNumber percentJs) {
@@ -99,10 +99,10 @@ class WebOPFSService {
         throw Exception('OPFS download returned false');
       }
 
-      gemmaLog('[WebOPFSService] Download complete: $filename');
+      edgeAiLog('[WebOPFSService] Download complete: $filename');
     } catch (e, stackTrace) {
-      gemmaLog('[WebOPFSService] Download failed: $e');
-      gemmaLog('[WebOPFSService] Stack trace: $stackTrace');
+      edgeAiLog('[WebOPFSService] Download failed: $e');
+      edgeAiLog('[WebOPFSService] Stack trace: $stackTrace');
       throw Exception('Failed to download to OPFS: $e');
     }
   }
@@ -121,13 +121,13 @@ class WebOPFSService {
   /// - [Exception] if file not found in OPFS
   Future<JSAny> getStreamReader(String filename) async {
     try {
-      gemmaLog('[WebOPFSService] Getting stream reader for: $filename');
+      edgeAiLog('[WebOPFSService] Getting stream reader for: $filename');
       final reader = await _opfs.getStreamReader(filename.toJS).toDart;
-      gemmaLog('[WebOPFSService] Stream reader created');
+      edgeAiLog('[WebOPFSService] Stream reader created');
       return reader;
     } catch (e, stackTrace) {
-      gemmaLog('[WebOPFSService] Failed to get stream reader: $e');
-      gemmaLog('[WebOPFSService] Stack trace: $stackTrace');
+      edgeAiLog('[WebOPFSService] Failed to get stream reader: $e');
+      edgeAiLog('[WebOPFSService] Stack trace: $stackTrace');
       throw Exception('Model not found in OPFS: $filename');
     }
   }
@@ -142,13 +142,13 @@ class WebOPFSService {
   /// [getStreamReader] instead.
   Future<JSAny> getStream(String filename) async {
     try {
-      gemmaLog('[WebOPFSService] Getting readable stream for: $filename');
+      edgeAiLog('[WebOPFSService] Getting readable stream for: $filename');
       final stream = await _opfs.getReadableStream(filename.toJS).toDart;
-      gemmaLog('[WebOPFSService] Readable stream created');
+      edgeAiLog('[WebOPFSService] Readable stream created');
       return stream;
     } catch (e, stackTrace) {
-      gemmaLog('[WebOPFSService] Failed to get readable stream: $e');
-      gemmaLog('[WebOPFSService] Stack trace: $stackTrace');
+      edgeAiLog('[WebOPFSService] Failed to get readable stream: $e');
+      edgeAiLog('[WebOPFSService] Stack trace: $stackTrace');
       throw Exception('Model not found in OPFS: $filename');
     }
   }
@@ -163,9 +163,9 @@ class WebOPFSService {
   Future<void> deleteModel(String filename) async {
     try {
       await _opfs.deleteModel(filename.toJS).toDart;
-      gemmaLog('[WebOPFSService] Deleted: $filename');
+      edgeAiLog('[WebOPFSService] Deleted: $filename');
     } catch (e) {
-      gemmaLog('[WebOPFSService] Failed to delete $filename: $e');
+      edgeAiLog('[WebOPFSService] Failed to delete $filename: $e');
       throw Exception('Failed to delete from OPFS: $e');
     }
   }
@@ -179,7 +179,7 @@ class WebOPFSService {
       final stats = await _opfs.getStorageStats().toDart as StorageStats;
       return {'usage': stats.usage.toDartInt, 'quota': stats.quota.toDartInt};
     } catch (e) {
-      gemmaLog('[WebOPFSService] Failed to get storage stats: $e');
+      edgeAiLog('[WebOPFSService] Failed to get storage stats: $e');
       return {'usage': 0, 'quota': 0};
     }
   }
@@ -191,10 +191,10 @@ class WebOPFSService {
     try {
       final count = await _opfs.clearAll().toDart;
       final deletedCount = count.toDartInt;
-      gemmaLog('[WebOPFSService] Cleared $deletedCount files from OPFS');
+      edgeAiLog('[WebOPFSService] Cleared $deletedCount files from OPFS');
       return deletedCount;
     } catch (e) {
-      gemmaLog('[WebOPFSService] Failed to clear OPFS: $e');
+      edgeAiLog('[WebOPFSService] Failed to clear OPFS: $e');
       throw Exception('Failed to clear OPFS: $e');
     }
   }

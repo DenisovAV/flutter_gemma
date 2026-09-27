@@ -4,7 +4,7 @@ import 'package:flutter_edge_ai/core/message.dart';
 import 'package:flutter_edge_ai/core/model.dart';
 import 'package:flutter_edge_ai/core/model_response.dart';
 import 'package:flutter_edge_ai/core/parsing/function_gemma_wire.dart';
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 
 // The FunctionGemma tokens live with the wire format they belong to.
 export 'package:flutter_edge_ai/core/parsing/function_gemma_wire.dart';
@@ -85,7 +85,7 @@ _ChatFormatMode _chatFormatModeFor(
 
   // ORT-GenAI model directories — the SDK owns tokenizer + chat template
   // (OgaTokenizerApplyChatTemplate, applied worker-side in
-  // flutter_gemma_onnx's GenAiFfiClient) — the same posture as .litertlm.
+  // flutter_edge_ai_onnx's GenAiFfiClient) — the same posture as .litertlm.
   if (fileType == ModelFileType.onnx) {
     return _ChatFormatMode.raw;
   }
@@ -100,7 +100,7 @@ extension MessageExtension on Message {
     ModelFileType fileType = ModelFileType.binary,
   }) {
     // DEBUG LOG
-    gemmaLog(
+    edgeAiLog(
       '[transformToChatPrompt] modelType=$type, fileType=$fileType, messageType=${this.type}, isUser=$isUser',
     );
 
@@ -109,7 +109,7 @@ extension MessageExtension on Message {
         return '';
       case _ChatFormatMode.raw:
         final result = _formatToolResponseContent();
-        gemmaLog(
+        edgeAiLog(
           '[transformToChatPrompt] Using _formatToolResponseContent, result length=${result.length}',
         );
         return result;

@@ -1,9 +1,9 @@
 // Standalone public library: the shared web model-source resolution used by
 // both the MediaPipe-web inference model (in core) and the litertlm-web
-// inference model (extracted into `flutter_gemma_litertlm`). Both import this
-// directly so neither has to be a `part of flutter_gemma_web.dart`.
+// inference model (extracted into `flutter_edge_ai_litertlm`). Both import this
+// directly so neither has to be a `part of flutter_edge_ai_web.dart`.
 import 'dart:js_interop';
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_edge_ai/core/di/service_registry.dart';
@@ -63,7 +63,7 @@ class WebModelSourceResolver {
 
   /// Builds a resolver backed by a fresh [WebModelManager], which rehydrates
   /// the active model from persisted prefs. Lets an engine package construct
-  /// the resolver without a `FlutterGemmaWeb` instance.
+  /// the resolver without a `FlutterEdgeAiWeb` instance.
   factory WebModelSourceResolver.forActiveModel() =>
       WebModelSourceResolver(WebModelManager());
   final WebModelManager _modelManager;
@@ -82,7 +82,7 @@ class WebModelSourceResolver {
     final active = _modelManager.activeInferenceModel;
     if (active == null) {
       throw StateError(
-        'No active inference model set. Use FlutterGemma.installModel() first.',
+        'No active inference model set. Use FlutterEdgeAi.installModel() first.',
       );
     }
     final paths = await _modelManager.getModelFilePaths(active);
@@ -113,12 +113,12 @@ class WebModelSourceResolver {
         );
       }
       if (kDebugMode) {
-        gemmaLog('[WebModelSourceResolver] OPFS stream source for: $filename');
+        edgeAiLog('[WebModelSourceResolver] OPFS stream source for: $filename');
       }
       return OpfsStreamModelSource(opfs, filename);
     }
     if (kDebugMode) {
-      gemmaLog('[WebModelSourceResolver] Blob/HTTPS URL: $raw');
+      edgeAiLog('[WebModelSourceResolver] Blob/HTTPS URL: $raw');
     }
     return BlobUrlModelSource(raw);
   }

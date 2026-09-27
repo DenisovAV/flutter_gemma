@@ -5,7 +5,7 @@
 //   - getModelPath() resolving an installed file's on-device path.
 //
 // Mirrors stt_install_plumbing_test.dart: drives the real
-// FlutterGemmaPlugin.instance.modelManager singleton end-to-end in a plain
+// FlutterEdgeAiPlugin.instance.modelManager singleton end-to-end in a plain
 // `flutter test` via a SharedPreferences mock + a PathProviderPlatform stub —
 // no device, no native engine.
 //
@@ -43,12 +43,12 @@ void main() {
 
   setUp(() async {
     fakeDocuments = await Directory.systemTemp.createTemp(
-      'flutter_gemma_docs_',
+      'flutter_edge_ai_docs_',
     );
     fakeAppSupport = await Directory.systemTemp.createTemp(
-      'flutter_gemma_appsupport_',
+      'flutter_edge_ai_appsupport_',
     );
-    sourceDir = await Directory.systemTemp.createTemp('flutter_gemma_src_');
+    sourceDir = await Directory.systemTemp.createTemp('flutter_edge_ai_src_');
     mockProvider = _FixedPathProviderPlatform(
       documentsPath: fakeDocuments.path,
       appSupportPath: fakeAppSupport.path,
@@ -57,10 +57,10 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     ServiceRegistry.reset();
     EmbeddingRegistry.instance.reset();
-    // The default FlutterGemmaPlugin instance (and its model manager) is a
+    // The default FlutterEdgeAiPlugin instance (and its model manager) is a
     // process-wide singleton that outlives each test — clear any active
     // embedder identity a previous test left behind so tests stay independent.
-    await FlutterGemmaPlugin.instance.modelManager
+    await FlutterEdgeAiPlugin.instance.modelManager
         .clearActiveEmbeddingIdentity();
   });
 
@@ -76,12 +76,12 @@ void main() {
 
   // FileSourceHandler references external files in place (no copy). To
   // exercise the real managed-storage deletion path, seed the fixtures INSIDE
-  // the managed model directory (Application Support/flutter_gemma on the
+  // the managed model directory (Application Support/flutter_edge_ai on the
   // desktop test host) so the "external" path IS the managed path — then
   // getModelPath resolves to them and uninstall deletes them.
   Future<EmbeddingModelSpec> installEmbedder() async {
     final managedDir = Directory(
-      path.join(fakeAppSupport.path, 'flutter_gemma'),
+      path.join(fakeAppSupport.path, 'flutter_edge_ai'),
     );
     await managedDir.create(recursive: true);
 
@@ -90,7 +90,7 @@ void main() {
     final tokenizerFile = File(path.join(managedDir.path, 'tokenizer.json'));
     await tokenizerFile.writeAsBytes(_fakeTokenizerBytes);
 
-    final installation = await FlutterGemma.installEmbedder()
+    final installation = await FlutterEdgeAi.installEmbedder()
         .modelFromFile(modelFile.path)
         .tokenizerFromFile(tokenizerFile.path)
         .install();
@@ -101,7 +101,7 @@ void main() {
     test(
       'install sets a typed active spec; getModelPath resolves both files',
       () async {
-        await FlutterGemma.initialize(
+        await FlutterEdgeAi.initialize(
           embeddingBackends: [_FakeEmbeddingBackend()],
         );
 
@@ -111,17 +111,17 @@ void main() {
         // Typed getter returns the right runtime type; the other modalities
         // are null (guards against a copy-paste miswire reading a sibling
         // slot).
-        expect(FlutterGemma.hasActiveEmbedder(), isTrue);
-        expect(FlutterGemma.activeEmbedderSpec, isA<EmbeddingModelSpec>());
-        expect(FlutterGemma.activeModelSpec, isNull);
-        expect(FlutterGemma.activeSttSpec, isNull);
-        expect(FlutterGemma.activeTtsSpec, isNull);
+        expect(FlutterEdgeAi.hasActiveEmbedder(), isTrue);
+        expect(FlutterEdgeAi.activeEmbedderSpec, isA<EmbeddingModelSpec>());
+        expect(FlutterEdgeAi.activeModelSpec, isNull);
+        expect(FlutterEdgeAi.activeSttSpec, isNull);
+        expect(FlutterEdgeAi.activeTtsSpec, isNull);
 
         // Both installed files (model + tokenizer) resolve to a real on-disk
         // path via getModelPath.
         expect(spec.files.length, 2);
         for (final file in spec.files) {
-          final resolved = await FlutterGemma.getModelPath(file.filename);
+          final resolved = await FlutterEdgeAi.getModelPath(file.filename);
           expect(
             File(resolved).existsSync(),
             isTrue,
@@ -134,18 +134,18 @@ void main() {
     test(
       'uninstallEmbedder deletes ALL files and clears the active identity',
       () async {
-        await FlutterGemma.initialize(
+        await FlutterEdgeAi.initialize(
           embeddingBackends: [_FakeEmbeddingBackend()],
         );
 
         final spec = await installEmbedder();
         final paths = [
           for (final file in spec.files)
-            await FlutterGemma.getModelPath(file.filename),
+            await FlutterEdgeAi.getModelPath(file.filename),
         ];
         expect(paths.every((p) => File(p).existsSync()), isTrue);
 
-        await FlutterGemma.uninstallEmbedder();
+        await FlutterEdgeAi.uninstallEmbedder();
 
         // Both the model AND the tokenizer are gone — not just one file.
         for (final p in paths) {
@@ -156,20 +156,20 @@ void main() {
           );
         }
         // Identity cleared → getActiveEmbedder now fails fast.
-        expect(FlutterGemma.hasActiveEmbedder(), isFalse);
-        expect(FlutterGemma.activeEmbedderSpec, isNull);
-        expect(() => FlutterGemma.getActiveEmbedder(), throwsStateError);
+        expect(FlutterEdgeAi.hasActiveEmbedder(), isFalse);
+        expect(FlutterEdgeAi.activeEmbedderSpec, isNull);
+        expect(() => FlutterEdgeAi.getActiveEmbedder(), throwsStateError);
       },
     );
 
     test('uninstallEmbedder is a no-op when nothing is active', () async {
-      await FlutterGemma.initialize(
+      await FlutterEdgeAi.initialize(
         embeddingBackends: [_FakeEmbeddingBackend()],
       );
-      expect(FlutterGemma.hasActiveEmbedder(), isFalse);
+      expect(FlutterEdgeAi.hasActiveEmbedder(), isFalse);
       // Must complete without throwing.
-      await FlutterGemma.uninstallEmbedder();
-      expect(FlutterGemma.hasActiveEmbedder(), isFalse);
+      await FlutterEdgeAi.uninstallEmbedder();
+      expect(FlutterEdgeAi.hasActiveEmbedder(), isFalse);
     });
   });
 }

@@ -3,8 +3,8 @@
 //
 // Prerequisites:
 //   Push models to device:
-//     adb push deepseek_q8_ekv1280.task /data/local/tmp/flutter_gemma_test/
-//     adb push gemma-4-E2B-it.litertlm /data/local/tmp/flutter_gemma_test/
+//     adb push deepseek_q8_ekv1280.task /data/local/tmp/flutter_edge_ai_test/
+//     adb push gemma-4-E2B-it.litertlm /data/local/tmp/flutter_edge_ai_test/
 //
 // Tests per model:
 //   - install: model loads from device file
@@ -18,7 +18,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 import 'inference_test_helpers.dart' show registerTestEngines;
 
-const _deviceModelDir = '/data/local/tmp/flutter_gemma_test';
+const _deviceModelDir = '/data/local/tmp/flutter_edge_ai_test';
 
 /// Test model configuration for thinking mode tests.
 class ThinkingTestModel {
@@ -62,7 +62,7 @@ const _testModels = [
 ];
 
 Future<void> _ensureModelInstalled(ThinkingTestModel model) async {
-  await FlutterGemma.installModel(
+  await FlutterEdgeAi.installModel(
     modelType: model.modelType,
     fileType: model.fileType,
   ).fromFile(model.filePath).install();
@@ -91,7 +91,7 @@ void main() {
         print('[${model.name}] Installing from file: ${model.filePath}');
         await _ensureModelInstalled(model);
 
-        expect(FlutterGemma.hasActiveModel(), isTrue);
+        expect(FlutterEdgeAi.hasActiveModel(), isTrue);
         print('[${model.name}] Installed successfully');
       }, timeout: const Timeout(Duration(minutes: 5)));
 
@@ -99,7 +99,7 @@ void main() {
         await registerTestEngines();
         await _ensureModelInstalled(model);
 
-        final inferenceModel = await FlutterGemma.getActiveModel(
+        final inferenceModel = await FlutterEdgeAi.getActiveModel(
           maxTokens: model.maxTokens,
           preferredBackend: PreferredBackend.cpu,
         );
@@ -180,7 +180,7 @@ void main() {
         await registerTestEngines();
         await _ensureModelInstalled(model);
 
-        final inferenceModel = await FlutterGemma.getActiveModel(
+        final inferenceModel = await FlutterEdgeAi.getActiveModel(
           maxTokens: model.maxTokens,
           preferredBackend: PreferredBackend.cpu,
         );

@@ -10,7 +10,7 @@
 // Stage first:
 //   inflect_{text_encoder,decoder}_fp16.tflite + inflect_fixture.bin
 //   into the app documents dir.
-// Run: cd packages/flutter_gemma/example && \
+// Run: cd packages/flutter_edge_ai/example && \
 //   flutter test integration_test/inflect_tts_test.dart -d macos
 import 'dart:io';
 import 'dart:math' as math;

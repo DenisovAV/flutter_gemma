@@ -2,8 +2,8 @@ import 'dart:async';
 
 import 'package:flutter_edge_ai/core/registry/runtime_config.dart'
     show ActiveEmbedderParams;
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
-import 'package:flutter_edge_ai/flutter_gemma_interface.dart' show EmbeddingModel;
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai_interface.dart' show EmbeddingModel;
 
 /// The cached embedder, the rule for reusing it, and the serialisation that
 /// makes the rule mean anything.
@@ -105,24 +105,24 @@ class EmbedderCache {
     // good as the model's own `isClosed`: the interface default is false, for
     // implementations that predate it.
     if (cached.model.isClosed) {
-      gemmaLog('ℹ️  Cached embedder is closed; building a new one for $label');
+      edgeAiLog('ℹ️  Cached embedder is closed; building a new one for $label');
       _cached = null;
       return null;
     }
 
     final changedParam = cached.params.firstDifference(requested);
     if (changedParam == null) {
-      gemmaLog('ℹ️  Reusing existing embedding model instance for $label');
+      edgeAiLog('ℹ️  Reusing existing embedding model instance for $label');
       return cached.model;
     }
 
-    gemmaLog(
+    edgeAiLog(
       '⚠️  Embedder config changed ($changedParam) for $label — rebuilding',
     );
     // Dropped BEFORE the await, not after: while a close is in flight the
     // cached model is no longer a valid answer to anybody.
     _cached = null;
-    gemmaLog('🔄 Closing old embedding model and creating new one...');
+    edgeAiLog('🔄 Closing old embedding model and creating new one...');
     // Reported on its own terms, not as the new caller's failure. They asked for
     // a different embedder; handing them the old one's teardown error would name
     // neither model, and the rebuild they asked for would never happen. The
@@ -132,15 +132,15 @@ class EmbedderCache {
       await cached.model.close();
     } catch (e, st) {
       // `print`, not `gemmaLog`, for the reason `_warn` in
-      // flutter_gemma_litertlm's litert_default_scope.dart already documents:
-      // gemmaLog opens with `if (!kDebugMode) return`, so it is silent in
+      // flutter_edge_ai_litertlm's litert_default_scope.dart already documents:
+      // edgeAiLog opens with `if (!kDebugMode) return`, so it is silent in
       // release — and release is the build where a leaked worker isolate gets
       // debugged. A teardown that throws leaves that isolate and its native
       // model alive, so this is worth a line that reaches logcat. It fires only
       // in an abnormal state, so it costs nothing in the normal case.
       // ignore: avoid_print
       print(
-        '[flutter_gemma] WARNING: the old embedder\'s close() threw while '
+        '[flutter_edge_ai] WARNING: the old embedder\'s close() threw while '
         'rebuilding for $label; its worker isolate and native model may be '
         'leaked: $e\n$st',
       );
@@ -184,7 +184,7 @@ class EmbedderCache {
         // `print`, as in [reuseOrInvalidate]: a leak is debugged in release.
         // ignore: avoid_print
         print(
-          '[flutter_gemma] WARNING: an embedder the cache could not take '
+          '[flutter_edge_ai] WARNING: an embedder the cache could not take '
           'also failed to close; its worker and native model may be leaked: '
           '$closeError\n$closeStack',
         );

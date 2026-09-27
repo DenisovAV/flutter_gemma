@@ -1,4 +1,4 @@
-// Shared helpers for genkit_flutter_gemma integration tests.
+// Shared helpers for genkit_flutter_edge_ai integration tests.
 // Not a test file — imported by *_test.dart files.
 
 import 'dart:io' show Platform;
@@ -17,13 +17,13 @@ void initIntegrationTest() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 }
 
-/// Initialize flutter_gemma with the opt-in engines/backends the tests need.
+/// Initialize flutter_edge_ai with the opt-in engines/backends the tests need.
 ///
 /// flutter_gemma 1.0.0 split engines and embedding backends into separate
 /// packages; core registers none by default, so tests must register the
 /// providers explicitly before installing or running any model.
 Future<void> initializeGemmaForTest() async {
-  await FlutterGemma.initialize(
+  await FlutterEdgeAi.initialize(
     inferenceEngines: const [LiteRtLmEngine(), MediaPipeEngine()],
     embeddingBackends: const [LiteRtEmbeddingBackend()],
     embeddingTokenizers: const [GemmaEmbeddingTokenizers()],
@@ -98,7 +98,7 @@ class TestModelConfig {
 Future<void> ensureModelInstalled([TestModelConfig? config]) async {
   config ??= TestModelConfig.forCurrentPlatform();
 
-  if (FlutterGemma.hasActiveModel()) {
+  if (FlutterEdgeAi.hasActiveModel()) {
     debugPrint('[Test] Active model found, skipping download');
     return;
   }
@@ -110,7 +110,7 @@ Future<void> ensureModelInstalled([TestModelConfig? config]) async {
 Future<void> forceInstallModel(TestModelConfig config) async {
   debugPrint('[Test] Installing model: ${config.filename} from ${config.url}');
 
-  await FlutterGemma.installModel(
+  await FlutterEdgeAi.installModel(
         modelType: ModelType.functionGemma,
         fileType: config.fileType,
       )
@@ -125,15 +125,15 @@ Future<void> forceInstallModel(TestModelConfig config) async {
 
 /// Creates a fully configured [Genkit] instance for integration tests.
 ///
-/// Uses real [DefaultFlutterGemmaRuntime] — no fakes.
+/// Uses real [DefaultFlutterEdgeAiRuntime] — no fakes.
 Genkit createTestGenkit([TestModelConfig? config]) {
   config ??= TestModelConfig.forCurrentPlatform();
 
   return Genkit(
     plugins: [
-      GenkitFlutterGemmaPlugin(
+      GenkitFlutterEdgeAiPlugin(
         models: [
-          FlutterGemmaModelConfig(
+          FlutterEdgeAiModelConfig(
             name: kTestModelName,
             modelType: ModelType.functionGemma,
             fileType: config.fileType,
@@ -150,22 +150,22 @@ Genkit createTestGenkitWithEmbedder([TestModelConfig? config]) {
 
   return Genkit(
     plugins: [
-      GenkitFlutterGemmaPlugin(
+      GenkitFlutterEdgeAiPlugin(
         models: [
-          FlutterGemmaModelConfig(
+          FlutterEdgeAiModelConfig(
             name: kTestModelName,
             modelType: ModelType.functionGemma,
             fileType: config.fileType,
           ),
         ],
-        embedders: [FlutterGemmaEmbedderConfig(name: 'embedding-gemma-300m')],
+        embedders: [FlutterEdgeAiEmbedderConfig(name: 'embedding-gemma-300m')],
       ),
     ],
   );
 }
 
 /// Convenience [ModelRef] for the test model.
-final testModelRef = flutterGemma.model(kTestModelName);
+final testModelRef = flutterEdgeAi.model(kTestModelName);
 
 /// Convenience [EmbedderRef] for the test embedder.
-final testEmbedderRef = flutterGemma.embedder('embedding-gemma-300m');
+final testEmbedderRef = flutterEdgeAi.embedder('embedding-gemma-300m');

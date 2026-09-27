@@ -99,7 +99,7 @@ import 'dart:typed_data';
 import 'package:ffi/ffi.dart';
 import 'package:flutter_edge_ai/core/domain/platform_types.dart'
     show PreferredBackend;
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 import 'package:meta/meta.dart' show visibleForTesting;
 // Public, native-only bindings library (not the package barrel) — see the
 // equivalent comment in `tts_core.dart`/`stt_core.dart` for why this import
@@ -518,7 +518,7 @@ class Qwen3TtsCore {
         _artifactPath(artifactPaths, 'tokenizer.json'),
       );
 
-      gemmaLog(
+      edgeAiLog(
         '[Qwen3TtsCore] loaded: backend=$backend, 3 graphs compiled, '
         'mtpCacheLen=$mtpCacheLen, mtpKvShape=$mtpKvShape, '
         'mtpLogitsShape=$mtpLogitsShape, mtpResidualVocab=$mtpResidualVocab, '
@@ -1207,7 +1207,7 @@ class Qwen3TtsCore {
     if (!hitEos) {
       // Fail loud (per the project's no-masking-fallback rule): a
       // `gemmaLog`-only warning here is compile-time stripped in release
-      // builds (`gemma_log.dart`'s `kDebugMode` gate), so a release app
+      // builds (`edge_ai_log.dart`'s `kDebugMode` gate), so a release app
       // synthesizing text too long for one AR pass would otherwise get
       // silently truncated audio with no signal at all. Throw instead of
       // returning the partial `frames` — the caller (`synthesize`/

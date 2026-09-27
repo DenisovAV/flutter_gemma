@@ -15,7 +15,7 @@ Widget buildInlineWebview(String url, {double aspectRatio = 4 / 3}) {
   // A stable per-url view type so two distinct webview results don't collide and
   // re-registering the same url is idempotent (registerViewFactory is a no-op
   // for an already-registered type).
-  final viewType = 'flutter_gemma_agent.webview/$url';
+  final viewType = 'flutter_edge_ai_agent.webview/$url';
   if (!_registered.contains(viewType)) {
     ui_web.platformViewRegistry.registerViewFactory(viewType, (int _) {
       return web.HTMLIFrameElement()

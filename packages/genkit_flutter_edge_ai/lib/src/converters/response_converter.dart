@@ -1,7 +1,7 @@
 import 'package:flutter_edge_ai/flutter_edge_ai.dart' as gemma;
 import 'package:genkit/plugin.dart';
 
-/// Converts a completed flutter_gemma response into a Genkit [ModelResponse].
+/// Converts a completed flutter_edge_ai response into a Genkit [ModelResponse].
 ///
 /// Maps:
 /// - Text → [ModelResponse] with [TextPart]

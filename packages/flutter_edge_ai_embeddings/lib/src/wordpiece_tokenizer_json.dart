@@ -20,7 +20,7 @@ EmbeddingTokenizer parseWordPieceTokenizerJson(String text) {
       '"${(json['model'] as Map?)?['type']}". SentencePiece needs a pure-Dart '
       'parser that does not exist yet: dart_sentencepiece_tokenizer imports '
       'dart:io/dart:isolate unconditionally and cannot run on web. Native '
-      'platforms are unaffected, and so is flutter_gemma_litertlm on web — it '
+      'platforms are unaffected, and so is flutter_edge_ai_litertlm on web — it '
       'tokenizes in sentencepiece.js rather than in Dart.',
     );
   }

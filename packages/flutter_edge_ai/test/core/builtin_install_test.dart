@@ -1,6 +1,6 @@
 // Unit test for the builtIn install pipeline (Task 2).
 //
-// Verifies that FlutterGemma.installModel(... fileType: ModelFileType.builtIn)
+// Verifies that FlutterEdgeAi.installModel(... fileType: ModelFileType.builtIn)
 // skips SourceHandlers/ModelRepository entirely, persists the active
 // inference identity, and rejects a configured LoRA source.
 //
@@ -25,10 +25,10 @@ void main() {
 
   setUp(() async {
     fakeDocuments = await Directory.systemTemp.createTemp(
-      'flutter_gemma_docs_',
+      'flutter_edge_ai_docs_',
     );
     fakeAppSupport = await Directory.systemTemp.createTemp(
-      'flutter_gemma_appsupport_',
+      'flutter_edge_ai_appsupport_',
     );
     mockProvider = _FixedPathProviderPlatform(
       documentsPath: fakeDocuments.path,
@@ -51,7 +51,7 @@ void main() {
 
   group('builtIn install pipeline', () {
     test('builtIn install skips handlers and persists identity', () async {
-      final installation = await FlutterGemma.installModel(
+      final installation = await FlutterEdgeAi.installModel(
         modelType: ModelType.general,
         fileType: ModelFileType.builtIn,
       ).fromBundled('gemini-nano').install();
@@ -69,7 +69,7 @@ void main() {
     test('builtIn install with LoRA throws ArgumentError', () async {
       expect(
         () =>
-            FlutterGemma.installModel(
+            FlutterEdgeAi.installModel(
                   modelType: ModelType.general,
                   fileType: ModelFileType.builtIn,
                 )

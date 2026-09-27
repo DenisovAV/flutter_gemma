@@ -18,7 +18,7 @@ const _url =
     'https://huggingface.co/litert-community/Qwen2-VL-2B/resolve/main/Qwen2-VL-2B.litertlm';
 
 String _docsDir() {
-  if (Platform.isAndroid) return '/data/local/tmp/flutter_gemma_test';
+  if (Platform.isAndroid) return '/data/local/tmp/flutter_edge_ai_test';
   if (Platform.isMacOS) {
     return '${Platform.environment['HOME']}/Library/Containers/dev.flutterberlin.flutterGemmaExample55/Data/Documents';
   }
@@ -50,7 +50,7 @@ void main() {
   setUpAll(() async {
     await registerTestEngines();
     final lp = _localPath();
-    final installer = FlutterGemma.installModel(
+    final installer = FlutterEdgeAi.installModel(
       modelType: ModelType.general,
       fileType: ModelFileType.litertlm,
     );
@@ -69,7 +69,7 @@ void main() {
 
   testWidgets('Qwen2-VL image + text (GPU)', (t) async {
     final image = await _testImage();
-    _model = await FlutterGemma.getActiveModel(
+    _model = await FlutterEdgeAi.getActiveModel(
       maxTokens: 2048,
       preferredBackend: PreferredBackend.gpu,
       supportImage: true,

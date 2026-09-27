@@ -6,7 +6,7 @@ import 'package:flutter_edge_ai/flutter_edge_ai.dart' show TtsModelType;
 /// [matcha] and [qwen3] are wired; kokoro/supertonic are follow-ons
 /// (isSupported false). [qwen3] additionally exposes 11 selectable
 /// languages (`tts_screen.dart`'s language dropdown, populated from
-/// `flutter_gemma_speech`'s `qwen3SupportedLanguages`) — [matcha] is
+/// `flutter_edge_ai_speech`'s `qwen3SupportedLanguages`) — [matcha] is
 /// English-only (its locale comes from its bundle, not a runtime param).
 enum TtsModel {
   matcha(

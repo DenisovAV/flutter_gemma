@@ -281,9 +281,9 @@ void main() {
     });
 
     test('plugin.middleware() registers the context-window def', () {
-      final plugin = GenkitFlutterGemmaPlugin(
+      final plugin = GenkitFlutterEdgeAiPlugin(
         models: [
-          FlutterGemmaModelConfig(
+          FlutterEdgeAiModelConfig(
             name: 'm',
             modelType: gemma.ModelType.gemmaIt,
           ),
@@ -310,9 +310,9 @@ void main() {
       final fakeModel = FakeInferenceModel()..chatToReturn = fakeChat;
       ai = Genkit(
         plugins: [
-          GenkitFlutterGemmaPlugin(
+          GenkitFlutterEdgeAiPlugin(
             models: [
-              FlutterGemmaModelConfig(
+              FlutterEdgeAiModelConfig(
                 name: 'm',
                 modelType: gemma.ModelType.gemmaIt,
               ),
@@ -333,7 +333,7 @@ void main() {
       'explicit maxInputTokens actually trims the forwarded history',
       () async {
         await ai.generate(
-          model: flutterGemma.model('m'),
+          model: flutterEdgeAi.model('m'),
           messages: longHistory(),
           use: [trimContext(maxInputTokens: 20)], // tiny → must drop most turns
         );
@@ -351,7 +351,7 @@ void main() {
 
     test('no middleware leaves the full history intact (control)', () async {
       await ai.generate(
-        model: flutterGemma.model('m'),
+        model: flutterEdgeAi.model('m'),
         messages: longHistory(),
       );
 

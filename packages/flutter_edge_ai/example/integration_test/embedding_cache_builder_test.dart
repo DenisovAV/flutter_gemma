@@ -144,11 +144,11 @@ void main() {
       );
 
       await registerTestEngines();
-      await FlutterGemma.installEmbedder()
+      await FlutterEdgeAi.installEmbedder()
           .modelFromAsset(_modelPath)
           .tokenizerFromAsset(_tokenizerPath)
           .install();
-      final embedder = await FlutterGemma.getActiveEmbedder();
+      final embedder = await FlutterEdgeAi.getActiveEmbedder();
 
       // Always regenerate the full deterministic text list — same seed
       // produces the same texts regardless of slice.

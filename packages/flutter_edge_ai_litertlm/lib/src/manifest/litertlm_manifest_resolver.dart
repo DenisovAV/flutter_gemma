@@ -4,7 +4,7 @@ import 'package:flutter_edge_ai/core/domain/platform_types.dart'
     show PreferredBackend;
 import 'package:flutter_edge_ai/core/model.dart' show ModelFileType, ModelType;
 import 'package:flutter_edge_ai/core/registry/hugging_face_resolver.dart';
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 
 import 'litertlm_manifest.dart';
@@ -28,18 +28,18 @@ export 'manifest_fetch_types.dart' show ManifestFetch, ManifestFetchException;
 /// // LiteRtLmEngine carries this resolver (HuggingFaceResolverSource), so
 /// // registering the engine auto-registers it — no huggingFaceResolvers: list.
 /// // Pass one explicitly only to override, e.g. LitertlmManifestResolver(revision: …).
-/// await FlutterGemma.initialize(inferenceEngines: [LiteRtLmEngine()]);
+/// await FlutterEdgeAi.initialize(inferenceEngines: [LiteRtLmEngine()]);
 ///
-/// final r = await FlutterGemma.resolveHuggingFace(
+/// final r = await FlutterEdgeAi.resolveHuggingFace(
 ///     'litert-community/Qwen3-4B-Thinking-2507',
 ///     fileType: ModelFileType.litertlm);
-/// await FlutterGemma.installModel(
+/// await FlutterEdgeAi.installModel(
 ///       modelType: r.modelType ?? ModelType.general,
 ///       fileType: r.fileType,
 ///     )
 ///     .fromNetwork(r.url) // r.url honours this resolver's [revision] pin
 ///     .install();
-/// final model = await FlutterGemma.getActiveModel(defaults: r.runtime);
+/// final model = await FlutterEdgeAi.getActiveModel(defaults: r.runtime);
 /// final session = await model.createSession(
 ///   enableThinking: r.runtime.isThinking ?? false,
 ///   // minOutputTokens is a FLOOR, not a cap: keep the app's own budget
@@ -130,7 +130,7 @@ class LitertlmManifestResolver implements HuggingFaceResolver {
             'Hugging Face answered 401 for "$repo" — it does that for gated '
             'and private repos without a valid token, and for repo ids that '
             'do not exist. Pass a token '
-            '(FlutterGemma.initialize(huggingFaceToken:) or '
+            '(FlutterEdgeAi.initialize(huggingFaceToken:) or '
             'resolveHuggingFace(token:)), or check the repo id.',
             statusCode: 401,
           );
@@ -182,7 +182,7 @@ class LitertlmManifestResolver implements HuggingFaceResolver {
       backend: requestedBackend,
       // v1 resolves on platform only: `device_class` values in published
       // manifests are free strings with no defined vocabulary, and
-      // flutter_gemma has no device-class detection to feed one from.
+      // flutter_edge_ai has no device-class detection to feed one from.
     );
     if (resolution == null) {
       // Only an explicit backend request can filter to nothing: the spec's
@@ -193,7 +193,7 @@ class LitertlmManifestResolver implements HuggingFaceResolver {
       // runtime.preferredBackend then carries the manifest's own choice,
       // never a silent claim of the requested backend.
       droppedHint = requestedBackend;
-      gemmaLog(
+      edgeAiLog(
         '[LitertlmManifestResolver] no variant of $repo is verified on '
         '"$requestedBackend" — dropping the backend hint.',
       );
@@ -202,7 +202,7 @@ class LitertlmManifestResolver implements HuggingFaceResolver {
       resolution = manifest.resolve(platform: platformKey)!;
     }
 
-    gemmaLog(
+    edgeAiLog(
       '[LitertlmManifestResolver] $repo → ${resolution.file} '
       '(${resolution.backend}; ${resolution.reason})',
     );
@@ -240,7 +240,7 @@ class LitertlmManifestResolver implements HuggingFaceResolver {
         if (resolution.sessionDefaults?['notes'] is String)
           resolution.sessionDefaults!['notes'] as String,
         // A dropped backend hint is a downgrade the app should see in a
-        // release build too (gemmaLog is debug-only), so it also lands in the
+        // release build too (edgeAiLog is debug-only), so it also lands in the
         // notes the app already surfaces.
         if (droppedHint != null)
           'No variant of "$repo" is verified on the requested $droppedHint '
@@ -276,9 +276,9 @@ class LitertlmManifestResolver implements HuggingFaceResolver {
       default:
         // A backend name this plugin has no enum for (schema `backends` is
         // open). Null = "manifest is silent" — the SDK default applies.
-        gemmaLog(
+        edgeAiLog(
           '[LitertlmManifestResolver] $repo recommends backend "$backend", '
-          'which flutter_gemma has no PreferredBackend for — leaving the '
+          'which flutter_edge_ai has no PreferredBackend for — leaving the '
           'backend to the SDK default.',
         );
         return null;
@@ -294,7 +294,7 @@ class LitertlmManifestResolver implements HuggingFaceResolver {
     final v = sessionDefaults?['max_output_tokens_min'];
     if (v == null) return null;
     if (v is int && v >= 1) return v;
-    gemmaLog(
+    edgeAiLog(
       '[LitertlmManifestResolver] $repo declares '
       'session_defaults.max_output_tokens_min = $v, which is not a positive '
       'integer (schema: integer, minimum 1) — ignoring it.',

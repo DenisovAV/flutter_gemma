@@ -106,11 +106,11 @@ void main() {
 
   testWidgets('embed 500 long lorem chunks', (WidgetTester tester) async {
     await registerTestEngines();
-    await FlutterGemma.installEmbedder()
+    await FlutterEdgeAi.installEmbedder()
         .modelFromAsset(_modelPath)
         .tokenizerFromAsset(_tokenizerPath)
         .install();
-    final embedder = await FlutterGemma.getActiveEmbedder();
+    final embedder = await FlutterEdgeAi.getActiveEmbedder();
 
     final rng = math.Random(42);
     final texts = List.generate(500, (_) => _chunk(rng, 30 + rng.nextInt(50)));

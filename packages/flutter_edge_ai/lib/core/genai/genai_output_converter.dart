@@ -28,7 +28,7 @@ ChatMessage chatMessageFromChunk(ModelResponse chunk) {
 /// preamble ("Let me check…") that accompanies a tool call is kept, not dropped
 /// — matching what [chatMessageFromChunk] emits on the streaming path.
 ///
-/// `callId` mirrors `toolName`: flutter_gemma's tool protocol is name-keyed
+/// `callId` mirrors `toolName`: flutter_edge_ai's tool protocol is name-keyed
 /// ([FunctionCallResponse] carries no independent id), so parallel calls to the
 /// same tool share a callId and callId is ignored when a result is fed back in.
 ChatMessage chatMessageFromParts({

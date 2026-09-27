@@ -13,7 +13,7 @@ void main() {
     await registerTestEngines();
 
     print('Step 2: Install model...');
-    await FlutterGemma.installModel(
+    await FlutterEdgeAi.installModel(
           modelType: ModelType.gemmaIt,
           fileType: ModelFileType.litertlm,
         )
@@ -26,7 +26,7 @@ void main() {
 
     // Step 3: Create model via plugin (FFI path for .litertlm on iOS)
     print('Step 3: Create model...');
-    final model = await FlutterGemma.getActiveModel(
+    final model = await FlutterEdgeAi.getActiveModel(
       maxTokens: 4096,
       preferredBackend: PreferredBackend.cpu,
     );

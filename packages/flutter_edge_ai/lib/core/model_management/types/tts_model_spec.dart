@@ -2,7 +2,7 @@ part of '../model_specs.dart';
 
 /// Text-to-speech model families supported by the pluggable TTS backends.
 /// [matcha], [qwen3] and [inflect] have shipped [TtsModelProfile]/pipelines
-/// (`flutter_gemma_speech`); [kokoro]/[supertonic] are documented follow-ons
+/// (`flutter_edge_ai_speech`); [kokoro]/[supertonic] are documented follow-ons
 /// (fail-loud until wired).
 enum TtsModelType { matcha, supertonic, kokoro, qwen3, inflect }
 
@@ -174,7 +174,7 @@ extension TtsModelTypeManifest on TtsModelType {
 /// since a TTS bundle has no single distinguished "model" file the way
 /// Inference/Embedding/STT specs do). [prefsKey] stays the PLAIN manifest
 /// basename — NOT the namespaced [filename] — because
-/// `flutter_gemma_speech`'s `TtsModelProfile` (e.g. `configFile =
+/// `flutter_edge_ai_speech`'s `TtsModelProfile` (e.g. `configFile =
 /// 'config.json'`) and `TtsCore`/`MatchaTextFrontend` look bundle paths up
 /// by that plain name (`paths[profile.configFile]`); decoupling keeps that
 /// cross-package contract intact while the on-disk/repository identity is
@@ -200,7 +200,7 @@ class TtsBundleFile extends ModelFile {
   /// Denamespacing here — symmetric to `FileNameUtils.namespaced`'s
   /// idempotent ADD — keeps `_plainFilename` (and therefore [prefsKey])
   /// ALWAYS the plain manifest basename either way, so
-  /// `flutter_gemma_speech`'s `paths[profile.configFile]` lookup (keyed by
+  /// `flutter_edge_ai_speech`'s `paths[profile.configFile]` lookup (keyed by
   /// the plain name) never breaks on restore.
   factory TtsBundleFile.fromSource(
     ModelSource source, {

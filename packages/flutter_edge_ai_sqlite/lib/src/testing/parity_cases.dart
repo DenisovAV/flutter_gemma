@@ -2,7 +2,7 @@
 // dart:io, so this is importable from a browser test as well as a VM one.
 //
 // It sits under lib/src/testing/ rather than test/ for one reason: the web
-// suite lives in another package (flutter_gemma/example) and dart2js cannot
+// suite lives in another package (flutter_edge_ai/example) and dart2js cannot
 // follow a relative import that escapes its own package — the analyzer accepts
 // it and the web build then fails with "Undefined name". A `package:` import
 // is the only path both compilers agree on.
@@ -18,7 +18,7 @@
 //
 // Imported by:
 //   * test/cross_backend_parity_test.dart          (native: vec0 vs qdrant)
-//   * flutter_gemma/example/integration_test/
+//   * flutter_edge_ai/example/integration_test/
 //       rag_sqlite_web_parity_test.dart            (web: the same rows in Chrome)
 library;
 

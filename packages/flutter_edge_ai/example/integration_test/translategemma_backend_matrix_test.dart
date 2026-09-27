@@ -61,7 +61,7 @@ Future<String?> _probe(PreferredBackend backend) async {
   InferenceModel? model;
   InferenceModelSession? session;
   try {
-    model = await FlutterGemma.getActiveModel(
+    model = await FlutterEdgeAi.getActiveModel(
       maxTokens: 1024,
       preferredBackend: backend,
     );
@@ -109,8 +109,8 @@ void main() {
       'modelType=$_modelTypeName',
     );
 
-    await FlutterGemma.initialize(inferenceEngines: [LiteRtLmEngine()]);
-    await FlutterGemma.installModel(
+    await FlutterEdgeAi.initialize(inferenceEngines: [LiteRtLmEngine()]);
+    await FlutterEdgeAi.installModel(
       modelType: _modelType,
       fileType: ModelFileType.litertlm,
     ).fromFile(_stagedPath).install();

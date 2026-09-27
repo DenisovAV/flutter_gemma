@@ -53,7 +53,7 @@ bool isLoadableArtifact(String id) {
 
 /// Whether any inference, translation, or embedding model files are installed.
 Future<bool> hasDownloadedModels() async {
-  final installed = await FlutterGemma.listInstalledModels();
+  final installed = await FlutterEdgeAi.listInstalledModels();
   return installed.any(isDownloadedModelArtifact);
 }
 
@@ -87,15 +87,15 @@ String? _embeddingModelFilenameFromSpec(EmbeddingModelSpec spec) {
 }
 
 String? activeInferenceModelId() {
-  if (!FlutterGemma.hasActiveModel()) return null;
-  final spec = FlutterGemmaPlugin.instance.modelManager.activeInferenceModel;
+  if (!FlutterEdgeAi.hasActiveModel()) return null;
+  final spec = FlutterEdgeAiPlugin.instance.modelManager.activeInferenceModel;
   if (spec is! InferenceModelSpec) return null;
   return _inferenceModelFilenameFromSpec(spec);
 }
 
 String? activeEmbeddingModelId() {
-  if (!FlutterGemma.hasActiveEmbedder()) return null;
-  final spec = FlutterGemmaPlugin.instance.modelManager.activeEmbeddingModel;
+  if (!FlutterEdgeAi.hasActiveEmbedder()) return null;
+  final spec = FlutterEdgeAiPlugin.instance.modelManager.activeEmbeddingModel;
   if (spec is! EmbeddingModelSpec) return null;
   return _embeddingModelFilenameFromSpec(spec);
 }
@@ -107,8 +107,8 @@ Set<String> activeModelIds() {
   if (inferenceId != null) {
     ids.add(inferenceId);
   }
-  if (FlutterGemma.hasActiveEmbedder()) {
-    final spec = FlutterGemmaPlugin.instance.modelManager.activeEmbeddingModel;
+  if (FlutterEdgeAi.hasActiveEmbedder()) {
+    final spec = FlutterEdgeAiPlugin.instance.modelManager.activeEmbeddingModel;
     if (spec is EmbeddingModelSpec) {
       for (final file in spec.files) {
         ids.add(file.filename);
@@ -120,7 +120,7 @@ Set<String> activeModelIds() {
 
 Set<String> loadedModelIds() {
   final ids = <String>{};
-  final plugin = FlutterGemmaPlugin.instance;
+  final plugin = FlutterEdgeAiPlugin.instance;
 
   if (plugin.initializedModel != null) {
     final inferenceId = activeInferenceModelId();
@@ -250,7 +250,7 @@ Future<bool> isEmbeddingTokenizerStillNeeded({
   required String tokenizerFilename,
   required String removedModelFilename,
 }) async {
-  final installed = await FlutterGemma.listInstalledModels();
+  final installed = await FlutterEdgeAi.listInstalledModels();
   for (final model in example_embedding.EmbeddingModel.values) {
     if (model.tokenizerFilename != tokenizerFilename) continue;
     if (model.filename == removedModelFilename) continue;
@@ -261,8 +261,8 @@ Future<bool> isEmbeddingTokenizerStillNeeded({
 
 /// Whether uninstalling [installedId] clears the active embedding identity.
 bool isActiveEmbeddingArtifact(String installedId) {
-  if (!FlutterGemma.hasActiveEmbedder()) return false;
-  final spec = FlutterGemmaPlugin.instance.modelManager.activeEmbeddingModel;
+  if (!FlutterEdgeAi.hasActiveEmbedder()) return false;
+  final spec = FlutterEdgeAiPlugin.instance.modelManager.activeEmbeddingModel;
   if (spec is! EmbeddingModelSpec) return false;
   return spec.files.any((file) => file.filename == installedId);
 }

@@ -12,7 +12,7 @@
 /// Model dirs (same convention as litertlm_ffi_test.dart):
 ///   macOS:   ~/Library/Containers/dev.flutterberlin.flutterGemmaExample55/Data/Documents/
 ///   Linux:   ~/models/
-///   Android: /data/local/tmp/flutter_gemma_test/
+///   Android: /data/local/tmp/flutter_edge_ai_test/
 library;
 
 import 'dart:io';
@@ -24,7 +24,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 import 'inference_test_helpers.dart' show registerTestEngines;
 
-String get _androidDir => '/data/local/tmp/flutter_gemma_test';
+String get _androidDir => '/data/local/tmp/flutter_edge_ai_test';
 String get _macosDir =>
     '${Platform.environment['HOME']}/Library/Containers/dev.flutterberlin.flutterGemmaExample55/Data/Documents';
 String get _linuxDir => '${Platform.environment['HOME']}/models';
@@ -43,12 +43,12 @@ Future<void> _install({
   required String networkUrl,
 }) async {
   if (localPath != null && File(localPath).existsSync()) {
-    await FlutterGemma.installModel(
+    await FlutterEdgeAi.installModel(
       modelType: ModelType.general,
       fileType: ModelFileType.litertlm,
     ).fromFile(localPath).install();
   } else {
-    await FlutterGemma.installModel(
+    await FlutterEdgeAi.installModel(
       modelType: ModelType.general,
       fileType: ModelFileType.litertlm,
     ).fromNetwork(networkUrl).install();
@@ -61,7 +61,7 @@ Future<InferenceModel> _open({
   bool supportImage = false,
   int maxTokens = 4096,
 }) async {
-  _model = await FlutterGemma.getActiveModel(
+  _model = await FlutterEdgeAi.getActiveModel(
     maxTokens: maxTokens,
     preferredBackend: PreferredBackend.gpu,
     supportImage: supportImage,

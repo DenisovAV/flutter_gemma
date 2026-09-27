@@ -1,9 +1,9 @@
 // Desktop parity for the STT language path (#500).
 //
 // Why a second file rather than a parameter on the mobile one: `flutter test`
-// runs on the VM, and `defaultFlutterGemmaInstance()` returns
-// `FlutterGemmaMobile` there unconditionally — desktop apps get
-// `FlutterGemmaDesktop` through `dartPluginClass`, which no test ever exercised.
+// runs on the VM, and `defaultFlutterEdgeAiInstance()` returns
+// `FlutterEdgeAiMobile` there unconditionally — desktop apps get
+// `FlutterEdgeAiDesktop` through `dartPluginClass`, which no test ever exercised.
 // So the desktop shell had ZERO coverage while being a first-class Whisper
 // target: deleting its `RuntimeConfig(language:)` left the whole suite green.
 //
@@ -36,7 +36,7 @@ import 'package:flutter_edge_ai/core/registry/runtime_config.dart';
 import 'package:flutter_edge_ai/core/registry/stt_backend_provider.dart';
 import 'package:flutter_edge_ai/core/registry/stt_registry.dart';
 import 'package:flutter_edge_ai/core/services/download_service.dart';
-import 'package:flutter_edge_ai/desktop/flutter_gemma_desktop.dart';
+import 'package:flutter_edge_ai/desktop/flutter_edge_ai_desktop.dart';
 import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 
 final _fakeBundleBytes = Uint8List(1024 * 1024 + 16);
@@ -58,7 +58,7 @@ void main() {
     ServiceRegistry.reset();
     SttRegistry.instance.reset();
     // The whole point of this file: drive the DESKTOP shell, not the VM default.
-    FlutterGemmaDesktop.registerWith();
+    FlutterEdgeAiDesktop.registerWith();
   });
 
   tearDown(() async {
@@ -76,7 +76,7 @@ void main() {
     final backend = _FakeSttBackend();
     SttRegistry.instance.registerAll([backend]);
 
-    await FlutterGemma.installStt()
+    await FlutterEdgeAi.installStt()
         .modelFromNetwork('https://example.com/whisper.tflite')
         .tokenizerFromNetwork('https://example.com/tokenizer.json')
         .ofType(SttModelType.whisper)
@@ -93,7 +93,7 @@ void main() {
       // from the desktop shell's sttConfig fails here.
       final backend = await installWhisper();
 
-      final recognizer = await FlutterGemma.getActiveStt(language: 'de');
+      final recognizer = await FlutterEdgeAi.getActiveStt(language: 'de');
 
       expect(backend.lastConfig?.language, 'de');
       expect(recognizer.language, 'de');
@@ -110,10 +110,10 @@ void main() {
       // must speak the requested language.
       await installWhisper();
 
-      final first = await FlutterGemma.getActiveStt(language: 'de');
+      final first = await FlutterEdgeAi.getActiveStt(language: 'de');
       expect(first.language, 'de');
 
-      final second = await FlutterGemma.getActiveStt(language: 'fr');
+      final second = await FlutterEdgeAi.getActiveStt(language: 'fr');
       expect(second.language, 'fr');
 
       await second.close();

@@ -74,7 +74,7 @@ class _SttScreenState extends State<SttScreen> {
         token = await AuthTokenService.loadToken();
       }
 
-      await FlutterGemma.installStt()
+      await FlutterEdgeAi.installStt()
           .modelFromNetwork(widget.model.modelUrl, token: token)
           .tokenizerFromNetwork(widget.model.tokenizerUrl, token: token)
           .ofType(widget.model.sttModelType)
@@ -94,7 +94,7 @@ class _SttScreenState extends State<SttScreen> {
           })
           .install();
 
-      final recognizer = await FlutterGemma.getActiveStt();
+      final recognizer = await FlutterEdgeAi.getActiveStt();
 
       if (!mounted) return;
       setState(() {

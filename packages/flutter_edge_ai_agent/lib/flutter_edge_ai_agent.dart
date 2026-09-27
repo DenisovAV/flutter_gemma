@@ -1,15 +1,15 @@
-/// On-device agentic skills for flutter_gemma.
+/// On-device agentic skills for flutter_edge_ai.
 ///
 /// An opt-in satellite package that turns the inference core into an on-device
 /// agent: the model is given a set of *skills* (SKILL.md), decides which to
-/// invoke via flutter_gemma's existing function-calling, runs them, and feeds
+/// invoke via flutter_edge_ai's existing function-calling, runs them, and feeds
 /// results back — fully offline. Gallery-compatible (google-ai-edge/gallery,
 /// Apache-2.0): their SKILL.md catalog parses unmodified.
 ///
 /// This release exposes the pure-Dart foundation — the [Skill] model + SKILL.md
 /// parser, the [SkillRegistry], the [SkillExecutor] probe-chain abstraction +
 /// sealed [SkillResult], and the [SecretStore] — plus the agentic orchestration
-/// over flutter_gemma's existing function-calling: the four built-in
+/// over flutter_edge_ai's existing function-calling: the four built-in
 /// [agentTools], the [AgentLoop], and the [AgentSession] facade with its
 /// [AgentEvent] stream. It also includes the concrete executors — the
 /// [TextSkillExecutor], the [JsSkillExecutor] (the only executor importing

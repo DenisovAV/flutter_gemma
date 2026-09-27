@@ -10,7 +10,7 @@ void main() {
 
       expect(message, contains('401'));
       expect(message, contains('token'));
-      expect(message, contains('FlutterGemma.initialize'));
+      expect(message, contains('FlutterEdgeAi.initialize'));
     });
 
     test('ForbiddenError has correct user message', () {

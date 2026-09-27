@@ -1,11 +1,11 @@
 // Task 5.4 review, Important #1: the TTS singleton cache
-// (FlutterGemmaMobile.createTtsModel) used to key its "reuse the existing
+// (FlutterEdgeAiMobile.createTtsModel) used to key its "reuse the existing
 // synthesizer" branch ONLY on the active model's name, not on the requested
 // `language`. So a second `getActiveTts(language: 'french')` for the SAME
 // active qwen3 model silently returned the FIRST call's (e.g. English)
 // synthesizer — wrong-language audio through the primary public API, with
 // no error. This is a real end-to-end test against the ACTUAL
-// FlutterGemmaMobile/FlutterGemma facade (not a hand-rolled simulation of
+// FlutterEdgeAiMobile/FlutterEdgeAi facade (not a hand-rolled simulation of
 // the completer logic) — it uses the exact `_FixtureDownloadService` +
 // `_FixedPathProviderPlatform` fixture pattern already established in
 // test/core/api/install_identity_namespacing_test.dart to get a REAL
@@ -42,10 +42,10 @@ void main() {
 
   setUp(() async {
     fakeDocuments = await Directory.systemTemp.createTemp(
-      'flutter_gemma_docs_',
+      'flutter_edge_ai_docs_',
     );
     fakeAppSupport = await Directory.systemTemp.createTemp(
-      'flutter_gemma_appsupport_',
+      'flutter_edge_ai_appsupport_',
     );
     PathProviderPlatform.instance = _FixedPathProviderPlatform(
       documentsPath: fakeDocuments.path,
@@ -74,18 +74,18 @@ void main() {
     final fakeBackend = _FakeTtsBackend();
     TtsRegistry.instance.registerAll([fakeBackend]);
 
-    await FlutterGemma.installTts()
+    await FlutterEdgeAi.installTts()
         .fromNetwork('https://example.com/qwen3/')
         .ofType(TtsModelType.qwen3)
         .install();
 
-    final synth1 = await FlutterGemma.getActiveTts(language: 'english');
+    final synth1 = await FlutterEdgeAi.getActiveTts(language: 'english');
     expect(fakeBackend.lastConfig?.language, 'english');
     expect(fakeBackend.createModelCallCount, 1);
 
     // Same language again -> reuses the singleton (no new backend call,
     // no error) — the guard must not be overly strict.
-    final synth1Again = await FlutterGemma.getActiveTts(language: 'english');
+    final synth1Again = await FlutterEdgeAi.getActiveTts(language: 'english');
     expect(identical(synth1Again, synth1), isTrue);
     expect(fakeBackend.createModelCallCount, 1);
 
@@ -93,7 +93,7 @@ void main() {
     // must fail loud. Before the fix this returned synth1 (English)
     // silently; after the fix it throws instead.
     await expectLater(
-      FlutterGemma.getActiveTts(language: 'french'),
+      FlutterEdgeAi.getActiveTts(language: 'french'),
       throwsA(isA<StateError>()),
     );
     // The rejected request must not have built a second synthesizer —
@@ -104,12 +104,12 @@ void main() {
     // After the caller closes the existing synthesizer, a new language is
     // allowed and actually rebuilds against the new language.
     await synth1.close();
-    final synth2 = await FlutterGemma.getActiveTts(language: 'french');
+    final synth2 = await FlutterEdgeAi.getActiveTts(language: 'french');
     expect(fakeBackend.lastConfig?.language, 'french');
     expect(fakeBackend.createModelCallCount, 2);
     expect(identical(synth2, synth1), isFalse);
 
-    // Close synth2 too — FlutterGemmaMobile's TTS singleton fields
+    // Close synth2 too — FlutterEdgeAiMobile's TTS singleton fields
     // (_lastActiveTtsSpec/_lastActiveTtsLanguage/_initializedTtsModel) live
     // on the plugin instance, not this test's fixtures, so a leftover
     // active synthesizer here would leak into the NEXT test in this file.
@@ -126,7 +126,7 @@ void main() {
       final fakeBackend = _FakeTtsBackend();
       TtsRegistry.instance.registerAll([fakeBackend]);
 
-      await FlutterGemma.installTts()
+      await FlutterEdgeAi.installTts()
           .fromNetwork('https://example.com/qwen3/')
           .ofType(TtsModelType.qwen3)
           .install();
@@ -134,31 +134,31 @@ void main() {
       // No `language:` argument at all -> the backend defaults it to
       // 'english' (LiteRtTtsBackend.createModel), and the guard normalizes
       // the same way when storing.
-      final synth1 = await FlutterGemma.getActiveTts();
+      final synth1 = await FlutterEdgeAi.getActiveTts();
       expect(fakeBackend.createModelCallCount, 1);
 
       // Same effective language, explicit lowercase -> reuse, no new backend
       // call, no StateError. Before normalization this compared `null !=
       // 'english'` and threw spuriously.
-      final synth1Again = await FlutterGemma.getActiveTts(language: 'english');
+      final synth1Again = await FlutterEdgeAi.getActiveTts(language: 'english');
       expect(identical(synth1Again, synth1), isTrue);
       expect(fakeBackend.createModelCallCount, 1);
 
       // Same effective language, different case -> still reused. Before
       // normalization this compared `'english' != 'English'` and threw.
-      final synth1Cased = await FlutterGemma.getActiveTts(language: 'English');
+      final synth1Cased = await FlutterEdgeAi.getActiveTts(language: 'English');
       expect(identical(synth1Cased, synth1), isTrue);
       expect(fakeBackend.createModelCallCount, 1);
 
       // A GENUINELY different language must still fail loud, without closing
       // the existing synthesizer first.
       await expectLater(
-        FlutterGemma.getActiveTts(language: 'german'),
+        FlutterEdgeAi.getActiveTts(language: 'german'),
         throwsA(isA<StateError>()),
       );
       expect(fakeBackend.createModelCallCount, 1);
 
-      // Close the still-active synthesizer so FlutterGemmaMobile's TTS
+      // Close the still-active synthesizer so FlutterEdgeAiMobile's TTS
       // singleton fields don't leak into a later test in this file (see the
       // matching cleanup at the end of the test above).
       await synth1.close();

@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 
 import 'dart:convert';
 import 'dart:ffi';
@@ -12,7 +12,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:mutex/mutex.dart';
 
-import 'package:flutter_edge_ai/flutter_gemma_interface.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai_interface.dart';
 import 'package:flutter_edge_ai/core/parsing/sdk_text_extractor.dart';
 
 import 'litert_default_scope.dart';
@@ -284,9 +284,9 @@ Future<int> _createConversationOffMainIsolate({
   required int engineAddr,
   required int configAddr,
 }) {
-  final isolateLogLevel = gemmaLogLevel;
+  final isolateLogLevel = edgeAiLogLevel;
   return Isolate.run(() {
-    gemmaLogLevel = isolateLogLevel;
+    edgeAiLogLevel = isolateLogLevel;
     final create = _openLiteRtLmLibrary()
         .lookupFunction<
           Pointer Function(Pointer, Pointer),
@@ -437,15 +437,15 @@ class LiteRtLmFfiClient {
     try {
       final f = File(p);
       if (!f.existsSync()) {
-        gemmaLog('[LiteRtLmFfi/native] log file missing: $p');
+        edgeAiLog('[LiteRtLmFfi/native] log file missing: $p');
         return;
       }
       final content = f.readAsStringSync();
       if (content.isEmpty) {
-        gemmaLog('[LiteRtLmFfi/native] (no new native log output)');
+        edgeAiLog('[LiteRtLmFfi/native] (no new native log output)');
         return;
       }
-      gemmaLog(
+      edgeAiLog(
         '[LiteRtLmFfi/native] === BEGIN native log ($p, ${content.length} bytes) ===',
       );
       const chunkSize = 800;
@@ -453,16 +453,16 @@ class LiteRtLmFfiClient {
         final end = (i + chunkSize < content.length)
             ? i + chunkSize
             : content.length;
-        gemmaLog(content.substring(i, end), level: GemmaLogLevel.verbose);
+        edgeAiLog(content.substring(i, end), level: EdgeAiLogLevel.verbose);
       }
-      gemmaLog('[LiteRtLmFfi/native] === END native log ===');
+      edgeAiLog('[LiteRtLmFfi/native] === END native log ===');
       // Truncate so the next dump only shows new output. If truncation fails
       // (read-only fs etc.), next dump just re-prints — non-fatal.
       try {
         f.writeAsStringSync('');
       } catch (_) {}
     } catch (e) {
-      gemmaLog('[LiteRtLmFfi/native] failed to read $p: $e');
+      edgeAiLog('[LiteRtLmFfi/native] failed to read $p: $e');
     }
   }
 
@@ -499,7 +499,7 @@ class LiteRtLmFfiClient {
     if (_bindings != null) return;
 
     final loadSw = Stopwatch()..start();
-    gemmaLog('[LiteRtLmFfi] Loading native libraries...');
+    edgeAiLog('[LiteRtLmFfi] Loading native libraries...');
     final DynamicLibrary lib;
     final DynamicLibrary proxyLib;
     if (Platform.isIOS) {
@@ -605,7 +605,7 @@ class LiteRtLmFfiClient {
       // `.litertlm` (FFI) requires arm64.
       if (Abi.current() != Abi.androidArm64) {
         throw UnsupportedError(
-          'flutter_gemma .litertlm models require an arm64-v8a Android device '
+          'flutter_edge_ai .litertlm models require an arm64-v8a Android device '
           '(got ${Abi.current()}). Use a `.task` MediaPipe model on this ABI '
           'or run on an arm64-v8a device / Apple Silicon emulator.',
         );
@@ -664,20 +664,20 @@ class LiteRtLmFfiClient {
       if (rc != 0) {
         // Log capture is best-effort but its failure makes _dumpNativeLog
         // useless. Surface it instead of silently continuing.
-        gemmaLog(
+        edgeAiLog(
           '[LiteRtLmFfi] WARNING: stderr redirect failed (rc=$rc) — '
           'native log dumps will be empty',
         );
         _nativeLogPath = null;
       } else {
-        gemmaLog('[LiteRtLmFfi] stderr redirected to $_nativeLogPath');
+        edgeAiLog('[LiteRtLmFfi] stderr redirected to $_nativeLogPath');
       }
     }
 
-    gemmaLog(
+    edgeAiLog(
       '[LiteRtLmFfi/perf] _ensureBindings total: ${loadSw.elapsedMilliseconds}ms',
     );
-    gemmaLog('[LiteRtLmFfi] Libraries loaded');
+    edgeAiLog('[LiteRtLmFfi] Libraries loaded');
   }
 
   /// Initialize the engine with model path and settings.
@@ -701,12 +701,12 @@ class LiteRtLmFfiClient {
     _ensureBindings();
     _backend = backend;
     final bindingsMs = initSw.elapsedMilliseconds;
-    gemmaLog('[LiteRtLmFfi/perf] _ensureBindings: ${bindingsMs}ms');
+    edgeAiLog('[LiteRtLmFfi/perf] _ensureBindings: ${bindingsMs}ms');
     // Log the resolved per-encoder backends: vision/audio default to CPU
     // independent of the text backend, so this makes the GPU→CPU default (and
     // any override) visible when diagnosing "why isn't vision using my GPU".
     if (enableVision || enableAudio) {
-      gemmaLog(
+      edgeAiLog(
         '[LiteRtLmFfi] encoders: '
         '${enableVision ? "vision=$visionBackend " : ""}'
         '${enableAudio ? "audio=$audioBackend " : ""}'
@@ -737,7 +737,7 @@ class LiteRtLmFfiClient {
         visionBackendPtr == nullptr ? nullptr : visionBackendPtr.cast(),
         audioBackendPtr == nullptr ? nullptr : audioBackendPtr.cast(),
       );
-      gemmaLog(
+      edgeAiLog(
         '[LiteRtLmFfi/perf] settings_create: ${initSw.elapsedMilliseconds - settingsCreateStart}ms',
       );
 
@@ -783,7 +783,7 @@ class LiteRtLmFfiClient {
           settings,
           activationDataType,
         );
-        gemmaLog(
+        edgeAiLog(
           '[LiteRtLmFfi] activation_data_type=$activationDataType '
           '(${_activationName(activationDataType)}, backend=$backend; only the '
           'GPU executor reads it)',
@@ -808,7 +808,7 @@ class LiteRtLmFfiClient {
         );
         calloc.free(dirPtr);
         b.litert_lm_engine_settings_set_use_hw_masking_for_npu(settings, false);
-        gemmaLog(
+        edgeAiLog(
           '[LiteRtLmFfi] NPU Windows: dispatch_lib_dir=$exeDir, use_hw_masking_for_npu=false',
         );
       }
@@ -835,7 +835,7 @@ class LiteRtLmFfiClient {
           dirPtr.cast(),
         );
         calloc.free(dirPtr);
-        gemmaLog('[LiteRtLmFfi] NPU Android: dispatch_lib_dir=$nativeLibDir');
+        edgeAiLog('[LiteRtLmFfi] NPU Android: dispatch_lib_dir=$nativeLibDir');
       }
 
       // #364: on Android, flush the OpenCL command queue every N ops during a
@@ -857,32 +857,32 @@ class LiteRtLmFfiClient {
       // the setter symbol only ships in the Android native rebuild.
       if (Platform.isAndroid && backend == 'gpu') {
         b.litert_lm_engine_settings_set_kernel_batch_size(settings, 2);
-        gemmaLog(
+        edgeAiLog(
           '[LiteRtLmFfi] Android GPU: hint_kernel_batch_size=2 (#364 smooth UI)',
         );
       }
 
       // Create engine in a background isolate to avoid blocking UI.
       // Pass settings pointer as int address (Pointer can't cross isolates).
-      gemmaLog(
+      edgeAiLog(
         '[LiteRtLmFfi] Creating engine from $modelPath (backend=$backend, maxTokens=$maxTokens) ...',
       );
-      gemmaLog(
+      edgeAiLog(
         '[LiteRtLmFfi/perf] === START litert_lm_engine_create (native — model load + accelerator init + KV cache prefill) ===',
       );
       final settingsAddr = settings.address;
       final sw = Stopwatch()..start();
       // Snapshot the log level so the spawned isolate (a fresh copy of the
-      // per-isolate top-level `gemmaLogLevel`, default info) honours the
+      // per-isolate top-level `edgeAiLogLevel`, default info) honours the
       // caller's setting instead of leaking perf logs at the default level.
-      final isolateLogLevel = gemmaLogLevel;
+      final isolateLogLevel = edgeAiLogLevel;
       final engineAddr = await Isolate.run(() {
-        gemmaLogLevel = isolateLogLevel;
+        edgeAiLogLevel = isolateLogLevel;
         final isolateSw = Stopwatch()..start();
         final lib = _openLiteRtLmLibrary();
-        gemmaLog(
+        edgeAiLog(
           '[LiteRtLmFfi/perf]   isolate: DynamicLibrary.open: ${isolateSw.elapsedMilliseconds}ms',
-          level: GemmaLogLevel.verbose,
+          level: EdgeAiLogLevel.verbose,
         );
         final lookupStart = isolateSw.elapsedMilliseconds;
         final create = lib
@@ -890,24 +890,24 @@ class LiteRtLmFfiClient {
               Pointer Function(Pointer),
               Pointer Function(Pointer)
             >('litert_lm_engine_create');
-        gemmaLog(
+        edgeAiLog(
           '[LiteRtLmFfi/perf]   isolate: lookupFunction: ${isolateSw.elapsedMilliseconds - lookupStart}ms',
-          level: GemmaLogLevel.verbose,
+          level: EdgeAiLogLevel.verbose,
         );
         final createStart = isolateSw.elapsedMilliseconds;
         final ptr = create(Pointer.fromAddress(settingsAddr)).address;
-        gemmaLog(
+        edgeAiLog(
           '[LiteRtLmFfi/perf]   isolate: native litert_lm_engine_create: ${isolateSw.elapsedMilliseconds - createStart}ms',
-          level: GemmaLogLevel.verbose,
+          level: EdgeAiLogLevel.verbose,
         );
         return ptr;
       });
       _engine = Pointer<LiteRtLmEngine>.fromAddress(engineAddr);
       sw.stop();
-      gemmaLog(
+      edgeAiLog(
         '[LiteRtLmFfi/perf] === END litert_lm_engine_create: ${sw.elapsedMilliseconds}ms (includes isolate spawn ~50-200ms) ===',
       );
-      gemmaLog(
+      edgeAiLog(
         '[LiteRtLmFfi] litert_lm_engine_create took ${sw.elapsedMilliseconds}ms',
       );
       b.litert_lm_engine_settings_delete(settings);
@@ -939,10 +939,10 @@ class LiteRtLmFfiClient {
       }
 
       _isInitialized = true;
-      gemmaLog(
+      edgeAiLog(
         '[LiteRtLmFfi/perf] initialize() total: ${initSw.elapsedMilliseconds}ms',
       );
-      gemmaLog('[LiteRtLmFfi] Engine initialized successfully');
+      edgeAiLog('[LiteRtLmFfi] Engine initialized successfully');
 
       // Auto-dump the SDK's stderr log after successful engine_create so
       // users can see what happens inside the native call (model load time,
@@ -1005,7 +1005,7 @@ class LiteRtLmFfiClient {
           maxOutputTokens: maxOutputTokens,
         ),
       );
-      gemmaLog('[LiteRtLmFfi] Conversation created');
+      edgeAiLog('[LiteRtLmFfi] Conversation created');
       final handle = LiteRtLmConversationHandle._(this, conv);
       _handles.add(handle);
       return handle;
@@ -1084,7 +1084,7 @@ class LiteRtLmFfiClient {
     // warning on every NPU session would train people to ignore it.
     if (_backend == 'npu' &&
         (temperature != 0.8 || topK != 40 || topP != null || seed != 1)) {
-      gemmaLog(
+      edgeAiLog(
         '[LiteRtLmFfi] NPU backend: sampler params (temperature=$temperature, '
         'topK=$topK, topP=$topP, seed=$seed) are sent but the NPU executor '
         'samples greedily and never reads them — output is deterministic '
@@ -1802,7 +1802,7 @@ class LiteRtLmFfiClient {
     if (!_liveConvs.contains(conv)) return;
     if (_bindings != null) {
       _bindings!.litert_lm_conversation_cancel_process(conv);
-      gemmaLog('[LiteRtLmFfi] Generation cancelled');
+      edgeAiLog('[LiteRtLmFfi] Generation cancelled');
     }
   }
 
@@ -1819,7 +1819,7 @@ class LiteRtLmFfiClient {
     _liveConvs.remove(conv);
     if (_bindings != null) {
       _bindings!.litert_lm_conversation_delete(conv);
-      gemmaLog('[LiteRtLmFfi] Conversation closed');
+      edgeAiLog('[LiteRtLmFfi] Conversation closed');
     }
   }
 
@@ -1871,7 +1871,7 @@ class LiteRtLmFfiClient {
     if (_engine != null && _engine != nullptr && _bindings != null) {
       _bindings!.litert_lm_engine_delete(_engine!);
       _engine = null;
-      gemmaLog('[LiteRtLmFfi] Engine deleted');
+      edgeAiLog('[LiteRtLmFfi] Engine deleted');
     }
     // engine_delete bulk-frees every remaining conversation at once; the
     // handle/virtual drains above already emptied the registry, but clear it so
@@ -1948,7 +1948,7 @@ class LiteRtLmFfiClient {
         // lookup wording only, and let a one-off OOM retry next turn.
         final missing = e.toString().contains('Failed to lookup symbol');
         if (missing) _tokenizerMissing = true;
-        gemmaLog(
+        edgeAiLog(
           '[LiteRtLmFfi] tokenCount unavailable${missing ? ' (symbol missing '
                     'from this native build — sizeInTokens will estimate from '
                     'here on)' : ''}: $e',
@@ -2035,7 +2035,7 @@ class LiteRtLmFfiClient {
         initTimeMs: initTime > 0 ? initTime * 1000 : null,
       );
     } catch (e) {
-      gemmaLog('[LiteRtLmFfiClient] Error getting metrics: $e');
+      edgeAiLog('[LiteRtLmFfiClient] Error getting metrics: $e');
       _bindings!.litert_lm_benchmark_info_delete(benchmarkInfo);
       return SessionMetrics();
     }

@@ -3,16 +3,16 @@
 // host (guarded by `skip: !Platform.isAndroid` below).
 //
 // Deliberately drives `GenAiFfiClient` DIRECTLY, bypassing
-// `OnnxEngine.canHandle`'s host gate and `FlutterGemma.installModel()` —
+// `OnnxEngine.canHandle`'s host gate and `FlutterEdgeAi.installModel()` —
 // identical rationale to the Linux/Windows device-gate scripts
 // (`run_onnx_integration_linux_gcloud.sh` / `_windows.sh`): the registry
 // gate widens only after THIS test's numbers pass the go/no-go bar (see
 // `onnx_engine.dart`'s `_isSupportedHost`), and ORT-GenAI models are whole
 // DIRECTORIES (genai_config.json + .onnx[+.onnx_data] + tokenizer files) —
 // `RuntimeConfig.modelPath` only carries a single resolved file, so
-// `FlutterGemma.installModel()` can't install this bundle yet (known gap,
+// `FlutterEdgeAi.installModel()` can't install this bundle yet (known gap,
 // see `onnx_engine.dart`'s `createModel` doc). Mirrors
-// `onnx_generation_host_smoke_test.dart`'s (flutter_gemma_onnx package) shape
+// `onnx_generation_host_smoke_test.dart`'s (flutter_edge_ai_onnx package) shape
 // but adds in-test HTTP download (no host filesystem to point env vars at on
 // a real device) and RSS/VmHWM sampling (the device-specific half of the
 // go/no-go this repo's desktop gates didn't need).

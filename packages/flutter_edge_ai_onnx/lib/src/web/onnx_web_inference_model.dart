@@ -17,8 +17,8 @@ import 'package:flutter_edge_ai/core/lifecycle/close_notifier.dart';
 import 'package:flutter_edge_ai/core/message.dart';
 import 'package:flutter_edge_ai/core/model.dart';
 import 'package:flutter_edge_ai/core/tool.dart';
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
-import 'package:flutter_edge_ai/flutter_gemma_interface.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai_interface.dart';
 
 import 'transformers_js_interop.dart';
 import 'transformers_web_resolver.dart';
@@ -140,7 +140,7 @@ class OnnxWebInferenceModel extends InferenceModel with CloseNotifier {
         // `['webgpu', 'wasm']` fallback intent; Transformers.js has no
         // built-in multi-backend try-list for `device`, so retry manually).
         if (kDebugMode) {
-          gemmaLog(
+          edgeAiLog(
             '[OnnxWebInferenceModel] pipeline(webgpu) failed for $repoId, '
             'retrying on wasm: $e',
           );
@@ -150,7 +150,7 @@ class OnnxWebInferenceModel extends InferenceModel with CloseNotifier {
       }
     }
     if (kDebugMode) {
-      gemmaLog(
+      edgeAiLog(
         '[OnnxWebInferenceModel/perf] pipeline($repoId, $backend): '
         '${sw.elapsedMilliseconds}ms',
       );
@@ -201,14 +201,14 @@ class OnnxWebInferenceModel extends InferenceModel with CloseNotifier {
       );
     }
     if (enableThinking && kDebugMode) {
-      gemmaLog(
+      edgeAiLog(
         '[OnnxWebInferenceModel] enableThinking is not driven by this '
         "engine — the repo's own chat_template decides whether/how a "
         'thinking channel is emitted; ignoring.',
       );
     }
     if (tools.isNotEmpty && kDebugMode) {
-      gemmaLog(
+      edgeAiLog(
         '[OnnxWebInferenceModel] Native tool calling is not yet wired on '
         'the Transformers.js path — ignoring ${tools.length} tool(s).',
       );
@@ -430,7 +430,7 @@ class OnnxWebSession extends InferenceModelSession {
           });
         }
         if (kDebugMode) {
-          gemmaLog(
+          edgeAiLog(
             '[OnnxWebSession/perf] generation total: '
             '${genSw.elapsedMilliseconds}ms (prefill ${firstChunkMs ?? 0}ms, '
             '$chunkCount chunks)',

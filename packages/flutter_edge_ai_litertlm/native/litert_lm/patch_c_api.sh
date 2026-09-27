@@ -275,7 +275,7 @@ fi
 # `<X>.framework/<X>` (Apple's required structure for iOS) — there is no flat
 # `lib<X>.dylib` file in the app bundle for dyld to find by basename.
 #
-# Older flutter_gemma versions worked around this by symlinking lib*.dylib
+# Older flutter_edge_ai versions worked around this by symlinking lib*.dylib
 # alongside the frameworks in `Frameworks/`, but Apple App Store Connect
 # rejects that with ITMS-90432 ("Unexpected file found in Frameworks").
 #

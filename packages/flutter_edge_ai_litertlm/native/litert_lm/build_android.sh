@@ -236,7 +236,7 @@ done
 #     to CPU sampling (~3× decode slowdown). Adding libLiteRtLm.so to
 #     NEEDED on each sampler binary lets bionic resolve LiteRtCreateEnvironment
 #     against our libLiteRtLm.so (which exports it). See:
-#       - DenisovAV/flutter_gemma#270
+#       - DenisovAV/flutter_edge_ai#270
 #       - google-ai-edge/LiteRT-LM#2211
 if ! command -v patchelf >/dev/null 2>&1; then
   echo "ERROR: patchelf not installed — the DT_NEEDED fixes below cannot run," >&2

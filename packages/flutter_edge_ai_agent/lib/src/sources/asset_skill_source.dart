@@ -27,14 +27,14 @@ const List<String> bundledSkillNames = [
 
 /// This package's name — the prefix Flutter prepends to assets declared by a
 /// dependency. A bundled asset at `assets/skills/<name>/...` in this package is
-/// addressed from the host app as `packages/flutter_gemma_agent/assets/...`.
+/// addressed from the host app as `packages/flutter_edge_ai_agent/assets/...`.
 const String _packageName = 'flutter_edge_ai_agent';
 
 /// Loads the SKILL.md skills bundled with this package from its Flutter assets.
 ///
 /// The skills live under `assets/skills/<name>/SKILL.md` (declared in this
 /// package's `pubspec.yaml`). Because they ship inside a dependency, the host
-/// app sees them under the `packages/flutter_gemma_agent/` prefix — this source
+/// app sees them under the `packages/flutter_edge_ai_agent/` prefix — this source
 /// builds those keys for you, so you never hand-write them.
 ///
 /// Usage:

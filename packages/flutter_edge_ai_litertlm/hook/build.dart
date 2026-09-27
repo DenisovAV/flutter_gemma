@@ -550,7 +550,7 @@ Future<Directory?> _downloadAndExtract(
 
     final url = '${bundle.releaseBase}/$archiveName';
     stderr.writeln(
-      'flutter_gemma: Downloading ${bundle.namespace} native libs from $url ...',
+      'flutter_edge_ai: Downloading ${bundle.namespace} native libs from $url ...',
     );
 
     final client = HttpClient();
@@ -559,7 +559,7 @@ Future<Directory?> _downloadAndExtract(
       final response = await request.close();
       if (response.statusCode != 200) {
         throw StateError(
-          'flutter_gemma: could not download ${bundle.namespace} native libs '
+          'flutter_edge_ai: could not download ${bundle.namespace} native libs '
           'for $dirName — HTTP ${response.statusCode} from $url.\n'
           'This platform HAS a registered checksum, so the archive is expected '
           'to exist. Check network access to github.com, or that release tag '
@@ -583,7 +583,7 @@ Future<Directory?> _downloadAndExtract(
       // an app without the library, or with the wrong one, are both worse than
       // failing here.
       throw StateError(
-        'flutter_gemma: CHECKSUM MISMATCH for $archiveName.\n'
+        'flutter_edge_ai: CHECKSUM MISMATCH for $archiveName.\n'
         '  expected $expectedChecksum\n'
         '  actual   $actualChecksum\n'
         'The archive served by ${bundle.releaseBase} does not match what '
@@ -593,7 +593,7 @@ Future<Directory?> _downloadAndExtract(
         'do NOT work around it by clearing the checksum.',
       );
     }
-    stderr.writeln('flutter_gemma: Checksum verified ($archiveName)');
+    stderr.writeln('flutter_edge_ai: Checksum verified ($archiveName)');
 
     // Extract into a sibling temp dir on the SAME filesystem (under cacheRoot),
     // then atomically rename into place. A torn/interrupted extract leaves only
@@ -610,7 +610,7 @@ Future<Directory?> _downloadAndExtract(
       ]);
       if (result.exitCode != 0) {
         throw StateError(
-          'flutter_gemma: could not extract $archiveName for '
+          'flutter_edge_ai: could not extract $archiveName for '
           '${bundle.namespace} — tar exited ${result.exitCode}.\n'
           '${result.stderr}\n'
           'The download and its checksum both passed, so this is local: '
@@ -626,7 +626,7 @@ Future<Directory?> _downloadAndExtract(
     }
     archiveFile.deleteSync();
     stderr.writeln(
-      'flutter_gemma: ${bundle.namespace} libs cached to ${targetDir.path}',
+      'flutter_edge_ai: ${bundle.namespace} libs cached to ${targetDir.path}',
     );
     return targetDir;
   } on StateError {
@@ -641,7 +641,7 @@ Future<Directory?> _downloadAndExtract(
     // all cover rarer cases than this one.
     if (archiveFile.existsSync()) archiveFile.deleteSync();
     throw StateError(
-      'flutter_gemma: could not fetch ${bundle.namespace} native libs for '
+      'flutter_edge_ai: could not fetch ${bundle.namespace} native libs for '
       '$dirName.\n'
       '  $e\n'
       'This platform is supported, so the build cannot continue without them.\n'
@@ -722,7 +722,7 @@ Future<void> _processBundle({
   // dropped from the app's deps and the survivor rebuilds without `flutter
   // clean`, the survivor reads the stale owner, skips registration, and nobody
   // bundles the dylib → an opaque dlopen "no such file" at first use. Fix:
-  // `flutter clean` + delete the flutter_gemma native cache (see each package's
+  // `flutter clean` + delete the flutter_edge_ai native cache (see each package's
   // README troubleshooting). Upstream deliberately chose "one registrant + error
   // on conflict, no auto-dedup" (dart-lang/native#190, flutter#158214).
   //
@@ -748,7 +748,7 @@ Future<void> _processBundle({
     // it. Returning here registered no CodeAsset and reported success, so a
     // half-populated cache shipped as a working build.
     throw StateError(
-      'flutter_gemma: ${bundle.namespace} $dirName resolved to '
+      'flutter_edge_ai: ${bundle.namespace} $dirName resolved to '
       '${prebuiltDir.toFilePath()} but $mainFileName is missing from it.\n'
       'The directory is present but incomplete — most often a cache left over '
       'from an interrupted extract. Delete it, then `flutter clean` and build '
@@ -1007,7 +1007,7 @@ void main(List<String> args) async {
 /// replacement happens to be the same size, which is exactly what re-stamping
 /// a Mach-O load command produces.
 ///
-/// Byte-identical in `flutter_gemma_rag_sqlite` and `flutter_gemma_onnx`; the
+/// Byte-identical in `flutter_edge_ai_sqlite` and `flutter_edge_ai_onnx`; the
 /// packages publish independently and cannot share it.
 bool _sameBytes(File a, File b) {
   if (a.lengthSync() != b.lengthSync()) return false;
@@ -1029,7 +1029,7 @@ typedef _StagedScript = ({Uri source, Uri destination});
 /// Copy `tool/[_stagerFileName]` next to the dylibs it stages.
 ///
 /// The app's Xcode build phase cannot locate a file inside this package:
-/// `flutter_gemma_litertlm` declares no macOS plugin, so Flutter creates no
+/// `flutter_edge_ai_litertlm` declares no macOS plugin, so Flutter creates no
 /// `.symlinks/plugins/` entry for it, and the pub-cache path is not knowable
 /// from a Podfile. The flat native cache dir is the one location the phase
 /// already resolves — it reads the companion dylibs from there — so the script

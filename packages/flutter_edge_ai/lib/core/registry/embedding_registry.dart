@@ -1,10 +1,10 @@
 import 'package:flutter/foundation.dart' show kDebugMode;
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 import 'package:flutter_edge_ai/core/registry/embedding_backend_provider.dart';
 import 'package:flutter_edge_ai/core/model_management/model_specs.dart'
     show EmbeddingModelSpec;
 
-/// Holds embedding backends registered via `FlutterGemma.initialize`.
+/// Holds embedding backends registered via `FlutterEdgeAi.initialize`.
 /// Same probe-chain selection as `EngineRegistry`.
 class EmbeddingRegistry {
   EmbeddingRegistry._();
@@ -29,8 +29,8 @@ class EmbeddingRegistry {
     if (kDebugMode &&
         indexed.length > 1 &&
         indexed[0].$2.priority == indexed[1].$2.priority) {
-      gemmaLog(
-        '[flutter_gemma] Ambiguous embedding backend: '
+      edgeAiLog(
+        '[flutter_edge_ai] Ambiguous embedding backend: '
         '${indexed.map((e) => e.$2.name).join(", ")} all handle this spec at '
         'priority ${indexed[0].$2.priority}; using "${indexed[0].$2.name}".',
       );

@@ -3,7 +3,7 @@ import 'package:flutter_edge_ai/core/model_response.dart';
 import 'function_call_format.dart';
 import 'json_function_call_format.dart';
 import 'json_parsing_utils.dart';
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 
 /// Phi-4 tool call format.
 ///
@@ -87,9 +87,9 @@ class PhiFunctionCallFormat extends FunctionCallFormat {
     if (match == null) return [];
 
     final jsonStr = match.group(1)!.trim();
-    gemmaLog(
+    edgeAiLog(
       'PhiFormat: Found tool_calls block: $jsonStr',
-      level: GemmaLogLevel.verbose,
+      level: EdgeAiLogLevel.verbose,
     );
 
     // Phi-4 always outputs a JSON array

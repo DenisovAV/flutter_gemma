@@ -5,7 +5,7 @@
 // synthesize (through the background worker's inflectVits arm) -> non-silent
 // 24 kHz PCM. Public repos, no token.
 //
-// Run: cd packages/flutter_gemma/example && \
+// Run: cd packages/flutter_edge_ai/example && \
 //   flutter test integration_test/inflect_public_test.dart -d macos
 import 'dart:typed_data';
 
@@ -22,7 +22,7 @@ void main() {
   testWidgets(
     'Inflect public path: install (2-repo) -> getActiveTts -> synthesize',
     (tester) async {
-      await FlutterGemma.initialize(
+      await FlutterEdgeAi.initialize(
         ttsBackends: const [LiteRtTtsBackend()],
         inferenceEngines: const [LiteRtLmEngine()],
       );
@@ -30,7 +30,7 @@ void main() {
       // Optional HF token via --dart-define=HF_TOKEN=... — the repo is public,
       // so anonymous is the default; a token only matters if HF ever gates it.
       const hfToken = String.fromEnvironment('HF_TOKEN');
-      await FlutterGemma.installTts()
+      await FlutterEdgeAi.installTts()
           .fromNetwork(
             'https://huggingface.co/sasha-denisov/inflect-nano-v2-litert/resolve/main/',
             token: hfToken.isEmpty ? null : hfToken,
@@ -38,7 +38,7 @@ void main() {
           .ofType(TtsModelType.inflect)
           .install();
 
-      final synth = await FlutterGemma.getActiveTts();
+      final synth = await FlutterEdgeAi.getActiveTts();
       addTearDown(synth.close);
 
       final pcm = await synth.synthesize(

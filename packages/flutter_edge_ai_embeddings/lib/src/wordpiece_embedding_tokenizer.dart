@@ -2,9 +2,9 @@
 // from a HuggingFace `tokenizer.json` file (e.g. `all-MiniLM-L6-v2`).
 //
 // Ported verbatim (tokenization algorithm unchanged) from the ONNX-family
-// spike's `flutter_gemma_onnx_embeddings/lib/src/wordpiece_tokenizer_adapter.dart`
+// spike's `flutter_edge_ai_onnx_embeddings/lib/src/wordpiece_tokenizer_adapter.dart`
 // and re-shaped to this seam's [EmbeddingTokenizer] interface. It lives in
-// `flutter_gemma_embeddings` — not in `flutter_gemma_onnx` — because
+// `flutter_edge_ai_embeddings` — not in `flutter_edge_ai_onnx` — because
 // WordPiece-vs-SentencePiece is model-family logic, not engine logic (design
 // D-T1): a hypothetical WordPiece `.tflite` would need this same tokenizer
 // under LiteRT, and EmbeddingGemma is SentencePiece on *both* LiteRT and
@@ -37,7 +37,7 @@
 // ignore_for_file: prefer_initializing_formals
 //
 // Deliberately NO `dart:io` import: this file is web-safe (imported directly
-// by `flutter_gemma_onnx`'s web embedding arm), and an unconditional
+// by `flutter_edge_ai_onnx`'s web embedding arm), and an unconditional
 // `import 'dart:io'` makes a whole library uncompilable for web. [fromPath]
 // still needs to read a file, so it goes through the `readTextFile` seam below
 // — the same `if (dart.library.…)` technique the ONNX web PR used for its own

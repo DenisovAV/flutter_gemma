@@ -1,5 +1,5 @@
 // Native Assets hook for the ORT-GenAI text-generation arm (hardened plan
-// Phase 3, Task 4). Modeled on `flutter_gemma_litertlm/hook/build.dart`
+// Phase 3, Task 4). Modeled on `flutter_edge_ai_litertlm/hook/build.dart`
 // (fetch → sha256 → extract → CodeAsset; marker/self-heal; Apple-only
 // `stage()`), but sources from **Microsoft's own GitHub releases** — two
 // separate repos, NOT the `native-vX` tag this repo publishes for LiteRT-LM
@@ -29,7 +29,7 @@
 // `.so` files already ship under the bare canonical name
 // (`libonnxruntime.so`, `libonnxruntime-genai.so`) that `_candidateNames`
 // bare-name dlopens on that platform, so CodeAssets register straight from
-// the cache dir (matches `flutter_gemma_litertlm`'s Android posture, which
+// the cache dir (matches `flutter_edge_ai_litertlm`'s Android posture, which
 // ships 12+ flat CodeAssets with runtime bare-name cross-dlopen, device-
 // proven). Windows stays a no-op for a different reason: its `.dll`s already
 // ship under the bare canonical name AND active staging is what breaks
@@ -102,7 +102,7 @@ class _Archive {
 /// device involved to GET the CodeAssets bundled; the device throughput/RAM
 /// go/no-go is a separate, later gate on top of this — see
 /// `OnnxEngine._isSupportedHost`'s doc). [iOSSdk] distinguishes device vs
-/// simulator on iOS (exact `flutter_gemma_litertlm` precedent,
+/// simulator on iOS (exact `flutter_edge_ai_litertlm` precedent,
 /// `_prebuiltDirName`) — unused for every other OS. Returns null for any
 /// unsupported (os, arch) — notably Android x86_64 (emulator, out of scope),
 /// Android armeabi-v7a (ORT-GenAI ships no such AAR slice), and iOS x86_64
@@ -116,7 +116,7 @@ _OrtBundle? _archivesFor(OS os, Architecture arch, {IOSSdk? iOSSdk}) {
     // the hook for x86_64 simulator slices; returning null skips them so
     // Native Assets's lipo step doesn't try to merge two arm64-only inputs
     // and fail with "same architectures and can't be in the same fat file"
-    // (exact `flutter_gemma_litertlm` precedent).
+    // (exact `flutter_edge_ai_litertlm` precedent).
     if (arch != Architecture.arm64) return null;
     const url =
         'https://github.com/microsoft/onnxruntime-genai/releases/'
@@ -269,7 +269,7 @@ _OrtBundle? _archivesFor(OS os, Architecture arch, {IOSSdk? iOSSdk}) {
   }
   // ios x86_64 (Intel-Mac simulator; see this function's doc), android
   // x86_64/armeabi-v7a: no entry means the hook silently skips those
-  // targets (matches flutter_gemma_litertlm's "no checksum registered →
+  // targets (matches flutter_edge_ai_litertlm's "no checksum registered →
   // skip" convention); GenAiFfiClient's own dlopen then fails loud at first
   // use with a clear "no such file".
   return null;
@@ -364,7 +364,7 @@ Future<bool> _downloadVerifyExtract(_Archive archive, Directory destDir) async {
   final archiveFile = File('${cacheRoot.path}/${archive.archiveFileName}');
 
   try {
-    stderr.writeln('flutter_gemma_onnx: downloading ${archive.url} ...');
+    stderr.writeln('flutter_edge_ai_onnx: downloading ${archive.url} ...');
     final client = HttpClient();
     try {
       final request = await client.getUrl(Uri.parse(archive.url));
@@ -377,7 +377,7 @@ Future<bool> _downloadVerifyExtract(_Archive archive, Directory destDir) async {
       final response = await request.close();
       if (response.statusCode != 200) {
         stderr.writeln(
-          'flutter_gemma_onnx: download failed (HTTP ${response.statusCode}) '
+          'flutter_edge_ai_onnx: download failed (HTTP ${response.statusCode}) '
           'for ${archive.url}',
         );
         await response.drain<void>();
@@ -393,7 +393,7 @@ Future<bool> _downloadVerifyExtract(_Archive archive, Directory destDir) async {
     final actual = sha256.convert(bytes).toString();
     if (actual != archive.sha256) {
       stderr.writeln(
-        'flutter_gemma_onnx: checksum mismatch for ${archive.archiveFileName}\n'
+        'flutter_edge_ai_onnx: checksum mismatch for ${archive.archiveFileName}\n'
         '  expected: ${archive.sha256}\n'
         '  actual:   $actual',
       );
@@ -401,7 +401,7 @@ Future<bool> _downloadVerifyExtract(_Archive archive, Directory destDir) async {
       return false;
     }
     stderr.writeln(
-      'flutter_gemma_onnx: checksum verified (${archive.archiveFileName})',
+      'flutter_edge_ai_onnx: checksum verified (${archive.archiveFileName})',
     );
 
     final tmpDir = Directory('${cacheRoot.path}/.tmp-extract-$pid');
@@ -448,7 +448,7 @@ Future<bool> _downloadVerifyExtract(_Archive archive, Directory destDir) async {
       }
       if (result.exitCode != 0) {
         stderr.writeln(
-          'flutter_gemma_onnx: extract failed for ${archive.archiveFileName}: '
+          'flutter_edge_ai_onnx: extract failed for ${archive.archiveFileName}: '
           '${result.stderr}',
         );
         return false;
@@ -456,7 +456,7 @@ Future<bool> _downloadVerifyExtract(_Archive archive, Directory destDir) async {
       final extracted = File('${tmpDir.path}/${archive.extractedLibPath}');
       if (!extracted.existsSync()) {
         stderr.writeln(
-          'flutter_gemma_onnx: extracted archive is missing the expected '
+          'flutter_edge_ai_onnx: extracted archive is missing the expected '
           'lib at ${archive.extractedLibPath} — archive layout changed?',
         );
         return false;
@@ -482,7 +482,7 @@ Future<bool> _downloadVerifyExtract(_Archive archive, Directory destDir) async {
         ]);
         if (thinResult.exitCode != 0) {
           stderr.writeln(
-            'flutter_gemma_onnx: lipo -thin $thinArch failed for $destPath: '
+            'flutter_edge_ai_onnx: lipo -thin $thinArch failed for $destPath: '
             '${thinResult.stderr}',
           );
           return false;
@@ -491,14 +491,14 @@ Future<bool> _downloadVerifyExtract(_Archive archive, Directory destDir) async {
         final infoOut = infoResult.stdout.toString().trim();
         if (infoResult.exitCode != 0 || !infoOut.contains(thinArch)) {
           stderr.writeln(
-            'flutter_gemma_onnx: lipo -info after thinning did not report '
+            'flutter_edge_ai_onnx: lipo -info after thinning did not report '
             '"$thinArch" for $thinnedPath: $infoOut',
           );
           return false;
         }
         File(thinnedPath).renameSync(destPath);
         stderr.writeln(
-          'flutter_gemma_onnx: thinned $destFileName to $thinArch ($infoOut)',
+          'flutter_edge_ai_onnx: thinned $destFileName to $thinArch ($infoOut)',
         );
       }
     } finally {
@@ -508,7 +508,7 @@ Future<bool> _downloadVerifyExtract(_Archive archive, Directory destDir) async {
     return true;
   } catch (e) {
     stderr.writeln(
-      'flutter_gemma_onnx: fetch failed for ${archive.archiveFileName}: $e',
+      'flutter_edge_ai_onnx: fetch failed for ${archive.archiveFileName}: $e',
     );
     if (archiveFile.existsSync()) archiveFile.deleteSync();
     return false;
@@ -535,7 +535,7 @@ void main(List<String> args) async {
     final os = codeConfig.targetOS;
     final arch = codeConfig.targetArchitecture;
     // iOS distinguishes device vs simulator via IOSSdk — exact
-    // flutter_gemma_litertlm precedent (`_prebuiltDirName`/`codeConfig.iOS.
+    // flutter_edge_ai_litertlm precedent (`_prebuiltDirName`/`codeConfig.iOS.
     // targetSdk`). `null`/unused on every other OS.
     final iOSSdk = os == OS.iOS ? codeConfig.iOS.targetSdk : null;
 
@@ -545,7 +545,7 @@ void main(List<String> args) async {
     // Both Android AARs (onnxruntime-android + onnxruntime-genai-android)
     // declare minSdkVersion=24 in their own AndroidManifest.xml. There is no
     // Gradle module here to force a manifest-merger floor (unlike
-    // flutter_gemma_builtin_ai's minSdk-26 module), so an app with a lower
+    // flutter_edge_ai_builtin_ai's minSdk-26 module), so an app with a lower
     // minSdk builds cleanly and only fails at runtime `dlopen` — and only on
     // API 21-23 devices, the hardest kind of bug to catch pre-release. So
     // fail the build here — and actually fail it. This used to write the
@@ -554,7 +554,7 @@ void main(List<String> args) async {
     // above says it exists to prevent.
     if (os == OS.android && codeConfig.android.targetNdkApi < 24) {
       throw StateError(
-        'flutter_gemma_onnx: ORT / ORT-GenAI require Android minSdk 24 '
+        'flutter_edge_ai_onnx: ORT / ORT-GenAI require Android minSdk 24 '
         '(this build targets minSdk ${codeConfig.android.targetNdkApi}). '
         "Raise android/app/build.gradle(.kts)'s `minSdk` to 24 or higher "
         'before using OnnxEngine()/OnnxEmbeddingBackend() on Android.',
@@ -584,7 +584,7 @@ void main(List<String> args) async {
           // do with the same condition. An integrity failure in particular has
           // no benign reading.
           throw StateError(
-            'flutter_gemma_onnx: could not obtain ${archive.archiveFileName} '
+            'flutter_edge_ai_onnx: could not obtain ${archive.archiveFileName} '
             'for ${bundle.dirName} — see the diagnostics above (download '
             'failure or CHECKSUM MISMATCH). This platform is registered as '
             'supported, so a missing library is a broken build, not a skip.',
@@ -601,7 +601,7 @@ void main(List<String> args) async {
     // also listed as a build dependency below) — Xcode's "Flutter Assemble"
     // Run Script then takes a directoryTreeSignature over that input dir,
     // which now contains its own output, producing "Cycle inside Flutter
-    // Assemble". Exact same fix as flutter_gemma_litertlm's hook; see that
+    // Assemble". Exact same fix as flutter_edge_ai_litertlm's hook; see that
     // file's longer note. Apple-only in this package (macOS + iOS); Linux
     // gets a related-but-different rename below, Windows/Android are no-ops.
     // CRITICAL (codex Phase-1 finding, confirmed via a real `flutter build
@@ -667,7 +667,7 @@ void main(List<String> args) async {
         // out of a multi-library bundle and reports success, so ORT-GenAI can
         // ship without the ORT it dlopens by bare name.
         throw StateError(
-          'flutter_gemma_onnx: ${archive.assetName} is missing from '
+          'flutter_edge_ai_onnx: ${archive.assetName} is missing from '
           '${libDir.path} after resolution. The directory is present but '
           'incomplete — most often a cache left over from an interrupted '
           'extract. Delete it and build again.',
@@ -708,7 +708,7 @@ void main(List<String> args) async {
 /// replacement happens to be the same size, which is exactly what re-stamping
 /// a Mach-O load command produces.
 ///
-/// Byte-identical in `flutter_gemma_rag_sqlite` and `flutter_gemma_litertlm`;
+/// Byte-identical in `flutter_edge_ai_sqlite` and `flutter_edge_ai_litertlm`;
 /// the packages publish independently and cannot share it.
 bool _sameBytes(File a, File b) {
   if (a.lengthSync() != b.lengthSync()) return false;

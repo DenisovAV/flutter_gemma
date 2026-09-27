@@ -10,8 +10,8 @@ import 'package:flutter_edge_ai/flutter_edge_ai.dart'
         SpeechRecognizer,
         SpeechSynthesizer,
         TextResponse,
-        GemmaLogLevel;
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart' show gemmaLog;
+        EdgeAiLogLevel;
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart' show edgeAiLog;
 import 'package:meta/meta.dart' show visibleForTesting;
 
 import 'clause_splitter.dart';
@@ -243,15 +243,15 @@ class VoiceSession {
     try {
       await _responder.stop().timeout(drainTimeout);
     } on TimeoutException {
-      gemmaLog(
+      edgeAiLog(
         'VoiceSession: responder.stop() did not resolve within '
         '${drainTimeout.inSeconds}s during barge-in; proceeding to drain.',
-        level: GemmaLogLevel.info,
+        level: EdgeAiLogLevel.info,
       );
     } catch (e) {
-      gemmaLog(
+      edgeAiLog(
         'VoiceSession: responder.stop() threw during barge-in: $e',
-        level: GemmaLogLevel.info,
+        level: EdgeAiLogLevel.info,
       );
     }
     // Bounded drain: give the reply stream drainTimeout to end, else force it.
@@ -283,10 +283,10 @@ class VoiceSession {
     _drainTimer = Timer(drainTimeout, () {
       if (!drained.isCompleted) {
         _drainForced = true;
-        gemmaLog(
+        edgeAiLog(
           'VoiceSession: $reason; detaching LLM stream '
           '(generation finishes in background).',
-          level: GemmaLogLevel.info,
+          level: EdgeAiLogLevel.info,
         );
         drained.complete();
       }
@@ -392,10 +392,10 @@ class VoiceSession {
             pumpStack = st;
             unawaited(
               _responder.stop().catchError((Object stopErr) {
-                gemmaLog(
+                edgeAiLog(
                   'VoiceSession: stopping the LLM after a synth pump error '
                   'failed: $stopErr',
-                  level: GemmaLogLevel.info,
+                  level: EdgeAiLogLevel.info,
                 );
               }),
             );
@@ -425,10 +425,10 @@ class VoiceSession {
                 // detach, R1) — this generation is no longer observed by
                 // anyone. Log so a genuinely-fatal detached error isn't a
                 // fully silent swallow.
-                gemmaLog(
+                edgeAiLog(
                   'VoiceSession: detached LLM stream errored after '
                   'barge-in: $e',
-                  level: GemmaLogLevel.info,
+                  level: EdgeAiLogLevel.info,
                 );
               }
               if (!drained.isCompleted) drained.complete();
@@ -473,10 +473,10 @@ class VoiceSession {
         // The LLM error is the turn-fatal one, but a concurrent pump error must
         // not vanish silently — log it before it's superseded.
         if (pumpError != null) {
-          gemmaLog(
+          edgeAiLog(
             'VoiceSession: synth pump also errored (superseded by the LLM '
             'stream error): $pumpError',
-            level: GemmaLogLevel.info,
+            level: EdgeAiLogLevel.info,
           );
         }
         controller.addError(replyError!, replyStack);
@@ -550,9 +550,9 @@ class VoiceSession {
         // Unreachable today (every earlier return path already tears down
         // the controller before this catch could fire), but a trap for a
         // future refactor: log instead of a fully-silent swallow.
-        gemmaLog(
+        edgeAiLog(
           'VoiceSession: stage error after turn teardown (dropped): $e',
-          level: GemmaLogLevel.info,
+          level: EdgeAiLogLevel.info,
         );
       }
     }

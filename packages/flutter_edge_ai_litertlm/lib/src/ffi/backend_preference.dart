@@ -256,7 +256,7 @@ Future<({T client, PreferredBackend activeBackend})> initializeFfiRuntime<T>({
     );
     // ignore: avoid_print
     print(
-      '[flutter_gemma] WARNING: $logTag npu was requested, but $reason — '
+      '[flutter_edge_ai] WARNING: $logTag npu was requested, but $reason — '
       'trying ${backends.map(ffiBackendWireName).join(" -> ")} instead. NPU '
       'runs on Qualcomm Snapdragon Android and on Windows (Intel '
       'LunarLake/PantherLake). InferenceModel.activeBackend names what '
@@ -294,7 +294,7 @@ Future<({T client, PreferredBackend activeBackend})> initializeFfiRuntime<T>({
           : 'trying the next candidate';
       // ignore: avoid_print
       print(
-        '[flutter_gemma] WARNING: $logTag ${ffiBackendWireName(backend)} '
+        '[flutter_edge_ai] WARNING: $logTag ${ffiBackendWireName(backend)} '
         'backend failed, $next: $error',
       );
     }

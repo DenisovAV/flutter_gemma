@@ -31,6 +31,6 @@ flutter:
     platforms:
       android:
         package: dev.flutterberlin.flutter_gemma_mediapipe
-        pluginClass: FlutterGemmaMediaPipePlugin
+        pluginClass: FlutterEdgeAiMediaPipePlugin
       ios:
-        pluginClass: FlutterGemmaMediaPipePlugin
+        pluginClass: FlutterEdgeAiMediaPipePlugin

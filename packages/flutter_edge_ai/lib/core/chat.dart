@@ -9,11 +9,11 @@ import 'package:flutter_edge_ai/core/message.dart';
 import 'package:flutter_edge_ai/core/model_response.dart';
 import 'package:flutter_edge_ai/core/parsing/sdk_response_parser.dart';
 import 'package:flutter_edge_ai/core/tool.dart';
-import 'package:flutter_edge_ai/flutter_gemma_interface.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai_interface.dart';
 import 'package:mutex/mutex.dart';
 
 import 'model.dart';
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 
 /// Default maximum length for function call buffer before flushing as text.
 /// Must accommodate verbose formats (DeepSeek tags, parallel calls).
@@ -158,7 +158,7 @@ class InferenceChat {
       _prefixes.add(toolsPromptMessage);
     } else if (!supportsFunctionCalls && tools.isNotEmpty && !noTool) {
       // Log warning if model doesn't support function calls but tools are provided
-      gemmaLog(
+      edgeAiLog(
         'WARNING: Model does not support function calls, but tools were provided. Tools will be ignored.',
       );
     }
@@ -173,13 +173,13 @@ class InferenceChat {
     // --- DETAILED LOGGING ---
     if (kDebugMode) {
       final historyForLogging = _modelHistory.map((m) => m.text).join('\n');
-      gemmaLog('--- Sending to Native ---');
-      gemmaLog('History:\n$historyForLogging', level: GemmaLogLevel.verbose);
-      gemmaLog(
+      edgeAiLog('--- Sending to Native ---');
+      edgeAiLog('History:\n$historyForLogging', level: EdgeAiLogLevel.verbose);
+      edgeAiLog(
         'Current Message:\n${messageToSend.text}',
-        level: GemmaLogLevel.verbose,
+        level: EdgeAiLogLevel.verbose,
       );
-      gemmaLog('-------------------------');
+      edgeAiLog('-------------------------');
     }
     // --- END LOGGING ---
 
@@ -200,7 +200,7 @@ class InferenceChat {
   }
 
   Future<ModelResponse> generateChatResponse() async {
-    gemmaLog('InferenceChat: Getting response from native model...');
+    edgeAiLog('InferenceChat: Getting response from native model...');
     final response = await session.getResponse();
     final cleanedResponse = ModelThinkingFilter.cleanResponse(
       response,
@@ -223,7 +223,7 @@ class InferenceChat {
       if (raw != null) {
         final allCalls = SdkResponseParser.extractToolCalls(raw);
         if (allCalls.isNotEmpty) {
-          gemmaLog(
+          edgeAiLog(
             'InferenceChat: Detected ${allCalls.length} SDK-parsed tool call(s)',
           );
           // Strip Gemma 4 escape tokens (`<|"|>`) before persisting to history.
@@ -240,15 +240,15 @@ class InferenceChat {
     }
 
     if (cleanedResponse.isEmpty) {
-      gemmaLog(
+      edgeAiLog(
         'InferenceChat: Raw response from native model is EMPTY after cleaning.',
       );
       return const TextResponse(''); // Return TextResponse instead of String
     }
 
-    gemmaLog(
+    edgeAiLog(
       'InferenceChat: Raw response from native model:\n--- START ---\n$cleanedResponse\n--- END ---',
-      level: GemmaLogLevel.verbose,
+      level: EdgeAiLogLevel.verbose,
     );
 
     // Try to parse as function call if tools are available and model supports function calls
@@ -260,15 +260,15 @@ class InferenceChat {
         modelType: modelType,
       );
       if (allCalls.isNotEmpty) {
-        gemmaLog(
+        edgeAiLog(
           'InferenceChat: Detected ${allCalls.length} function call(s) in sync response',
         );
         final toolCallMessage = Message.toolCall(text: cleanedResponse);
         _fullHistory.add(toolCallMessage);
         _modelHistory.add(toolCallMessage);
-        gemmaLog(
+        edgeAiLog(
           'InferenceChat: Added tool call to history: ${toolCallMessage.text}',
-          level: GemmaLogLevel.verbose,
+          level: EdgeAiLogLevel.verbose,
         );
         if (allCalls.length == 1) {
           return allCalls.first;
@@ -284,7 +284,7 @@ class InferenceChat {
 
     // Clear model history for single-turn models (e.g., FunctionGemma)
     if (_isSingleTurnModel) {
-      gemmaLog(
+      edgeAiLog(
         'InferenceChat: Single-turn model detected, clearing model history...',
       );
       _modelHistory.clear();
@@ -295,7 +295,7 @@ class InferenceChat {
       // Recreate session to clear native state
       await session.close();
       session = await sessionCreator!();
-      gemmaLog('InferenceChat: Model history cleared and session recreated');
+      edgeAiLog('InferenceChat: Model history cleared and session recreated');
     }
 
     return TextResponse(
@@ -318,13 +318,13 @@ class InferenceChat {
   /// implementation that balances all four paths; new consumers should prefer it
   /// over re-driving this stream directly.
   Stream<ModelResponse> generateChatResponseAsync() async* {
-    gemmaLog('InferenceChat: Starting async stream generation');
+    edgeAiLog('InferenceChat: Starting async stream generation');
     final buffer = StringBuffer();
 
     // Smart function handling mode - continuous scanning for JSON patterns
     String funcBuffer = '';
 
-    gemmaLog('InferenceChat: Starting to iterate over native tokens...');
+    edgeAiLog('InferenceChat: Starting to iterate over native tokens...');
 
     // Track if we emitted a function call (to record correct history and skip session clearing)
     bool emittedFunctionCall = false;
@@ -386,9 +386,9 @@ class InferenceChat {
       if (response is TextResponse) {
         final token = response.token;
         if (kDebugMode) {
-          gemmaLog(
+          edgeAiLog(
             'InferenceChat: Received filtered token: "$token"',
-            level: GemmaLogLevel.verbose,
+            level: EdgeAiLogLevel.verbose,
           );
         }
 
@@ -435,9 +435,9 @@ class InferenceChat {
             // We're already buffering - add token and check for completion
             funcBuffer += token;
             if (kDebugMode) {
-              gemmaLog(
+              edgeAiLog(
                 'InferenceChat: Buffering token: "$token", total: ${funcBuffer.length} chars',
-                level: GemmaLogLevel.verbose,
+                level: EdgeAiLogLevel.verbose,
               );
             }
 
@@ -454,9 +454,9 @@ class InferenceChat {
                   // Found JSON with message field - extract and display the message
                   final message = jsonData['message'] as String;
                   if (kDebugMode) {
-                    gemmaLog(
+                    edgeAiLog(
                       'InferenceChat: Extracted message from JSON: "$message"',
-                      level: GemmaLogLevel.verbose,
+                      level: EdgeAiLogLevel.verbose,
                     );
                   }
                   yield TextResponse(message);
@@ -465,7 +465,7 @@ class InferenceChat {
                   continue;
                 }
               } catch (e) {
-                gemmaLog(
+                edgeAiLog(
                   'InferenceChat: Failed to parse JSON for message extraction: $e',
                 );
               }
@@ -476,7 +476,7 @@ class InferenceChat {
                 modelType: modelType,
               );
               if (allCalls.isNotEmpty) {
-                gemmaLog(
+                edgeAiLog(
                   'InferenceChat: Found ${allCalls.length} function call(s) in complete buffer!',
                 );
                 emittedFunctionCall = true;
@@ -485,7 +485,7 @@ class InferenceChat {
                 final toolCallMessage = Message.toolCall(text: funcBuffer);
                 _fullHistory.add(toolCallMessage);
                 _modelHistory.add(toolCallMessage);
-                gemmaLog(
+                edgeAiLog(
                   'InferenceChat: Added function call to history before yielding',
                 );
                 if (allCalls.length == 1) {
@@ -498,7 +498,7 @@ class InferenceChat {
                 continue;
               } else {
                 // Not a valid function call - emit as text and clear buffer
-                gemmaLog('InferenceChat: Invalid JSON, emitting as text');
+                edgeAiLog('InferenceChat: Invalid JSON, emitting as text');
                 yield TextResponse(funcBuffer);
                 funcBuffer = '';
                 shouldAddToBuffer = false;
@@ -508,7 +508,7 @@ class InferenceChat {
 
             // If buffer gets too long without completing, flush as text
             if (funcBuffer.length > maxFunctionBufferLength) {
-              gemmaLog(
+              edgeAiLog(
                 'InferenceChat: Buffer too long without completion, flushing as text',
               );
               yield TextResponse(funcBuffer);
@@ -526,9 +526,9 @@ class InferenceChat {
               modelType: modelType,
             )) {
               if (kDebugMode) {
-                gemmaLog(
+                edgeAiLog(
                   'InferenceChat: Found potential function call start in token: "$token"',
-                  level: GemmaLogLevel.verbose,
+                  level: EdgeAiLogLevel.verbose,
                 );
               }
               funcBuffer = token;
@@ -544,9 +544,9 @@ class InferenceChat {
             } else {
               // Normal text token - emit immediately
               if (kDebugMode) {
-                gemmaLog(
+                edgeAiLog(
                   'InferenceChat: Emitting text token: "$token"',
-                  level: GemmaLogLevel.verbose,
+                  level: EdgeAiLogLevel.verbose,
                 );
               }
               yield response;
@@ -556,9 +556,9 @@ class InferenceChat {
         } else {
           // No function processing happening - emit token directly
           if (kDebugMode) {
-            gemmaLog(
+            edgeAiLog(
               'InferenceChat: No function processing, emitting token as text: "$token"',
-              level: GemmaLogLevel.verbose,
+              level: EdgeAiLogLevel.verbose,
             );
           }
           yield response;
@@ -575,7 +575,7 @@ class InferenceChat {
       }
     }
 
-    gemmaLog('InferenceChat: Native token stream ended');
+    edgeAiLog('InferenceChat: Native token stream ended');
 
     // The stream ended before we classified this Gemma 4 turn (e.g. a
     // whitespace-only reply) — the probed tokens are plain text, flush them.
@@ -585,9 +585,9 @@ class InferenceChat {
     }
 
     final response = buffer.toString();
-    gemmaLog(
+    edgeAiLog(
       'InferenceChat: Complete response accumulated: "$response"',
-      level: GemmaLogLevel.verbose,
+      level: EdgeAiLogLevel.verbose,
     );
 
     // SDK-passthrough path (same guard that swallowed the tool-call JSON above):
@@ -598,7 +598,7 @@ class InferenceChat {
       if (raw != null) {
         final allCalls = SdkResponseParser.extractToolCalls(raw);
         if (allCalls.isNotEmpty) {
-          gemmaLog(
+          edgeAiLog(
             'InferenceChat: ${allCalls.length} SDK-parsed tool call(s) at end of stream',
           );
           emittedFunctionCall = true;
@@ -628,7 +628,7 @@ class InferenceChat {
     // re-appending the JSON-shaped blob as an assistant turn would pollute the
     // model's next-turn context more than omitting it.
     if (sdkSwallow && !emittedFunctionCall && sdkSwallowed.isNotEmpty) {
-      gemmaLog(
+      edgeAiLog(
         'InferenceChat: SDK tool-call stream suppressed but no call parsed — '
         'surfacing raw text (fallback)',
       );
@@ -637,7 +637,7 @@ class InferenceChat {
 
     // Handle end of stream - process any remaining buffer
     if (funcBuffer.isNotEmpty) {
-      gemmaLog(
+      edgeAiLog(
         'InferenceChat: Processing remaining buffer at end of stream: ${funcBuffer.length} chars',
       );
 
@@ -661,9 +661,9 @@ class InferenceChat {
             if (jsonData is Map<String, dynamic> &&
                 jsonData.containsKey('message')) {
               final message = jsonData['message'] as String;
-              gemmaLog(
+              edgeAiLog(
                 'InferenceChat: Extracted message from end-of-stream JSON: "$message"',
-                level: GemmaLogLevel.verbose,
+                level: EdgeAiLogLevel.verbose,
               );
               yield TextResponse(message);
               return;
@@ -676,7 +676,7 @@ class InferenceChat {
             modelType: modelType,
           );
           if (allCalls.isNotEmpty) {
-            gemmaLog(
+            edgeAiLog(
               'InferenceChat: ${allCalls.length} function call(s) found at end of stream',
             );
             emittedFunctionCall = true;
@@ -684,7 +684,7 @@ class InferenceChat {
             final toolCallMessage = Message.toolCall(text: contentToCheck);
             _fullHistory.add(toolCallMessage);
             _modelHistory.add(toolCallMessage);
-            gemmaLog(
+            edgeAiLog(
               'InferenceChat: Added function call to history at end of stream',
             );
             if (allCalls.length == 1) {
@@ -696,11 +696,11 @@ class InferenceChat {
             yield TextResponse(funcBuffer);
           }
         } catch (e) {
-          gemmaLog('InferenceChat: Failed to parse end-of-stream JSON: $e');
+          edgeAiLog('InferenceChat: Failed to parse end-of-stream JSON: $e');
           yield TextResponse(funcBuffer);
         }
       } else {
-        gemmaLog(
+        edgeAiLog(
           'InferenceChat: No complete JSON at end of stream, emitting remaining as text',
         );
         yield TextResponse(funcBuffer);
@@ -708,23 +708,23 @@ class InferenceChat {
     }
 
     try {
-      gemmaLog('InferenceChat: Calculating response tokens...');
+      edgeAiLog('InferenceChat: Calculating response tokens...');
       final responseTokens = await session.sizeInTokens(response);
-      gemmaLog('InferenceChat: Response tokens: $responseTokens');
+      edgeAiLog('InferenceChat: Response tokens: $responseTokens');
       _currentTokens += responseTokens;
-      gemmaLog('InferenceChat: Current total tokens: $_currentTokens');
+      edgeAiLog('InferenceChat: Current total tokens: $_currentTokens');
 
       if (_currentTokens >= (maxTokens - tokenBuffer)) {
-        gemmaLog('InferenceChat: Token limit reached, recreating session...');
+        edgeAiLog('InferenceChat: Token limit reached, recreating session...');
         await _recreateSessionWithReducedChunks();
-        gemmaLog('InferenceChat: Session recreated successfully');
+        edgeAiLog('InferenceChat: Session recreated successfully');
       }
     } catch (e) {
-      gemmaLog('InferenceChat: Error during token calculation: $e');
+      edgeAiLog('InferenceChat: Error during token calculation: $e');
     }
 
     try {
-      gemmaLog('InferenceChat: Adding message to history...');
+      edgeAiLog('InferenceChat: Adding message to history...');
       // For function calls: already added to history when yielded (above)
       // For text responses: add now since they weren't added during streaming.
       // Skip an EMPTY response: a cancelled stream (stopGeneration before any
@@ -733,25 +733,25 @@ class InferenceChat {
       // (#325). "No text produced" is not a turn worth recording.
       if (!emittedFunctionCall && response.isNotEmpty) {
         final chatMessage = Message(text: response, isUser: false);
-        gemmaLog(
+        edgeAiLog(
           'InferenceChat: Created text message object: ${chatMessage.text}',
-          level: GemmaLogLevel.verbose,
+          level: EdgeAiLogLevel.verbose,
         );
         _fullHistory.add(chatMessage);
-        gemmaLog('InferenceChat: Added to full history');
+        edgeAiLog('InferenceChat: Added to full history');
         _modelHistory.add(chatMessage);
-        gemmaLog('InferenceChat: Added to model history');
+        edgeAiLog('InferenceChat: Added to model history');
       } else {
-        gemmaLog(
+        edgeAiLog(
           'InferenceChat: Function call was already added to history when yielded',
         );
       }
-      gemmaLog('InferenceChat: Message added to history successfully');
+      edgeAiLog('InferenceChat: Message added to history successfully');
 
       // Clear model history for single-turn models (e.g., FunctionGemma)
       // BUT only if this was NOT a function call - we need context for tool response
       if (_isSingleTurnModel && !emittedFunctionCall) {
-        gemmaLog(
+        edgeAiLog(
           'InferenceChat: Single-turn model detected (text response), clearing model history...',
         );
         _modelHistory.clear();
@@ -762,21 +762,21 @@ class InferenceChat {
         // Recreate session to clear native state
         await session.close();
         session = await sessionCreator!();
-        gemmaLog('InferenceChat: Model history cleared and session recreated');
+        edgeAiLog('InferenceChat: Model history cleared and session recreated');
       } else if (_isSingleTurnModel && emittedFunctionCall) {
-        gemmaLog(
+        edgeAiLog(
           'InferenceChat: Single-turn model with function call - keeping history for tool response',
         );
       }
     } catch (e) {
-      gemmaLog('InferenceChat: Error adding message to history: $e');
+      edgeAiLog('InferenceChat: Error adding message to history: $e');
       rethrow;
     }
 
-    gemmaLog('InferenceChat: generateChatResponseAsync completed successfully');
+    edgeAiLog('InferenceChat: generateChatResponseAsync completed successfully');
   }
 
-  /// Drive flutter_gemma's function-calling loop to completion. Stream this
+  /// Drive flutter_edge_ai's function-calling loop to completion. Stream this
   /// turn's text/thinking tokens; whenever the model calls a tool, run
   /// [onToolCall] and feed its result back as a tool-response message, then
   /// continue — until a turn has no calls (the model's final answer) or
@@ -828,7 +828,7 @@ class InferenceChat {
         // ORIGINAL error (the failure still surfaces to the caller — never
         // hidden).
         if (pending.isNotEmpty) {
-          gemmaLog(
+          edgeAiLog(
             'InferenceChat.generateChatResponseWithTools: generation stream '
             'errored mid-turn; balancing ${pending.length} committed '
             'tool-call(s) before rethrowing.',
@@ -845,7 +845,7 @@ class InferenceChat {
           // original below. The caller's safe recovery is to recreate the session
           // / clearHistory(replayHistory:), which the Dart-side history makes
           // correct once the session is usable again.
-          gemmaLog(
+          edgeAiLog(
             'InferenceChat.generateChatResponseWithTools: could not balance '
             'committed tool-call(s) after a stream error ($balanceError); the '
             'persistent chat history may be left unbalanced — recover by '
@@ -912,7 +912,7 @@ class InferenceChat {
     // MaxIterationsEvent) — silent truncation would violate the
     // no-masking-failure rule.
     onMaxToolTurns?.call();
-    gemmaLog(
+    edgeAiLog(
       'InferenceChat.generateChatResponseWithTools: hit maxToolTurns '
       '($maxToolTurns) with tool calls still pending; stopping. The reply may '
       'be empty or truncated — the model never produced a call-free answer.',
@@ -1045,7 +1045,7 @@ class InferenceChat {
       // an optional system text. Nothing in the format expresses "you must call
       // a function", so honouring `required` would mean inventing tokens the
       // model was never trained on. Say so rather than ignore it.
-      gemmaLog(
+      edgeAiLog(
         'WARNING: ToolChoice.required is not supported by FunctionGemma — its '
         'prompt format cannot express it. Behaving as ToolChoice.auto.',
       );

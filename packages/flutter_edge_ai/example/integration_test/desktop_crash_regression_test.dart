@@ -82,14 +82,14 @@ void main() {
       (tester) async {
         await registerTestEngines();
 
-        await FlutterGemma.installModel(
+        await FlutterEdgeAi.installModel(
           modelType: ModelType.gemmaIt,
           fileType: ModelFileType.litertlm,
         ).fromFile(modelPath).install();
 
-        expect(FlutterGemma.hasActiveModel(), isTrue);
+        expect(FlutterEdgeAi.hasActiveModel(), isTrue);
 
-        final model = await FlutterGemma.getActiveModel(
+        final model = await FlutterEdgeAi.getActiveModel(
           maxTokens: 256,
           preferredBackend: PreferredBackend.gpu,
         );
@@ -136,12 +136,12 @@ void main() {
       (tester) async {
         await registerTestEngines();
 
-        await FlutterGemma.installModel(
+        await FlutterEdgeAi.installModel(
           modelType: ModelType.gemmaIt,
           fileType: ModelFileType.litertlm,
         ).fromFile(modelPath).install();
 
-        final model = await FlutterGemma.getActiveModel(
+        final model = await FlutterEdgeAi.getActiveModel(
           maxTokens: 256,
           preferredBackend: PreferredBackend.gpu,
         );
@@ -199,14 +199,14 @@ void main() {
       (tester) async {
         await registerTestEngines();
 
-        await FlutterGemma.installModel(
+        await FlutterEdgeAi.installModel(
           modelType: ModelType.gemmaIt,
           fileType: ModelFileType.litertlm,
         ).fromFile(modelPath).install();
 
         for (var cycle = 1; cycle <= 3; cycle++) {
           debugPrint('[B1] Cycle $cycle/3 — opening model...');
-          final model = await FlutterGemma.getActiveModel(
+          final model = await FlutterEdgeAi.getActiveModel(
             maxTokens: 128,
             preferredBackend: PreferredBackend.gpu,
           );
@@ -261,7 +261,7 @@ void main() {
       (tester) async {
         await registerTestEngines();
 
-        await FlutterGemma.installModel(
+        await FlutterEdgeAi.installModel(
           modelType: ModelType.gemmaIt,
           fileType: ModelFileType.litertlm,
         ).fromFile(modelPath).install();
@@ -270,7 +270,7 @@ void main() {
         debugPrint(
           '[B2] Starting first request (will disconnect mid-stream)...',
         );
-        final model1 = await FlutterGemma.getActiveModel(
+        final model1 = await FlutterEdgeAi.getActiveModel(
           maxTokens: 512,
           preferredBackend: PreferredBackend.gpu,
         );
@@ -315,7 +315,7 @@ void main() {
         debugPrint(
           '[B2] Starting second request (verifying server is still alive)...',
         );
-        final model2 = await FlutterGemma.getActiveModel(
+        final model2 = await FlutterEdgeAi.getActiveModel(
           maxTokens: 128,
           preferredBackend: PreferredBackend.gpu,
         );
@@ -383,14 +383,14 @@ void main() {
       (tester) async {
         await registerTestEngines();
 
-        await FlutterGemma.installModel(
+        await FlutterEdgeAi.installModel(
           modelType: ModelType.qwen,
           fileType: ModelFileType.litertlm,
         ).fromFile(qwenModelPath).install();
 
-        expect(FlutterGemma.hasActiveModel(), isTrue);
+        expect(FlutterEdgeAi.hasActiveModel(), isTrue);
 
-        final model = await FlutterGemma.getActiveModel(
+        final model = await FlutterEdgeAi.getActiveModel(
           maxTokens: 2048,
           preferredBackend: PreferredBackend.gpu,
         );
@@ -437,12 +437,12 @@ void main() {
       (tester) async {
         await registerTestEngines();
 
-        await FlutterGemma.installModel(
+        await FlutterEdgeAi.installModel(
           modelType: ModelType.qwen,
           fileType: ModelFileType.litertlm,
         ).fromFile(qwenModelPath).install();
 
-        final model = await FlutterGemma.getActiveModel(
+        final model = await FlutterEdgeAi.getActiveModel(
           maxTokens: 2048,
           preferredBackend: PreferredBackend.gpu,
         );
@@ -499,7 +499,7 @@ void main() {
       (tester) async {
         await registerTestEngines();
 
-        await FlutterGemma.installModel(
+        await FlutterEdgeAi.installModel(
           modelType: ModelType.qwen,
           fileType: ModelFileType.litertlm,
         ).fromFile(qwenModelPath).install();
@@ -518,7 +518,7 @@ void main() {
             '[C3] Attempt $attempt/3 — starting generation then disconnecting during prefill...',
           );
 
-          final model1 = await FlutterGemma.getActiveModel(
+          final model1 = await FlutterEdgeAi.getActiveModel(
             maxTokens: 2048,
             preferredBackend: PreferredBackend.gpu,
           );
@@ -563,7 +563,7 @@ void main() {
           debugPrint(
             '[C3] Attempt $attempt — verifying server is still alive...',
           );
-          final model2 = await FlutterGemma.getActiveModel(
+          final model2 = await FlutterEdgeAi.getActiveModel(
             maxTokens: 64,
             preferredBackend: PreferredBackend.gpu,
           );

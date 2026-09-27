@@ -50,7 +50,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_edge_ai/core/domain/platform_types.dart'
     show PreferredBackend;
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 
 import '../model/tts_model_profile.dart';
 import '../qwen3/npy_reader.dart';
@@ -114,10 +114,10 @@ class _WorkerInit {
   final Map<String, String> artifactPaths;
   final PreferredBackend? backend;
 
-  /// Snapshot of the main-isolate [gemmaLogLevel] at spawn — the worker
+  /// Snapshot of the main-isolate [edgeAiLogLevel] at spawn — the worker
   /// isolate gets its own copy of the per-isolate top-level (default info),
   /// so it must be seeded explicitly.
-  final GemmaLogLevel logLevel;
+  final EdgeAiLogLevel logLevel;
 
   /// Qwen3-only: the `Qwen3Prompt.languageIds` key (case-insensitive) or
   /// `'auto'`, forwarded verbatim to every `Qwen3TtsCore.synthesizePcm16`
@@ -205,7 +205,7 @@ class TtsWorker {
           profile: profile,
           artifactPaths: artifactPaths,
           backend: backend,
-          logLevel: gemmaLogLevel,
+          logLevel: edgeAiLogLevel,
           language: language,
           voice: voice,
         ),
@@ -290,7 +290,7 @@ class TtsWorker {
       await _closeAck!.future.timeout(const Duration(seconds: 5));
     } catch (_) {
       // Timed out or errored — fall through to a forced kill below.
-      gemmaLog(
+      edgeAiLog(
         '⚠️  TtsWorker.close(): native teardown ack timed out — forcing kill',
       );
     }
@@ -306,7 +306,7 @@ class TtsWorker {
 /// loop.
 Future<void> _workerEntry(_WorkerInit init) async {
   // Seed this isolate's per-isolate log level from the main-isolate snapshot.
-  gemmaLogLevel = init.logLevel;
+  edgeAiLogLevel = init.logLevel;
   switch (init.profile.pipeline) {
     case TtsPipelineKind.matchaCfm:
       await _runMatchaWorker(init);
@@ -355,7 +355,7 @@ Future<void> _runMatchaWorker(_WorkerInit init) async {
     normalizer = TtsTextNormalizer.forLocale(init.profile.locale, {});
   } catch (e, st) {
     loadedCore?.dispose();
-    gemmaLog('[TtsWorker] load failed: $e\n$st');
+    edgeAiLog('[TtsWorker] load failed: $e\n$st');
     init.replyTo.send('TTS worker failed to load: $e');
     return;
   }
@@ -429,7 +429,7 @@ Future<void> _runInflectWorker(_WorkerInit init) async {
     normalizer = TtsTextNormalizer.forLocale(init.profile.locale, {});
   } catch (e, st) {
     loadedCore?.dispose();
-    gemmaLog('[TtsWorker] inflect load failed: $e\n$st');
+    edgeAiLog('[TtsWorker] inflect load failed: $e\n$st');
     init.replyTo.send('TTS worker failed to load: $e');
     return;
   }
@@ -545,7 +545,7 @@ Future<void> _runQwen3Worker(_WorkerInit init) async {
     demoVoice = init.voice ?? readNpyF32(demoVoicePath);
   } catch (e, st) {
     loadedCore?.dispose();
-    gemmaLog('[TtsWorker] qwen3 load failed: $e\n$st');
+    edgeAiLog('[TtsWorker] qwen3 load failed: $e\n$st');
     init.replyTo.send('TTS worker failed to load: $e');
     return;
   }

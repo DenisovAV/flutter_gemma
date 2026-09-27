@@ -5,7 +5,7 @@ import 'package:flutter_edge_ai/core/infrastructure/web_file_system_service.dart
 import 'package:flutter_edge_ai/core/infrastructure/web_cache_service.dart';
 import 'package:flutter_edge_ai/core/infrastructure/web_js_interop.dart';
 import 'package:flutter_edge_ai/core/services/model_repository.dart';
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 
 /// Handles installation of models from native bundled resources (WEB PLATFORM)
 ///
@@ -82,7 +82,7 @@ class WebBundledSourceHandler implements SourceHandler {
       yield* cacheService.getOrCacheAndRegisterWithProgress(
         cacheKey: cacheKey,
         loader: (onProgress) async {
-          gemmaLog(
+          edgeAiLog(
             '[WebBundledSourceHandler] Fetching bundled resource: $resourceName',
           );
 
@@ -97,7 +97,7 @@ class WebBundledSourceHandler implements SourceHandler {
             );
           }
 
-          gemmaLog(
+          edgeAiLog(
             '[WebBundledSourceHandler] Resource fetched: ${response.data.length} bytes',
           );
           onProgress(1.0);
@@ -122,7 +122,7 @@ class WebBundledSourceHandler implements SourceHandler {
 
       await repository.saveModel(modelInfo);
     } catch (e) {
-      gemmaLog(
+      edgeAiLog(
         '[WebBundledSourceHandler] ❌ Failed to install bundled resource: $e',
       );
       rethrow;

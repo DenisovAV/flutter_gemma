@@ -58,10 +58,10 @@ post_install do |installer|
   # build for unexpected lib*.dylib files in Frameworks/.
   #
   # The block below only sweeps any leftover lib*.dylib symlinks from older
-  # flutter_gemma versions so a re-pod-install yields a clean Frameworks/.
+  # flutter_edge_ai versions so a re-pod-install yields a clean Frameworks/.
   installer.aggregate_targets.each do |aggregate_target|
     aggregate_target.user_targets.each do |user_target|
-      phase_name = '[flutter_gemma] Setup LiteRT-LM iOS'
+      phase_name = '[flutter_edge_ai] Setup LiteRT-LM iOS'
       existing = user_target.shell_script_build_phases.find { |p| p.name == phase_name }
       phase = existing || user_target.new_shell_script_build_phase(phase_name)
       phase.shell_script = <<~SHELL

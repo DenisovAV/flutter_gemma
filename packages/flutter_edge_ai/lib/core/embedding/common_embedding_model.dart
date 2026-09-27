@@ -5,14 +5,14 @@
 // file was already engine-agnostic in shape (issue #299's isolate facade);
 // this version is generalized to take a [ForwardPassDescriptor] instead of
 // LiteRT-specific model/tokenizer/backend params, so any engine package
-// (flutter_gemma_litertlm today, flutter_gemma_onnx later) can plug into the
+// (flutter_edge_ai_litertlm today, flutter_edge_ai_onnx later) can plug into the
 // same facade by building a descriptor + calling [CommonEmbeddingModel.create].
 //
 // Public method signatures (`generateEmbedding`/`generateEmbeddings`/
 // `getDimension`/`close`) are unchanged from `LitertEmbeddingModel`.
 
 import 'package:flutter_edge_ai/core/lifecycle/close_notifier.dart';
-import 'package:flutter_edge_ai/flutter_gemma_interface.dart'
+import 'package:flutter_edge_ai/flutter_edge_ai_interface.dart'
     show EmbeddingModel, TaskType;
 
 import 'embedding_worker.dart';

@@ -42,13 +42,13 @@ void main() {
         isNotNull,
         reason:
             'stage $_modelFile to the app documents dir (desktop/iOS) or '
-            '/data/local/tmp/flutter_gemma_test/ (Android)',
+            '/data/local/tmp/flutter_edge_ai_test/ (Android)',
       );
-      await FlutterGemma.installModel(
+      await FlutterEdgeAi.installModel(
         modelType: ModelType.gemmaIt,
         fileType: ModelFileType.litertlm,
       ).fromFile(llmPath!).install();
-      final model = await FlutterGemma.getActiveModel(
+      final model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 1024,
         preferredBackend: PreferredBackend.cpu,
       );

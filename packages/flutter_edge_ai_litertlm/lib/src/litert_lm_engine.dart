@@ -7,8 +7,8 @@ import 'package:flutter_edge_ai/core/registry/hugging_face_resolver_source.dart'
     show HuggingFaceResolverSource;
 import 'package:flutter_edge_ai/core/registry/inference_engine_provider.dart';
 import 'package:flutter_edge_ai/core/registry/runtime_config.dart';
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
-import 'package:flutter_edge_ai/flutter_gemma_interface.dart' show InferenceModel;
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai_interface.dart' show InferenceModel;
 import 'package:flutter_edge_ai/core/model_management/model_specs.dart'
     show InferenceModelSpec;
 import 'package:flutter/foundation.dart' show visibleForTesting;
@@ -60,7 +60,7 @@ int clampLitertlmContextTokens(
 }) {
   if (preferredBackend == PreferredBackend.npu) return maxTokens;
   if (maxTokens >= kMinLitertlmContextTokens) return maxTokens;
-  gemmaLog(
+  edgeAiLog(
     '[LiteRtLmEngine] maxTokens ($maxTokens) is below the minimum context '
     'size for .litertlm models; clamping to $kMinLitertlmContextTokens. '
     'maxTokens is the CONTEXT WINDOW (KV-cache, input + output) — not the '
@@ -116,7 +116,7 @@ class LiteRtLmEngine
 
   /// The engine's own Hugging Face resolver: reads a repo's
   /// `litertlm_manifest.json`. Auto-registered by
-  /// `FlutterGemma.initialize(inferenceEngines: …)`, so `.litertlm` HF manifests
+  /// `FlutterEdgeAi.initialize(inferenceEngines: …)`, so `.litertlm` HF manifests
   /// resolve without a separate `huggingFaceResolvers:` list. Pass an explicit
   /// `LitertlmManifestResolver(revision: …)` to `initialize` only to override
   /// (e.g. pin a revision).
@@ -167,7 +167,7 @@ class LiteRtLmEngine
     // error, so say that the setting did nothing here.
     if (config.activationDataType != null &&
         ffiRuntime.activeBackend != PreferredBackend.gpu) {
-      gemmaLog(
+      edgeAiLog(
         '[LiteRtLmEngine] activationDataType '
         '(${config.activationDataType!.name}) has no effect: the model runs on '
         '${ffiRuntime.activeBackend.name}, and only the GPU executor reads it.',

@@ -7,7 +7,7 @@ import 'package:flutter_edge_ai/core/registry/inference_engine_provider.dart';
 import 'package:flutter_edge_ai/core/registry/runtime_config.dart';
 import 'package:flutter_edge_ai/core/model_management/model_specs.dart'
     show InferenceModelSpec;
-import 'package:flutter_edge_ai/flutter_gemma_interface.dart' show InferenceModel;
+import 'package:flutter_edge_ai/flutter_edge_ai_interface.dart' show InferenceModel;
 
 import 'availability.dart';
 import 'builtin_ai_hugging_face_resolver.dart'
@@ -29,7 +29,7 @@ class BuiltInAiEngine
   int get priority => 0;
 
   /// The engine's own Hugging Face resolver. Auto-registered by
-  /// `FlutterGemma.initialize(inferenceEngines: …)` so it reserves the
+  /// `FlutterEdgeAi.initialize(inferenceEngines: …)` so it reserves the
   /// `.builtIn` slot: `resolveHuggingFace(fileType: builtIn)` (and the one-call
   /// `fromHuggingFace`) throws a clear `UnsupportedError` — the OS owns the
   /// weights, there is no Hugging Face file to resolve.

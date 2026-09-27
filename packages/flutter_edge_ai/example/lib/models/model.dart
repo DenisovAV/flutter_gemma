@@ -503,7 +503,7 @@ enum Model implements InferenceModelInterface {
   ),
 
   // Qwen2.5 0.5B Instruct — ONNX web text generation via Transformers.js
-  // (`@huggingface/transformers`), flutter_gemma_onnx's web arm. Model
+  // (`@huggingface/transformers`), flutter_edge_ai_onnx's web arm. Model
   // identity IS the Hugging Face repo id itself — `baseUrl` is the repo
   // root, not a file — Transformers.js resolves + caches the repo bytes
   // itself, so there is nothing for core's install pipeline to download
@@ -792,7 +792,7 @@ enum Model implements InferenceModelInterface {
   ),
 
   // === BUILT-IN OS AI MODELS ===
-  // OS-owned system models via flutter_gemma_builtin_ai. fileType builtIn makes
+  // OS-owned system models via flutter_edge_ai_builtin_ai. fileType builtIn makes
   // core's install pipeline skip the (nonexistent) file — the OS owns the
   // weights, so there is no download. `baseUrl` carries the docs URL only (never
   // fetched). `localModel: true` keeps them visible on all platforms and out of

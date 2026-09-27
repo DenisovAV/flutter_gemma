@@ -17,7 +17,7 @@
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:flutter_edge_ai/core/api/flutter_gemma.dart';
+import 'package:flutter_edge_ai/core/api/flutter_edge_ai.dart';
 import 'package:flutter_edge_ai/core/model.dart';
 import 'package:flutter_edge_ai/core/di/service_registry.dart';
 import 'inference_test_helpers.dart' show registerTestEngines;
@@ -37,19 +37,19 @@ void main() {
     const fixtureBasename = 'test_image.jpg';
 
     // Ensure clean state — uninstall if a prior run left it around.
-    final wasInstalled = await FlutterGemma.isModelInstalled(fixtureBasename);
+    final wasInstalled = await FlutterEdgeAi.isModelInstalled(fixtureBasename);
     if (wasInstalled) {
-      await FlutterGemma.uninstallModel(fixtureBasename);
+      await FlutterEdgeAi.uninstallModel(fixtureBasename);
     }
 
     // The actual probe — installing from an asset on macOS must not throw
     // "_Exception: Failed to copy asset: ... - MissingPluginException(...)".
-    await FlutterGemma.installModel(
+    await FlutterEdgeAi.installModel(
       modelType: ModelType.gemmaIt,
     ).fromAsset(fixturePath).install();
 
     // Verify the file actually landed in the canonical model storage dir.
-    // On desktop this is Application Support/flutter_gemma/ (not Documents),
+    // On desktop this is Application Support/flutter_edge_ai/ (not Documents),
     // so we ask FileSystemService for the correct expected path.
     final expectedPath = await ServiceRegistry.instance.fileSystemService
         .getTargetPath(fixtureBasename);
@@ -66,6 +66,6 @@ void main() {
     );
 
     // Cleanup.
-    await FlutterGemma.uninstallModel(fixtureBasename);
+    await FlutterEdgeAi.uninstallModel(fixtureBasename);
   });
 }

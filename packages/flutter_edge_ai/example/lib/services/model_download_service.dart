@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter_edge_ai/core/api/flutter_gemma.dart';
+import 'package:flutter_edge_ai/core/api/flutter_edge_ai.dart';
 import 'package:flutter_edge_ai/core/model.dart';
 import 'package:flutter_edge_ai_example/services/auth_token_service.dart';
 import 'package:flutter_edge_ai_example/utils/platform_io_helper.dart';
@@ -55,7 +55,7 @@ class ModelDownloadService {
           : modelFilename;
 
       // Modern API: Check if model is installed using actual filename
-      final isInstalled = await FlutterGemma.isModelInstalled(actualFilename);
+      final isInstalled = await FlutterEdgeAi.isModelInstalled(actualFilename);
 
       if (isInstalled) {
         return true;
@@ -118,7 +118,7 @@ class ModelDownloadService {
       final authToken = token.isEmpty ? null : token;
 
       // Modern API: Install inference model from network with progress tracking
-      await FlutterGemma.installModel(modelType: modelType, fileType: fileType)
+      await FlutterEdgeAi.installModel(modelType: modelType, fileType: fileType)
           .fromNetwork(modelUrl, token: authToken, foreground: foreground)
           .withProgress((progress) {
             onProgress(progress.toDouble());
@@ -142,7 +142,7 @@ class ModelDownloadService {
           : modelFilename;
 
       // Use Modern API to properly uninstall (deletes metadata + file)
-      await FlutterGemma.uninstallModel(actualFilename);
+      await FlutterEdgeAi.uninstallModel(actualFilename);
     } catch (e) {
       if (kDebugMode) {
         debugPrint('Error deleting model: $e');

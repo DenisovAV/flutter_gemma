@@ -113,7 +113,7 @@ class ChatScreenState extends State<ChatScreen> {
       // Step 1: Install model (Modern API handles already-installed check)
       debugPrint('[ChatScreen] Step 1: Installing model...');
 
-      final installer = FlutterGemma.installModel(
+      final installer = FlutterEdgeAi.installModel(
         modelType: widget.model.modelType,
         fileType: widget.model.fileType,
       );
@@ -180,7 +180,7 @@ class ChatScreenState extends State<ChatScreen> {
       // `defaults:` carries the manifest's own maxTokens/backend for an
       // hfRepo model. An explicit user pick in the backend selector still wins
       // — that is the whole point of the defaults being overridable.
-      final model = await FlutterGemma.getActiveModel(
+      final model = await FlutterEdgeAi.getActiveModel(
         defaults: hfDefaults,
         maxTokens: hfDefaults == null ? widget.model.maxTokens : null,
         preferredBackend:

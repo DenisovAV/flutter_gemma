@@ -95,15 +95,15 @@ class AppState extends ChangeNotifier {
     developer.log('$e', name: context, error: e, stackTrace: stack);
   }
 
-  ModelRef<FlutterGemmaModelOptions> get modelRef =>
-      flutterGemma.model(_modelName);
-  EmbedderRef<FlutterGemmaEmbedConfig> get embedderRef =>
-      flutterGemma.embedder(_embedderName);
+  ModelRef<FlutterEdgeAiModelOptions> get modelRef =>
+      flutterEdgeAi.model(_modelName);
+  EmbedderRef<FlutterEdgeAiEmbedConfig> get embedderRef =>
+      flutterEdgeAi.embedder(_embedderName);
 
   Future<void> initialize() async {
     try {
-      inferenceInstalled = FlutterGemma.hasActiveModel();
-      embedderInstalled = FlutterGemma.hasActiveEmbedder();
+      inferenceInstalled = FlutterEdgeAi.hasActiveModel();
+      embedderInstalled = FlutterEdgeAi.hasActiveEmbedder();
       if (inferenceInstalled || embedderInstalled) {
         _createGenkit();
       }
@@ -115,12 +115,12 @@ class AppState extends ChangeNotifier {
   }
 
   void _createGenkit() {
-    final models = <FlutterGemmaModelConfig>[];
-    final embedders = <FlutterGemmaEmbedderConfig>[];
+    final models = <FlutterEdgeAiModelConfig>[];
+    final embedders = <FlutterEdgeAiEmbedderConfig>[];
 
     if (inferenceInstalled) {
       models.add(
-        FlutterGemmaModelConfig(
+        FlutterEdgeAiModelConfig(
           name: _modelName,
           modelType: gemma.ModelType.gemmaIt,
           // Desktop downloads the .litertlm model (see inferenceUrl above) and so
@@ -132,13 +132,13 @@ class AppState extends ChangeNotifier {
       );
     }
     if (embedderInstalled) {
-      embedders.add(FlutterGemmaEmbedderConfig(name: _embedderName));
+      embedders.add(FlutterEdgeAiEmbedderConfig(name: _embedderName));
     }
 
     if (models.isEmpty && embedders.isEmpty) return;
 
     _ai = Genkit(
-      plugins: [GenkitFlutterGemmaPlugin(models: models, embedders: embedders)],
+      plugins: [GenkitFlutterEdgeAiPlugin(models: models, embedders: embedders)],
     );
   }
 
@@ -156,7 +156,7 @@ class AppState extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await FlutterGemma.installModel(modelType: gemma.ModelType.gemmaIt)
+      await FlutterEdgeAi.installModel(modelType: gemma.ModelType.gemmaIt)
           .fromNetwork(inferenceUrl, token: hfToken.isNotEmpty ? hfToken : null)
           .withProgress((progress) {
             inferenceProgress = progress;
@@ -183,7 +183,7 @@ class AppState extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final installer = FlutterGemma.installEmbedder().modelFromNetwork(
+      final installer = FlutterEdgeAi.installEmbedder().modelFromNetwork(
         embedderModelUrl,
         token: hfToken.isNotEmpty ? hfToken : null,
       );
@@ -229,7 +229,7 @@ class AppState extends ChangeNotifier {
         final stream = _ai!.generateStream(
           model: modelRef,
           messages: messages,
-          config: FlutterGemmaModelOptions(maxTokens: maxTokens),
+          config: FlutterEdgeAiModelOptions(maxTokens: maxTokens),
         );
 
         await for (final chunk in stream) {
@@ -245,7 +245,7 @@ class AppState extends ChangeNotifier {
         final response = await _ai!.generate(
           model: modelRef,
           messages: messages,
-          config: FlutterGemmaModelOptions(maxTokens: maxTokens),
+          config: FlutterEdgeAiModelOptions(maxTokens: maxTokens),
         );
 
         chatMessages.add(ChatMessage(text: response.text, isUser: false));
@@ -325,7 +325,7 @@ class AppState extends ChangeNotifier {
         model: modelRef,
         prompt: prompt,
         tools: [getWeather, calculate],
-        config: FlutterGemmaModelOptions(maxTokens: maxTokens),
+        config: FlutterEdgeAiModelOptions(maxTokens: maxTokens),
         returnToolRequests: !_agentMode,
         maxTurns: _agentMode ? 5 : null,
       );

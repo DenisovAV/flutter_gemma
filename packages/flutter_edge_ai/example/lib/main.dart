@@ -5,7 +5,7 @@ import 'package:flutter_edge_ai_example/home_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Flutter Gemma via the shared bootstrap helper (single source of
+  // Initialize Flutter Edge AI via the shared bootstrap helper (single source of
   // truth for the engine/backend lists, shared with the RAG demo's runtime
   // store switcher). RAG is opt-in as of 1.0; the example starts on the sqlite
   // store and lets the RAG demo switch to qdrant at runtime on native platforms.
@@ -20,7 +20,7 @@ class ChatApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Gemma Example',
+      title: 'Flutter Edge AI Example',
       darkTheme: ThemeData(
         brightness: Brightness.dark,
         textTheme: const TextTheme(

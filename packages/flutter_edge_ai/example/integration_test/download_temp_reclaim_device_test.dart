@@ -16,7 +16,7 @@ import 'dart:io';
 import 'package:background_downloader/background_downloader.dart';
 import 'package:flutter_edge_ai/core/model_management/utils/download_temp_reclaim.dart';
 import 'package:flutter_edge_ai/flutter_edge_ai.dart';
-import 'package:flutter_edge_ai/mobile/flutter_gemma_mobile.dart';
+import 'package:flutter_edge_ai/mobile/flutter_edge_ai_mobile.dart';
 import 'package:flutter_edge_ai/mobile/smart_downloader.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
@@ -110,7 +110,7 @@ void main() {
       // temp. Swallow the cancellation/other errors.
       unawaited(() async {
         try {
-          await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
+          await FlutterEdgeAi.installModel(modelType: ModelType.gemmaIt)
               .fromNetwork(_gemma4Url, token: _token)
               .withCancelToken(cancel)
               .withProgress((_) {})

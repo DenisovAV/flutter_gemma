@@ -266,7 +266,7 @@ void main() {
             );
         expect(r.file, 'LFM2.5-1.2B-Instruct_int4_gpu.litertlm');
         expect(r.runtime.preferredBackend, PreferredBackend.gpu);
-        // The downgrade is on the record for release builds too (gemmaLog is
+        // The downgrade is on the record for release builds too (edgeAiLog is
         // debug-only): last note, naming the dropped hint and the outcome.
         expect(
           r.notes.last,

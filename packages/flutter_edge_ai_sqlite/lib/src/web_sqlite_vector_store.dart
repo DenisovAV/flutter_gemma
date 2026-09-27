@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 import 'package:flutter_edge_ai_sqlite/src/filter_to_vec0.dart';
 import 'package:sqlite3/wasm.dart';
@@ -125,7 +125,7 @@ class WebSqliteVectorStore implements VectorStoreRepository {
       try {
         failed?.close();
       } catch (closeError) {
-        gemmaLog(
+        edgeAiLog(
           '[WebVectorStore] close() during a failed initialize: $closeError',
         );
       }
@@ -154,7 +154,7 @@ class WebSqliteVectorStore implements VectorStoreRepository {
       try {
         await previous.close();
       } catch (e) {
-        gemmaLog('[WebVectorStore] could not drain the previous VFS: $e');
+        edgeAiLog('[WebVectorStore] could not drain the previous VFS: $e');
       }
     }
 
@@ -165,10 +165,10 @@ class WebSqliteVectorStore implements VectorStoreRepository {
       sqlite3.registerVirtualFileSystem(opfs, makeDefault: true);
       _persistence = _WebPersistence.opfs;
       _idb = null;
-      gemmaLog('[WebVectorStore] Using OPFS VFS for persistence');
+      edgeAiLog('[WebVectorStore] Using OPFS VFS for persistence');
       return;
     } catch (e) {
-      gemmaLog('[WebVectorStore] OPFS VFS unavailable ($e); trying IndexedDB');
+      edgeAiLog('[WebVectorStore] OPFS VFS unavailable ($e); trying IndexedDB');
     }
 
     // IndexedDB — main-isolate-safe and persistent. The IndexedDB database name
@@ -180,10 +180,10 @@ class WebSqliteVectorStore implements VectorStoreRepository {
       sqlite3.registerVirtualFileSystem(idb, makeDefault: true);
       _persistence = _WebPersistence.indexedDb;
       _idb = idb;
-      gemmaLog('[WebVectorStore] Using IndexedDB VFS for persistence');
+      edgeAiLog('[WebVectorStore] Using IndexedDB VFS for persistence');
       return;
     } catch (e) {
-      gemmaLog(
+      edgeAiLog(
         '[WebVectorStore] IndexedDB VFS unavailable ($e); '
         'falling back to in-memory (no persistence)',
       );
@@ -192,11 +192,11 @@ class WebSqliteVectorStore implements VectorStoreRepository {
     // Last resort: in-memory — the store works but loses all documents on page
     // reload. Logged explicitly (symmetric with the OPFS/IndexedDB branches) so
     // the durability downgrade is at least visible in debug builds. NOTE:
-    // gemmaLog is stripped in release, so a production user in a restricted-
+    // edgeAiLog is stripped in release, so a production user in a restricted-
     // storage context (private browsing, partitioned storage) gets a
     // non-persistent store silently — surfacing this through a public
     // persistence-mode API is tracked as a follow-up.
-    gemmaLog(
+    edgeAiLog(
       '[WebVectorStore] Neither OPFS nor IndexedDB available — using in-memory '
       'storage. Documents will NOT persist across page reloads.',
     );
@@ -575,7 +575,7 @@ class WebSqliteVectorStore implements VectorStoreRepository {
         // persist at all. Returning normally would be the #492 defect wearing
         // a different hat: the caller asks "make this durable", gets a
         // success, and loses the index on reload. The only warning otherwise
-        // is a gemmaLog that release builds strip.
+        // is a edgeAiLog that release builds strip.
         throw const VectorStoreException(
           'This store is running on an in-memory VFS (neither OPFS nor '
           'IndexedDB was available, e.g. private browsing or partitioned '
@@ -615,7 +615,7 @@ class WebSqliteVectorStore implements VectorStoreRepository {
       // cannot act on, and `flush()` is the call that reports failure.
       await idb?.close();
     } catch (e) {
-      gemmaLog('[WebVectorStore] close() could not drain the VFS: $e');
+      edgeAiLog('[WebVectorStore] close() could not drain the VFS: $e');
     }
   }
 

@@ -37,7 +37,7 @@ import 'hf/hf_fetch_web.dart' if (dart.library.io) 'hf/hf_fetch_io.dart';
 /// Auto-registered from `OnnxEngine` (which implements
 /// `HuggingFaceResolverSource`), so registering the engine is enough; pass an
 /// explicit `OnnxHuggingFaceResolver(variant: …)` to
-/// `FlutterGemma.initialize(huggingFaceResolvers: [...])` only to override.
+/// `FlutterEdgeAi.initialize(huggingFaceResolvers: [...])` only to override.
 class OnnxHuggingFaceResolver implements HuggingFaceResolver {
   /// [variant] pins an exact EP subfolder (skips the backend heuristic).
   /// [revision] is the repo revision to pin (default `main`). [fetch] is a

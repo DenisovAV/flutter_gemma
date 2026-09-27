@@ -1,4 +1,4 @@
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 import 'package:flutter_edge_ai/core/di/service_registry.dart';
 import 'package:flutter_edge_ai/core/model_management/model_specs.dart';
 import 'package:flutter_edge_ai/core/utils/file_name_utils.dart';
@@ -17,7 +17,7 @@ import 'package:flutter_edge_ai/core/services/model_repository.dart' as repo;
 ///
 /// Usage:
 /// ```dart
-/// await FlutterGemma.installStt()
+/// await FlutterEdgeAi.installStt()
 ///   .modelFromNetwork('https://example.com/model.tflite', token: 'hf_...')
 ///   .tokenizerFromNetwork('https://example.com/tokenizer.json', token: 'hf_...')
 ///   .ofType(SttModelType.moonshine)
@@ -183,14 +183,14 @@ class SttInstallationBuilder {
     );
 
     if (isModelInstalled && isTokenizerInstalled) {
-      gemmaLog(
+      edgeAiLog(
         'ℹ️  STT model already installed: $modelFilename + $tokenizerFilename (skipping download)',
       );
     } else {
       final handlerRegistry = registry.sourceHandlerRegistry;
 
       if (!isModelInstalled) {
-        gemmaLog('📥 Installing STT model...');
+        edgeAiLog('📥 Installing STT model...');
         final modelHandler = handlerRegistry.getHandler(_modelSource!);
         if (_onModelProgress != null) {
           await for (final progress in modelHandler!.installWithProgress(
@@ -210,11 +210,11 @@ class SttInstallationBuilder {
           );
         }
       } else {
-        gemmaLog('ℹ️  STT model file already installed: $modelFilename');
+        edgeAiLog('ℹ️  STT model file already installed: $modelFilename');
       }
 
       if (!isTokenizerInstalled) {
-        gemmaLog('📥 Installing STT tokenizer...');
+        edgeAiLog('📥 Installing STT tokenizer...');
         final tokenizerHandler = handlerRegistry.getHandler(
           effectiveTokenizerSource,
         );
@@ -236,17 +236,17 @@ class SttInstallationBuilder {
           );
         }
       } else {
-        gemmaLog(
+        edgeAiLog(
           'ℹ️  STT tokenizer file already installed: $tokenizerFilename',
         );
       }
     }
 
     // AUTO-SET as active STT model (even if already installed)
-    final manager = FlutterGemmaPlugin.instance.modelManager;
+    final manager = FlutterEdgeAiPlugin.instance.modelManager;
     manager.setActiveModel(spec);
 
-    gemmaLog('✅ STT model installed and set as active: ${spec.name}');
+    edgeAiLog('✅ STT model installed and set as active: ${spec.name}');
 
     return SttInstallation(spec: spec);
   }

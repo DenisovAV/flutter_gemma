@@ -25,7 +25,7 @@ enum SkillType {
 /// `SkillExecutorProvider.canExecute(String)` contract uses (`'text'`, `'js'`,
 /// `'intent'`, `'mcp'`). This is the bridge that lets the package's rich
 /// `canExecute(Skill)` executors satisfy core's type-agnostic provider seam, so
-/// `FlutterGemma.initialize(skillExecutors: [...])` works without core ever
+/// `FlutterEdgeAi.initialize(skillExecutors: [...])` works without core ever
 /// depending on the [Skill] type.
 extension SkillTypeId on SkillType {
   /// The core-facing id (note: [textOnly] → `'text'`, not `'textOnly'`).

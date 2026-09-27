@@ -10,7 +10,7 @@
 /// `runtimeInjectsToolDeclarations = true`, so `InferenceChat` deliberately does
 /// not weave a text tools prompt either. Neither path carried the tools.
 ///
-/// One passing prompt would not settle it: `flutter_gemma_agent`'s README
+/// One passing prompt would not settle it: `flutter_edge_ai_agent`'s README
 /// reports that this runtime emits tool-call tokens INCONSISTENTLY. Five cases
 /// including a negative control are the minimum that can distinguish "works"
 /// from "worked once".
@@ -76,13 +76,13 @@ Future<InferenceModel> _ensureModel() async {
     _enginesRegistered = true;
   }
   if (_model != null) return _model!;
-  await FlutterGemma.installModel(
+  await FlutterEdgeAi.installModel(
         modelType: ModelType.gemma4,
         fileType: ModelFileType.litertlm,
       )
       .fromNetwork(_webModelUrl, token: _hfToken.isEmpty ? null : _hfToken)
       .install();
-  return _model = await FlutterGemma.getActiveModel(maxTokens: 1024);
+  return _model = await FlutterEdgeAi.getActiveModel(maxTokens: 1024);
 }
 
 /// `supportsFunctionCalls` and `modelType` are both load-bearing: without the

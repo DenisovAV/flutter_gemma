@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_edge_ai/core/model_response.dart';
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 
 /// Shared JSON parsing utilities used by multiple format implementations.
 class JsonParsingUtils {
@@ -23,7 +23,7 @@ class JsonParsingUtils {
       if (decoded is Map<String, dynamic>) {
         final name = decoded['name'] as String?;
         if (name == null) {
-          gemmaLog('JsonParsingUtils: JSON missing "name" field');
+          edgeAiLog('JsonParsingUtils: JSON missing "name" field');
           return null;
         }
 
@@ -35,17 +35,17 @@ class JsonParsingUtils {
 
         // Use empty map for zero-argument functions (get_time, refresh, etc.)
         final resolvedArgs = args ?? <String, dynamic>{};
-        gemmaLog(
+        edgeAiLog(
           'JsonParsingUtils: Parsed function: $name($resolvedArgs)',
-          level: GemmaLogLevel.verbose,
+          level: EdgeAiLogLevel.verbose,
         );
         return FunctionCallResponse(name: name, args: resolvedArgs);
       }
 
-      gemmaLog('JsonParsingUtils: JSON missing "name" field or not a Map');
+      edgeAiLog('JsonParsingUtils: JSON missing "name" field or not a Map');
       return null;
     } catch (e) {
-      gemmaLog('JsonParsingUtils: Failed to decode JSON: $e');
+      edgeAiLog('JsonParsingUtils: Failed to decode JSON: $e');
       return null;
     }
   }
@@ -66,7 +66,7 @@ class JsonParsingUtils {
         return results;
       }
     } catch (e) {
-      gemmaLog('JsonParsingUtils: Failed to decode JSON array: $e');
+      edgeAiLog('JsonParsingUtils: Failed to decode JSON array: $e');
     }
     return [];
   }

@@ -56,7 +56,7 @@ void main() {
             (e) => e.message,
             'message',
             allOf(
-              contains('flutter_gemma_embeddings'),
+              contains('flutter_edge_ai_embeddings'),
               contains('embeddingTokenizers'),
               contains('gemma'),
             ),

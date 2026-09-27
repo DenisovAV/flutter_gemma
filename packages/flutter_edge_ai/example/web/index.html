@@ -29,13 +29,13 @@
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <!-- flutter_gemma_builtin_ai web arm (Chrome Prompt API / Gemini Nano):
+  <!-- flutter_edge_ai_builtin_ai web arm (Chrome Prompt API / Gemini Nano):
        no CDN script needed (the browser owns `self.LanguageModel`), but the
        feature is origin-trial-gated on plain web pages. Register this site
        at https://developer.chrome.com/origintrials and uncomment with your
        token to enable it in production, or use
        chrome://flags/#prompt-api-for-gemini-nano for local dev. See
-       packages/flutter_gemma_builtin_ai/README.md "Web setup". -->
+       packages/flutter_edge_ai_builtin_ai/README.md "Web setup". -->
   <!-- <meta http-equiv="origin-trial" content="YOUR_TOKEN_HERE"> -->
 
   <title>example</title>
@@ -68,15 +68,15 @@
   })();
   </script>
 
-  <!-- ONNX Runtime Web (flutter_gemma_onnx web embeddings arm, WebGPU/WASM).
+  <!-- ONNX Runtime Web (flutter_edge_ai_onnx web embeddings arm, WebGPU/WASM).
        Same readiness-handshake shape as the litert-lm shim above:
        `window.ortReady` resolves once the module has loaded, and also sets
        `window.ort` for the Dart side's `dart:js_interop` bindings
        (lib/src/web/ort_web_client.dart). `env.wasm.wasmPaths` points at the
        CDN's own `dist/` directory so the WASM/JSEP runtime files it fetches
        at session-create time resolve correctly; self-hosting them under
-       web/ instead (the `flutter_gemma_rag_sqlite` sqlite3.wasm posture) is
-       an app-level choice documented in flutter_gemma_onnx's README. -->
+       web/ instead (the `flutter_edge_ai_sqlite` sqlite3.wasm posture) is
+       an app-level choice documented in flutter_edge_ai_onnx's README. -->
   <script type="module">
   window.ortReady = (async () => {
     const m = await import('https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/ort.bundle.min.mjs');
@@ -86,7 +86,7 @@
   })();
   </script>
 
-  <!-- Transformers.js v4 (flutter_gemma_onnx web TEXT-GENERATION arm).
+  <!-- Transformers.js v4 (flutter_edge_ai_onnx web TEXT-GENERATION arm).
        Same readiness-handshake shape as the shims above: `window.transformersReady`
        resolves once the module has loaded, and also sets `window.transformers`
        for the Dart side's `dart:js_interop` bindings
@@ -113,7 +113,7 @@
   <!-- LiteRT.js Embeddings (bundled with Vite) -->
   <script type="module" src="litert_embeddings.js"></script>
 
-  <!-- SQLite vector store (flutter_gemma_rag_sqlite): sqlite-vec / vec0 is
+  <!-- SQLite vector store (flutter_edge_ai_sqlite): sqlite-vec / vec0 is
        statically linked into a custom sqlite3.wasm and loaded directly from
        Dart via package:sqlite3/wasm.dart (WasmSqlite3.loadFromUrl). The wasm
        ships as the package web asset web/rag/sqlite3.wasm — no <script> tag and

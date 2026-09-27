@@ -1,6 +1,6 @@
 // App-bundle co-location verification for the ORT-GenAI ORT_LIB_PATH fix
 // (commit 330eed0a, `_exportOrtLibPath` in
-// `flutter_gemma_onnx/lib/src/ffi/gen_ai_client.dart`).
+// `flutter_edge_ai_onnx/lib/src/ffi/gen_ai_client.dart`).
 //
 // Deliberately does NOT set FLUTTER_GEMMA_ORT_GENAI_LIBS — that env var makes
 // `_openGenAiLibraries` take the raw-override branch (bare dlopen of a flat
@@ -68,17 +68,17 @@ void main() {
       );
 
       await tester.runAsync(() async {
-        await FlutterGemma.initialize(inferenceEngines: const [OnnxEngine()]);
+        await FlutterEdgeAi.initialize(inferenceEngines: const [OnnxEngine()]);
 
         // `.fromFile(genai_config.json)` registers that exact absolute path;
         // `OnnxEngine.createModel` takes its PARENT dir as the ORT-GenAI model
         // directory (see onnx_engine.dart's `createModel` doc).
-        await FlutterGemma.installModel(
+        await FlutterEdgeAi.installModel(
           modelType: ModelType.phi,
           fileType: ModelFileType.onnx,
         ).fromFile('$modelDir/genai_config.json').install();
 
-        final model = await FlutterGemma.getActiveModel(
+        final model = await FlutterEdgeAi.getActiveModel(
           maxTokens: 1024,
           preferredBackend: PreferredBackend.cpu,
         );

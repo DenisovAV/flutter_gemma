@@ -1,8 +1,8 @@
 // Integration test for systemInstruction support
 //
-// Run on Android (models must be in /data/local/tmp/flutter_gemma_test/):
-//   chmod 666 /data/local/tmp/flutter_gemma_test/*.task
-//   chmod 666 /data/local/tmp/flutter_gemma_test/*.litertlm
+// Run on Android (models must be in /data/local/tmp/flutter_edge_ai_test/):
+//   chmod 666 /data/local/tmp/flutter_edge_ai_test/*.task
+//   chmod 666 /data/local/tmp/flutter_edge_ai_test/*.litertlm
 //   flutter test integration_test/system_instruction_test.dart -d <device_id>
 //
 // Tests both engines:
@@ -19,7 +19,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 import 'inference_test_helpers.dart' show registerTestEngines;
 
-const _androidModelDir = '/data/local/tmp/flutter_gemma_test';
+const _androidModelDir = '/data/local/tmp/flutter_edge_ai_test';
 
 List<({String path, ModelFileType fileType, String label})> _testConfigs() {
   if (kIsWeb) return [];
@@ -65,12 +65,12 @@ List<({String path, ModelFileType fileType, String label})> _testConfigs() {
 Future<InferenceModel> _createModel(String path, ModelFileType fileType) async {
   await registerTestEngines();
 
-  await FlutterGemma.installModel(
+  await FlutterEdgeAi.installModel(
     modelType: ModelType.gemmaIt,
     fileType: fileType,
   ).fromFile(path).install();
 
-  return FlutterGemma.getActiveModel(
+  return FlutterEdgeAi.getActiveModel(
     maxTokens: 512,
     preferredBackend: PreferredBackend.gpu,
   );

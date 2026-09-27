@@ -1,6 +1,6 @@
 // 0.15.4 active model auto-restore (#227).
 //
-// Verifies that after `FlutterGemma.initialize()` the previously
+// Verifies that after `FlutterEdgeAi.initialize()` the previously
 // installed inference model is rehydrated as the active one — without
 // re-running `installModel()`.
 //
@@ -8,7 +8,7 @@
 // emulate "second app launch" by:
 //   1. Test 1: installModel() + verify active is set + verify the three
 //      identity keys landed in SharedPreferences.
-//   2. Test 2: reset ServiceRegistry, call FlutterGemma.initialize()
+//   2. Test 2: reset ServiceRegistry, call FlutterEdgeAi.initialize()
 //      again (fresh manager state), and verify hasActiveModel() is
 //      still true and getActiveModel() returns the same identity —
 //      without any installModel() call.
@@ -51,12 +51,12 @@ void main() {
       await prefs.remove('active_inference_filename');
 
       final modelPath = await _docsPath(_modelName);
-      await FlutterGemma.installModel(
+      await FlutterEdgeAi.installModel(
         modelType: ModelType.gemmaIt,
         fileType: ModelFileType.litertlm,
       ).fromFile(modelPath).install();
 
-      expect(FlutterGemma.hasActiveModel(), isTrue);
+      expect(FlutterEdgeAi.hasActiveModel(), isTrue);
 
       // Give the fire-and-forget persistence a moment to land.
       await Future<void>.delayed(const Duration(milliseconds: 200));
@@ -80,7 +80,7 @@ void main() {
       await registerTestEngines();
 
       expect(
-        FlutterGemma.hasActiveModel(),
+        FlutterEdgeAi.hasActiveModel(),
         isTrue,
         reason:
             'active model should be auto-restored from SharedPreferences on second initialize()',

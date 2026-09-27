@@ -26,7 +26,7 @@ const kExampleInferenceEngines = [
 /// truth. `OnnxEmbeddingBackend` (priority 10) outranks
 /// `LiteRtEmbeddingBackend`'s catch-all (priority 0) for `.onnx`/`.ort`
 /// models — see each backend's `canHandle` doc. Also proves the
-/// `flutter_gemma_onnx` barrel split (ONNX web PR, `feat/onnx-web`): this
+/// `flutter_edge_ai_onnx` barrel split (ONNX web PR, `feat/onnx-web`): this
 /// single, unbranched registration list compiles for both native
 /// (dart:ffi ORT) and web (onnxruntime-web) builds.
 const kExampleEmbeddingBackends = [
@@ -38,7 +38,7 @@ const kExampleEmbeddingBackends = [
 /// above because the choice belongs to the MODEL, not the engine: the same
 /// EmbeddingGemma needs SentencePiece whether LiteRT or ONNX Runtime runs it.
 /// Supplying it here is also what lets both engine packages stay off
-/// `flutter_gemma_embeddings` — an app that never embeds registers nothing and
+/// `flutter_edge_ai_embeddings` — an app that never embeds registers nothing and
 /// does not resolve the package at all.
 const kExampleEmbeddingTokenizers = [GemmaEmbeddingTokenizers()];
 
@@ -51,16 +51,16 @@ const kExampleTtsBackends = [LiteRtTtsBackend()];
 // The Hugging Face resolvers are NOT listed here on purpose: each engine that
 // ships one (LiteRtLmEngine → litertlm_manifest.json, OnnxEngine,
 // BuiltInAiEngine) implements `HuggingFaceResolverSource`, so
-// `FlutterGemma.initialize(inferenceEngines: …)` auto-registers them — no
+// `FlutterEdgeAi.initialize(inferenceEngines: …)` auto-registers them — no
 // parallel `huggingFaceResolvers:` list to keep in sync. So
-// `FlutterGemma.resolveHuggingFace(repo, fileType:)` gives a clear result for
+// `FlutterEdgeAi.resolveHuggingFace(repo, fileType:)` gives a clear result for
 // `.litertlm` / `.onnx` / `.builtIn` (MediaPipe `.task`/`.bin` has no resolver,
 // so `fileType: task` still throws the generic "no resolver registered").
 // Pass `huggingFaceResolvers:` to `initialize` only to OVERRIDE an engine's
 // default — e.g. `LitertlmManifestResolver(revision: 'abc123')` to pin a commit.
 
 /// The agentic skill executors the example registers (text / JS / native
-/// intent). Registered through `FlutterGemma.initialize(skillExecutors: …)` —
+/// intent). Registered through `FlutterEdgeAi.initialize(skillExecutors: …)` —
 /// the recommended global path — so any [AgentSession.fromModel] built without
 /// an explicit `executors:` list picks them up from the core registry. The JS
 /// executor resolves each bundled skill's HTML via [AssetSkillSource]; MCP is
@@ -104,9 +104,9 @@ VectorStoreRepository vectorStoreFor(RagBackend backend) {
   }
 }
 
-/// Single source of truth for FlutterGemma.initialize. Called at app startup
+/// Single source of truth for FlutterEdgeAi.initialize. Called at app startup
 /// (main.dart) AND when the RAG demo switches the vector store backend
-/// (after FlutterGemma.reset()). Keeps the engine/backend lists DRY.
+/// (after FlutterEdgeAi.reset()). Keeps the engine/backend lists DRY.
 ///
 /// `WebStorageMode.streaming` (OPFS-backed) is required for `.litertlm`
 /// web models since flutter_gemma 0.16.2 — the @litert-lm/core engine consumes a
@@ -114,7 +114,7 @@ VectorStoreRepository vectorStoreFor(RagBackend backend) {
 /// that bites the cacheApi path on Gemma 4 E2B/E4B web variants.
 /// MediaPipe `.task` models also work fine under streaming mode.
 Future<void> bootstrapGemma({required RagBackend ragBackend}) {
-  return FlutterGemma.initialize(
+  return FlutterEdgeAi.initialize(
     webStorageMode: WebStorageMode.streaming,
     inferenceEngines: kExampleInferenceEngines,
     embeddingBackends: kExampleEmbeddingBackends,

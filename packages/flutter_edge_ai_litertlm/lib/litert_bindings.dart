@@ -3,7 +3,7 @@
 /// concrete bindings from a file that is itself native-only (never reached
 /// on web) — this package's own `src/embedding/litert_embedding_forward_pass.dart`
 /// (as an intra-package import) and the capability package
-/// `flutter_gemma_speech`.
+/// `flutter_edge_ai_speech`.
 ///
 /// Prefer this over `package:flutter_edge_ai_litertlm/flutter_edge_ai_litertlm.dart`
 /// in native-only files: that barrel's `LiteRtBindings` export is behind an

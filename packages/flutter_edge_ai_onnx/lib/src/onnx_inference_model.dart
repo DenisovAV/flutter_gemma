@@ -1,6 +1,6 @@
 // ORT-GenAI `InferenceModel` — text-only v1 (hardened plan Phase 3, Task 2).
 // Shape mirrors `FfiInferenceModel`
-// (`flutter_gemma_litertlm/lib/src/ffi/ffi_inference_model.dart`)'s
+// (`flutter_edge_ai_litertlm/lib/src/ffi/ffi_inference_model.dart`)'s
 // createSession singleton lane (issue #308 pattern), minus `openSession`
 // (ORT-GenAI's one persistent generator per client is a v2 follow-on — the
 // base `InferenceModel.openSession` UnsupportedError is inherited unchanged)
@@ -14,7 +14,7 @@ import 'package:flutter_edge_ai/core/domain/platform_types.dart'
 import 'package:flutter_edge_ai/core/lifecycle/close_notifier.dart';
 import 'package:flutter_edge_ai/core/model.dart';
 import 'package:flutter_edge_ai/core/tool.dart';
-import 'package:flutter_edge_ai/flutter_gemma_interface.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai_interface.dart';
 
 import 'ffi/gen_ai_client.dart';
 import 'onnx_session.dart';

@@ -8,8 +8,8 @@ import 'dart:js_interop';
 
 /// OPFS JavaScript API bindings
 ///
-/// Access via: `window.flutterGemmaOPFS`
-@JS('flutterGemmaOPFS')
+/// Access via: `window.flutterEdgeAiOPFS`
+@JS('flutterEdgeAiOPFS')
 extension type OPFSInterop._(JSObject _) implements JSObject {
   /// Check if a model is cached in OPFS
   ///
@@ -79,7 +79,7 @@ extension type OPFSInterop._(JSObject _) implements JSObject {
 }
 
 /// Helper extension for accessing OPFS from window
-@JS('window.flutterGemmaOPFS')
+@JS('window.flutterEdgeAiOPFS')
 external OPFSInterop get opfsInterop;
 
 /// Storage statistics object

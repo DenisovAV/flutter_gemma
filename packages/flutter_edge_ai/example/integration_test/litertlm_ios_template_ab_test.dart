@@ -148,12 +148,12 @@ void main() {
     );
 
     await registerTestEngines();
-    await FlutterGemma.installModel(
+    await FlutterEdgeAi.installModel(
       modelType: _modelType,
       fileType: ModelFileType.litertlm,
     ).fromFile(_stagedPath).install();
 
-    final model = await FlutterGemma.getActiveModel(maxTokens: 1024);
+    final model = await FlutterEdgeAi.getActiveModel(maxTokens: 1024);
     try {
       await _variant(model, asIOS: false);
       await _variant(model, asIOS: true);

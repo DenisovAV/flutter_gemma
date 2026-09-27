@@ -31,12 +31,12 @@ void main() {
   testWidgets(
     'parakeet transcribes the bundled clip via the public STT API',
     (_) async {
-      await FlutterGemma.initialize(
+      await FlutterEdgeAi.initialize(
         huggingFaceToken: _token.isEmpty ? null : _token,
         sttBackends: const [LiteRtSttBackend()],
       );
 
-      await FlutterGemma.installStt()
+      await FlutterEdgeAi.installStt()
           .modelFromNetwork(_modelUrl, token: _token.isEmpty ? null : _token)
           .tokenizerFromNetwork(
             _tokenizerUrl,
@@ -45,7 +45,7 @@ void main() {
           .ofType(SttModelType.parakeet)
           .install();
 
-      final recognizer = await FlutterGemma.getActiveStt();
+      final recognizer = await FlutterEdgeAi.getActiveStt();
 
       // Bundled 16 kHz mono 16-bit PCM WAV (2.9 s -- well under parakeet's
       // 5 s window; zero-padded by SttCore.padOrTrimToWindow).

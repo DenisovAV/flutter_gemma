@@ -1,5 +1,5 @@
 import 'dart:async';
-import '../utils/gemma_log.dart';
+import '../utils/edge_ai_log.dart';
 
 /// Token for cancelling model downloads
 ///
@@ -48,7 +48,7 @@ class CancelToken {
   /// [reason] - Optional message explaining why the operation was cancelled
   void cancel([String reason = 'Operation cancelled']) {
     if (isCancelled) {
-      gemmaLog(
+      edgeAiLog(
         '⚠️ CancelToken already cancelled. '
         'Previous reason: $_cancelReason, new reason: $reason',
       );
@@ -59,7 +59,7 @@ class CancelToken {
     _stackTrace = StackTrace.current;
     _completer?.complete();
 
-    gemmaLog('🚫 CancelToken cancelled: $reason');
+    edgeAiLog('🚫 CancelToken cancelled: $reason');
   }
 
   /// Throws if this token has been cancelled

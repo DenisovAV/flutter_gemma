@@ -219,7 +219,7 @@ abstract class VectorStoreRepository {
   /// Declare which metadata fields this store should make filterable.
   ///
   /// Called **once at registration, before [initialize]** — the schema is
-  /// threaded from `FlutterGemma.initialize(filterSchema:)` through the service
+  /// threaded from `FlutterEdgeAi.initialize(filterSchema:)` through the service
   /// registry into the store's constructor wiring, so the store can promote the
   /// declared fields to typed storage columns (vec0) or top-level payload keys
   /// (qdrant) the first time it creates its table / writes a document.

@@ -4,7 +4,7 @@
 // tokenizer file and picks a family. Which family a model needs is a property
 // of the MODEL — EmbeddingGemma is SentencePiece whether LiteRT or ONNX
 // Runtime executes its weights, MiniLM is WordPiece either way. It lived in
-// flutter_gemma_onnx until the tokenizer became a registered provider; LiteRT
+// flutter_edge_ai_onnx until the tokenizer became a registered provider; LiteRT
 // meanwhile hardcoded SentencePiece and would mis-tokenize anything else.
 //
 // One factory covers both model families — MiniLM
@@ -76,7 +76,7 @@ Future<EmbeddingTokenizer> resolveEmbeddingTokenizer(
           "Gemma's convention and produce wrong vectors silently. Register a "
           'higher-priority EmbeddingTokenizerProvider whose factory calls '
           'loadSiglipSentencePieceEmbeddingTokenizer from '
-          'flutter_gemma_embeddings. Path: $tokenizerPath',
+          'flutter_edge_ai_embeddings. Path: $tokenizerPath',
         );
       }
     } on FormatException {
@@ -87,7 +87,7 @@ Future<EmbeddingTokenizer> resolveEmbeddingTokenizer(
   }
   // Everything that is not WordPiece and not SigLIP 2 lands here: a raw
   // SentencePiece `.model`, or a BPE tokenizer.json with Gemma's own
-  // convention. See flutter_gemma_embeddings' README, "the SigLIP2 profile is
+  // convention. See flutter_edge_ai_embeddings' README, "the SigLIP2 profile is
   // not selected automatically", for what a real selector would need.
   return loadGemmaSentencePieceEmbeddingTokenizer(tokenizerPath);
 }

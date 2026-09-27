@@ -66,7 +66,7 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
       }
 
       // Build installer based on sourceType
-      var builder = FlutterGemma.installEmbedder();
+      var builder = FlutterEdgeAi.installEmbedder();
 
       // Add model source
       switch (widget.model.sourceType) {
@@ -114,7 +114,7 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
       }
 
       // Get active embedding model
-      _embeddingModel = await FlutterGemma.getActiveEmbedder(
+      _embeddingModel = await FlutterEdgeAi.getActiveEmbedder(
         preferredBackend:
             PreferredBackend.gpu, // Use GPU mode for better performance
       );

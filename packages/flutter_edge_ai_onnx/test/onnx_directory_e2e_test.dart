@@ -22,7 +22,7 @@ import 'package:flutter_edge_ai/core/registry/hugging_face_resolver_registry.dar
 import 'package:flutter_edge_ai/core/registry/runtime_config.dart';
 import 'package:flutter_edge_ai/core/services/download_service.dart';
 import 'package:flutter_edge_ai/flutter_edge_ai.dart';
-import 'package:flutter_edge_ai/mobile/flutter_gemma_mobile.dart'
+import 'package:flutter_edge_ai/mobile/flutter_edge_ai_mobile.dart'
     show MobileModelManager;
 
 import 'package:flutter_edge_ai_onnx/src/onnx_engine.dart';
@@ -83,14 +83,14 @@ void main() {
     );
     HuggingFaceResolverRegistry.instance.registerAll([_ScriptedResolver()]);
 
-    final install = await FlutterGemma.installModel(
+    final install = await FlutterEdgeAi.installModel(
       modelType: ModelType.general,
       fileType: ModelFileType.onnx,
     ).fromHuggingFace('org/repo').install();
 
     // The active directory spec + its resolved modelPath (the engine input).
     final manager =
-        FlutterGemmaPlugin.instance.modelManager as MobileModelManager;
+        FlutterEdgeAiPlugin.instance.modelManager as MobileModelManager;
     final spec = install.spec;
     final paths = await manager.getModelFilePaths(spec);
     expect(paths, isNotNull);

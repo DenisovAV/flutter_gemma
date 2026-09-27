@@ -13,7 +13,7 @@
 class FileNameUtils {
   /// Supported model file extensions (SINGLE SOURCE OF TRUTH)
   ///
-  /// This list defines all file extensions that Flutter Gemma recognizes
+  /// This list defines all file extensions that Flutter Edge AI recognizes
   /// as valid model files. Any file with these extensions can be managed
   /// by the model system.
   static const List<String> supportedExtensions = [

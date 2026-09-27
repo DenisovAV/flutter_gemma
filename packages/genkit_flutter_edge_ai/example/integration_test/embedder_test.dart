@@ -39,7 +39,7 @@ void main() {
     await initializeGemmaForTest();
     await ensureModelInstalled();
 
-    await FlutterGemma.installEmbedder()
+    await FlutterEdgeAi.installEmbedder()
         .modelFromAsset(
             'assets/models/embeddinggemma-300M_seq256_mixed-precision.tflite')
         .tokenizerFromAsset('assets/models/sentencepiece.model')

@@ -13,15 +13,15 @@ import 'test_helpers.dart';
 void main() {
   initIntegrationTest();
 
-  late GenkitFlutterGemmaPlugin plugin;
+  late GenkitFlutterEdgeAiPlugin plugin;
 
   testWidgets('DirectAction: setUpAll — install model', (tester) async {
     await initializeGemmaForTest();
     await ensureModelInstalled();
 
-    plugin = GenkitFlutterGemmaPlugin(
+    plugin = GenkitFlutterEdgeAiPlugin(
       models: [
-        FlutterGemmaModelConfig(
+        FlutterEdgeAiModelConfig(
           name: kTestModelName,
           modelType: ModelType.functionGemma,
           fileType: TestModelConfig.forCurrentPlatform().fileType,
@@ -47,7 +47,7 @@ void main() {
           content: [TextPart(text: 'Say hi.')],
         ),
       ],
-      config: FlutterGemmaModelOptions(maxTokens: 64).toJson(),
+      config: FlutterEdgeAiModelOptions(maxTokens: 64).toJson(),
     );
 
     final response = await action!(request) as ModelResponse;

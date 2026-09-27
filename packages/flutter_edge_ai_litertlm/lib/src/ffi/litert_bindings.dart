@@ -170,8 +170,8 @@ class LiteRtRankedTensorTypeView {
 ///
 /// This used to be a single path built as
 /// `${Directory.current.path}/native/litert_lm/prebuilt/...`, which is only
-/// right when the current directory happens to BE flutter_gemma_litertlm.
-/// `flutter_gemma_speech` binds these same
+/// right when the current directory happens to BE flutter_edge_ai_litertlm.
+/// `flutter_edge_ai_speech` binds these same
 /// symbols, and running its suite from its own package directory pointed
 /// the lookup at a `native/` tree that does not exist there. The resulting
 /// error named a path and said "not found", so it read as "the native library
@@ -269,7 +269,7 @@ DynamicLibrary _openLiteRt() {
     // litert_lm_client.dart's Android branch.
     if (Abi.current() != Abi.androidArm64) {
       throw UnsupportedError(
-        'flutter_gemma embeddings and speech require an arm64-v8a Android '
+        'flutter_edge_ai embeddings and speech require an arm64-v8a Android '
         'device (got ${Abi.current()}). LiteRT-LM ships no other Android ABI. '
         'MediaPipe `.task` text inference still works on this ABI.',
       );

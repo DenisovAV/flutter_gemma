@@ -1,4 +1,4 @@
-# Flutter Gemma Windows Plugin
+# Flutter Edge AI Windows Plugin
 #
 # Minimal plugin setup for the FFI path. Native libraries (LiteRtLm.dll,
 # LiteRt.dll, LiteRtWebGpuAccelerator.dll, companions, StreamProxy.dll) are
@@ -7,14 +7,14 @@
 
 cmake_minimum_required(VERSION 3.14)
 
-set(PROJECT_NAME "flutter_gemma")
+set(PROJECT_NAME "flutter_edge_ai")
 project(${PROJECT_NAME} LANGUAGES CXX)
 
 # This value is used when generating builds using this plugin — do not change.
-set(PLUGIN_NAME "flutter_gemma_plugin")
+set(PLUGIN_NAME "flutter_edge_ai_plugin")
 
 add_library(${PLUGIN_NAME} SHARED
-  "flutter_gemma_plugin.cpp"
+  "flutter_edge_ai_plugin.cpp"
 )
 
 apply_standard_settings(${PLUGIN_NAME})
@@ -40,7 +40,7 @@ target_link_libraries(${PLUGIN_NAME} PRIVATE flutter flutter_wrapper_plugin)
 
 # Native asset DLLs are handled by hook/build.dart + Native Assets; nothing to
 # bundle via CMake here.
-set(flutter_gemma_bundled_libraries
+set(flutter_edge_ai_bundled_libraries
   ""
   PARENT_SCOPE
 )

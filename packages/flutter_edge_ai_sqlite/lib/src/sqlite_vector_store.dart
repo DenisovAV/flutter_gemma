@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'dart:typed_data';
 
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 import 'package:sqlite3/sqlite3.dart';
@@ -12,7 +12,7 @@ import 'package:flutter_edge_ai_sqlite/src/filter_to_vec0.dart';
 
 /// On-device RAG vector store backed by sqlite3 (dart:ffi) + the `sqlite-vec`
 /// (`vec0`) virtual table. Native platforms only; web uses
-/// [WebSqliteVectorStore]. Implements flutter_gemma's [VectorStoreRepository].
+/// [WebSqliteVectorStore]. Implements flutter_edge_ai's [VectorStoreRepository].
 ///
 /// KNN runs inside SQLite (C via `sqlite-vec`) — there is no Dart brute-force
 /// or in-memory index. The `vec0` table carries the embedding plus auxiliary
@@ -174,7 +174,7 @@ class SqliteVectorStore implements VectorStoreRepository {
       } catch (closeError) {
         // Nothing to act on: the store is already being reported as failed,
         // and the primary error is the one the caller needs.
-        gemmaLog(
+        edgeAiLog(
           '[SqliteVectorStore] close() during a failed initialize: $closeError',
         );
       }
@@ -410,7 +410,7 @@ class SqliteVectorStore implements VectorStoreRepository {
         fetch < totalRows &&
         fetch >= topK * FilterToVec0.maxOverFetchFactor;
     if (rowsReturned < topK && hitTheCap) {
-      gemmaLog(
+      edgeAiLog(
         '[SqliteVectorStore] searchSimilar found $rowsReturned of the '
         'requested $topK after over-fetching '
         '${topK * FilterToVec0.maxOverFetchFactor} candidates. This filter '

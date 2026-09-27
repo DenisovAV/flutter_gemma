@@ -54,11 +54,11 @@ void main() {
   });
 
   testWidgets('FastVLM CPU: text-only + image', (t) async {
-    await FlutterGemma.installModel(
+    await FlutterEdgeAi.installModel(
       modelType: ModelType.general,
       fileType: ModelFileType.litertlm,
     ).fromNetwork(_url).install();
-    _model = await FlutterGemma.getActiveModel(
+    _model = await FlutterEdgeAi.getActiveModel(
       maxTokens: 2048,
       preferredBackend: PreferredBackend.cpu,
       supportImage: true,

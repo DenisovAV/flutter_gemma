@@ -4,7 +4,7 @@
 // bundle. The test:
 //   1. Stages the int4 `.litertlm` from the app's documents dir (~2 GB —
 //      see pre-staging notes below).
-//   2. Installs it via `FlutterGemma.installModel(...).fromFile(...)`.
+//   2. Installs it via `FlutterEdgeAi.installModel(...).fromFile(...)`.
 //   3. Builds a `TranslateRunner` using the same XML strategy the example
 //      app uses.
 //   4. Runs three language pairs (en→fr, en→es, ja→en) and asserts the
@@ -51,12 +51,12 @@ void main() {
 
       final modelPath = await _docsPath(_modelName);
 
-      await FlutterGemma.installModel(
+      await FlutterEdgeAi.installModel(
         modelType: ModelType.gemmaIt,
         fileType: ModelFileType.litertlm,
       ).fromFile(modelPath).install();
 
-      final model = await FlutterGemma.getActiveModel(
+      final model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 4096,
         // On GPU this bundle loads and then answers with nothing but
         // <pad> — see translate_model.dart + LiteRT-LM#1748.
@@ -114,12 +114,12 @@ void main() {
       await registerTestEngines();
 
       final modelPath = await _docsPath(_modelName);
-      await FlutterGemma.installModel(
+      await FlutterEdgeAi.installModel(
         modelType: ModelType.gemmaIt,
         fileType: ModelFileType.litertlm,
       ).fromFile(modelPath).install();
 
-      final model = await FlutterGemma.getActiveModel(
+      final model = await FlutterEdgeAi.getActiveModel(
         maxTokens: 4096,
         // On GPU this bundle loads and then answers with nothing but
         // <pad> — see translate_model.dart + LiteRT-LM#1748.

@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_edge_ai/mobile/smart_downloader.dart';
-import 'package:flutter_edge_ai/core/api/flutter_gemma.dart';
+import 'package:flutter_edge_ai/core/api/flutter_edge_ai.dart';
 import 'package:flutter_edge_ai/flutter_edge_ai.dart' as legacy;
-import 'package:flutter_edge_ai/mobile/flutter_gemma_mobile.dart'
+import 'package:flutter_edge_ai/mobile/flutter_edge_ai_mobile.dart'
     as legacy_mobile;
 import 'package:path_provider/path_provider.dart';
 import 'package:background_downloader/background_downloader.dart';
@@ -128,7 +128,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
     try {
       // Modern API: List all installed models
-      final installedModels = await FlutterGemma.listInstalledModels();
+      final installedModels = await FlutterEdgeAi.listInstalledModels();
 
       if (installedModels.isEmpty) {
         _log('📦 No installed models found');
@@ -300,7 +300,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
       // === Test 2: Modern API ===
       _log('🆕 Testing with Modern API (fromNetwork)...');
-      FlutterGemma.initialize(
+      FlutterEdgeAi.initialize(
         maxDownloadRetries: 3,
         inferenceEngines: kExampleInferenceEngines,
         embeddingBackends: kExampleEmbeddingBackends,
@@ -314,7 +314,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       await File(file3).delete().catchError((_) => File(file3));
 
       _log('📥 Modern: Downloading model 1...');
-      await FlutterGemma.installModel(modelType: legacy.ModelType.gemmaIt)
+      await FlutterEdgeAi.installModel(modelType: legacy.ModelType.gemmaIt)
           .fromNetwork(
             'https://raw.githubusercontent.com/github/gitignore/main/Python.gitignore',
           )
@@ -332,7 +332,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       await File(file4).delete().catchError((_) => File(file4));
 
       _log('📥 Modern: Downloading model 2...');
-      await FlutterGemma.installModel(modelType: legacy.ModelType.gemmaIt)
+      await FlutterEdgeAi.installModel(modelType: legacy.ModelType.gemmaIt)
           .fromNetwork(
             'https://raw.githubusercontent.com/github/gitignore/main/Ruby.gitignore',
           )
@@ -386,7 +386,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
       // === Test 2: Modern API ===
       _log('🆕 Testing 3 sequential with Modern API...');
-      FlutterGemma.initialize(
+      FlutterEdgeAi.initialize(
         maxDownloadRetries: 3,
         inferenceEngines: kExampleInferenceEngines,
         embeddingBackends: kExampleEmbeddingBackends,
@@ -406,7 +406,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
         _log('📥 Modern: Model ${i + 1}/3...');
 
-        await FlutterGemma.installModel(
+        await FlutterEdgeAi.installModel(
           modelType: legacy.ModelType.gemmaIt,
         ).fromNetwork(urls[i]).withProgress((progress) {
           setState(() => _progress['modern_seq${i + 1}'] = progress);
@@ -452,7 +452,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       final externalFile = File('$testDir/external.bin');
       await externalFile.writeAsBytes(List.filled(2048, 0x42));
 
-      await FlutterGemma.installModel(
+      await FlutterEdgeAi.installModel(
         modelType: legacy.ModelType.gemmaIt,
       ).fromFile(externalFile.path).withProgress((p) {
         setState(() => _progress['fromFile'] = p);
@@ -463,7 +463,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       // === Test 3: Legacy setModelPath ===
       _log('🔧 Testing Legacy setModelPath...');
       try {
-        final mgr = legacy.FlutterGemmaPlugin.instance.modelManager;
+        final mgr = legacy.FlutterEdgeAiPlugin.instance.modelManager;
         await mgr.setModelPath(externalFile.path);
         _log('✅ Legacy: setModelPath OK');
       } catch (e) {
@@ -476,7 +476,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         final loraFile = File('$testDir/lora.bin');
         await loraFile.writeAsBytes(List.filled(512, 0x4C));
 
-        final mgr = legacy.FlutterGemmaPlugin.instance.modelManager;
+        final mgr = legacy.FlutterEdgeAiPlugin.instance.modelManager;
         await mgr.setLoraWeightsPath(loraFile.path);
         _log('✅ LoRA: Set weights OK');
 
@@ -527,7 +527,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
       // === Test 2: Modern API Progress Tracking ===
       _log('🆕 Testing Modern API progress tracking...');
-      FlutterGemma.initialize(
+      FlutterEdgeAi.initialize(
         maxDownloadRetries: 3,
         inferenceEngines: kExampleInferenceEngines,
         embeddingBackends: kExampleEmbeddingBackends,
@@ -541,7 +541,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       _log('📥 Modern: Downloading file with progress tracking...');
 
       final modernProgress = <int>[];
-      await FlutterGemma.installModel(modelType: legacy.ModelType.gemmaIt)
+      await FlutterEdgeAi.installModel(modelType: legacy.ModelType.gemmaIt)
           .fromNetwork(
             'https://raw.githubusercontent.com/github/gitignore/main/Swift.gitignore',
           )
@@ -597,7 +597,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
       // === Test 2: Modern API 404 Error ===
       _log('🆕 Testing Modern API 404 error...');
-      FlutterGemma.initialize(
+      FlutterEdgeAi.initialize(
         maxDownloadRetries: 3,
         inferenceEngines: kExampleInferenceEngines,
         embeddingBackends: kExampleEmbeddingBackends,
@@ -605,7 +605,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       );
 
       try {
-        await FlutterGemma.installModel(modelType: legacy.ModelType.gemmaIt)
+        await FlutterEdgeAi.installModel(modelType: legacy.ModelType.gemmaIt)
             .fromNetwork(
               'https://raw.githubusercontent.com/github/gitignore/main/nonexistent_file_12345.txt',
             )
@@ -660,7 +660,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
       // === Test 2: Modern API 401 Error (using 404 as proxy) ===
       _log('🆕 Testing Modern API HTTP auth error...');
-      FlutterGemma.initialize(
+      FlutterEdgeAi.initialize(
         maxDownloadRetries: 3,
         inferenceEngines: kExampleInferenceEngines,
         embeddingBackends: kExampleEmbeddingBackends,
@@ -668,7 +668,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       );
 
       try {
-        await FlutterGemma.installModel(modelType: legacy.ModelType.gemmaIt)
+        await FlutterEdgeAi.installModel(modelType: legacy.ModelType.gemmaIt)
             .fromNetwork(
               'https://raw.githubusercontent.com/github/gitignore/main/nonexistent_auth_file_67890.txt',
             )
@@ -944,12 +944,12 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
         // Resume the task
         final completer = Completer<void>();
-        // NOT `downloader.updates`: this task is in flutter_gemma's own group,
+        // NOT `downloader.updates`: this task is in flutter_edge_ai's own group,
         // and group callbacks outrank the updates stream — so once any
         // SmartDownloader download has run in this process, a listener here
         // would receive nothing and this test would hang rather than fail.
         // This screen is the integration harness and is deliberately observing
-        // flutter_gemma's OWN task. A host app watches its own downloads
+        // flutter_edge_ai's OWN task. A host app watches its own downloads
         // through FileDownloader().updates, which stays free (#445), and its
         // model downloads through installModel(...).withProgress(...).
         // ignore: invalid_use_of_visible_for_testing_member
@@ -1112,7 +1112,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
       // === Test 2: Modern API Concurrent Downloads ===
       _log('🆕 Testing Modern API concurrent downloads (2 parallel)...');
-      FlutterGemma.initialize(
+      FlutterEdgeAi.initialize(
         maxDownloadRetries: 3,
         inferenceEngines: kExampleInferenceEngines,
         embeddingBackends: kExampleEmbeddingBackends,
@@ -1130,7 +1130,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
       // Start both downloads concurrently
       await Future.wait([
-        FlutterGemma.installModel(modelType: legacy.ModelType.gemmaIt)
+        FlutterEdgeAi.installModel(modelType: legacy.ModelType.gemmaIt)
             .fromNetwork(
               'https://raw.githubusercontent.com/github/gitignore/main/Dart.gitignore',
             )
@@ -1138,7 +1138,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
               setState(() => _progress['modern_concurrent1'] = progress);
             })
             .install(),
-        FlutterGemma.installModel(modelType: legacy.ModelType.gemmaIt)
+        FlutterEdgeAi.installModel(modelType: legacy.ModelType.gemmaIt)
             .fromNetwork(
               'https://raw.githubusercontent.com/github/gitignore/main/Kotlin.gitignore',
             )
@@ -1172,7 +1172,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
   Future<void> _showOrphanedFiles() async {
     await _runTest('Show Orphaned Files', () async {
-      final manager = legacy.FlutterGemmaPlugin.instance.modelManager;
+      final manager = legacy.FlutterEdgeAiPlugin.instance.modelManager;
       final orphanedFiles = await manager.getOrphanedFiles();
 
       _log('📋 Orphaned Files:');
@@ -1189,7 +1189,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
   Future<void> _cleanupOrphanedFiles() async {
     await _runTest('Cleanup Orphaned Files', () async {
-      final manager = legacy.FlutterGemmaPlugin.instance.modelManager;
+      final manager = legacy.FlutterEdgeAiPlugin.instance.modelManager;
 
       // First show what will be deleted
       final orphanedFiles = await manager.getOrphanedFiles();
@@ -1211,7 +1211,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
   Future<void> _showStorageStats() async {
     await _runTest('Show Storage Stats', () async {
-      final manager = legacy.FlutterGemmaPlugin.instance.modelManager;
+      final manager = legacy.FlutterEdgeAiPlugin.instance.modelManager;
       final stats = await manager.getStorageInfo();
 
       _log('📊 Storage Statistics:');
@@ -1262,7 +1262,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
     try {
       const resourceName = 'gemma3-270m-it-q8.task';
 
-      final manager = legacy.FlutterGemmaPlugin.instance.modelManager;
+      final manager = legacy.FlutterEdgeAiPlugin.instance.modelManager;
 
       _log('🔧 Creating BundledSource spec via MobileModelManager...');
 
@@ -1328,9 +1328,9 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       const resourceName = 'gemma3-270m-it-q8.task';
 
       // Cleanup: Delete model if already installed (for honest testing)
-      if (await FlutterGemma.isModelInstalled(resourceName)) {
+      if (await FlutterEdgeAi.isModelInstalled(resourceName)) {
         _log('🧹 Cleaning up existing model before test...');
-        final manager = legacy.FlutterGemmaPlugin.instance.modelManager;
+        final manager = legacy.FlutterEdgeAiPlugin.instance.modelManager;
         final spec =
             legacy_mobile.MobileModelManager.createBundledInferenceSpec(
               resourceName: resourceName,
@@ -1339,11 +1339,11 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       }
 
       _log(
-        '🔧 Installing via Modern API: FlutterGemma.installModel().fromBundled()',
+        '🔧 Installing via Modern API: FlutterEdgeAi.installModel().fromBundled()',
       );
 
       // Modern API: Install bundled model
-      await FlutterGemma.installModel(
+      await FlutterEdgeAi.installModel(
         modelType: legacy.ModelType.gemmaIt,
       ).fromBundled(resourceName).withProgress((progress) {
         _log('📊 Installation progress: $progress%');
@@ -1353,7 +1353,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       _log('📁 Model ID: $resourceName');
 
       // Modern API: Verify installation
-      final isInstalled = await FlutterGemma.isModelInstalled(resourceName);
+      final isInstalled = await FlutterEdgeAi.isModelInstalled(resourceName);
       if (!isInstalled) {
         throw Exception('Model not marked as installed');
       }
@@ -1389,7 +1389,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
           'embeddinggemma-300M_seq1024_mixed-precision.tflite';
       const tokenizerResourceName = 'sentencepiece.model';
 
-      final manager = legacy.FlutterGemmaPlugin.instance.modelManager;
+      final manager = legacy.FlutterEdgeAiPlugin.instance.modelManager;
 
       _log(
         '🔧 Creating BundledSource embedding spec via MobileModelManager...',
@@ -1452,7 +1452,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       const tokenizerResourceName = 'sentencepiece.model';
 
       // Cleanup: Delete model if already installed (for honest testing)
-      final manager = legacy.FlutterGemmaPlugin.instance.modelManager;
+      final manager = legacy.FlutterEdgeAiPlugin.instance.modelManager;
       final spec = legacy_mobile.MobileModelManager.createBundledEmbeddingSpec(
         modelResourceName: modelResourceName,
         tokenizerResourceName: tokenizerResourceName,
@@ -1465,7 +1465,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       _log('🔧 Installing Model + Tokenizer via Modern API...');
 
       // Modern API: Install embedding model (model + tokenizer together)
-      await FlutterGemma.installEmbedder()
+      await FlutterEdgeAi.installEmbedder()
           .modelFromBundled(modelResourceName)
           .tokenizerFromBundled(tokenizerResourceName)
           .install();
@@ -1473,10 +1473,10 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       _log('✅ [MODERN] Embedding model + tokenizer installed');
 
       // Modern API: Verify both files installed
-      final modelInstalled = await FlutterGemma.isModelInstalled(
+      final modelInstalled = await FlutterEdgeAi.isModelInstalled(
         modelResourceName,
       );
-      final tokenizerInstalled = await FlutterGemma.isModelInstalled(
+      final tokenizerInstalled = await FlutterEdgeAi.isModelInstalled(
         tokenizerResourceName,
       );
 
@@ -1512,7 +1512,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
   Future<void> _testInferenceDownloadLegacy_internal() async {
     _log('📥 [LEGACY] Downloading Gemma 3 270M IT model...');
 
-    final manager = legacy.FlutterGemmaPlugin.instance.modelManager;
+    final manager = legacy.FlutterEdgeAiPlugin.instance.modelManager;
     final token = _huggingFaceTokenController.text.trim();
 
     if (token.isEmpty) {
@@ -1583,9 +1583,9 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
     // Cleanup: Delete model if already installed (for honest testing)
     const filename = 'gemma3-270m-it-q8.task';
-    if (await FlutterGemma.isModelInstalled(filename)) {
+    if (await FlutterEdgeAi.isModelInstalled(filename)) {
       _log('🧹 Cleaning up existing model before test...');
-      final manager = legacy.FlutterGemmaPlugin.instance.modelManager;
+      final manager = legacy.FlutterEdgeAiPlugin.instance.modelManager;
       final spec = legacy_mobile.InferenceModelSpec.fromLegacyUrl(
         name: filename,
         modelUrl: inferenceModelUrl,
@@ -1594,7 +1594,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
     }
 
     // Modern API: Install model from network
-    await FlutterGemma.installModel(modelType: legacy.ModelType.gemmaIt)
+    await FlutterEdgeAi.installModel(modelType: legacy.ModelType.gemmaIt)
         .fromNetwork(inferenceModelUrl, token: token.isEmpty ? null : token)
         .withProgress((progress) {
           setState(() => _progress['inference_download_modern'] = progress);
@@ -1621,7 +1621,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
   Future<void> _testInferenceFromAssetsLegacy_internal() async {
     _log('📦 [LEGACY] Loading inference model from assets...');
 
-    final manager = legacy.FlutterGemmaPlugin.instance.modelManager;
+    final manager = legacy.FlutterEdgeAiPlugin.instance.modelManager;
 
     // Legacy API: Create inference spec from asset
     final spec = legacy_mobile.MobileModelManager.createInferenceSpec(
@@ -1659,9 +1659,9 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
     // Cleanup: Delete model if already installed (for honest testing)
     final filename = inferenceAssetPath.split('/').last;
-    if (await FlutterGemma.isModelInstalled(filename)) {
+    if (await FlutterEdgeAi.isModelInstalled(filename)) {
       _log('🧹 Cleaning up existing model before test...');
-      final manager = legacy.FlutterGemmaPlugin.instance.modelManager;
+      final manager = legacy.FlutterEdgeAiPlugin.instance.modelManager;
       final spec = legacy_mobile.MobileModelManager.createInferenceSpec(
         name: filename.split('.').first,
         modelUrl: inferenceAssetPath,
@@ -1672,7 +1672,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
     setState(() => _progress['inference_asset_modern'] = 0);
 
     // Modern API: Install model from asset
-    await FlutterGemma.installModel(
+    await FlutterEdgeAi.installModel(
       modelType: legacy.ModelType.gemmaIt,
     ).fromAsset(inferenceAssetPath).withProgress((progress) {
       setState(() => _progress['inference_asset_modern'] = progress);
@@ -1708,7 +1708,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       }
 
       // Legacy API: setModelPath
-      final manager = legacy.FlutterGemmaPlugin.instance.modelManager;
+      final manager = legacy.FlutterEdgeAiPlugin.instance.modelManager;
       await manager.setModelPath(path);
 
       _log('✅ [LEGACY] Custom inference path set successfully');
@@ -1731,7 +1731,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       }
 
       // Modern API: Install model from file path
-      await FlutterGemma.installModel(
+      await FlutterEdgeAi.installModel(
         modelType: legacy.ModelType.gemmaIt,
       ).fromFile(path).install();
 
@@ -1750,7 +1750,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
     _log('📋 Using Modern API with active inference model...');
 
     final startInit = DateTime.now();
-    final inferenceModel = await legacy.FlutterGemmaPlugin.instance.createModel(
+    final inferenceModel = await legacy.FlutterEdgeAiPlugin.instance.createModel(
       modelType: legacy.ModelType.gemmaIt,
       maxTokens: 512,
     );
@@ -1795,7 +1795,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
   Future<void> _testEmbeddingDownloadLegacy_internal() async {
     _log('📥 [LEGACY] Downloading embedding model and tokenizer...');
 
-    final manager = legacy.FlutterGemmaPlugin.instance.modelManager;
+    final manager = legacy.FlutterEdgeAiPlugin.instance.modelManager;
     final token = _huggingFaceTokenController.text.trim();
 
     if (token.isEmpty) {
@@ -1863,10 +1863,10 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
     // Cleanup: Delete model if already installed (for honest testing)
     final modelFilename = embeddingModelUrl.split('/').last;
     final tokenizerFilename = embeddingTokenizerUrl.split('/').last;
-    if (await FlutterGemma.isModelInstalled(modelFilename) ||
-        await FlutterGemma.isModelInstalled(tokenizerFilename)) {
+    if (await FlutterEdgeAi.isModelInstalled(modelFilename) ||
+        await FlutterEdgeAi.isModelInstalled(tokenizerFilename)) {
       _log('🧹 Cleaning up existing model before test...');
-      final manager = legacy.FlutterGemmaPlugin.instance.modelManager;
+      final manager = legacy.FlutterEdgeAiPlugin.instance.modelManager;
       final spec = legacy_mobile.EmbeddingModelSpec.fromLegacyUrl(
         name: modelFilename.split('.').first,
         modelUrl: embeddingModelUrl,
@@ -1877,7 +1877,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
     // Modern API: Download model + tokenizer together
     _log('📥 Downloading model and tokenizer...');
-    await FlutterGemma.installEmbedder()
+    await FlutterEdgeAi.installEmbedder()
         .modelFromNetwork(embeddingModelUrl, token: authToken)
         .tokenizerFromNetwork(embeddingTokenizerUrl, token: authToken)
         .withModelProgress((progress) {
@@ -1916,7 +1916,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
   Future<void> _testEmbeddingFromAssetsLegacy_internal() async {
     _log('📦 [LEGACY] Loading embedding model from assets...');
 
-    final manager = legacy.FlutterGemmaPlugin.instance.modelManager;
+    final manager = legacy.FlutterEdgeAiPlugin.instance.modelManager;
 
     // Legacy API: Create embedding spec with both model and tokenizer
     final spec = legacy_mobile.MobileModelManager.createEmbeddingSpec(
@@ -1956,10 +1956,10 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
     // Cleanup: Delete model if already installed (for honest testing)
     final modelFilename = embeddingModelAssetPath.split('/').last;
     final tokenizerFilename = embeddingTokenizerAssetPath.split('/').last;
-    if (await FlutterGemma.isModelInstalled(modelFilename) ||
-        await FlutterGemma.isModelInstalled(tokenizerFilename)) {
+    if (await FlutterEdgeAi.isModelInstalled(modelFilename) ||
+        await FlutterEdgeAi.isModelInstalled(tokenizerFilename)) {
       _log('🧹 Cleaning up existing model before test...');
-      final manager = legacy.FlutterGemmaPlugin.instance.modelManager;
+      final manager = legacy.FlutterEdgeAiPlugin.instance.modelManager;
       final spec = legacy_mobile.MobileModelManager.createEmbeddingSpec(
         name: modelFilename.split('.').first,
         modelUrl: embeddingModelAssetPath,
@@ -1971,7 +1971,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
     setState(() => _progress['embedding_asset_modern'] = 0);
 
     // Modern API: Install model + tokenizer together from assets
-    await FlutterGemma.installEmbedder()
+    await FlutterEdgeAi.installEmbedder()
         .modelFromAsset(embeddingModelAssetPath)
         .tokenizerFromAsset(embeddingTokenizerAssetPath)
         .withModelProgress((progress) {
@@ -2038,7 +2038,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
     _log('📋 Using Modern API with active embedding model...');
 
     // Modern API: Use active embedding model (no paths needed!)
-    final embeddingModel = await legacy.FlutterGemmaPlugin.instance
+    final embeddingModel = await legacy.FlutterEdgeAiPlugin.instance
         .createEmbeddingModel();
 
     _log('✅ Embedding model created successfully');
@@ -2131,7 +2131,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
     _log('');
 
     try {
-      final manager = legacy.FlutterGemmaPlugin.instance.modelManager;
+      final manager = legacy.FlutterEdgeAiPlugin.instance.modelManager;
 
       // ═══════════════════════════════════════════════════════════════
       // STEP 0: CLEANUP ALL DOWNLOADED MODELS
@@ -2205,7 +2205,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       _currentTestIndex++;
       _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Inference');
       _log('  🔧 Creating model...');
-      final inferenceModel1 = await legacy.FlutterGemmaPlugin.instance
+      final inferenceModel1 = await legacy.FlutterEdgeAiPlugin.instance
           .createModel(modelType: legacy.ModelType.gemmaIt, maxTokens: 512);
       _log('  ✅ Model created');
       _log('  🔧 Creating session...');
@@ -2242,7 +2242,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       );
 
       _log('  📥 Downloading with Modern API...');
-      await FlutterGemma.installModel(modelType: legacy.ModelType.gemmaIt)
+      await FlutterEdgeAi.installModel(modelType: legacy.ModelType.gemmaIt)
           .fromNetwork(inferenceModelUrl, token: token.isEmpty ? null : token)
           .withProgress((progress) {
             setState(() => _progress['inference_download_modern'] = progress);
@@ -2258,7 +2258,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       _currentTestIndex++;
       _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Inference');
       _log('  🔧 Getting active model with Modern API...');
-      final inferenceModel2 = await FlutterGemma.getActiveModel(maxTokens: 512);
+      final inferenceModel2 = await FlutterEdgeAi.getActiveModel(maxTokens: 512);
       _log('  ✅ Model ready');
       _log('  🔧 Creating session...');
       final session2 = await inferenceModel2.createSession();
@@ -2326,7 +2326,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
         _currentTestIndex++;
         _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Embedding');
-        final embeddingModel1 = await legacy.FlutterGemmaPlugin.instance
+        final embeddingModel1 = await legacy.FlutterEdgeAiPlugin.instance
             .createEmbeddingModel();
         final emb1 = await embeddingModel1.generateEmbedding('Hello, world!');
         _log('  🔢 Dimensions: ${emb1.length}');
@@ -2345,7 +2345,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         );
 
         _log('  📥 Downloading with Modern API...');
-        await FlutterGemma.installEmbedder()
+        await FlutterEdgeAi.installEmbedder()
             .modelFromNetwork(
               embeddingModelUrl,
               token: token.isEmpty ? null : token,
@@ -2372,7 +2372,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         _currentTestIndex++;
         _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Embedding');
         _log('  🔧 Getting active embedding model with Modern API...');
-        final embeddingModel2 = await FlutterGemma.getActiveEmbedder();
+        final embeddingModel2 = await FlutterEdgeAi.getActiveEmbedder();
         _log('  ✅ Model ready');
         _log('  🔧 Generating embedding...');
         final emb2 = await embeddingModel2.generateEmbedding('Hello, world!');
@@ -2431,7 +2431,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
         _currentTestIndex++;
         _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Inference');
-        final inferenceModel3 = await legacy.FlutterGemmaPlugin.instance
+        final inferenceModel3 = await legacy.FlutterEdgeAiPlugin.instance
             .createModel(modelType: legacy.ModelType.gemmaIt, maxTokens: 512);
         final session3 = await inferenceModel3.createSession();
         await session3.addQueryChunk(
@@ -2462,7 +2462,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         );
 
         _log('  📦 Installing with Modern API...');
-        await FlutterGemma.installModel(
+        await FlutterEdgeAi.installModel(
           modelType: legacy.ModelType.gemmaIt,
         ).fromAsset(inferenceAssetPath).install();
         _log('✅ [$_currentTestIndex/$_totalTests] Install complete');
@@ -2472,7 +2472,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         _currentTestIndex++;
         _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Inference');
         _log('  🔧 Getting active model with Modern API...');
-        final inferenceModel4 = await FlutterGemma.getActiveModel(
+        final inferenceModel4 = await FlutterEdgeAi.getActiveModel(
           maxTokens: 512,
         );
         _log('  ✅ Model ready');
@@ -2530,7 +2530,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
           _currentTestIndex++;
           _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Embedding');
-          final embeddingModel3 = await legacy.FlutterGemmaPlugin.instance
+          final embeddingModel3 = await legacy.FlutterEdgeAiPlugin.instance
               .createEmbeddingModel();
           final emb3 = await embeddingModel3.generateEmbedding('Hello, world!');
           _log('  🔢 Dimensions: ${emb3.length}');
@@ -2549,7 +2549,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
           );
 
           _log('  📦 Installing with Modern API...');
-          await FlutterGemma.installEmbedder()
+          await FlutterEdgeAi.installEmbedder()
               .modelFromAsset(embeddingModelAssetPath)
               .tokenizerFromAsset(embeddingTokenizerAssetPath)
               .install();
@@ -2560,7 +2560,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
           _currentTestIndex++;
           _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Embedding');
           _log('  🔧 Getting active embedding model with Modern API...');
-          final embeddingModel4 = await FlutterGemma.getActiveEmbedder();
+          final embeddingModel4 = await FlutterEdgeAi.getActiveEmbedder();
           _log('  ✅ Model ready');
           _log('  🔧 Generating embedding...');
           final emb4 = await embeddingModel4.generateEmbedding('Hello, world!');
@@ -2602,7 +2602,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
       _currentTestIndex++;
       _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Inference');
-      final inferenceModel5 = await legacy.FlutterGemmaPlugin.instance
+      final inferenceModel5 = await legacy.FlutterEdgeAiPlugin.instance
           .createModel(modelType: legacy.ModelType.gemmaIt, maxTokens: 512);
       final session5 = await inferenceModel5.createSession();
       await session5.addQueryChunk(
@@ -2630,7 +2630,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       );
 
       _log('  📲 Installing with Modern API...');
-      await FlutterGemma.installModel(
+      await FlutterEdgeAi.installModel(
         modelType: legacy.ModelType.gemmaIt,
       ).fromBundled('gemma3-270m-it-q8.task').install();
       _log('✅ [$_currentTestIndex/$_totalTests] Install complete');
@@ -2640,7 +2640,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       _currentTestIndex++;
       _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Inference');
       _log('  🔧 Getting active model with Modern API...');
-      final inferenceModel6 = await FlutterGemma.getActiveModel(maxTokens: 512);
+      final inferenceModel6 = await FlutterEdgeAi.getActiveModel(maxTokens: 512);
       _log('  ✅ Model ready');
       _log('  🔧 Creating session...');
       final session6 = await inferenceModel6.createSession();
@@ -2693,7 +2693,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
         _currentTestIndex++;
         _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Embedding');
-        final embeddingModel5 = await legacy.FlutterGemmaPlugin.instance
+        final embeddingModel5 = await legacy.FlutterEdgeAiPlugin.instance
             .createEmbeddingModel();
         final emb5 = await embeddingModel5.generateEmbedding('Hello, world!');
         _log('  🔢 Dimensions: ${emb5.length}');
@@ -2709,7 +2709,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         );
 
         _log('  📲 Installing with Modern API...');
-        await FlutterGemma.installEmbedder()
+        await FlutterEdgeAi.installEmbedder()
             .modelFromBundled(
               'embeddinggemma-300M_seq1024_mixed-precision.tflite',
             )
@@ -2722,7 +2722,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         _currentTestIndex++;
         _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Embedding');
         _log('  🔧 Getting active embedding model with Modern API...');
-        final embeddingModel6 = await FlutterGemma.getActiveEmbedder();
+        final embeddingModel6 = await FlutterEdgeAi.getActiveEmbedder();
         _log('  ✅ Model ready');
         _log('  🔧 Generating embedding...');
         final emb6 = await embeddingModel6.generateEmbedding('Hello, world!');
@@ -2775,7 +2775,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
         _currentTestIndex++;
         _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Inference');
-        final inferenceModel7 = await legacy.FlutterGemmaPlugin.instance
+        final inferenceModel7 = await legacy.FlutterEdgeAiPlugin.instance
             .createModel(modelType: legacy.ModelType.gemmaIt, maxTokens: 512);
         final session7 = await inferenceModel7.createSession();
         await session7.addQueryChunk(
@@ -2803,7 +2803,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         );
 
         _log('  📁 [MODERN] Installing from file...');
-        await FlutterGemma.installModel(
+        await FlutterEdgeAi.installModel(
           modelType: legacy.ModelType.gemmaIt,
         ).fromFile(inferenceFilePath).install();
         _log('✅ [$_currentTestIndex/$_totalTests] Install complete');
@@ -2813,7 +2813,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         _currentTestIndex++;
         _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Inference');
         _log('  🔧 Getting active model with Modern API...');
-        final inferenceModel8 = await FlutterGemma.getActiveModel(
+        final inferenceModel8 = await FlutterEdgeAi.getActiveModel(
           maxTokens: 512,
         );
         _log('  ✅ Model ready');
@@ -2879,7 +2879,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
         _currentTestIndex++;
         _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Embedding');
-        final embeddingModel7 = await legacy.FlutterGemmaPlugin.instance
+        final embeddingModel7 = await legacy.FlutterEdgeAiPlugin.instance
             .createEmbeddingModel(
               modelPath: embeddingModelPath,
               tokenizerPath: embeddingTokenizerPath,
@@ -2898,7 +2898,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         );
 
         _log('  📁 [MODERN] Installing from files...');
-        await FlutterGemma.installEmbedder()
+        await FlutterEdgeAi.installEmbedder()
             .modelFromFile(embeddingModelPath)
             .tokenizerFromFile(embeddingTokenizerPath)
             .install();
@@ -2909,7 +2909,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         _currentTestIndex++;
         _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Embedding');
         _log('  🔧 Getting active embedding model with Modern API...');
-        final embeddingModel8 = await FlutterGemma.getActiveEmbedder();
+        final embeddingModel8 = await FlutterEdgeAi.getActiveEmbedder();
         _log('  ✅ Model ready');
         _log('  🔧 Generating embedding...');
         final emb8 = await embeddingModel8.generateEmbedding('Hello, world!');

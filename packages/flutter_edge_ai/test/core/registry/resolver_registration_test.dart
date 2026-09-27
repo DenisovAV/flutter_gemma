@@ -1,4 +1,4 @@
-// The registration contract `FlutterGemma.initialize()` makes to every engine
+// The registration contract `FlutterEdgeAi.initialize()` makes to every engine
 // package: an engine that implements HuggingFaceResolverSource has its resolver
 // registered without a `huggingFaceResolvers:` entry; the explicit list is
 // registered FIRST, so an app-supplied resolver wins the equal-priority tie and
@@ -6,7 +6,7 @@
 // registers once. Driven through the full published `initialize()` path with a
 // fake engine and fake resolvers, so it pins the contract rather than one
 // engine. Each engine package checks only that its engine hands over its own
-// resolver (flutter_gemma_litertlm: test/manifest/engine_carried_resolver_test.dart).
+// resolver (flutter_edge_ai_litertlm: test/manifest/engine_carried_resolver_test.dart).
 //
 // Reproduction notes (each is the kind of thing the next person loses an
 // hour to):
@@ -21,7 +21,7 @@
 
 import 'package:flutter/foundation.dart'
     show TargetPlatform, debugDefaultTargetPlatformOverride;
-import 'package:flutter_edge_ai/core/api/flutter_gemma.dart';
+import 'package:flutter_edge_ai/core/api/flutter_edge_ai.dart';
 import 'package:flutter_edge_ai/core/di/service_registry.dart';
 import 'package:flutter_edge_ai/core/domain/platform_types.dart'
     show PreferredBackend;
@@ -34,7 +34,7 @@ import 'package:flutter_edge_ai/core/registry/hugging_face_resolver_registry.dar
 import 'package:flutter_edge_ai/core/registry/hugging_face_resolver_source.dart';
 import 'package:flutter_edge_ai/core/registry/inference_engine_provider.dart';
 import 'package:flutter_edge_ai/core/registry/runtime_config.dart';
-import 'package:flutter_edge_ai/flutter_gemma_interface.dart' show InferenceModel;
+import 'package:flutter_edge_ai/flutter_edge_ai_interface.dart' show InferenceModel;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -109,7 +109,7 @@ void main() {
     'registering an engine auto-registers the resolver it carries',
     () async {
       const carried = _FakeResolver('engine');
-      await FlutterGemma.initialize(
+      await FlutterEdgeAi.initialize(
         inferenceEngines: const [_FakeEngine(carried)],
       );
       final registered = HuggingFaceResolverRegistry.instance.registered;
@@ -127,7 +127,7 @@ void main() {
 
   test('an explicit resolver wins the equal-priority tie over the '
       'engine-carried one, and resolveHuggingFace reaches it', () async {
-    await FlutterGemma.initialize(
+    await FlutterEdgeAi.initialize(
       inferenceEngines: const [_FakeEngine(_FakeResolver('engine'))],
       huggingFaceResolvers: const [_FakeResolver('explicit')],
     );
@@ -136,7 +136,7 @@ void main() {
       'engine',
     ], reason: 'explicit list first, engine-carried second');
 
-    final r = await FlutterGemma.resolveHuggingFace(
+    final r = await FlutterEdgeAi.resolveHuggingFace(
       _repo,
       fileType: ModelFileType.litertlm,
     );
@@ -148,7 +148,7 @@ void main() {
   test('a const resolver passed both explicitly and via the engine registers '
       'once', () async {
     const shared = _FakeResolver('shared');
-    await FlutterGemma.initialize(
+    await FlutterEdgeAi.initialize(
       inferenceEngines: const [_FakeEngine(shared)],
       huggingFaceResolvers: const [shared],
     );

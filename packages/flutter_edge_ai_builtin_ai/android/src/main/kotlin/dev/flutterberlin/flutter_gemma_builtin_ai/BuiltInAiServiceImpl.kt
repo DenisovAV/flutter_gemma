@@ -47,7 +47,7 @@ internal class BuiltInAiServiceImpl(
 ) : BuiltInAiService, EventChannel.StreamHandler {
 
   companion object {
-    private const val TAG = "FlutterGemmaBuiltInAi"
+    private const val TAG = "FlutterEdgeAiBuiltInAi"
   }
 
   private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())

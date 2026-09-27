@@ -34,7 +34,7 @@
 #      `_checksums` map in hook/build.dart.
 #   4. Create the tag and upload all seven archives PLUS a
 #      checksums_sqlite_vec.txt carrying the same sums:
-#        gh release create native-sqlite-vec-v<X> --repo DenisovAV/flutter_gemma \
+#        gh release create native-sqlite-vec-v<X> --repo DenisovAV/flutter_edge_ai \
 #          dist/sqlite-vec-*.tar.gz dist/checksums_sqlite_vec.txt
 #   5. NEVER re-upload assets on an existing tag. tar is not reproducible, so
 #      the published SHA256 cannot be recovered, and every consumer already
@@ -54,7 +54,7 @@ SQLITE_VEC_VERSION="${SQLITE_VEC_VERSION:-0.1.9}"
 # sqlite version whose amalgamation headers we compile the extension against.
 # Matches the sqlite3.dart wasm build's pin (sqlite-autoconf-3530200).
 SQLITE_VERSION="${SQLITE_VERSION:-3530200}"
-ANDROID_API_LEVEL="${ANDROID_API_LEVEL:-24}"  # minSdk 24, matches flutter_gemma
+ANDROID_API_LEVEL="${ANDROID_API_LEVEL:-24}"  # minSdk 24, matches flutter_edge_ai
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SRC_DIR="$SCRIPT_DIR/src"            # vendored sqlite-vec amalgamation

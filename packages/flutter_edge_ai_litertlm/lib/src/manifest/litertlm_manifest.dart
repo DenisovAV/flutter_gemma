@@ -354,7 +354,7 @@ class _Scored {
 
 /// The answer to "given this device, which file, on which backend, with which
 /// settings" — in the manifest's own (string) vocabulary.
-/// [LitertlmManifestResolver] maps this onto flutter_gemma's `ResolvedHfModel`.
+/// [LitertlmManifestResolver] maps this onto flutter_edge_ai's `ResolvedHfModel`.
 class Resolution {
   final String file;
 

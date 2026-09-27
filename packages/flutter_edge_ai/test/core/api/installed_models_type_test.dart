@@ -46,8 +46,8 @@ void main() {
     ServiceRegistry.reset();
     SttRegistry.instance.reset();
     EmbeddingRegistry.instance.reset();
-    await FlutterGemmaPlugin.instance.modelManager.clearActiveSttIdentity();
-    await FlutterGemmaPlugin.instance.modelManager
+    await FlutterEdgeAiPlugin.instance.modelManager.clearActiveSttIdentity();
+    await FlutterEdgeAiPlugin.instance.modelManager
         .clearActiveEmbeddingIdentity();
   });
 
@@ -63,20 +63,20 @@ void main() {
   test(
     'an installed STT model is listed under stt, not inference (#391)',
     () async {
-      await FlutterGemma.initialize(sttBackends: [_FakeSttBackend()]);
+      await FlutterEdgeAi.initialize(sttBackends: [_FakeSttBackend()]);
 
       final modelFile = File(path.join(sourceDir.path, 'model.tflite'));
       await modelFile.writeAsBytes(_fakeModelBytes);
       final tokenizerFile = File(path.join(sourceDir.path, 'tokenizer.json'));
       await tokenizerFile.writeAsBytes(_fakeTokenizerBytes);
 
-      await FlutterGemma.installStt()
+      await FlutterEdgeAi.installStt()
           .modelFromFile(modelFile.path)
           .tokenizerFromFile(tokenizerFile.path)
           .ofType(SttModelType.moonshine)
           .install();
 
-      final manager = FlutterGemmaPlugin.instance.modelManager;
+      final manager = FlutterEdgeAiPlugin.instance.modelManager;
       final sttModels = await manager.getInstalledModels(
         ModelManagementType.stt,
       );
@@ -103,7 +103,7 @@ void main() {
   test(
     'an installed embedding model is listed under embedding, not inference (#391)',
     () async {
-      await FlutterGemma.initialize(
+      await FlutterEdgeAi.initialize(
         embeddingBackends: [_FakeEmbeddingBackend()],
       );
 
@@ -114,12 +114,12 @@ void main() {
       );
       await tokenizerFile.writeAsBytes(_fakeTokenizerBytes);
 
-      await FlutterGemma.installEmbedder()
+      await FlutterEdgeAi.installEmbedder()
           .modelFromFile(modelFile.path)
           .tokenizerFromFile(tokenizerFile.path)
           .install();
 
-      final manager = FlutterGemmaPlugin.instance.modelManager;
+      final manager = FlutterEdgeAiPlugin.instance.modelManager;
       final embedModels = await manager.getInstalledModels(
         ModelManagementType.embedding,
       );

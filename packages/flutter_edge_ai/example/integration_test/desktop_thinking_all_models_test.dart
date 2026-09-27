@@ -70,12 +70,12 @@ void main() {
 
         await registerTestEngines();
 
-        await FlutterGemma.installModel(
+        await FlutterEdgeAi.installModel(
           modelType: config.modelType,
           fileType: config.fileType,
         ).fromFile(config.path).install();
 
-        final model = await FlutterGemma.getActiveModel(maxTokens: 256);
+        final model = await FlutterEdgeAi.getActiveModel(maxTokens: 256);
         try {
           final chat = await model.createChat(
             modelType: config.modelType,
@@ -125,12 +125,12 @@ void main() {
 
         await registerTestEngines();
 
-        await FlutterGemma.installModel(
+        await FlutterEdgeAi.installModel(
           modelType: config.modelType,
           fileType: config.fileType,
         ).fromFile(config.path).install();
 
-        final model = await FlutterGemma.getActiveModel(maxTokens: 256);
+        final model = await FlutterEdgeAi.getActiveModel(maxTokens: 256);
         try {
           final chat = await model.createChat(
             modelType: config.modelType,

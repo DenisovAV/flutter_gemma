@@ -1,5 +1,5 @@
 import 'image_processor.dart';
-import 'utils/gemma_log.dart';
+import 'utils/edge_ai_log.dart';
 
 /// Handles proper image tokenization for multimodal AI models to prevent
 /// "Prompt contained 0 image tokens but received 1 images" errors and
@@ -13,7 +13,7 @@ class ImageTokenizer {
     required String role,
   }) {
     try {
-      gemmaLog('ImageTokenizer: Creating structured image message...');
+      edgeAiLog('ImageTokenizer: Creating structured image message...');
 
       // Validate inputs
       if (text.isEmpty) {
@@ -41,14 +41,14 @@ class ImageTokenizer {
         ],
       };
 
-      gemmaLog(
+      edgeAiLog(
         'ImageTokenizer: Structured message created with '
         '${(message['content'] as List).length} content items',
       );
 
       return message;
     } catch (e) {
-      gemmaLog('ImageTokenizer: Error creating image message - $e');
+      edgeAiLog('ImageTokenizer: Error creating image message - $e');
       throw ImageTokenizationException('Failed to create image message: $e');
     }
   }
@@ -61,7 +61,7 @@ class ImageTokenizer {
     required ModelType modelType,
   }) {
     try {
-      gemmaLog('ImageTokenizer: Creating image prompt for $modelType...');
+      edgeAiLog('ImageTokenizer: Creating image prompt for $modelType...');
 
       switch (modelType) {
         case ModelType.gemmaIt:
@@ -72,7 +72,7 @@ class ImageTokenizer {
           return _createGeneralImagePrompt(text, processedImage);
       }
     } catch (e) {
-      gemmaLog('ImageTokenizer: Error creating image prompt - $e');
+      edgeAiLog('ImageTokenizer: Error creating image prompt - $e');
       throw ImageTokenizationException('Failed to create image prompt: $e');
     }
   }
@@ -98,7 +98,7 @@ class ImageTokenizer {
     prompt.write('\n<start_of_turn>model\n');
 
     final result = prompt.toString();
-    gemmaLog('ImageTokenizer: Created Gemma prompt (${result.length} chars)');
+    edgeAiLog('ImageTokenizer: Created Gemma prompt (${result.length} chars)');
     return result;
   }
 
@@ -117,7 +117,7 @@ class ImageTokenizer {
     prompt.write('<｜/image｜><｜Assistant｜>');
 
     final result = prompt.toString();
-    gemmaLog(
+    edgeAiLog(
       'ImageTokenizer: Created DeepSeek prompt (${result.length} chars)',
     );
     return result;
@@ -139,14 +139,14 @@ class ImageTokenizer {
     prompt.write('<start_of_turn>model\n');
 
     final result = prompt.toString();
-    gemmaLog('ImageTokenizer: Created general prompt (${result.length} chars)');
+    edgeAiLog('ImageTokenizer: Created general prompt (${result.length} chars)');
     return result;
   }
 
   /// Validates that a message contains proper image tokens
   static bool validateImageTokens(String prompt, int expectedImageCount) {
     try {
-      gemmaLog(
+      edgeAiLog(
         'ImageTokenizer: Validating image tokens - expected: $expectedImageCount',
       );
 
@@ -174,11 +174,11 @@ class ImageTokenizer {
         imageTokenCount += base64Matches.length;
       }
 
-      gemmaLog('ImageTokenizer: Found $imageTokenCount image tokens in prompt');
+      edgeAiLog('ImageTokenizer: Found $imageTokenCount image tokens in prompt');
 
       return imageTokenCount >= expectedImageCount;
     } catch (e) {
-      gemmaLog('ImageTokenizer: Error validating image tokens - $e');
+      edgeAiLog('ImageTokenizer: Error validating image tokens - $e');
       return false;
     }
   }
@@ -204,7 +204,7 @@ class ImageTokenizer {
 
       for (final pattern in corruptionPatterns) {
         if (pattern.hasMatch(response)) {
-          gemmaLog(
+          edgeAiLog(
             'ImageTokenizer: Detected corruption pattern - ${pattern.pattern}',
           );
           return true;
@@ -226,9 +226,9 @@ class ImageTokenizer {
         for (final entry in wordCounts.entries) {
           if (entry.value > words.length * 0.3) {
             // More than 30% of words
-            gemmaLog(
+            edgeAiLog(
               'ImageTokenizer: Detected excessive repetition of "${entry.key}" (${entry.value} times)',
-              level: GemmaLogLevel.verbose,
+              level: EdgeAiLogLevel.verbose,
             );
             return true;
           }
@@ -237,7 +237,7 @@ class ImageTokenizer {
 
       return false;
     } catch (e) {
-      gemmaLog('ImageTokenizer: Error detecting corruption patterns - $e');
+      edgeAiLog('ImageTokenizer: Error detecting corruption patterns - $e');
       return false;
     }
   }

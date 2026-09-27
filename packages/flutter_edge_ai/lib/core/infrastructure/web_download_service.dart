@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
 import 'dart:js_interop';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_edge_ai/core/domain/download_exception.dart';
@@ -92,11 +92,11 @@ class WebDownloadService implements DownloadService {
     // STREAMING MODE: Use OPFS for large models
     if (webStorageMode == WebStorageMode.streaming) {
       if (opfsService == null) {
-        gemmaLog('[WARNING] OPFS not available, falling back to cacheApi mode');
-        gemmaLog(
+        edgeAiLog('[WARNING] OPFS not available, falling back to cacheApi mode');
+        edgeAiLog(
           '[WARNING] Large models (>2GB) may fail with ArrayBuffer limit',
         );
-        gemmaLog(
+        edgeAiLog(
           '[WARNING] Use a browser that supports OPFS (Chrome 86+, Edge 86+, Safari 15.2+)',
         );
         // Fall back to cache API mode
@@ -139,7 +139,7 @@ class WebDownloadService implements DownloadService {
     // Check cache first (works for both public and private models)
     final cachedBlobUrl = await cacheService.getCachedBlobUrl(normalizedUrl);
     if (cachedBlobUrl != null) {
-      gemmaLog('✅ Model found in cache (skipping download): $url');
+      edgeAiLog('✅ Model found in cache (skipping download): $url');
 
       // Register cached blob URL
       _fileSystem.registerUrl(targetPath, cachedBlobUrl);
@@ -151,14 +151,14 @@ class WebDownloadService implements DownloadService {
     }
 
     // Not in cache - proceed with download
-    gemmaLog('📥 Model not in cache, downloading: $url');
+    edgeAiLog('📥 Model not in cache, downloading: $url');
 
     if (token == null) {
       // PUBLIC PATH: Download and cache
       yield* _downloadPublic(url, normalizedUrl, targetPath, cancelToken);
     } else {
       // PRIVATE PATH: Fetch with auth
-      gemmaLog(
+      edgeAiLog(
         'WebDownloadService: Starting authenticated download for $targetPath',
       );
 
@@ -187,13 +187,13 @@ class WebDownloadService implements DownloadService {
     try {
       cancelToken?.throwIfCancelled();
 
-      gemmaLog('[WebDownloadService] 🚀 OPFS streaming download: $targetPath');
+      edgeAiLog('[WebDownloadService] 🚀 OPFS streaming download: $targetPath');
 
       // Check if already in OPFS
       final isAlreadyCached = await opfsService!.isModelCached(targetPath);
       // ignore: dead_code
       if (isAlreadyCached) {
-        gemmaLog('[WebDownloadService] ✅ Model already in OPFS: $targetPath');
+        edgeAiLog('[WebDownloadService] ✅ Model already in OPFS: $targetPath');
 
         // Register as OPFS file (special marker for getStreamReader)
         _fileSystem.registerUrl(targetPath, 'opfs://$targetPath');
@@ -223,7 +223,7 @@ class WebDownloadService implements DownloadService {
             abortSignal: abortController.signal,
           )
           .then((_) {
-            gemmaLog(
+            edgeAiLog(
               '[WebDownloadService] ✅ OPFS download complete: $targetPath',
             );
 
@@ -235,7 +235,7 @@ class WebDownloadService implements DownloadService {
             }
           })
           .catchError((error) {
-            gemmaLog('[WebDownloadService] ❌ OPFS download failed: $error');
+            edgeAiLog('[WebDownloadService] ❌ OPFS download failed: $error');
             if (streamController != null && !streamController.isClosed) {
               streamController.addError(error);
               streamController.close();
@@ -250,10 +250,10 @@ class WebDownloadService implements DownloadService {
     } on DownloadCancelledException {
       // Abort the JS fetch request
       abortController?.abort();
-      gemmaLog('[WebDownloadService] 🛑 OPFS download cancelled: $targetPath');
+      edgeAiLog('[WebDownloadService] 🛑 OPFS download cancelled: $targetPath');
       rethrow;
     } catch (e) {
-      gemmaLog('[WebDownloadService] ❌ OPFS download error: $e');
+      edgeAiLog('[WebDownloadService] ❌ OPFS download error: $e');
       throw DownloadException(
         DownloadError.unknown('Failed to download to OPFS: $e'),
       );
@@ -281,12 +281,12 @@ class WebDownloadService implements DownloadService {
         loader: (onProgress) async {
           cancelToken?.throwIfCancelled();
 
-          gemmaLog('[WebDownloadService] 📥 Downloading public model: $url');
+          edgeAiLog('[WebDownloadService] 📥 Downloading public model: $url');
 
           // Note: fetchFile doesn't support progress callbacks yet
           final response = await _jsInterop.fetchFile(url);
 
-          gemmaLog(
+          edgeAiLog(
             '[WebDownloadService] ✅ Downloaded: ${response.data.length} bytes',
           );
           onProgress(1.0);
@@ -302,11 +302,11 @@ class WebDownloadService implements DownloadService {
         _blobUrlManager.track(targetPath, blobUrl);
       }
 
-      gemmaLog('[WebDownloadService] ✅ Public model downloaded and cached');
+      edgeAiLog('[WebDownloadService] ✅ Public model downloaded and cached');
     } on DownloadCancelledException {
       rethrow;
     } catch (e) {
-      gemmaLog('[WebDownloadService] ❌ Public download failed: $e');
+      edgeAiLog('[WebDownloadService] ❌ Public download failed: $e');
       throw DownloadException(
         DownloadError.unknown('Failed to download public model: $e'),
       );
@@ -323,7 +323,7 @@ class WebDownloadService implements DownloadService {
     try {
       cancelToken?.throwIfCancelled();
 
-      gemmaLog(
+      edgeAiLog(
         'WebDownloadService: Starting authenticated download for $targetPath',
       );
 
@@ -333,7 +333,7 @@ class WebDownloadService implements DownloadService {
         loader: (onProgress) async {
           cancelToken?.throwIfCancelled();
 
-          gemmaLog(
+          edgeAiLog(
             '[WebDownloadService] 📥 Downloading authenticated model: $url',
           );
 
@@ -348,7 +348,7 @@ class WebDownloadService implements DownloadService {
                 onProgress: onProgress, // Pass progress callback directly
               )
               .then((response) {
-                gemmaLog(
+                edgeAiLog(
                   '[WebDownloadService] ✅ Downloaded: ${response.data.length} bytes',
                 );
                 completer.complete(response.data);
@@ -368,14 +368,14 @@ class WebDownloadService implements DownloadService {
         _blobUrlManager.track(targetPath, blobUrl);
       }
 
-      gemmaLog(
+      edgeAiLog(
         '[WebDownloadService] ✅ Authenticated model downloaded and cached',
       );
     } on DownloadCancelledException {
-      gemmaLog('WebDownloadService: Download cancelled for $targetPath');
+      edgeAiLog('WebDownloadService: Download cancelled for $targetPath');
       rethrow;
     } catch (e) {
-      gemmaLog('[WebDownloadService] ❌ Authenticated download failed: $e');
+      edgeAiLog('[WebDownloadService] ❌ Authenticated download failed: $e');
       throw DownloadException(
         DownloadError.unknown('Failed to download authenticated model: $e'),
       );

@@ -28,7 +28,7 @@ Stream<String> agentEventsToSpeech(
 
 /// A [VoiceResponder] backed by the full agent (skills / MCP / tools). Drop it
 /// into `VoiceSession.custom(responder: ...)`. Lives in the app, not in
-/// flutter_gemma_speech, so speech never depends on flutter_gemma_agent.
+/// flutter_edge_ai_speech, so speech never depends on flutter_edge_ai_agent.
 VoiceResponder agentVoiceResponder(
   AgentSession agent, {
   String maxIterationsFallback = _kFallback,

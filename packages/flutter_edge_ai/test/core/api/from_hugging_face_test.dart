@@ -60,7 +60,7 @@ void main() {
   group('fromHuggingFace argument validation (synchronous, no install)', () {
     test('a non-"main" revision without an explicit file throws', () {
       expect(
-        () => FlutterGemma.installModel(
+        () => FlutterEdgeAi.installModel(
           modelType: ModelType.general,
           fileType: ModelFileType.litertlm,
         ).fromHuggingFace('org/repo', revision: 'abc123'),
@@ -70,7 +70,7 @@ void main() {
 
     test('an empty repo throws', () {
       expect(
-        () => FlutterGemma.installModel(
+        () => FlutterEdgeAi.installModel(
           modelType: ModelType.general,
         ).fromHuggingFace('   '),
         throwsArgumentError,
@@ -79,7 +79,7 @@ void main() {
 
     test('an explicit but empty file throws', () {
       expect(
-        () => FlutterGemma.installModel(
+        () => FlutterEdgeAi.installModel(
           modelType: ModelType.general,
         ).fromHuggingFace('org/repo', file: '  '),
         throwsArgumentError,
@@ -110,7 +110,7 @@ void main() {
       );
       HuggingFaceResolverRegistry.instance.registerAll([resolver]);
 
-      final install = await FlutterGemma.installModel(
+      final install = await FlutterEdgeAi.installModel(
         modelType: ModelType.general, // fallback — manifest overrides
         fileType: ModelFileType.litertlm,
       ).fromHuggingFace('org/repo', token: 'hf_test').install();
@@ -148,7 +148,7 @@ void main() {
           ),
         ]);
 
-        final install = await FlutterGemma.installModel(
+        final install = await FlutterEdgeAi.installModel(
           modelType: ModelType.gemmaIt,
           fileType: ModelFileType.litertlm,
         ).fromHuggingFace('org/repo').install();
@@ -178,7 +178,7 @@ void main() {
       ]);
 
       // Caller deliberately passed a specific family, not ModelType.general.
-      final install = await FlutterGemma.installModel(
+      final install = await FlutterEdgeAi.installModel(
         modelType: ModelType.gemmaIt,
         fileType: ModelFileType.litertlm,
       ).fromHuggingFace('org/repo').install();
@@ -186,7 +186,7 @@ void main() {
       // Explicit specific choice is KEPT, not overridden by the manifest.
       expect(install.spec.modelType, ModelType.gemmaIt);
       // The base note survives AND a conflict note naming both families is
-      // appended (release-visible, not just gemmaLog).
+      // appended (release-visible, not just edgeAiLog).
       expect(install.notes, contains('base note'));
       expect(
         install.notes.any((n) => n.contains('gemmaIt') && n.contains('qwen3')),
@@ -209,7 +209,7 @@ void main() {
         ),
       ]);
 
-      final install = await FlutterGemma.installModel(
+      final install = await FlutterEdgeAi.installModel(
         modelType: ModelType.general,
         fileType: ModelFileType.litertlm,
       ).fromHuggingFace('org/repo').install();
@@ -228,7 +228,7 @@ void main() {
       ]);
 
       await expectLater(
-        FlutterGemma.installModel(
+        FlutterEdgeAi.installModel(
           modelType: ModelType.general,
           fileType: ModelFileType.onnx,
         ).fromHuggingFace('org/repo').install(),
@@ -254,7 +254,7 @@ void main() {
       final localModel = File(p.join(sourceDir.path, 'local.litertlm'));
       await localModel.writeAsBytes(_fakeModelBytes);
 
-      final install = await FlutterGemma.installModel(
+      final install = await FlutterEdgeAi.installModel(
         modelType: ModelType.gemmaIt,
         fileType: ModelFileType.litertlm,
       ).fromHuggingFace('o/r').fromFile(localModel.path).install();

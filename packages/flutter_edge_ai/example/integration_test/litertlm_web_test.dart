@@ -74,7 +74,7 @@ Future<InferenceModel> _ensureModel() async {
 
   // Install via the network path — `WebStorageMode.cacheApi` (default) puts
   // the blob into IndexedDB, so subsequent runs are instant.
-  final installer = FlutterGemma.installModel(
+  final installer = FlutterEdgeAi.installModel(
     modelType: ModelType.gemma4,
     fileType: ModelFileType.litertlm,
   );
@@ -82,7 +82,7 @@ Future<InferenceModel> _ensureModel() async {
       .fromNetwork(_webModelUrl, token: _hfToken.isEmpty ? null : _hfToken)
       .install();
 
-  final model = await FlutterGemma.getActiveModel(maxTokens: 1024);
+  final model = await FlutterEdgeAi.getActiveModel(maxTokens: 1024);
   _model = model;
   return model;
 }

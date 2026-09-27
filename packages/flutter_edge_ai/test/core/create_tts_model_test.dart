@@ -2,8 +2,8 @@ import 'package:flutter_edge_ai/core/domain/model_source.dart';
 import 'package:flutter_edge_ai/core/registry/runtime_config.dart';
 import 'package:flutter_edge_ai/core/registry/tts_backend_provider.dart';
 import 'package:flutter_edge_ai/core/registry/tts_registry.dart';
-import 'package:flutter_edge_ai/flutter_gemma_interface.dart';
-import 'package:flutter_edge_ai/mobile/flutter_gemma_mobile.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai_interface.dart';
+import 'package:flutter_edge_ai/mobile/flutter_edge_ai_mobile.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -38,14 +38,14 @@ void main() {
   tearDown(() => TtsRegistry.instance.reset());
 
   test('createTtsModel throws StateError when no active TTS model', () {
-    final plugin = FlutterGemmaMobile();
+    final plugin = FlutterEdgeAiMobile();
     expect(plugin.createTtsModel(), throwsA(isA<StateError>()));
   });
 
   test('createTtsModel fails loud (not silently) when a TTS backend is '
       'registered but none can handle the active model', () async {
     TtsRegistry.instance.registerAll([_NonMatchingBackend()]);
-    final plugin = FlutterGemmaMobile();
+    final plugin = FlutterEdgeAiMobile();
     plugin.modelManager.setActiveModel(_matchaSpec());
     // The active model isn't installed on disk, so the "files not found"
     // fail-loud check fires before backend selection is reached — but the

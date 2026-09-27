@@ -50,7 +50,7 @@ Future<String> _gen(
   }
 }
 
-Future<InferenceModel> _engine() => FlutterGemma.getActiveModel(
+Future<InferenceModel> _engine() => FlutterEdgeAi.getActiveModel(
   maxTokens: 1024,
   preferredBackend: PreferredBackend.cpu,
 );
@@ -65,7 +65,7 @@ void main() {
       isTrue,
       reason: 'model missing at $_model',
     );
-    await FlutterGemma.installModel(
+    await FlutterEdgeAi.installModel(
       modelType: ModelType.gemmaIt,
       fileType: ModelFileType.litertlm,
     ).fromFile(_model).install();

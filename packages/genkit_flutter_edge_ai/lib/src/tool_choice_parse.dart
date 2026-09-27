@@ -1,7 +1,7 @@
 import 'package:flutter_edge_ai/flutter_edge_ai.dart' as gemma;
 import 'package:genkit/plugin.dart';
 
-/// Maps a Genkit toolChoice string to flutter_gemma's [gemma.ToolChoice].
+/// Maps a Genkit toolChoice string to flutter_edge_ai's [gemma.ToolChoice].
 ///
 /// `null` → [gemma.ToolChoice.auto] (unset / default). An unrecognized value
 /// throws [GenkitException] with `INVALID_ARGUMENT` — mirroring

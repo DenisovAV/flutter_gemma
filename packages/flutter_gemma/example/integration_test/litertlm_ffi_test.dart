@@ -638,8 +638,10 @@ void main() {
         // Windows (Intel NPU): LunarLake/PantherLake-compiled model.
         if (Platform.isWindows)
           '${Platform.environment['USERPROFILE']}\\dev-gemma4-2b-lnl\\gemma4_2b_lnl.litertlm',
-        if (Platform.isLinux || Platform.isMacOS)
-          '${Platform.environment['HOME']}/dev-gemma4-2b-lnl/gemma4_2b_lnl.litertlm',
+        // No macOS or Linux candidate. The header above says those hosts are
+        // skipped, and since the NPU candidate is gated on a host that ships a
+        // dispatch stack, a bundle staged there would run on GPU or CPU while
+        // both tests below reported NPU facts about it.
       ];
       for (final p in candidates) {
         if (File(p).existsSync()) return p;
@@ -665,10 +667,26 @@ void main() {
       // model wasn't staged so the test silently skipped, and even with a model
       // the catch would have hidden the dispatch_lib_dir failure. "No model" is
       // a legit skip (handled above); "model present but engine threw" is a FAIL.
-      return await FlutterGemma.getActiveModel(
+      final model = await FlutterGemma.getActiveModel(
         maxTokens: 4096,
         preferredBackend: PreferredBackend.npu,
       );
+      // The point of this group, and the one line it lacked. Both tests below
+      // pass on a GPU or CPU fallback — `paris` comes back either way, and CPU
+      // greedy is deterministic too — so without this they report NPU facts
+      // about whatever actually ran. A silent SKIP is how native-v0.13.1's
+      // missing dispatch libs passed green; a silent fallback is the same
+      // failure one layer up. opencl_leak_2699_test.dart guards OpenCL this
+      // way already.
+      expect(
+        model.activeBackend,
+        PreferredBackend.npu,
+        reason:
+            'an NPU-compiled bundle is staged, so ${model.activeBackend} here '
+            'means the dispatch stack did not load (#155) — and the sampler and '
+            'greedy behaviour asserted below are NPU facts only',
+      );
+      return model;
     }
 
     testWidgets('NPU engine_create accepts non-default sampler params', (

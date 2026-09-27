@@ -27,9 +27,10 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  # ^1.10.0: this version overrides `EmbeddingModel.activeBackend` and passes
-  # `ForwardPassDescriptor.activeBackend`, both of which land in 1.10.0, on top
-  # of 1.9.0's embedding seam and tokenizer registry
+  # ^1.10.0: this version passes `activeBackend:` to `ForwardPassDescriptor` —
+  # a named parameter that does not exist before 1.10.0, so an older core is a
+  # compile error — and overrides `EmbeddingModel.activeBackend`, which lands in
+  # 1.10.0 too, on top of 1.9.0's embedding seam and tokenizer registry
   # (`EmbeddingTokenizerRegistry`). An older core resolves and then fails to
   # compile — better here than there.
   flutter_gemma: ^1.10.0

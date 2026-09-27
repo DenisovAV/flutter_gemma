@@ -55,7 +55,7 @@ void main() {
   Future<void> firstCall(FlutterGemmaPlugin plugin) async {
     await expectLater(
       plugin.createEmbeddingModel(preferredBackend: PreferredBackend.gpu),
-      throwsA(anything),
+      throwsStateError,
     );
   }
 
@@ -263,15 +263,15 @@ void main() {
             modelPath: '/a.tflite',
             tokenizerPath: '/a.json',
           ),
-          throwsA(anything),
+          throwsStateError,
         );
 
-        // The retry must be a fresh decision, not a replay of the failure.
-        final retry = await plugin.createEmbeddingModel(
+        // The retry must be a fresh decision, not a replay of the failure: it
+        // completes rather than rethrowing, and it reaches the backend again.
+        await plugin.createEmbeddingModel(
           modelPath: '/a.tflite',
           tokenizerPath: '/a.json',
         );
-        expect(retry, isNotNull);
         expect(backend.seenModelPaths, ['/a.tflite', '/a.tflite']);
       });
     }
@@ -289,6 +289,11 @@ void main() {
       // not reach. Without this, every later desktop test in this file inherits
       // an active embedder it never asked for.
       addTearDown(plugin.modelManager.clearModelCache);
+      // The other half. `setActiveModel` also persists the identity to
+      // preferences, unawaited, and `clearModelCache` only clears the in-memory
+      // field — so a later case building a fresh manager could read back an
+      // active embedder it never asked for.
+      addTearDown(plugin.modelManager.clearActiveEmbeddingIdentity);
       plugin.modelManager.setActiveModel(
         EmbeddingModelSpec(
           name: 'unrelated-active-embedder',
@@ -342,7 +347,7 @@ void main() {
       FlutterGemmaMobile().createEmbeddingModel(
         preferredBackend: PreferredBackend.cpu,
       ),
-      throwsA(anything),
+      throwsStateError,
     );
     expect(notices(), isEmpty);
   });

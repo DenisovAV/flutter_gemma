@@ -7,6 +7,13 @@ import 'package:flutter_gemma/core/model_management/model_specs.dart'
     show EmbeddingModelSpec;
 import 'package:flutter_gemma/core/registry/runtime_config.dart';
 import 'package:flutter_gemma_onnx/src/embedding/onnx_embedding_backend.dart';
+import 'package:flutter_gemma/core/domain/platform_types.dart';
+import 'package:flutter_gemma/core/embedding/forward_pass.dart';
+import 'package:flutter_gemma/core/embedding/tokenizer_adapter.dart';
+import 'package:flutter_gemma/core/registry/embedding_tokenizer_provider.dart';
+import 'package:flutter_gemma/core/registry/embedding_tokenizer_registry.dart';
+import 'package:flutter_gemma_onnx/src/embedding/onnx_embedding_backend.dart'
+    show onnxEmbeddingDescriptor;
 import 'package:flutter_test/flutter_test.dart';
 
 EmbeddingModelSpec _spec(String modelFilename) => EmbeddingModelSpec(
@@ -16,6 +23,29 @@ EmbeddingModelSpec _spec(String modelFilename) => EmbeddingModelSpec(
 );
 
 void main() {
+  group('the descriptor OnnxEmbeddingBackend hands the worker', () {
+    setUp(
+      () => EmbeddingTokenizerRegistry.instance.registerAll([_AnyTokenizer()]),
+    );
+    tearDown(EmbeddingTokenizerRegistry.instance.reset);
+
+    ForwardPassDescriptor build() => onnxEmbeddingDescriptor(
+      EmbeddingModelSpec(
+        name: 'minilm',
+        modelSource: ModelSource.file('/m.onnx'),
+        tokenizerSource: ModelSource.file('/tokenizer.json'),
+      ),
+      RuntimeConfig(maxTokens: 0, modelPath: '/m.onnx'),
+    );
+
+    test('declares CPU, so EmbeddingModel.activeBackend is not null', () {
+      // Neither ORT client appends an execution provider, so CPU is the true
+      // answer — and this line is the only place it comes from. Delete it and
+      // the release-visible answer silently becomes null.
+      expect(build().activeBackend, PreferredBackend.cpu);
+    });
+  });
+
   group('OnnxEmbeddingBackend identity', () {
     test('name is "ONNX Embedding", priority is 10 (above LiteRT\'s '
         'catch-all 0)', () {
@@ -101,3 +131,22 @@ void main() {
     },
   );
 }
+
+/// Claims every spec. The factory is never called — these tests inspect the
+/// descriptor, they do not spawn a worker.
+class _AnyTokenizer implements EmbeddingTokenizerProvider {
+  @override
+  String get name => 'any';
+
+  @override
+  int get priority => 0;
+
+  @override
+  bool canHandle(EmbeddingModelSpec spec) => true;
+
+  @override
+  EmbeddingTokenizerFactory get factory => _unused;
+}
+
+Future<EmbeddingTokenizer> _unused(String _) =>
+    throw UnimplementedError('descriptor tests never tokenize');

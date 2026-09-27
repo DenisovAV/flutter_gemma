@@ -25,13 +25,14 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  # ^1.10.0: this version overrides `EmbeddingModel.activeBackend` and passes
-  # `ForwardPassDescriptor.activeBackend`, both of which land in 1.10.0. That
-  # also covers the older floors it still depends on — 1.9.0's embedding seam
-  # and tokenizer registry (`EmbeddingTokenizerRegistry`), 1.8.4's runtime tool
-  # path for FunctionGemma, and 1.7.3's `createChat` fix, without which web
-  # function calling resolves, compiles, and the tools silently never reach the
-  # model.
+  # ^1.10.0: this version passes `activeBackend:` to `ForwardPassDescriptor` —
+  # a named parameter that does not exist before 1.10.0, so an older core is a
+  # compile error — and overrides `EmbeddingModel.activeBackend`, which lands in
+  # 1.10.0 too. That also covers the older floors it still depends on: 1.9.0's
+  # embedding seam and tokenizer registry (`EmbeddingTokenizerRegistry`),
+  # 1.8.4's runtime tool path for FunctionGemma, and 1.7.3's `createChat` fix,
+  # without which web function calling resolves, compiles, and the tools
+  # silently never reach the model.
   flutter_gemma: ^1.10.0
   ffi: ^2.1.0
   mutex: ^3.1.0

@@ -102,24 +102,36 @@ class OnnxEmbeddingBackend implements EmbeddingBackendProvider {
       );
     }
     return CommonEmbeddingModel.create(
-      descriptor: ForwardPassDescriptor(
-        engineTag: 'ONNX',
-        modelPath: config.modelPath,
-        factory: createOnnxEmbeddingForwardPass,
-        tokenizerFactory: EmbeddingTokenizerRegistry.instance.resolveFor(spec),
-        // Default only — the real value is discovered once the ONNX session
-        // opens and its output names are visible, then reported per-request
-        // via `OnnxEmbeddingForwardPass.outputContract` (design D-T2). The
-        // worker resolves `pass.outputContract ?? descriptor.outputContract`,
-        // so this default is never actually used once `load()` completes.
-        // CPU: this client creates its session with no
-        // SessionOptionsAppendExecutionProvider call, so ORT runs its default
-        // CPU provider. Stated here rather than assumed by the shared facade.
-        activeBackend: PreferredBackend.cpu,
-        outputContract: EmbeddingOutputContract.tokenLevel,
-      ),
+      descriptor: onnxEmbeddingDescriptor(spec, config),
       tokenizerPath: tokenizerPath,
       onClose: () {}, // core resets its state via addCloseListener
     );
   }
 }
+
+/// The descriptor [OnnxEmbeddingBackend.createModel] hands the embedding worker.
+///
+/// Split out so a test can inspect what this backend DECLARES without spawning
+/// a worker, which needs the native library. Above all `activeBackend`: the
+/// field is optional on [ForwardPassDescriptor], so deleting that one line made
+/// `EmbeddingModel.activeBackend` null and no test went red.
+@visibleForTesting
+ForwardPassDescriptor onnxEmbeddingDescriptor(
+  EmbeddingModelSpec spec,
+  RuntimeConfig config,
+) => ForwardPassDescriptor(
+  engineTag: 'ONNX',
+  modelPath: config.modelPath,
+  factory: createOnnxEmbeddingForwardPass,
+  tokenizerFactory: EmbeddingTokenizerRegistry.instance.resolveFor(spec),
+  // CPU: this client creates its session with no
+  // SessionOptionsAppendExecutionProvider call, so ORT runs its default CPU
+  // provider. Stated here rather than assumed by the shared facade.
+  activeBackend: PreferredBackend.cpu,
+  // Default only — the real value is discovered once the ONNX session opens
+  // and its output names are visible, then reported per-request via
+  // `OnnxEmbeddingForwardPass.outputContract` (design D-T2). The worker
+  // resolves `pass.outputContract ?? descriptor.outputContract`, so this default
+  // is never actually used once `load()` completes.
+  outputContract: EmbeddingOutputContract.tokenLevel,
+);

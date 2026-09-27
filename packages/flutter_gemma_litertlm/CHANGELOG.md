@@ -1,5 +1,5 @@
 ## 1.8.2
-- Web reports the accelerator it ran on, and whether the graph was fully accelerated.
+- Web logs the accelerator it ran on, and whether it was fully accelerated, to the console.
 - `activeBackend` no longer claims NPU where no NPU dispatch stack ships.
 - A non-Qualcomm Android phone no longer unpacks 55 MiB of NPU libraries it cannot use.
 

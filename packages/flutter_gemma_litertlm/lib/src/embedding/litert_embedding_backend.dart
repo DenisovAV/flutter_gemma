@@ -4,6 +4,7 @@
 // `createLiteRtEmbeddingForwardPass` and hands it to the runtime-agnostic
 // `CommonEmbeddingModel`.
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_gemma/core/registry/embedding_backend_provider.dart';
 import 'package:flutter_gemma/core/registry/runtime_config.dart';
 import 'package:flutter_gemma/flutter_gemma_interface.dart' show EmbeddingModel;
@@ -45,30 +46,46 @@ class LiteRtEmbeddingBackend implements EmbeddingBackendProvider {
         'core from the active embedding model).',
       );
     }
-    // outputContract MUST be pooledFinal — LiteRT's compiled graph already
-    // produces the final pooled/normalized vector; routing it through
-    // `meanPoolAndNormalize` a second time would silently add an
-    // L2-normalize the LiteRT path never had (Invariant I0).
     return CommonEmbeddingModel.create(
-      descriptor: ForwardPassDescriptor(
-        engineTag: 'LiteRT',
-        modelPath: config.modelPath,
-        factory: createLiteRtEmbeddingForwardPass,
-        // Asked for, not named. Which family this model needs is a fact about
-        // the model, not about LiteRT — and hardcoding Gemma SentencePiece
-        // here is what made `canHandle => true` a trap: a WordPiece model was
-        // accepted and then tokenized with the wrong convention.
-        tokenizerFactory: EmbeddingTokenizerRegistry.instance.resolveFor(spec),
-        // CPU, and by decision rather than omission: the GPU delegate
-        // compiles and then returns all-zero vectors for EmbeddingGemma's int4
-        // weights (removed in ab3df2bf). Surfaced as
-        // EmbeddingModel.activeBackend so a caller who asked for GPU can see
-        // what happened in a release build.
-        activeBackend: PreferredBackend.cpu,
-        outputContract: EmbeddingOutputContract.pooledFinal,
-      ),
+      descriptor: liteRtEmbeddingDescriptor(spec, config),
       tokenizerPath: tokenizerPath,
       onClose: () {}, // core resets its state via addCloseListener
     );
   }
+}
+
+/// The descriptor [LiteRtEmbeddingBackend.createModel] hands the embedding
+/// worker.
+///
+/// Split out so a test can inspect what this backend DECLARES without spawning
+/// a worker, which needs the native library. Above all `activeBackend`: the
+/// field is optional on [ForwardPassDescriptor], so deleting that one line made
+/// `EmbeddingModel.activeBackend` null — the release-visible answer this backend
+/// exists to give — and no test went red.
+@visibleForTesting
+ForwardPassDescriptor liteRtEmbeddingDescriptor(
+  EmbeddingModelSpec spec,
+  RuntimeConfig config,
+) {
+  // outputContract MUST be pooledFinal — LiteRT's compiled graph already
+  // produces the final pooled/normalized vector; routing it through
+  // `meanPoolAndNormalize` a second time would silently add an
+  // L2-normalize the LiteRT path never had (Invariant I0).
+  return ForwardPassDescriptor(
+    engineTag: 'LiteRT',
+    modelPath: config.modelPath,
+    factory: createLiteRtEmbeddingForwardPass,
+    // Asked for, not named. Which family this model needs is a fact about
+    // the model, not about LiteRT — and hardcoding Gemma SentencePiece
+    // here is what made `canHandle => true` a trap: a WordPiece model was
+    // accepted and then tokenized with the wrong convention.
+    tokenizerFactory: EmbeddingTokenizerRegistry.instance.resolveFor(spec),
+    // CPU, and by decision rather than omission: the GPU delegate
+    // compiles and then returns all-zero vectors for EmbeddingGemma's int4
+    // weights (removed in ab3df2bf). Surfaced as
+    // EmbeddingModel.activeBackend so a caller who asked for GPU can see
+    // what happened in a release build.
+    activeBackend: PreferredBackend.cpu,
+    outputContract: EmbeddingOutputContract.pooledFinal,
+  );
 }

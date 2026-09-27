@@ -17,12 +17,13 @@ import 'package:flutter_gemma/flutter_gemma_interface.dart' show EmbeddingModel;
 ///    returned the cached model with no comparison at all; and its reuse gate
 ///    required a field that is only assigned AFTER the build returns, so a
 ///    second caller arriving mid-build fell through and started a SECOND build,
-///    leaving the loser with nobody holding a reference to close it.
+///    leaving the loser outside core's bookkeeping, so nothing in the plugin
+///    would ever close it.
 ///  * **desktop** gated its comparison on that same after-the-build field and
 ///    then joined any build in flight without comparing anything, so a caller
 ///    asking for a different model file was handed the one already being built.
 ///  * **web** was the strictest — it did compare resolved paths — but had no
-///    in-flight guard whatsoever, so two concurrent first callers each compiled
+///    in-flight guard whatsoever, so two concurrent first callers each built
 ///    their own model.
 ///
 /// None of the three identity-guarded its close listener, so a late close of a
@@ -37,7 +38,7 @@ import 'package:flutter_gemma/flutter_gemma_interface.dart' show EmbeddingModel;
 class EmbedderCache {
   /// One field, so "a model with no idea what it was built from" is not a state
   /// this class can be in. As two fields it was representable, which is why the
-  /// web shell opened its comparison with `paths == null ||` — a branch for a
+  /// web shell opened its comparison with `p == null ||` — a branch for a
   /// state that should not exist, treated as "changed" because there was nothing
   /// else honest to do with it.
   _CachedEmbedder? _cached;

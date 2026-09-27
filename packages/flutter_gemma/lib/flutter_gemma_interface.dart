@@ -620,6 +620,10 @@ abstract class EmbeddingModel {
   /// JSPI partial case) and names the result only in the browser console, and
   /// onnxruntime-web resolves `['webgpu', 'wasm']` in order.
   ///
+  /// Null also means "this implementation did not say" — a native engine whose
+  /// forward-pass descriptor omitted `activeBackend`, or any implementation
+  /// that does not override this getter. Treat null as unknown, never as CPU.
+  ///
   /// Defaulted rather than abstract so an existing SUBCLASS keeps compiling.
   /// `implements` does not inherit a default body, so those break regardless —
   /// which is why the CHANGELOG calls this breaking for engine authors. Override

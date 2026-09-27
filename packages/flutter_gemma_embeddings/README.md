@@ -170,6 +170,10 @@ for it, and build an `EmbeddingBackendProvider` that calls
 Declare `EmbeddingOutputContract.pooledFinal` if your engine's forward pass
 already returns the final embedding, or `.tokenLevel` if it returns raw
 per-token hidden states for this package's `meanPoolAndNormalize` to pool.
+Pass `activeBackend:` too — the backend your forward pass really runs on. It is
+optional, so nothing will make you, but it is what `EmbeddingModel.activeBackend`
+reports to the app, and omitting it answers `null`. Never default it to CPU for
+an engine that might use an accelerator: that reports a guess as a fact.
 See `flutter_gemma_litertlm`'s `lib/src/embedding/` for a worked example.
 
 ## Troubleshooting

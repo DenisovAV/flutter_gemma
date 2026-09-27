@@ -1,5 +1,5 @@
 ## 0.5.0
-- `activeBackend` no longer echoes the requested backend; ORT's real provider is unknown, so it reports null.
+- Native inference `activeBackend` reports null instead of echoing the requested backend.
 
 ## 0.4.0
 - No longer depends on `flutter_gemma_embeddings`; asks core for a tokenizer, so register `embeddingTokenizers:`.

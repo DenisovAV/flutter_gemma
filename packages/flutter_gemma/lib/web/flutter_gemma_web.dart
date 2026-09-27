@@ -49,8 +49,9 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
   /// The hand-rolled version it replaces was the STRICTEST of the three — this
   /// shell already compared resolved paths, where mobile and desktop compared a
   /// spec name — but it had no in-flight guard at all, so two concurrent first
-  /// callers each compiled their own model and the loser was left with nobody
-  /// holding a reference to close it. Its close listener was not identity-guarded
+  /// callers each built their own model and the loser was left outside core's
+  /// bookkeeping, where nothing would ever close it. Its close listener was not
+  /// identity-guarded
   /// either. Both are now the cache's problem, once, for all three shells.
   final EmbedderCache _embedderCache = EmbedderCache();
 

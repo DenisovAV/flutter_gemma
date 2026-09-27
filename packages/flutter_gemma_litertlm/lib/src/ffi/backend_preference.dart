@@ -221,12 +221,23 @@ Future<({T client, PreferredBackend activeBackend})> initializeFfiRuntime<T>({
         ),
       );
       await shutdownClient(client);
+      // Both, for two readers. `developer.log` carries the structured error and
+      // stack trace to DevTools, which is where they are useful. But
+      // flutter_tools never subscribes to the VM-service `Logging` stream, so on
+      // its own that made every GPU→CPU fallback invisible in a `flutter run`
+      // terminal — the same silent-fallback defect the NPU notice above exists
+      // to prevent, one branch away. `gemmaLog` reaches the terminal.
       developer.log(
         '$logTag ${ffiBackendWireName(backend)} backend failed: $error',
         name: 'flutter_gemma',
         level: 900,
         error: error,
         stackTrace: stackTrace,
+      );
+      gemmaLog(
+        '⚠️  $logTag ${ffiBackendWireName(backend)} backend failed, trying the '
+        'next candidate: $error. InferenceModel.activeBackend reports what '
+        'actually ran, in release builds too.',
       );
     }
   }

@@ -278,7 +278,12 @@ class ActiveEmbedderParams {
   /// Resolved by core and baked into the embedding worker at spawn.
   final String? tokenizerPath;
 
-  /// What the embedder actually runs on, which is CPU whatever was asked.
+  /// What the embedder actually runs on, which is CPU whatever was asked — ON
+  /// NATIVE. The web shell builds this object too, and there it still holds
+  /// `cpu` while `EmbeddingModel.activeBackend` is null and the runtime may be
+  /// on WebGPU. That is harmless because this field is a cache KEY: it is a
+  /// constant, so it can never trigger a rebuild. Read the model's own
+  /// `activeBackend` for the answer; do not read this one.
   ///
   /// Named for the answer, not the request — deliberately unlike the
   /// `preferredBackend` on [ActiveModelParams] and `RuntimeConfig`, which do
@@ -336,6 +341,13 @@ class ActiveEmbedderParams {
   bool operator ==(Object other) =>
       other is ActiveEmbedderParams && firstDifference(other) == null;
 
+  /// The same three fields [firstDifference] compares, because `==` delegates
+  /// to it — so a fourth field goes in BOTH places, not "both" of `==` and
+  /// [firstDifference]. And if [firstDifference] ever normalises its inputs, as
+  /// [ActiveModelParams.firstDifference] does, hash the normalised values too,
+  /// or two objects would compare equal with different hashes and break every
+  /// `Map` and `Set` holding them. This one is safe today only because it
+  /// normalises in the constructor instead.
   @override
   int get hashCode => Object.hash(modelPath, tokenizerPath, activeBackend);
 }

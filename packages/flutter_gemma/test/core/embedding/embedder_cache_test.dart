@@ -165,6 +165,26 @@ void main() {
     },
   );
 
+  test('a closed model is not handed to a direct reader either', () async {
+    // `initializedEmbeddingModel` and the web RAG helpers read `model`
+    // directly rather than through `reuseOrInvalidate`. A model is closed the
+    // moment `close()` is called, but its listener evicts it only after the
+    // teardown finishes — so without this, those readers got a model whose
+    // every call throws.
+    final cache = EmbedderCache();
+    final silent = _SilentCloseEmbedder();
+    cache.record(silent, paramsFor('/a'));
+    expect(cache.model, same(silent));
+
+    await silent.close();
+
+    expect(
+      cache.model,
+      isNull,
+      reason: 'no listener fired, so only isClosed can keep this from leaking',
+    );
+  });
+
   group('EmbedderCache close listener', () {
     test('closing the cached model empties the cache', () async {
       final cache = EmbedderCache();

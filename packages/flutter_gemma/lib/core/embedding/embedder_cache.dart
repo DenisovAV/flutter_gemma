@@ -43,8 +43,18 @@ class EmbedderCache {
   _CachedEmbedder? _cached;
   Future<void> _lane = Future<void>.value();
 
-  /// The cached embedder, or null when none is built.
-  EmbeddingModel? get model => _cached?.model;
+  /// The cached embedder, or null when none is built — or when the one that
+  /// was built has been closed.
+  ///
+  /// Checked here as well as in [reuseOrInvalidate] because some callers read
+  /// the model directly: every shell's `initializedEmbeddingModel`, and the web
+  /// shell's RAG helpers. A model is closed the moment `close()` is called, but
+  /// its listener only evicts it once the teardown has finished, so without this
+  /// those readers were handed a model whose every call throws.
+  EmbeddingModel? get model {
+    final model = _cached?.model;
+    return model == null || model.isClosed ? null : model;
+  }
 
   /// What [model] was built from. Null exactly when [model] is null.
   ActiveEmbedderParams? get params => _cached?.params;

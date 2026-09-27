@@ -19,7 +19,6 @@ import 'embedding_worker.dart';
 import 'forward_pass.dart';
 import 'package:flutter_gemma/core/domain/platform_types.dart'
     show PreferredBackend;
-import 'package:flutter_gemma/core/utils/gemma_log.dart';
 
 /// Signature for the `onClose` callback. Same name Flutter uses.
 typedef VoidCallback = void Function();
@@ -112,30 +111,21 @@ class CommonEmbeddingModel extends EmbeddingModel with CloseNotifier {
   Future<void> close() async {
     if (_isClosed) return;
     _isClosed = true;
-    // Fired BEFORE the teardown is awaited, not after. Every later call on this
-    // model already throws (`_assertNotClosed`), so anything still holding it —
-    // core's embedder cache above all — has to learn immediately. Waiting for
-    // the worker meant up to the worker's own five-second cap during which the
-    // cache still matched this model on params and handed it to a new caller,
-    // whose first `generateEmbedding` then threw.
-    // Guarded, because `CloseNotifier.fireCloseListeners` calls each listener
-    // bare. An app may register one (the method is public on `EmbeddingModel`),
-    // and before this guard a single throw from one of them exited `close()`
-    // above the try — so `_worker.close()` was never sent, `onClose()` never
-    // ran, and `_isClosed` was already true, making a retry a no-op. The isolate
-    // and its native weights leaked for the process lifetime. Firing early is
-    // worth doing; letting it cancel the teardown is not.
-    try {
-      fireCloseListeners();
-    } catch (e, st) {
-      gemmaLog('A close listener threw; continuing teardown anyway: $e\n$st');
-    }
     try {
       await _worker.close();
     } finally {
-      // The engine's own hook stays after teardown: it means "this model is
-      // fully gone", which is only true here.
       onClose();
+      // Deliberately AFTER the teardown, not before it. A listener is app code
+      // (`addCloseListener` is public) and `CloseNotifier` calls each one bare,
+      // so firing them first would let one throw exit here before
+      // `_worker.close()` was ever sent — a leaked isolate that `_isClosed`
+      // then makes unrecoverable. It happened once, in this branch.
+      //
+      // The window that ordering left — the cache still matching this model on
+      // params while the teardown ran — is closed by [isClosed] instead, which
+      // is already true above and which `EmbedderCache` checks on every read.
+      // That covers every implementation in one place, not just this one.
+      fireCloseListeners();
     }
   }
 }

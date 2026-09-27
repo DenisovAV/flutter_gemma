@@ -203,45 +203,13 @@ void main() {
     },
   );
 
-  test('close() tells its listeners before it awaits the teardown', () async {
-    // The cache evicts on this listener. Firing it only after the worker
-    // teardown returned left a window — up to the worker's own five-second cap
-    // — in which `_isClosed` was already true (so every call threw) while the
-    // cache still matched this model on params and handed it to a new caller.
-    final model = await CommonEmbeddingModel.create(
-      descriptor: ForwardPassDescriptor(
-        engineTag: 'fake',
-        modelPath: 'fake',
-        factory: buildFakePass,
-        tokenizerFactory: buildFakeTokenizer,
-        outputContract: EmbeddingOutputContract.pooledFinal,
-        activeBackend: PreferredBackend.cpu,
-      ),
-      tokenizerPath: 'fake',
-    );
-
-    var fired = false;
-    model.addCloseListener(() => fired = true);
-
-    // Deliberately not awaited: `close()` is async, so everything before its
-    // first await has already run by the time it hands control back.
-    final closing = model.close();
-    expect(
-      fired,
-      isTrue,
-      reason: 'a listener that learns after the teardown learns too late',
-    );
-
-    await closing;
-  });
-
-  test('a throwing close listener does not cancel the teardown', () async {
-    // `addCloseListener` is public on `EmbeddingModel`, and
-    // `CloseNotifier.fireCloseListeners` calls each listener bare. Unguarded,
-    // one throw exited `close()` before `_worker.close()` was ever sent, while
-    // `_isClosed` was already true — so the isolate and its native weights
-    // leaked with no way back through the public API. `onClose` runs in the
-    // `finally` after the worker teardown, so its firing is the proof.
+  test('a throwing close listener cannot cancel the teardown', () async {
+    // `addCloseListener` is public, and `CloseNotifier` calls each listener
+    // bare. Listeners therefore fire AFTER the worker teardown, so one throw
+    // cannot exit `close()` before `_worker.close()` is sent — which is what
+    // happened when this branch briefly fired them first, leaking the isolate
+    // for good because `_isClosed` made the retry a no-op. The listener's
+    // error still reaches the caller: silenced would be worse.
     var tornDown = false;
     final model = await CommonEmbeddingModel.create(
       descriptor: ForwardPassDescriptor(
@@ -257,13 +225,18 @@ void main() {
     );
     model.addCloseListener(() => throw StateError('listener failed'));
 
-    await model.close();
-
+    await expectLater(
+      model.close(),
+      throwsStateError,
+      reason: "the listener's failure belongs to whoever closed the model",
+    );
     expect(
       tornDown,
       isTrue,
-      reason: 'a listener must not be able to strand the worker isolate',
+      reason:
+          'onClose runs after the worker teardown, so the teardown happened',
     );
+    expect(model.isClosed, isTrue);
   });
 
   test('EmbeddingModel.activeBackend defaults to null, not to a guess', () {

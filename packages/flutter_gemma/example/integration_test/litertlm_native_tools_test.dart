@@ -447,40 +447,44 @@ void main() {
     }
   }, timeout: const Timeout(Duration(minutes: 10)));
 
-  testWidgets('Mobile Actions (Google fine-tune): event, then confirmation', (
-    tester,
-  ) async {
-    final model = await _load(
-      'mobile_actions_q8_ekv1024.litertlm',
-      ModelType.functionGemma,
-    );
-    try {
-      final chat = await model.createChat(
-        topK: 1,
-        tools: _mobileActionsTools,
-        supportsFunctionCalls: true,
-        modelType: ModelType.functionGemma,
-        systemInstruction: _mobileActionsSystem,
+  testWidgets(
+    'Mobile Actions (Google fine-tune): event, then confirmation',
+    (tester) async {
+      final model = await _load(
+        'mobile_actions_q8_ekv1024.litertlm',
+        ModelType.functionGemma,
       );
-      final round = await _round(
-        chat,
-        'Please set a reminder for a "Team Sync Meeting" this Friday, June 6th, '
-        '2025, at 2 PM.',
-        (_) => {'status': 'success'},
-      );
+      try {
+        final chat = await model.createChat(
+          topK: 1,
+          tools: _mobileActionsTools,
+          supportsFunctionCalls: true,
+          modelType: ModelType.functionGemma,
+          systemInstruction: _mobileActionsSystem,
+        );
+        final round = await _round(
+          chat,
+          'Please set a reminder for a "Team Sync Meeting" this Friday, June 6th, '
+          '2025, at 2 PM.',
+          (_) => {'status': 'success'},
+        );
 
-      expect(round.capped, isFalse);
-      expect(round.calls, hasLength(1));
-      expect(round.calls.single.name, 'create_calendar_event');
-      expect(round.calls.single.args, {
-        'datetime': '2025-06-06T14:00:00',
-        'title': 'Team Sync Meeting',
-      });
-      expect(round.text, contains('Team Sync Meeting'));
-    } finally {
-      await model.close();
-    }
-  }, timeout: const Timeout(Duration(minutes: 10)));
+        expect(round.capped, isFalse);
+        expect(round.calls, hasLength(1));
+        expect(round.calls.single.name, 'create_calendar_event');
+        expect(round.calls.single.args, {
+          'datetime': '2025-06-06T14:00:00',
+          'title': 'Team Sync Meeting',
+        });
+        expect(round.text, contains('Team Sync Meeting'));
+      } finally {
+        await model.close();
+      }
+    },
+    timeout: const Timeout(Duration(minutes: 10)),
+    // The model is currently declared CPU-only; see flutter_gemma#552.
+    skip: _backendName == 'gpu',
+  );
 
   testWidgets('Tiny Garden (Google fine-tune): one call per command', (
     tester,

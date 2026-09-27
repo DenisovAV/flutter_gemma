@@ -285,6 +285,25 @@ Android binds the call to address 0. Only Mali takes that path.
 Fix: upgrade to 1.8.2 (`native-v0.17.1-a`). No app change is needed. See
 [#545](https://github.com/DenisovAV/flutter_gemma/issues/545).
 
+### Mobile Actions produces an empty response on Android GPU
+
+The `mobile_actions_q8_ekv1024.litertlm` FunctionGemma fine-tune is currently
+published as a CPU-only artifact. [Google AI Edge Gallery's model
+allowlist](https://github.com/google-ai-edge/gallery/blob/main/model_allowlists/1_0_14.json)
+declares `accelerators: "cpu"` for Mobile Actions, and the [model
+card](https://huggingface.co/litert-community/functiongemma-270m-ft-mobile-actions)
+only publishes a CPU benchmark. On Android, selecting
+`PreferredBackend.gpu` can still create the engine but generation may finish
+without any tokens or tool call. This has been reproduced on both Adreno and
+Mali devices; see
+[#552](https://github.com/DenisovAV/flutter_gemma/issues/552).
+
+Use `PreferredBackend.cpu` for this artifact. The package deliberately does
+not silently override an explicit backend request, so applications that select
+their backend themselves should apply this model-specific constraint. This is
+a model/backend compatibility issue in the native runtime, not a Flutter
+tool-call parsing issue.
+
 ### Any tool call kills the app (fixed in 1.7.1)
 
 Symptom: in 1.7.0, a chat or session created with `tools` dies on the first

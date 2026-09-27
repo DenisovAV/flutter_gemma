@@ -49,6 +49,11 @@ jobs:
       - name: Run tests (all packages)
         run: tool/test_all.sh --coverage
 
+      # A warning, not a gate: see the script's header for why the codelab
+      # copies are synced after a publish rather than on the PR itself.
+      - name: Codelab web copies vs this repo's LiteRT bundle
+        run: tool/check_codelab_web_copies.sh
+
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:

@@ -93,9 +93,9 @@ silently do the other thing.
 [ ] 8b  native bundle moved? → litertlm_native_tools_test.dart green on every
         platform in the release (the smoke suite never passes a tool), else N/A
 [ ] 10b  after publishing: pub.dev actually SERVES the new versions (its API
-        lags minutes behind the upload); if the litertlm web bundle changed,
-        sync every codelab copy to the published one first (a PR); then
-        dispatch Codelabs on main
+        lags minutes behind the upload); if a package's web/ changed
+        (flutter_gemma_litertlm or flutter_gemma), sync every codelab copy to
+        the published one first (a PR); then dispatch Codelabs on main
 [ ] 12a website + README version pins bumped to the just-published versions
 [ ] 12b new/changed public API + behavior documented (README + website)  ← SAME PR
 [ ] 12d skills/: `skills_review.sh <last-tag>` run, every flagged skill READ,
@@ -684,16 +684,26 @@ follow, and both bit this release:
    same release did. The nightly `cron: '0 3 * * *'` is what would eventually
    catch it, which is too late to be part of the release.
 
-**If `packages/flutter_gemma_litertlm/web/` changed in this release, sync the
-codelab copies first.** Nine step apps carry their own `litert_embeddings.js`
-(and its three vendor chunks), and the Codelabs check compares them with the
-version each app resolves from pub.dev — so until the publish they must match
-the OLD bundle, and after it the NEW one. Copy from the published package, not
-from the repo: `find codelabs -path '*/web/*.js' -not -path '*/build/*'`, then
-`cp ~/.pub-cache/hosted/pub.dev/flutter_gemma_litertlm-<X>/web/<file>` over each,
-and land it as a PR before dispatching. `tool/check_codelab_web_copies.sh` warns
-on the release PR which copies will need it. 1.8.4 skipped this, and the
-post-release dispatch went red (#562).
+**If a package's `web/` changed in this release, sync the codelab copies first.**
+Codelab step apps carry their own copies of two bundles — the four LiteRT files
+from `flutter_gemma_litertlm/web/` (in every app with `web/litert_embeddings.js`)
+and `cache_api.js`/`opfs_helper.js` from `flutter_gemma/web/` (in every app with
+`web/cache_api.js`) — and the Codelabs check compares them with the version each
+app resolves from pub.dev. Until the publish they must match the OLD bundle;
+after it, the new one (for any release their `^` constraint admits). Copy from
+the published package, not from the repo, and copy every file the package
+ships, so a file the bundle added is not left out:
+
+```
+dart pub cache add flutter_gemma_litertlm --version <X>
+P=~/.pub-cache/hosted/pub.dev/flutter_gemma_litertlm-<X>/web
+for app in codelabs/*/*/web/litert_embeddings.js; do cp "$P"/*.js "$(dirname "$app")/"; done
+```
+
+(the same with `flutter_gemma` and `web/cache_api.js` if core's `web/` moved),
+then land it as a PR before dispatching. `tool/check_codelab_web_copies.sh`
+lists on the release PR — in CI's step summary — which copies will need it.
+1.8.4 skipped this, and the post-release dispatch went red; fixed in #562.
 
 So run it by hand once the new versions are actually being served. Uploaded is
 not served: pub.dev answers a successful publish with *"it may take up-to 10

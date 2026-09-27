@@ -18,6 +18,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # Warns on codelab web copies that are missing or differ from this repo's
+      # packages/*/web; fails only if the check itself cannot run. First, and
+      # needing no Flutter, so a red test further down cannot hide it. The
+      # script's header says why the copies are synced after a publish.
+      - name: Codelab web copies vs this repo's web bundles
+        run: tool/check_codelab_web_copies.sh
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -48,11 +55,6 @@ jobs:
       # the exact failure the release skill's rule 1f exists to prevent.
       - name: Run tests (all packages)
         run: tool/test_all.sh --coverage
-
-      # A warning, not a gate: see the script's header for why the codelab
-      # copies are synced after a publish rather than on the PR itself.
-      - name: Codelab web copies vs this repo's LiteRT bundle
-        run: tool/check_codelab_web_copies.sh
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4

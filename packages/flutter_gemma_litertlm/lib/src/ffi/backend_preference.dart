@@ -116,6 +116,31 @@ String npuUnavailableReason(String operatingSystem, {String? fastRpcError}) =>
 ///
 /// [npuDispatchAvailable] overrides [hostShipsNpuDispatch] — tests need both
 /// answers, and a platform-dependent default cannot give them one.
+
+const _cpuOnlyLitertlmArtifacts = <String>{
+  'mobile_actions_q8_ekv1024.litertlm',
+};
+
+/// Returns the backend preference that is safe for a known `.litertlm` file.
+///
+/// Mobile Actions is published as a CPU-only FunctionGemma artifact. On GPU,
+/// Gemma 3 270M bundles can initialize successfully and then emit no tokens,
+/// so native initialization fallback cannot detect the failure. Keep this
+/// compatibility table exact: unknown files retain the caller's preference.
+PreferredBackend? litertlmBackendForModel({
+  required String modelPath,
+  required PreferredBackend? preferredBackend,
+}) {
+  final normalizedPath = modelPath.replaceAll('\\', '/');
+  final fileName = normalizedPath.substring(
+    normalizedPath.lastIndexOf('/') + 1,
+  );
+  if (_cpuOnlyLitertlmArtifacts.contains(fileName)) {
+    return PreferredBackend.cpu;
+  }
+  return preferredBackend;
+}
+
 List<PreferredBackend> ffiBackendFallbackOrder(
   PreferredBackend? preferredBackend, {
   bool? npuDispatchAvailable,

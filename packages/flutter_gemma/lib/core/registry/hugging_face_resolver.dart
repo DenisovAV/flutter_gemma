@@ -9,13 +9,16 @@ import 'package:flutter_gemma/core/model.dart' show ModelFileType, ModelType;
 /// default". These are the *how-to-run* knobs the app passes to
 /// [FlutterGemma.getActiveModel] / `createSession`, NOT install-time identity.
 /// They are **overridable defaults**, never authoritative config baked into the
-/// model — an explicit argument at the call site always wins over the field
-/// here, which in turn wins over the SDK default.
+/// model. An explicit argument at the call site normally wins over the field
+/// here, but a backend request outside [verifiedBackends] is rejected before
+/// native model creation; otherwise the selected field wins over the SDK
+/// default.
 ///
 /// Kept as its own value object (separate from [ResolvedHfModel]'s identity
 /// fields) so the identity record — [InferenceModelSpec] — never grows runtime
 /// fields, preserving flutter_gemma's install-vs-runtime separation. It also
-/// makes the merge a pure function: `explicit ?? defaults?.x ?? sdkDefault`.
+/// keeps ordinary scalar merges pure functions: `explicit ?? defaults?.x ??
+/// sdkDefault`; backend merging additionally validates the capability list.
 class ModelRuntimeDefaults {
   /// Context-window size (`maxTokens`), if the manifest declares one
   /// (`model.context_length`). Still clamped by the engine downstream — a
@@ -24,6 +27,18 @@ class ModelRuntimeDefaults {
 
   /// Recommended text/decoder backend for this device.
   final PreferredBackend? preferredBackend;
+
+  /// Backends on which the selected model variant has been verified to
+  /// generate. Null means the metadata did not expose a backend capability
+  /// list (or only named backends unknown to this SDK). An explicit request
+  /// for a backend outside this list is rejected before native model creation;
+  /// this prevents a model that initializes successfully but cannot generate
+  /// on that backend from failing later with an empty response.
+  ///
+  /// Resolvers should provide an unmodifiable list. This is intentionally
+  /// separate from [preferredBackend]: a variant may be verified on several
+  /// backends while recommending only one for the current platform.
+  final List<PreferredBackend>? verifiedBackends;
 
   /// Declared vision capability (`capabilities.vision`).
   final bool? supportImage;
@@ -47,6 +62,7 @@ class ModelRuntimeDefaults {
   const ModelRuntimeDefaults({
     this.maxTokens,
     this.preferredBackend,
+    this.verifiedBackends,
     this.supportImage,
     this.supportAudio,
     this.isThinking,

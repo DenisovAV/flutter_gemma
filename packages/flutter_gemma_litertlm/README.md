@@ -298,11 +298,13 @@ without any tokens or tool call. This has been reproduced on both Adreno and
 Mali devices; see
 [#552](https://github.com/DenisovAV/flutter_gemma/issues/552).
 
-Use `PreferredBackend.cpu` for this artifact. The package deliberately does
-not silently override an explicit backend request, so applications that select
-their backend themselves should apply this model-specific constraint. This is
-a model/backend compatibility issue in the native runtime, not a Flutter
-tool-call parsing issue.
+The engine now recognizes this exact artifact filename and forces its text
+decoder to `PreferredBackend.cpu`, including when no backend is requested or
+when an app asks for GPU. Other `.litertlm` files keep their existing backend
+selection. This is a model/backend compatibility issue in the native runtime,
+not a Flutter tool-call parsing issue. LiteRT-LM is tracking the underlying
+Gemma 3 270M GPU correctness problem in
+[#3280](https://github.com/google-ai-edge/LiteRT-LM/issues/3280).
 
 ### Any tool call kills the app (fixed in 1.7.1)
 

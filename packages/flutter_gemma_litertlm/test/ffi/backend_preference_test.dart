@@ -29,6 +29,48 @@ Future<List<String>> _printedWithGemmaLogMuted(
 }
 
 void main() {
+  group('litertlmBackendForModel', () {
+    test('forces Mobile Actions to CPU for a Unix path', () {
+      expect(
+        litertlmBackendForModel(
+          modelPath: '/models/mobile_actions_q8_ekv1024.litertlm',
+          preferredBackend: PreferredBackend.gpu,
+        ),
+        PreferredBackend.cpu,
+      );
+    });
+
+    test(
+      'forces Mobile Actions to CPU for a Windows path and no preference',
+      () {
+        expect(
+          litertlmBackendForModel(
+            modelPath: r'C:\models\mobile_actions_q8_ekv1024.litertlm',
+            preferredBackend: null,
+          ),
+          PreferredBackend.cpu,
+        );
+      },
+    );
+
+    test('does not change unknown artifacts', () {
+      expect(
+        litertlmBackendForModel(
+          modelPath: '/models/functiongemma-270m.litertlm',
+          preferredBackend: PreferredBackend.gpu,
+        ),
+        PreferredBackend.gpu,
+      );
+      expect(
+        litertlmBackendForModel(
+          modelPath: '/models/functiongemma-270m.litertlm',
+          preferredBackend: null,
+        ),
+        isNull,
+      );
+    });
+  });
+
   group('ffiBackendFallbackOrder', () {
     test('tries NPU, then GPU, then CPU where an NPU dispatch stack ships', () {
       expect(

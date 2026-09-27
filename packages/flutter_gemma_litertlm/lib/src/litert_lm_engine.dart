@@ -130,8 +130,19 @@ class LiteRtLmEngine
     RuntimeConfig config,
   ) async {
     final cacheDir = (await getApplicationSupportDirectory()).path;
-    final ffiRuntime = await initializeFfiRuntime<LiteRtLmFfiClient>(
+    final effectivePreferredBackend = litertlmBackendForModel(
+      modelPath: config.modelPath,
       preferredBackend: config.preferredBackend,
+    );
+    if (effectivePreferredBackend != config.preferredBackend) {
+      gemmaLog(
+        '[LiteRtLmEngine] Mobile Actions is a CPU-only artifact; '
+        'using the CPU backend instead of the requested '
+        '${config.preferredBackend?.name ?? 'default GPU'} backend.',
+      );
+    }
+    final ffiRuntime = await initializeFfiRuntime<LiteRtLmFfiClient>(
+      preferredBackend: effectivePreferredBackend,
       logTag: '[LiteRtLmEngine]',
       createClient: LiteRtLmFfiClient.new,
       initializeClient: (client, backend) async {

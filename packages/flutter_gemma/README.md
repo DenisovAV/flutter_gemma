@@ -1821,6 +1821,8 @@ final results = await FlutterGemmaPlugin.instance.searchSimilar(
 await FlutterGemmaPlugin.instance.flushVectorStore(); // or FlutterGemma.rag.flush()
 ```
 
+**Which backend embeddings run on.** `getActiveEmbedder(preferredBackend:)` is accepted and not applied: native embeddings run on CPU — LiteRT's GPU delegate returns all-zero vectors for EmbeddingGemma's int4 weights, and the ONNX client appends no execution provider. Read `EmbeddingModel.activeBackend` for the answer; it survives a release build. It is `cpu` on native and `null` on web, where the runtime picks WebGPU or WASM (see `flutter_gemma_litertlm`'s README for the web getters). Since 1.11.0 a class that `implements EmbeddingModel` must add `activeBackend` and `isClosed`; `extends` inherits defaults.
+
 **Call `flush()` after indexing.** `flutter_gemma_rag_qdrant` keeps new documents in memory until the store is flushed or closed, so an index built without either is lost when the process ends — an Android app killed in the background is the ordinary case ([#492](https://github.com/DenisovAV/flutter_gemma/issues/492)). On native `flutter_gemma_rag_sqlite` it is a no-op; on web it drains the IndexedDB storage. A store that cannot persist at all throws `VectorStoreException` instead of returning. Custom `VectorStoreRepository` implementations must declare `flush()`.
 
 A field name is checked by the store, in `configure()`. `SqliteVectorStore` is
@@ -1878,7 +1880,7 @@ Function calling is currently supported by the following models:
 | **Thinking Mode** | ✅ Full | ✅ Full | ❌ Not supported | ✅ Full | Gemma 4 / DeepSeek / Qwen3 / SmolLM3 / Phi-4 Mini Reasoning; not available on Web yet (MediaPipe `.task` web has no `extraContext`; `.litertlm` web is not verified) |
 | **Stop Generation** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Cancel mid-process |
 | **GPU Acceleration** | ✅ Full | ✅ Full | ✅ Full | ✅ Full ² | Metal/WebGPU/Vulkan/DX12 |
-| **NPU Acceleration** | ✅ Full | ❌ Not supported | ❌ Not supported | ✅ Windows | Android (.litertlm) + Windows Intel LunarLake/PantherLake |
+| **NPU Acceleration** | ✅ Full | ❌ Not supported | ❌ Not supported | ✅ Windows ³ | Android Qualcomm only (.litertlm) + Windows Intel LunarLake/PantherLake |
 | **CPU Backend** | ✅ Full | ✅ Full | ❌ Not supported | ✅ Full | MediaPipe limitation |
 | **Streaming Responses** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Real-time generation |
 | **LoRA Support** | ✅ Full | ✅ Full | ✅ Full | ❌ Not supported | LiteRT-LM limitation |
@@ -1900,6 +1902,9 @@ Function calling is currently supported by the following models:
 > in litertlm 1.2.0–1.3.1. Fixed in 1.4.0; on the affected versions use
 > `PreferredBackend.cpu` or `.npu`. macOS/Linux GPU and Windows CPU/NPU were
 > never affected.
+>
+> ³ **NPU on Windows:** `npu` is offered per OS, so a PC without an Intel NPU
+> can report `activeBackend == npu` while the model runs elsewhere.
 
 ### Web Platform Specifics
 

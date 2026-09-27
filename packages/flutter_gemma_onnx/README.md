@@ -104,6 +104,10 @@ no LoRA. Models install as `ModelFileType.onnx` and use ORT-GenAI's own chat
 template (`OgaTokenizerApplyChatTemplate`) — the engine never builds turn
 markers itself.
 
+`activeBackend` is `null`: ORT-GenAI picks the execution provider from the
+model's `genai_config.json`, which the plugin never reads, so there is no honest
+answer to report.
+
 ### Model layout: a directory, not a file
 
 An ORT-GenAI model is a **directory**, not a single file:
@@ -204,6 +208,10 @@ The output contract and mask/`token_type_ids` requirements are discovered
 from the session's actual graph once it opens — no per-model configuration
 needed. Priority 10 (above `LiteRtEmbeddingBackend`'s catch-all priority 0),
 so registering both and installing an `.onnx`/`.ort` model routes here.
+
+On native the embedder reports `activeBackend == cpu`: no execution provider is
+appended, so plain ORT runs on CPU and `preferredBackend` is not applied. On web
+it is `null`.
 
 For host tests / local dev, `FLUTTER_GEMMA_ORT_LIBRARY` overrides the
 resolved ORT library path directly (mirrors the inference arm's

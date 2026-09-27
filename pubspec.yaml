@@ -19,6 +19,18 @@ workspace:
   - packages/flutter_edge_ai_agent
   - packages/genkit_flutter_edge_ai
   - packages/genkit_hybrid
+  # The last releases under the old names: each only re-exports its successor.
+  - shims/flutter_gemma
+  - shims/flutter_gemma_litertlm
+  - shims/flutter_gemma_embeddings
+  - shims/flutter_gemma_mediapipe
+  - shims/flutter_gemma_rag_qdrant
+  - shims/flutter_gemma_rag_sqlite
+  - shims/flutter_gemma_speech
+  - shims/flutter_gemma_agent
+  - shims/flutter_gemma_builtin_ai
+  - shims/flutter_gemma_onnx
+  - shims/genkit_flutter_gemma
 
 dev_dependencies:
   melos: ^7.0.0

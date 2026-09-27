@@ -1,0 +1,15 @@
+# flutter_gemma_rag_qdrant
+
+**`flutter_gemma_rag_qdrant` is now [`flutter_edge_ai_qdrant`](https://pub.dev/packages/flutter_edge_ai_qdrant).**
+
+This last release only re-exports `flutter_edge_ai_qdrant` 1.4.0, so an app that bumps its
+version keeps compiling — with a deprecation warning on the import. Nothing
+new will be published under this name.
+
+To move over:
+
+1. Replace `flutter_gemma_rag_qdrant` with `flutter_edge_ai_qdrant: ^1.4.0` in `pubspec.yaml`.
+2. Replace `package:flutter_gemma_rag_qdrant/` with `package:flutter_edge_ai_qdrant/` in your imports.
+
+Models, vector stores and platform setup carry over unchanged. The full guide:
+https://flutteredge.ai/docs/migration

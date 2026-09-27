@@ -10,7 +10,7 @@ no engine by default — you opt in by registering `LiteRtLmEngine()`.) It runs
 JVM, no gRPC — and it is the **primary desktop engine** (macOS, Windows, Linux);
 [ONNX Runtime](/docs/onnx) also runs on desktop, and macOS can additionally use
 [Built-in AI](/docs/builtin-ai). The native library is fetched at build time via
-**Native Assets** (SHA256-verified, from the `native-v0.16.0` GitHub release), so
+**Native Assets** (SHA256-verified, from the `native-v0.17.1-a` GitHub release), so
 there's no manual native setup.
 
 The same package also ships **`LiteRtEmbeddingBackend`**, the LiteRT C API
@@ -101,6 +101,18 @@ decode runs *below* it, 21.8 against 27.8 tok/s
 ([LiteRT-LM#1748](https://github.com/google-ai-edge/LiteRT-LM/issues/1748#issuecomment-5549035313)).
 That is one device and one bundle, not a rule — but if your app is dominated by
 long replies rather than long prompts, measure both before assuming.
+
+The GPU runs the model at half precision unless you ask otherwise, and the
+published Gemma 4 files ask for it. From about 2,000 prompt tokens, Gemma 4 then
+copies digits wrongly on some GPUs (seen on Adreno and Metal). `activationDataType: ActivationDataType.float32` on
+`getActiveModel` fixes it at the cost of a slower prefill; left unset, the model
+file decides. It applies to the text decoder of `.litertlm` models on Android,
+iOS and desktop — not on web, and not to the vision or audio encoders, which
+keep what the model file asks for. `float32` also needs more GPU memory, and a
+GPU engine that cannot be created falls back to CPU silently, so read
+`model.activeBackend` afterwards. It needs `flutter_gemma_litertlm` 1.8.3 or
+later; older versions ignore it. See [Troubleshooting → Wrong numbers on
+GPU](/docs/troubleshooting#wrong-numbers-on-gpu).
 
 Windows NPU ships the Intel dispatch stack — `LiteRtDispatch.dll` + the OpenVino
 runtime + TBB — inside the Windows native archive. Android bundles the Qualcomm

@@ -4,6 +4,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma/core/di/service_registry.dart';
+import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
 import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 import 'package:flutter_gemma_rag_sqlite/flutter_gemma_rag_sqlite.dart';
 
@@ -21,6 +22,7 @@ void main() {
       vectorStore: SqliteVectorStore(),
       inferenceEngines: const [LiteRtLmEngine()],
       embeddingBackends: const [LiteRtEmbeddingBackend()],
+      embeddingTokenizers: const [GemmaEmbeddingTokenizers()],
     );
     final tempDir = await getTemporaryDirectory();
     databasePath = '${tempDir.path}/test_vector_store.db';

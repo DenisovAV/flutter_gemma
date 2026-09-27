@@ -37,8 +37,9 @@ Native support is **arm64/x64-gated** — each host is device-verified end-to-en
 > `OnnxEngine` politely declines and logs why, letting another registered engine
 > take over. Android needs **`minSdk 24`** (both ORT and ORT-GenAI AARs declare
 > `minSdkVersion=24`). The native library co-location — ORT loaded next to
-> ORT-GenAI — is handled by the package's build hook; you don't configure
-> anything.
+> ORT-GenAI — is handled for you: the build hook bundles the two libraries side
+> by side, and on macOS and Linux the package points ORT-GenAI at the bundled
+> ORT at run time. You don't configure anything.
 
 ## Setup
 
@@ -47,16 +48,19 @@ Add the package and register whichever arm(s) you use at startup:
 ```
 dependencies:
   flutter_gemma: latest_version
-  flutter_gemma_onnx: latest_version   # ONNX Runtime engines
+  flutter_gemma_onnx: latest_version         # ONNX Runtime engines
+  flutter_gemma_embeddings: latest_version   # tokenizers, for embeddings
 ```
 
 ```dart
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
 import 'package:flutter_gemma_onnx/flutter_gemma_onnx.dart';
 
 await FlutterGemma.initialize(
   inferenceEngines: [OnnxEngine()],            // text generation
   embeddingBackends: [OnnxEmbeddingBackend()], // embeddings
+  embeddingTokenizers: [GemmaEmbeddingTokenizers()], // flutter_gemma_embeddings
 );
 ```
 

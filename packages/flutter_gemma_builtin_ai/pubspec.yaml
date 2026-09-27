@@ -33,6 +33,7 @@ dependencies:
   flutter_gemma: ^1.7.0
   # Supplies the whole native/web layer this package used to ship itself.
   flutter_local_ai: ^0.2.0
+  meta: ^1.15.0
 
 dev_dependencies:
   flutter_test:

@@ -12,6 +12,10 @@
 - Every `BuiltInAi*` name and signature is unchanged; no code migration.
 - `BuiltInAiAvailability` / `BuiltInAiUnavailableException` are now `LocalAi*` aliases; `toString()` prints the new name.
 - Apps reaching flutter_local_ai's own API must depend on it directly; this package does not re-export it.
+- `localAiModel` / `localAiSession` escape hatches are `@experimental`.
+
+## 0.2.2
+- Windows/Linux: `availability()` reports `unavailableDeviceUnsupported` instead of throwing.
 
 ## 0.2.1
 - Add `BuiltInAiHuggingFaceResolver` (auto-registered from `BuiltInAiEngine`) so `resolveHuggingFace` reports that built-in OS models have no Hugging Face file (#454).

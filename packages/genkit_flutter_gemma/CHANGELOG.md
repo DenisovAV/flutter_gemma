@@ -1,3 +1,6 @@
+## 0.6.2
+- README: register `embeddingTokenizers:`, and pins for the 1.9.0 release.
+
 ## 0.6.1
 - Relicensed from BSD-3-Clause to MIT, matching every other package.
 

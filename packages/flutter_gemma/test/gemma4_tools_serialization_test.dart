@@ -49,31 +49,55 @@ void main() {
     });
   });
 
-  group('SdkResponseParser.buildToolResponseJson', () {
-    test('Map response wraps in role:tool content array', () {
-      final raw = SdkResponseParser.buildToolResponseJson(
-        toolName: 'get_weather',
-        response: {'temp': 72, 'unit': 'F'},
-        toolCallId: 'call_42',
-      );
+  group('SdkResponseParser.buildToolResponsesJson', () {
+    test('every result of a turn goes in one role:tool message', () {
+      final raw = SdkResponseParser.buildToolResponsesJson([
+        (name: 'get_weather', response: {'temp': 72, 'unit': 'F'}),
+        (name: 'get_time', response: {'time': '12:00'}),
+      ]);
       final decoded = jsonDecode(raw) as Map<String, dynamic>;
       expect(decoded['role'], equals('tool'));
-      expect(decoded['tool_call_id'], equals('call_42'));
-      final content = decoded['content'] as List;
-      expect(content, hasLength(1));
-      final entry = content.first as Map<String, dynamic>;
-      expect(entry['name'], equals('get_weather'));
-      expect(entry['response'], equals({'temp': 72, 'unit': 'F'}));
+      expect(
+        decoded['content'],
+        equals([
+          {
+            'type': 'tool_response',
+            'name': 'get_weather',
+            'response': {'temp': 72, 'unit': 'F'},
+          },
+          {
+            'type': 'tool_response',
+            'name': 'get_time',
+            'response': {'time': '12:00'},
+          },
+        ]),
+      );
+    });
+  });
+
+  group('SdkResponseParser.toolResponsePayload', () {
+    test(
+      'a JSON-encoded map, as Message.toolResponse stores it, is the map',
+      () {
+        expect(
+          SdkResponseParser.toolResponsePayload('{"result":7006652}'),
+          equals({'result': 7006652}),
+        );
+      },
+    );
+
+    test('other JSON goes under value', () {
+      expect(
+        SdkResponseParser.toolResponsePayload('42'),
+        equals({'value': 42}),
+      );
     });
 
-    test('String response — toolCallId omitted when null', () {
-      final raw = SdkResponseParser.buildToolResponseJson(
-        toolName: 'echo',
-        response: 'OK',
+    test('plain text goes under value', () {
+      expect(
+        SdkResponseParser.toolResponsePayload('OK'),
+        equals({'value': 'OK'}),
       );
-      final decoded = jsonDecode(raw) as Map<String, dynamic>;
-      expect(decoded.containsKey('tool_call_id'), isFalse);
-      expect((decoded['content'] as List).first['response'], equals('OK'));
     });
   });
 }

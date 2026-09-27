@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_gemma_litertlm/src/ffi/ffi_inference_model.dart';
@@ -19,6 +20,12 @@ class _FakeConversationHandle implements ConversationHandle {
   bool isClosed = false;
   int cancelCount = 0;
 
+  /// Text staged through chat()/chatRaw() — a role-user message.
+  final List<String> sentTexts = [];
+
+  /// Prebuilt messages sent through chatRawMessage() — how tool results go.
+  final List<String> sentMessages = [];
+
   /// No engine on the host VM, so no tokenizer. Null is the honest answer and
   /// the one sizeInTokens is written to handle — returning a made-up number
   /// here would hide exactly the defect this method was added to fix.
@@ -32,6 +39,7 @@ class _FakeConversationHandle implements ConversationHandle {
     Uint8List? audioBytes,
     bool enableThinking = false,
   }) async* {
+    sentTexts.add(text);
     for (final c in _scriptedChunks) {
       yield c;
     }
@@ -44,8 +52,20 @@ class _FakeConversationHandle implements ConversationHandle {
     Uint8List? audioBytes,
     bool enableThinking = false,
   }) async* {
+    sentTexts.add(text);
     // Raw chunks are full JSON documents in the real path; the fake yields
     // OpenAI-shaped text-content JSON so SdkTextExtractor can pull text out.
+    for (final c in _scriptedChunks) {
+      yield '{"role":"assistant","content":[{"type":"text","text":"$c"}]}';
+    }
+  }
+
+  @override
+  Stream<String> chatRawMessage(
+    String messageJson, {
+    bool enableThinking = false,
+  }) async* {
+    sentMessages.add(messageJson);
     for (final c in _scriptedChunks) {
       yield '{"role":"assistant","content":[{"type":"text","text":"$c"}]}';
     }
@@ -101,6 +121,150 @@ void main() {
       // Raw JSON captured so chat.dart can run extractToolCalls.
       expect(session.lastRawResponse, contains('"type":"text"'));
       expect(session.lastRawResponse, contains('Hi'));
+    });
+
+    FfiInferenceModelSession nativeToolSession(
+      _FakeConversationHandle handle, {
+      ModelType modelType = ModelType.functionGemma,
+    }) => FfiInferenceModelSession(
+      handle: handle,
+      modelType: modelType,
+      fileType: ModelFileType.litertlm,
+      supportImage: false,
+      supportAudio: false,
+      onClose: () {},
+    );
+
+    for (final modelType in [ModelType.functionGemma, ModelType.gemma4]) {
+      test(
+        '$modelType: a turn of tool results goes back as one role-tool message',
+        () async {
+          final handle = _FakeConversationHandle(['7006652']);
+          final session = nativeToolSession(handle, modelType: modelType);
+
+          await session.addQueryChunk(
+            Message.toolResponse(
+              toolName: 'multiply',
+              response: {'result': 7006652},
+            ),
+          );
+          await session.addQueryChunk(
+            Message.toolResponse(
+              toolName: 'get_time',
+              response: {'time': '12:00'},
+            ),
+          );
+          final response = await session.getResponse();
+
+          expect(response, '7006652');
+          expect(
+            handle.sentTexts,
+            isEmpty,
+            reason:
+                'as a user message the model opens a new turn and calls the '
+                'same function again',
+          );
+          final message =
+              jsonDecode(handle.sentMessages.single) as Map<String, dynamic>;
+          expect(message['role'], 'tool');
+          expect(message['content'], [
+            {
+              'type': 'tool_response',
+              'name': 'multiply',
+              'response': {'result': 7006652},
+            },
+            {
+              'type': 'tool_response',
+              'name': 'get_time',
+              'response': {'time': '12:00'},
+            },
+          ]);
+          expect(session.lastRawResponse, contains('7006652'));
+        },
+      );
+    }
+
+    test('streaming sends tool results the same way', () async {
+      final handle = _FakeConversationHandle(['done']);
+      final session = nativeToolSession(handle);
+
+      await session.addQueryChunk(
+        Message.toolResponse(toolName: 'show_alert', response: {'ok': true}),
+      );
+      final response = await session.getResponseAsync().join();
+
+      expect(response, 'done');
+      expect(handle.sentTexts, isEmpty);
+      expect((jsonDecode(handle.sentMessages.single) as Map)['role'], 'tool');
+    });
+
+    test(
+      'tool results staged with user text stay in the user message',
+      () async {
+        final handle = _FakeConversationHandle(['ok']);
+        final session = nativeToolSession(handle);
+
+        await session.addQueryChunk(
+          Message.toolResponse(toolName: 'multiply', response: {'result': 1}),
+        );
+        await session.addQueryChunk(
+          const Message(text: 'and now?', isUser: true),
+        );
+        await session.getResponse();
+
+        expect(handle.sentMessages, isEmpty);
+        expect(handle.sentTexts.single, contains('and now?'));
+        expect(handle.sentTexts.single, contains('multiply'));
+      },
+    );
+
+    test('the next turn starts clean after tool results were sent', () async {
+      final handle = _FakeConversationHandle(['ok']);
+      final session = nativeToolSession(handle);
+
+      await session.addQueryChunk(
+        Message.toolResponse(toolName: 'multiply', response: {'result': 1}),
+      );
+      await session.getResponse();
+      await session.addQueryChunk(const Message(text: 'thanks', isUser: true));
+      await session.getResponse();
+
+      expect(handle.sentMessages, hasLength(1));
+      expect(handle.sentTexts.single, 'thanks');
+    });
+
+    test('a tool response without toolName is rejected', () {
+      final session = nativeToolSession(_FakeConversationHandle(['x']));
+      expect(
+        () => session.addQueryChunk(
+          const Message(
+            text: '{}',
+            isUser: true,
+            type: MessageType.toolResponse,
+          ),
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('a model without native tools keeps tool results in text', () async {
+      final handle = _FakeConversationHandle(['ok']);
+      final session = FfiInferenceModelSession(
+        handle: handle,
+        modelType: ModelType.gemmaIt,
+        fileType: ModelFileType.litertlm,
+        supportImage: false,
+        supportAudio: false,
+        onClose: () {},
+      );
+
+      await session.addQueryChunk(
+        Message.toolResponse(toolName: 'multiply', response: {'result': 1}),
+      );
+      await session.getResponse();
+
+      expect(handle.sentMessages, isEmpty);
+      expect(handle.sentTexts.single, contains('multiply'));
     });
 
     test(

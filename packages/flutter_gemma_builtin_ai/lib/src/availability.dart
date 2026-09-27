@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter_local_ai/flutter_local_ai.dart' show LocalAi;
 
 import 'availability_types.dart';
@@ -35,7 +37,9 @@ abstract final class BuiltInAi {
   /// Never throws and never hangs: a probe that does not return within
   /// [debugProbeTimeout] resolves to
   /// [BuiltInAiAvailability.unavailableOther] so callers can degrade or skip.
-  static Future<BuiltInAiAvailability> availability() => LocalAi.availability();
+  static Future<BuiltInAiAvailability> availability() async => _isLinux
+      ? BuiltInAiAvailability.unavailableDeviceUnsupported
+      : LocalAi.availability();
 
   /// Ensures the OS model is ready to use, downloading the feature if the OS
   /// exposes it as [BuiltInAiAvailability.downloadable].
@@ -54,5 +58,20 @@ abstract final class BuiltInAi {
   static Future<void> ensureReady({
     void Function(int percent)? onProgress,
     Duration timeout = const Duration(minutes: 10),
-  }) => LocalAi.ensureReady(onProgress: onProgress, timeout: timeout);
+  }) async {
+    if (_isLinux) {
+      throw BuiltInAiUnavailableException(
+        BuiltInAiAvailability.unavailableDeviceUnsupported,
+        'Linux has no OS built-in model.',
+      );
+    }
+    return LocalAi.ensureReady(onProgress: onProgress, timeout: timeout);
+  }
+
+  // Linux has no OS built-in model, and flutter_local_ai registers no plugin
+  // there, so its probe catches a MissingPluginException and answers
+  // `unavailableOther`. 0.2.2 promised `unavailableDeviceUnsupported`, which
+  // is the true reason and the one a fallback can branch on; keep it.
+  static bool get _isLinux =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.linux;
 }

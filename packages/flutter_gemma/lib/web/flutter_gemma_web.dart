@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:flutter_gemma/core/utils/gemma_log.dart';
 
 import 'package:flutter/foundation.dart';
@@ -44,7 +45,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
 
   /// Last resolved embedding paths — replaces the previous package-type
   /// downcast (`_initializedEmbeddingModel as WebEmbeddingModel`) now that the
-  /// LiteRT.js embedding runtime lives in flutter_gemma_embeddings. Mirrors the
+  /// LiteRT.js embedding runtime lives in flutter_gemma_litertlm. Mirrors the
   /// desktop `_lastInferenceParams` pattern: core owns lifecycle + change
   /// detection without depending on the package's concrete model type.
   ({String? modelPath, String? tokenizerPath})? _lastEmbeddingPaths;
@@ -65,6 +66,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     bool supportImage = false, // Enabling image support
     bool supportAudio = false, // Enabling audio support (Gemma 3n E4B)
     bool? enableSpeculativeDecoding, // Ignored on web (MediaPipe path).
+    ActivationDataType? activationDataType, // Not read by the web engines.
     int? maxConcurrentSessions,
   }) async {
     // TODO: Implement multimodal support for web
@@ -131,6 +133,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
       supportAudio: supportAudio,
       maxNumImages: maxNumImages,
       enableSpeculativeDecoding: enableSpeculativeDecoding,
+      activationDataType: activationDataType,
       maxConcurrentSessions: maxConcurrentSessions,
       loraRanks: loraRanks,
     );
@@ -141,6 +144,12 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
         'Add the engine package to pubspec.yaml and pass it in inferenceEngines: '
         'of FlutterGemma.initialize(...). Registered engines: '
         '${EngineRegistry.instance.registered.map((e) => e.name).join(", ")}.',
+      );
+    }
+    if (activationDataType != null) {
+      gemmaLog(
+        '[FlutterGemmaWeb] activationDataType (${activationDataType.name}) is '
+        'not supported on web — no web engine has the setting; ignoring.',
       );
     }
     final model = await engine.createModel(spec, config);
@@ -205,7 +214,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     }
 
     // Check if model already exists with different parameters. The LiteRT.js
-    // embedding runtime now lives in flutter_gemma_embeddings, so core can no
+    // embedding runtime now lives in flutter_gemma_litertlm, so core can no
     // longer downcast to the package's WebEmbeddingModel to read its paths —
     // it compares against the last resolved paths it cached itself.
     if (_initializedEmbeddingModel != null) {
@@ -231,7 +240,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
       return _initializedEmbeddingModel!;
     }
 
-    // The LiteRT.js embedding runtime moved to flutter_gemma_embeddings; core
+    // The LiteRT.js embedding runtime lives in flutter_gemma_litertlm; core
     // resolves paths (preamble above) + owns the singleton lifecycle, then
     // dispatches construction through the EmbeddingRegistry. The backend reads
     // ONLY config.modelPath/config.tokenizerPath — it ignores the spec for path

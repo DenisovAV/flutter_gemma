@@ -7,7 +7,9 @@ image: https://fluttergemma.dev/images/og-image.png
 As of **1.0**, the monolithic `flutter_gemma` plugin is split into a small
 **core** package plus **opt-in** packages for each engine / backend. Your app
 ships only the native weight it actually uses. All packages live in one monorepo
-(a Dart pub workspace) and the opt-in packages depend on core one-directionally.
+(a Dart pub workspace). The opt-in packages depend on core and never on each
+other: core owns the contracts and picks the implementation, a package provides
+it, and your app wires the two together in `FlutterGemma.initialize(...)`.
 
 ## The packages
 
@@ -27,19 +29,20 @@ ships only the native weight it actually uses. All packages live in one monorepo
 ## How it works
 
 - **Core registers no engine by itself.** You wire the packages you added through
-  `FlutterGemma.initialize(inferenceEngines:, embeddingBackends:, vectorStore:)`.
+  `FlutterGemma.initialize(inferenceEngines:, embeddingBackends:, embeddingTokenizers:,
+  vectorStore:)`.
   See [Installation](/docs/installation).
 - **Probe-chain registry.** Engines and backends are pure factories that declare
   `canHandle(spec)` + a priority. The registry selects a provider per model by
-  file type — `.task` / `.bin` / `.tflite` → MediaPipe, `.litertlm` → LiteRT-LM,
-  `.onnx` → Onnx, `builtIn` → BuiltInAi.
+  declared `ModelFileType` — `task` / `binary` → MediaPipe, `litertlm` → LiteRT-LM,
+  `onnx` → Onnx, `builtIn` → BuiltInAi.
 - **One app can run both formats.** Register both `LiteRtLmEngine()` and
   `MediaPipeEngine()`, and the registry routes each model to the engine that
-  handles its extension.
+  handles its declared `ModelFileType` — not its file extension.
 - **Shared native library.** `flutter_gemma_litertlm` owns the native LiteRT
-  library (fetched at build time via its Native-Assets hook); `flutter_gemma_embeddings`
-  and `flutter_gemma_speech` have no hook of their own and consume that bundle
-  transitively. `flutter_gemma_onnx` owns its own separate ORT / ORT-GenAI
+  library (fetched at build time via its Native-Assets hook), and
+  `flutter_gemma_speech` has no hook of its own and consumes that bundle
+  transitively. `flutter_gemma_embeddings` touches no native library at all. `flutter_gemma_onnx` owns its own separate ORT / ORT-GenAI
   native archives.
 
 ## Choosing packages
@@ -88,11 +91,13 @@ can be registered on its own:
 
 ```dart
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
 import 'package:flutter_gemma_onnx/flutter_gemma_onnx.dart';
 
 await FlutterGemma.initialize(
   inferenceEngines: [OnnxEngine()],
   embeddingBackends: [OnnxEmbeddingBackend()],
+  embeddingTokenizers: [GemmaEmbeddingTokenizers()], // flutter_gemma_embeddings
 );
 ```
 

@@ -43,6 +43,12 @@ window.litertLmReady = (async () => {
   return m.Engine;
 })();
 </script>
+
+  <!-- Web model storage: the install pipeline calls into these for both
+       Cache API (<2GB models) and OPFS streaming (needed for .litertlm on
+       web, see main.dart's webStorageMode) storage modes. -->
+  <script src="cache_api.js"></script>
+  <script src="opfs_helper.js"></script>
 </head>
 <body>
   <!--

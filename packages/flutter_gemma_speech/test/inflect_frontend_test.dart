@@ -31,7 +31,7 @@ void main() {
   });
 
   String phonemesOf(String text) =>
-      fe.encode(text).map((id) => idToSymbol[id]).join();
+      _unblanked(fe.encode(text)).map((id) => idToSymbol[id]).join();
 
   // (text, espeak reference phoneme string) — from the upstream espeak frontend.
   const cases = [
@@ -75,12 +75,35 @@ void main() {
       for (final e in withG2p.symbolToId.entries) e.value: e.key,
     };
     // "today" is a dictionary hit (resolver not consulted); "zzz" is OOV.
-    final got = withG2p.encode('zzz today').map((id) => idToSym[id]).join();
+    final got = _unblanked(
+      withG2p.encode('zzz today'),
+    ).map((id) => idToSym[id]).join();
     expect(
       got,
       'zˈɛd tədˈeɪ',
       reason: 'resolver IPA (5 dropped) + inter-word space + dict IPA',
     );
+  });
+
+  // The reference `say.py` feeds the encoder `[0, id1, 0, id2, …, idN, 0]`.
+  // Without the blanks the model still produces audio — about a third as
+  // long, and unintelligible — which is why a length-only check never caught
+  // it.
+  test('ids are interspersed with the VITS blank (id 0)', () {
+    final ids = fe.encode('Hello there.');
+    expect(ids.length.isOdd, isTrue);
+    for (var i = 0; i < ids.length; i += 2) {
+      expect(ids[i], 0, reason: 'even position $i must be the blank');
+    }
+    for (var i = 1; i < ids.length; i += 2) {
+      expect(ids[i], isNot(0), reason: 'odd position $i must be a phoneme');
+    }
+  });
+
+  test('nothing to pronounce stays empty, not a lone blank', () {
+    // The worker skips a clause whose ids are empty; `[0]` would reach the
+    // encoder instead.
+    expect(fe.encode('🙂'), isEmpty);
   });
 
   test('OOV word with no neural resolver throws (fail-loud)', () {
@@ -89,3 +112,8 @@ void main() {
     expect(() => fe.encode('zzz'), throwsA(isA<StateError>()));
   });
 }
+
+/// The phoneme ids of a blank-interspersed sequence: every odd position.
+List<int> _unblanked(List<int> ids) => [
+  for (var i = 1; i < ids.length; i += 2) ids[i],
+];

@@ -176,6 +176,11 @@ if (caps.supportsToolCalling && caps.supportsStructuredOutput) {
 Gate on `LocalAi.capabilities()` rather than on `Platform.isX`: the same binary answers differently
 across OS versions.
 
+To reach the exact native model or session this engine is driving, cast to `BuiltInAiModel` /
+`BuiltInAiSession` and read `localAiModel` / `localAiSession`. Both are **`@experimental`**: they
+return `flutter_local_ai` types, which may change with that package's next major release without a
+breaking release of this one.
+
 ## Android setup
 
 `flutter_local_ai` declares **`minSdk 26`** (the ML Kit GenAI / AICore floor) — raise your app's

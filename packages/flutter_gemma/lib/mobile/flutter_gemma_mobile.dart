@@ -1,5 +1,7 @@
 import 'dart:async';
+
 import 'package:flutter_gemma/core/utils/gemma_log.dart';
+
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -8,6 +10,7 @@ import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:background_downloader/background_downloader.dart';
+
 import 'smart_downloader.dart'; // SmartDownloader.downloadGroup — single source of truth for the task group
 
 import '../flutter_gemma.dart';
@@ -53,8 +56,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
   Completer<InferenceModel>? _initCompleter;
   InferenceModel? _initializedModel;
 
-  InferenceModelSpec?
-  _lastActiveInferenceSpec; // Track which spec was used to create _initializedModel
+  InferenceModelSpec? _lastActiveInferenceSpec; // Track which spec was used to create _initializedModel
 
   /// Runtime knobs the cached model was built with. Compared on every
   /// getActiveModel so a request that differs rebuilds instead of silently
@@ -74,18 +76,15 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
 
   Completer<EmbeddingModel>? _initEmbeddingCompleter;
   EmbeddingModel? _initializedEmbeddingModel;
-  EmbeddingModelSpec?
-  _lastActiveEmbeddingSpec; // Track which spec was used to create _initializedEmbeddingModel
+  EmbeddingModelSpec? _lastActiveEmbeddingSpec; // Track which spec was used to create _initializedEmbeddingModel
 
   Completer<SpeechRecognizer>? _initSttCompleter;
   SpeechRecognizer? _initializedSttModel;
-  SttModelSpec?
-  _lastActiveSttSpec; // Track which spec was used to create _initializedSttModel
+  SttModelSpec? _lastActiveSttSpec; // Track which spec was used to create _initializedSttModel
 
   Completer<SpeechSynthesizer>? _initTtsCompleter;
   SpeechSynthesizer? _initializedTtsModel;
-  TtsModelSpec?
-  _lastActiveTtsSpec; // Track which spec was used to create _initializedTtsModel
+  TtsModelSpec? _lastActiveTtsSpec; // Track which spec was used to create _initializedTtsModel
   // The `language` the active singleton was built with, NORMALIZED
   // ([_normalizeTtsLanguage] — defaulted + lowercased) so a same-effective-
   // language request compared raw-to-raw (e.g. null vs. 'english', or
@@ -120,6 +119,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
     bool supportImage = false,
     bool supportAudio = false, // Enabling audio support (Gemma 3n E4B)
     bool? enableSpeculativeDecoding,
+    ActivationDataType? activationDataType,
     int? maxConcurrentSessions,
   }) async {
     // Check if model is ready through unified system
@@ -148,6 +148,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
       supportAudio: supportAudio,
       maxNumImages: maxNumImages,
       enableSpeculativeDecoding: enableSpeculativeDecoding,
+      activationDataType: activationDataType,
       maxConcurrentSessions: maxConcurrentSessions,
       loraRanks: loraRanks,
     );
@@ -289,6 +290,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
         supportImage: supportImage,
         supportAudio: supportAudio,
         enableSpeculativeDecoding: enableSpeculativeDecoding,
+        activationDataType: activationDataType,
         maxConcurrentSessions: maxConcurrentSessions,
       );
     }
@@ -364,6 +366,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
         supportAudio: supportAudio,
         maxNumImages: maxNumImages,
         enableSpeculativeDecoding: enableSpeculativeDecoding,
+        activationDataType: activationDataType,
         maxConcurrentSessions: maxConcurrentSessions,
         loraRanks: loraRanks,
       );
@@ -374,6 +377,14 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
           'Add the engine package to pubspec.yaml and pass it in inferenceEngines: '
           'of FlutterGemma.initialize(...). Registered engines: '
           '${EngineRegistry.instance.registered.map((e) => e.name).join(", ")}.',
+        );
+      }
+      if (activationDataType != null &&
+          spec.fileType != ModelFileType.litertlm) {
+        gemmaLog(
+          '[FlutterGemma] activationDataType (${activationDataType.name}) is '
+          'read only by the .litertlm engine; ${engine.name} ignores it for '
+          'ModelFileType.${spec.fileType.name}.',
         );
       }
       final model = await engine.createModel(spec, config);
@@ -518,7 +529,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
     }
 
     try {
-      // The LiteRT embedding runtime moved to flutter_gemma_embeddings; core
+      // The LiteRT embedding runtime lives in flutter_gemma_litertlm; core
       // resolves paths (preamble above) + owns the singleton lifecycle, then
       // dispatches construction through the EmbeddingRegistry. The backend
       // reads ONLY config.modelPath/config.tokenizerPath — it ignores the spec

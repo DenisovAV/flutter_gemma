@@ -68,6 +68,13 @@ That scans your dependencies and installs every skill they bundle where your age
 
 What they cover: registering an engine (core ships none), routing by the declared `ModelFileType` rather than the filename, and the two defaults that fail quietly — `maxTokens` is the context window and not the reply length, and `Message.isUser` defaults to `false`.
 
+## What's new in 1.9.0
+
+- 🔤 **Embedding tokenizers are registered, not bundled.** Which tokenizer an embedding model needs is a property of the model, not of the engine that runs it — EmbeddingGemma wants SentencePiece under LiteRT and under ONNX alike. So the backends stopped carrying one: add `flutter_gemma_embeddings`, import it, and pass `embeddingTokenizers: [GemmaEmbeddingTokenizers()]` beside `embeddingBackends:`. Miss it and the first embedding throws a `StateError` naming the package to add — it will not quietly tokenize with the wrong convention and hand you vectors from the wrong point in the embedding space. See [MIGRATION.md](MIGRATION.md).
+- 🧩 **No package depends on a sibling any more.** That registry is what let `flutter_gemma_litertlm` and `flutter_gemma_onnx` drop their dependency on `flutter_gemma_embeddings`; the contracts live in core, the implementations stay opt-in.
+- 🌐 **Web embeddings actually run** (`flutter_gemma_litertlm` 1.8.0) — the LiteRT.js bundle was rebuilt on `@litertjs/core` 2.5.3 and now lives, all four files together, in `flutter_gemma_litertlm/web/`. Copy them from there.
+- 💾 **`flutter_gemma_rag_sqlite` 1.4.0 makes web `flush()` a real fence** by requiring sqlite3 3.6.0, and with it Flutter 3.47. An app on Flutter 3.44 resolves to 1.3.2 instead.
+
 ## What's new in 1.8.2
 
 - 🤖 **Agent skills ship with the package** — `dart run skills@ get --all` installs seven skills that teach your coding assistant this API: inference (with platform setup), function calling, RAG, speech, MediaPipe, ONNX and built-in AI. Every code block in them is compiled against these packages before each release.
@@ -167,7 +174,7 @@ When installing models, you need to specify the correct `ModelType`. Use this ta
 | **Phi** | `ModelType.phi` | Phi-4 Mini |
 | **General** | `ModelType.general` | FastVLM 0.5B, SmolLM 135M, LFM2.5 230M, SmolLM3 3B, Phi-4 Mini Reasoning, Qwen2-VL 2B, SmolVLM2 500M, LLaVA-OneVision 0.5B |
 
-> **Note**: Gemma 4 uses `ModelType.gemma4` so its native `<\|tool_call>...<tool_call\|>` tokens are routed through the LiteRT-LM SDK's chat-template path. For Gemma 3 and earlier, keep `ModelType.gemmaIt`.
+> **Note**: Gemma 4 (`ModelType.gemma4`) and FunctionGemma on a `.litertlm` route their native tool-call tokens through the LiteRT-LM SDK's chat-template path. For Gemma 3 and earlier, keep `ModelType.gemmaIt`; a `.task` FunctionGemma keeps the text format flutter_gemma renders itself.
 
 **Usage Example:**
 ```dart
@@ -179,8 +186,8 @@ await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
 await FlutterGemma.installModel(modelType: ModelType.deepSeek)
   .fromNetwork(url).install();
 
-// Phi-4 (uses general type)
-await FlutterGemma.installModel(modelType: ModelType.general)
+// Phi-4 (its own type — parses Phi's tool-call markers)
+await FlutterGemma.installModel(modelType: ModelType.phi)
   .fromNetwork(url).install();
 ```
 
@@ -251,14 +258,14 @@ The plugin ships native prebuilts only for the architectures below. Other ABIs f
 | Linux           | `x86_64`, `arm64`                 | —                        |
 | Windows         | `x86_64`                          | `arm64`                  |
 
-¹ MediaPipe text inference (`.task` / `.bin`) on Android also works on `x86_64` and `armeabi-v7a` because Google ships those ABIs in `tasks-genai`. Everything else (`.litertlm` FFI, embedding via LiteRT FFI, image generation) is `arm64-v8a` only:
+¹ MediaPipe text inference (`.task` / `.bin`) on Android also works on `x86_64` and `armeabi-v7a` because Google ships those ABIs in `tasks-genai`. Everything backed by `libLiteRtLm` (`.litertlm` inference including its vision and audio input, embedding via LiteRT FFI, speech) is `arm64-v8a` only:
 
 | Android feature                      | arm64-v8a | x86_64 | armeabi-v7a |
 |--------------------------------------|:---------:|:------:|:-----------:|
 | Text inference (`.task` / `.bin`)    |     ✅    |   ✅   |      ✅      |
 | `.litertlm` (FFI)                    |     ✅    |   ❌   |      ❌      |
 | Embedding (LiteRT FFI)               |     ✅    |   ❌   |      ❌      |
-| Image generation (vision)            |     ✅    |   ❌   |      ❌      |
+| Speech STT + TTS (LiteRT FFI)        |     ✅    |   ❌   |      ❌      |
 
 If your Android app uses only the arm64-only features, restrict the build to arm64 so the Play Store does not offer broken APKs to incompatible devices:
 
@@ -402,8 +409,21 @@ and some Mali GPUs hard-freeze (#324). `libcdsprpc.so` is for the Qualcomm NPU.
 
 **Web**
 
-Web runs on the GPU backend only (MediaPipe has no web CPU backend). Add the CDN
-script(s) for the **engine package(s) you use** to your `web/index.html`.
+On web, MediaPipe ignores `preferredBackend` and always runs on the GPU
+(WebGPU); ONNX honours `PreferredBackend.cpu` by pinning WASM.
+
+**Every web app** needs the model storage helpers. Copy `cache_api.js` and
+`opfs_helper.js` from this package's `web/` directory into your app's `web/`
+(find the package directory with
+`grep -A1 '"name": "flutter_gemma"' .dart_tool/package_config.json`), then load
+them in `web/index.html`:
+
+```html
+  <script src="cache_api.js"></script>
+  <script src="opfs_helper.js"></script>
+```
+
+Then add the CDN script(s) for the **engine package(s) you use**.
 
 * **`flutter_gemma_mediapipe`** (`.task` / `-web.task` models) — add:
 ```html
@@ -450,9 +470,20 @@ script(s) for the **engine package(s) you use** to your `web/index.html`.
   </script>
 ```
 
+* **`LiteRtEmbeddingBackend`** (web embeddings, `flutter_gemma_litertlm`) — copy
+  the four files in `flutter_gemma_litertlm`' `web/` into your own `web/`
+  (`litert_embeddings.js`, `sentencepiece.js`, `litert.js`, `tensorflow.js` —
+  one bundle in four pieces) and load the entry module locally:
+  `<script type="module" src="litert_embeddings.js"></script>`. The WASM runtime
+  comes from a pinned CDN by default; see the
+  [`flutter_gemma_litertlm` embeddings on web](https://pub.dev/packages/flutter_gemma_litertlm#embeddings-on-web).
+
 * **`flutter_gemma_rag_sqlite`** (web RAG) — copy the package's custom
   `sqlite3.wasm` (with `sqlite-vec`/`vec0` statically linked) into your app's web
-  root. No CDN `<script>` needed; see that package's README for the exact path.
+  root as `rag/sqlite3.wasm`, and serve the app with
+  `Cross-Origin-Opener-Policy: same-origin` +
+  `Cross-Origin-Embedder-Policy: require-corp`. No CDN `<script>` needed; see
+  that package's README.
 
 > **Model compatibility:** mobile `.task` models often don't work on web — use
 > the `-web.task` (MediaPipe) or `.litertlm` (LiteRT-LM) web variant. Check the
@@ -462,10 +493,11 @@ script(s) for the **engine package(s) you use** to your `web/index.html`.
 
 > **⚠️ Desktop Model Format**
 >
-> Desktop is served exclusively by the **`flutter_gemma_litertlm`** package and
-> uses **LiteRT-LM format only** (`.litertlm` files). There is no MediaPipe
-> engine on desktop — `.task` / `.bin` models used on mobile/web are **NOT
-> compatible** with desktop. (`flutter_gemma_embeddings` and
+> Desktop is served primarily by the **`flutter_gemma_litertlm`** package
+> (`.litertlm` files); `flutter_gemma_onnx` also runs on all three desktop OSes,
+> and `flutter_gemma_builtin_ai` runs Apple Foundation Models on macOS. There is
+> no MediaPipe engine on desktop — `.task` / `.bin` models used on mobile/web are
+> **NOT compatible** with desktop. (`flutter_gemma_embeddings` and
 > `flutter_gemma_rag_qdrant` / `flutter_gemma_rag_sqlite` also support desktop.)
 >
 > The native library is fetched at build time by the package's Native-Assets
@@ -490,15 +522,15 @@ Inference (LiteRT-LM C API) and embeddings (LiteRT C API) on all native platform
 **macOS Setup:**
 
 macOS requires a small `post_install` block in your
-`macos/Podfile`. The Apple accelerator dylibs Google ships upstream
-(`libGemmaModelConstraintProvider.dylib`, `libLiteRtMetalAccelerator.dylib`,
-`libLiteRtTopKMetalSampler.dylib`) were linked without
+`macos/Podfile`. The Apple companion dylibs Google ships upstream
+(`libGemmaModelConstraintProvider.dylib`, `libLiteRtMetalAccelerator.dylib`)
+were linked without
 `-Wl,-headerpad_max_install_names`, so Dart Native Assets' JIT bundling path
 (used by `dart run` / `dart build_runner` / `flutter test` on a pure Dart
 library) cannot rewrite their install_name to a long absolute path inside
 `.dart_tool/lib/` and aborts (#247). To unblock both `dart run` and
 `flutter build macos`, the plugin's `hook/build.dart` skips bundling those
-three through Native Assets on macOS, and we instead copy them into
+two through Native Assets on macOS, and we instead copy them into
 `App.app/Contents/Frameworks/` ourselves and patch `LiteRtLm.dylib`'s
 `LC_LOAD_DYLIB` reference to the new framework path.
 
@@ -588,7 +620,7 @@ without a signing team they fail the build.
 
 **Windows Setup:**
 
-No additional configuration required. `hook/build.dart` (Native Assets) downloads `LiteRtLm.dll` + companion DLLs + the DXC runtime (`dxil.dll`, `dxcompiler.dll` v1.9.2602) from the GitHub release on first build, verifies them via SHA256, and bundles them next to your `app.exe`. End users need the **Microsoft Visual C++ Redistributable 2019+** ([download](https://aka.ms/vs/17/release/vc_redist.x64.exe)) — most modern Windows 10/11 systems already have it.
+No additional configuration required. `hook/build.dart` (Native Assets) downloads `LiteRtLm.dll` + companion DLLs + the DXC runtime (`dxil.dll`, `dxcompiler.dll` v1.9.2602) from the GitHub release on first build, verifies them via SHA256, and bundles them next to your `app.exe`. End users need nothing installed: since `flutter_gemma_litertlm` 1.7.1 `LiteRtLm.dll` is linked against the static CRT and imports no CRT at all, and 16 of the bundle's 24 DLLs import none. The other eight are the Intel NPU stack behind `PreferredBackend.npu` — our own `LiteRtDispatch.dll` plus Intel's `openvino*`/`tbb*` — which need only what a Flutter Windows app already resolves, and are loaded only when that backend is selected ([#456](https://github.com/DenisovAV/flutter_gemma/issues/456)).
 
 **Linux Setup:**
 
@@ -929,6 +961,7 @@ without this step `getActiveModel()` / `createEmbeddingModel()` throw a clear
 ```dart
 import 'package:flutter/widgets.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
 import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
 import 'package:flutter_gemma_rag_qdrant/flutter_gemma_rag_qdrant.dart';
@@ -946,6 +979,11 @@ void main() async {
     // Optional — embeddings (needed for RAG / generateEmbedding):
     embeddingBackends: const [
       LiteRtEmbeddingBackend(), // flutter_gemma_litertlm
+    ],
+    // The tokenizer is registered separately — which family a model needs is a
+    // property of the model, not of the engine that runs it.
+    embeddingTokenizers: const [
+      GemmaEmbeddingTokenizers(), // flutter_gemma_embeddings
     ],
     // Optional — RAG vector store (pick one; native here):
     vectorStore: QdrantVectorStore(), // flutter_gemma_rag_qdrant
@@ -973,6 +1011,7 @@ void main() async {
 | `inferenceEngines: [OnnxEngine()]` | `flutter_gemma_onnx` | ONNX models — ORT-GenAI (FFI; macOS/Linux/Windows/Android/iOS arm64) or Transformers.js (Web) |
 | `embeddingBackends: [LiteRtEmbeddingBackend()]` | `flutter_gemma_litertlm` | text embeddings |
 | `embeddingBackends: [OnnxEmbeddingBackend()]` | `flutter_gemma_onnx` | text embeddings from ONNX/ORT models (FFI native; onnxruntime-web on Web) |
+| `embeddingTokenizers: [GemmaEmbeddingTokenizers()]` | `flutter_gemma_embeddings` | required by BOTH embedding backends above |
 | `sttBackends: [LiteRtSttBackend()]` | `flutter_gemma_speech` | speech-to-text (native only) |
 | `ttsBackends: [LiteRtTtsBackend()]` | `flutter_gemma_speech` | text-to-speech (native only) |
 | `vectorStore: QdrantVectorStore()` | `flutter_gemma_rag_qdrant` | native RAG |
@@ -1345,7 +1384,7 @@ android/app/src/main/assets/models/gemma3-270m-it-q8.litertlm
 2. Check "Copy items if needed"
 3. Add to target membership
 
-**Web** (Static files in `web/` directory) — web uses MediaPipe only, so `.task` (or `-web.task`):
+**Web** (Static files in `web/` directory) — a `-web.task` build for MediaPipe, or a web `.litertlm` build for LiteRT-LM (early preview):
 ```bash
 # Place model files in web/ directory
 example/web/gemma3-270m-it.task
@@ -1644,6 +1683,31 @@ chat.generateChatResponseAsync().listen((response) {
 - **`FunctionCallResponse`**: Contains function name (`response.name`) and arguments (`response.args`) when the model wants to call a function
 - **`ThinkingResponse`**: Contains the model's reasoning process (`response.content`) for DeepSeek models with thinking mode enabled
 
+### What happens after you send a tool result
+
+On a `.litertlm`, both Gemma 4 and FunctionGemma go through LiteRT-LM's own tool path: the
+declarations travel to the runtime as structured data, the call comes back parsed, and your
+`Message.toolResponse(...)` goes back as one role-`tool` message that continues the same model
+turn. Since **1.8.4** (with `flutter_gemma_litertlm` 1.7.1) that holds for FunctionGemma too —
+before it, its tool results were sent as an ordinary user message, and the model answered them by
+repeating the call it had just made.
+
+Where a call comes back as text rather than structured `tool_calls` — the web SDK, or a
+`.litertlm` exported without the FunctionGemma model type, whose runtime opens no tool-call
+channel — flutter_gemma parses that text itself, so your code still receives a
+`FunctionCallResponse`.
+
+Nothing in your own code changes: the wire format is chosen from the model type and the file type
+together. Three things are worth knowing:
+
+- `ToolChoice.none` cannot take the declarations back out on a `.litertlm`, because the runtime
+  holds them.
+- FunctionGemma is an action model — it often ends its turn at the call rather than narrating the
+  result. Render the tool's own result in your UI, and reach for Gemma 4 when you want the model to
+  talk about what came back.
+- `.task` models through MediaPipe have no native tool path, so they keep the text wire format
+  flutter_gemma renders itself.
+
 
 ## 🎯 Supported Models
 
@@ -1688,7 +1752,7 @@ All embedding models generate **768-dimensional vectors**. The numbers in names 
 | **[EmbeddingGemma 1024](https://huggingface.co/litert-community/embeddinggemma-300m)** | 300M | 768D | 1024 tokens | 183MB | Long documents, detailed content | ✅ |
 | **[EmbeddingGemma 2048](https://huggingface.co/litert-community/embeddinggemma-300m)** | 300M | 768D | 2048 tokens | 196MB | Very long documents | ✅ |
 
-**Performance Comparison (Android Pixel 8 with GPU acceleration):**
+**Performance Comparison (Android Pixel 8):**
 - **Gecko 64**: ~109ms/doc embedding, 130ms search (⚡ **fastest** - 2.6x faster than EmbeddingGemma)
 - **EmbeddingGemma 256**: ~286ms/doc embedding, 342ms search (🎯 **more accurate** - 300M vs 110M params)
 
@@ -1888,7 +1952,7 @@ final supported = await FlutterGemma.isStreamingSupported();
 ```
 
 #### Backend Support
-- **GPU only on Web** — MediaPipe has no web CPU backend, so web models must run on the GPU (`PreferredBackend.gpu`).
+- **GPU only on Web (MediaPipe)** — the MediaPipe web engine ignores `preferredBackend` and always runs on the browser's GPU (WebGPU). ONNX on web pins WASM for `PreferredBackend.cpu`.
 
 #### CORS Configuration
 - **Required for custom servers:** Enable CORS headers on your model hosting server
@@ -1942,7 +2006,7 @@ fully supported.
 ### Mobile Platform Specifics
 
 #### Android
-- **GPU Support:** Requires OpenGL libraries in `AndroidManifest.xml`
+- **GPU Support:** nothing to add — the OpenCL `<uses-native-library>` entries come from `flutter_gemma`'s own manifest through the manifest merger
 - **ProGuard:** Automatic rules included for release builds
 - **Storage:** Local file system in app documents directory
 
@@ -1989,6 +2053,14 @@ The full and complete example you can find in `example` folder
 - Use GPU backend for better performance with multimodal models
 - Consider using CPU backend for text-only models on lower-end devices
 
+**Wrong numbers on GPU (`.litertlm`):**
+- Gemma 4 on some GPUs copies digits wrongly from long prompts — `2026/06/23` becomes `20226/12/17`, the same way on every run (LiteRT-LM [#3012](https://github.com/google-ai-edge/LiteRT-LM/issues/3012) on Adreno, [#2814](https://github.com/google-ai-edge/LiteRT-LM/issues/2814) on Metal)
+- Pass `activationDataType: ActivationDataType.float32` to `getActiveModel`. Prefill is slower (about 3× on a Snapdragon 8 Elite and an iPhone 11, under 1.5× on an Apple M3 Max); decode speed barely changes
+- Native `.litertlm` only — **not on web**. The web engine ignores the value, and so do MediaPipe, ONNX and built-in AI. It reaches the text decoder; the vision and audio encoders keep what the model file asks for
+- `float32` activations need more GPU memory, and when the GPU engine cannot be created the model falls back to CPU without an error. Read `model.activeBackend == PreferredBackend.gpu` after loading instead of assuming the GPU ran
+- On Android the GPU shares system memory, so on a 4–6 GB phone running out of it at `float32` can end the app rather than fall back to CPU. Both precisions share one compiled GPU program cache per model, so switching recompiles the GPU programs (about 600 MB for Gemma 4 E2B): pick one precision per install rather than per request.
+- Needs `flutter_gemma_litertlm` 1.8.3 or later; older versions ignore it
+
 **Memory Issues:**
 - **iOS**: Ensure `Runner.entitlements` contains memory entitlements (see iOS setup)
 - Reduce `maxTokens` if experiencing memory issues
@@ -2019,11 +2091,13 @@ String cleanedResponse = ModelThinkingFilter.cleanResponse(
   fileType: ModelFileType.litertlm,
 );
 
-// The filter automatically removes model-specific tokens like:
-// - <end_of_turn> tags (Gemma models)
-// - <think>...</think> blocks (DeepSeek)
-// - <|channel>thought\n...<channel|> blocks (Gemma 4 E2B/E4B)
-// - Extra whitespace and formatting
+// It removes the reasoning blocks (for these model types even when
+// isThinking is false):
+// - <think>...</think> (DeepSeek, Qwen, Qwen3)
+// - <|channel>thought\n...<channel|> (Gemma 3 / Gemma 4 types)
+// and trims whitespace. Turn markers (<end_of_turn>, <|im_end|>) are stripped
+// only for .bin / .tflite files — on .task and .litertlm the runtime already
+// ends the turn.
 ```
 
 This is automatically handled by the chat API, but can be useful for custom inference implementations.

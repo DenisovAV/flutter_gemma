@@ -54,23 +54,46 @@ silently do the other thing.
    is what reading the flagged skills is for. Step 12d is the release backstop,
    not the first time this happens.
 
-### Definition of Done (paste it; check 1a–12b before Step 10 publish; 12c is verified after merge)
+### Definition of Done (paste it; check 1a–8b before Step 10 publish; 10b right after it; 12a/12b belong to the release PR and 12c is verified after merge)
 
 ```
 [ ] Pre-flight: git clean · analyze 0 err · flutter test green · build web + one native target
 [ ] 1a  every package whose lib/ changed is in the publish list (grep, don't guess)
 [ ] 1b/c native: dylibs/build-scripts changed? → rebuild + SHA256 + native release, else N/A
+[ ] 1b-bis ANY version moved that reaches a device → build-native checks 1–10 done
+        on EVERY platform, no exemptions. "Version moved" = a new native-v* tag
+        (including -a/-b hotfix tags), PREBUILT_REF / DEFAULT_REF / any upstream
+        pin, a native-carrying dependency (qdrant_edge, sqlite3, ORT, MediaPipe),
+        or a bumped platform floor. "Only one file changed" is not an exemption:
+        the files that did not change also did not get tested.
+        #9 NPU result written into its table (device, date, pass count), #10
+        matrix (LLM + embeddings + speech, CPU AND GPU) pasted into the PR body,
+        one row per device with codename + GPU.
+        Android GPU = at least one Adreno AND one Mali (FTL akita / a34x).
+[ ] 1b-ter an upstream pin moved → read upstream's open issues filed since that
+        tag (`gh issue list --repo google-ai-edge/LiteRT-LM --search "created:>=<tag-date>"`)
+        and list in the PR body the ones that touch us by number, or
+        "none as of <date>" — plus the tag date the search started from
 [ ] 5b  manifest gate RUN and printed "N platform(s) compared" — N == number of tarballs
+[ ] 1d-bis  any packages/*/README.md changed since its published version? → that
+        package needs a version bump EVEN IF its lib/ did not change; the README
+        ships in the archive and is the pub.dev page (`git diff <pkg-last-published>
+        HEAD -- 'packages/*/README.md'`)
 [ ] 1e  core public API changed? → upgrade-genkit (realign + version), else N/A
 [ ] 1f  shared code duplicated across satellites patched everywhere (grep the pattern)
 [ ] 1f-bis  tool/check_macos_podfile_snippet.sh passes (every copy of the macOS
-        post_install snippet byte-identical — 23 today: three example Podfiles,
-        the codelab step apps, README, desktop.md and the inference skill's
-        references/platform-setup.md) — RUN it, do not eyeball
+        post_install snippet byte-identical — example Podfiles, the codelab step
+        apps, README, desktop.md and the inference skill's
+        references/platform-setup.md; the script prints the count, do not hardcode
+        one here) — RUN it, do not eyeball
 [ ] 1g  each changed satellite's flutter_gemma: floor >= the core version it now needs
 [ ] 2   versions bumped: pubspec + podspec (if any) + CLAUDE.md Current-Version line
 [ ] 7   CHANGELOG: one short line per package, every published package
 [ ] 8   dart pub publish --dry-run → 0 warnings, every package
+[ ] 8b  native bundle moved? → litertlm_native_tools_test.dart green on every
+        platform in the release (the smoke suite never passes a tool), else N/A
+[ ] 10b  after publishing: pub.dev actually SERVES the new versions (its API
+        lags minutes behind the upload), then dispatch Codelabs on main
 [ ] 12a website + README version pins bumped to the just-published versions
 [ ] 12b new/changed public API + behavior documented (README + website)  ← SAME PR
 [ ] 12d skills/: `skills_review.sh <last-tag>` run, every flagged skill READ,
@@ -94,8 +117,10 @@ Whether to bump `native-v<NATIVE_VERSION>` or re-publish the existing tag is the
 ```bash
 git status                  # all desired changes staged or already committed
 git log --oneline -5
-flutter analyze             # 0 errors
-flutter test                # all pass
+flutter analyze packages/   # 0 errors — NOT the repo root: website/ is outside
+                            # the workspace and fails on unresolved deps
+tool/test_all.sh            # all pass — NOT `flutter test` at the root, which
+                            # has no test/ and silently tests NOTHING
 
 # Cross-platform compile sanity — analyze/test run on host VM and skip
 # conditional imports (e.g. `lib/core/ffi/*_stub.dart`). The only thing
@@ -210,27 +235,26 @@ grep -rnE "^\s*(apply plugin: .kotlin-android|ext\.kotlin_version|classpath .*ko
   packages/*/android/build.gradle   # post-#440 this must return NOTHING
 ```
 Shared-code hotspots to sweep, per fix type:
-- **Android Gradle** — `packages/*/android/build.gradle`. TWO packages have
-  one: `flutter_gemma` and `flutter_gemma_mediapipe`. (`flutter_gemma_builtin_ai`
-  lost its own at 0.3.0 — it is a pure-Dart adapter over `flutter_local_ai` now,
-  and that plugin's Gradle file is upstream, outside this sweep.)
+- **Android Gradle** — `packages/*/android/build.gradle`. THREE packages have
+  one: `flutter_gemma`, `flutter_gemma_mediapipe`, `flutter_gemma_builtin_ai`.
   Sweep `compileSdk`, `minSdkVersion`, the AGP classpath, and the
   `kotlin { compilerOptions { jvmTarget } }` block — which must stay
-  byte-identical across both (#360, #440).
+  byte-identical across all three (#360, #440).
 - **Native hook** — `packages/flutter_gemma_litertlm/hook/build.dart` (the only
-  hook that owns a bundle): the `_litertlmBundle` `version:` and `checksums:`
+  hook that owns the LiteRT-LM bundle — `flutter_gemma_onnx` owns the ORT one and
+  `flutter_gemma_rag_sqlite` the sqlite-vec one): the `_litertlmBundle` `version:` and `checksums:`
   fields, `_cacheBaseDir()` cache-busting, `stage()` Apple-only guard.
 - **Apple manifests** — `find packages -name '*.podspec' -not -path '*/example/*'`
-  finds all THREE (core ios, core macos, mediapipe ios); the
-  `packages/*/ios/*.podspec` glob silently misses `macos/`. Sweep
+  finds all FOUR (core ios, core macos, mediapipe ios, builtin_ai darwin); the
+  `packages/*/ios/*.podspec` glob silently misses `macos/` and `darwin/`. Sweep
   `s.version`, min-iOS/osx, dep pins, `vtool` minos on any bundled dylib — and the
-  two `Package.swift` (core ios, core macos), whose platform floors must match
-  their podspec. (`flutter_gemma_builtin_ai` shipped a fourth of each until
-  0.3.0; it has no Apple sources any more.)
-- **macOS `post_install` snippet** — the SAME block lives in FIVE places: the
-  three `packages/*/example/macos/Podfile`, the core `README.md` (the pub.dev
-  page users copy from) and `website/content/docs/desktop.md`. Do not diff them
-  by eye:
+  three `Package.swift` (core ios, core macos, builtin_ai darwin), whose platform
+  floors must match their podspec.
+- **macOS `post_install` snippet** — the SAME block lives in every
+  `packages/*/example/macos/Podfile` and every codelab step app's, plus the core
+  `README.md` (the pub.dev page users copy from), `website/content/docs/desktop.md`
+  and the inference skill's `references/platform-setup.md`. The script counts
+  them; do not diff them by eye:
   ```bash
   tool/check_macos_podfile_snippet.sh   # exits 1 and names the odd copy
   ```
@@ -256,7 +280,7 @@ for each one.
 
 ### 1g. Did a satellite start CALLING a newer core API than its `flutter_gemma:` floor allows? → bump the floor
 
-Each satellite (agent / speech / litertlm / mediapipe / embeddings / rag)
+Each satellite (agent / speech / litertlm / mediapipe / embeddings / rag / onnx / builtin_ai)
 declares a `flutter_gemma: ^X.Y.Z` constraint. In the pub **workspace** the local
 core is always used, so `flutter analyze` / `flutter test` **and
 `dart pub publish --dry-run` all pass with a too-low floor** — everything builds
@@ -306,7 +330,7 @@ Always:
 | File | Field | Note |
 |------|-------|------|
 | `pubspec.yaml` | `version:` | the plugin version (e.g. `0.14.1`) |
-| podspecs — **all three**, they drift independently | `s.version` | match the owning package's version. `packages/flutter_gemma/ios/flutter_gemma.podspec`, `packages/flutter_gemma/macos/flutter_gemma.podspec`, `packages/flutter_gemma_mediapipe/ios/flutter_gemma_mediapipe.podspec`. (`flutter_gemma_builtin_ai` had a fourth until 0.3.0 removed its Apple sources.) Verify with the loop below rather than by eye — core's iOS and macOS podspecs were four and five releases behind when this was last checked. |
+| podspecs — **all four**, they drift independently | `s.version` | match the owning package's version. `packages/flutter_gemma/ios/flutter_gemma.podspec`, `packages/flutter_gemma/macos/flutter_gemma.podspec`, `packages/flutter_gemma_mediapipe/ios/flutter_gemma_mediapipe.podspec`, `packages/flutter_gemma_builtin_ai/darwin/flutter_gemma_builtin_ai.podspec`. Verify with the loop below rather than by eye — core's iOS and macOS podspecs were four and five releases behind when this was last checked. |
 
 ```bash
 for ps in packages/*/{ios,macos,darwin}/*.podspec; do
@@ -552,8 +576,8 @@ or moved to a separate doc.
 ## Step 8: Verify
 
 ```bash
-flutter analyze
-flutter test
+flutter analyze packages/   # not the repo root — see Pre-flight
+tool/test_all.sh            # not `flutter test` at the root — it tests nothing
 # Cross-platform compile sanity (also in Pre-flight — rerun here after
 # version bumps in case a setter/getter signature shifted):
 (cd packages/flutter_gemma/example && flutter build web --no-tree-shake-icons)
@@ -567,6 +591,24 @@ dart pub publish --dry-run     # 0 warnings (package size is informational — t
 ```
 
 **NEVER publish without dry-run first.** Publishing is IRREVERSIBLE.
+
+### 8b. One tool call on a device — required whenever the native bundle moved
+
+```bash
+cd packages/flutter_gemma/example
+flutter test integration_test/litertlm_native_tools_test.dart -d macos   # and every other platform in the release
+```
+
+Host tests cannot see this, and neither can the litertlm smoke suite: it never
+passes a tool, so it never loads `libGemmaModelConstraintProvider`. A mismatch
+between that Google prebuilt and the runtime we build segfaults on the first
+tool call — `CompositeLogitMask::Apply`, no Dart error, every other gate green.
+native-v0.17.0 shipped that way and broke tool calling for everyone on
+litertlm 1.7.0.
+
+The suite asserts the text that follows the tool result, not just that a call
+was parsed. The weaker assertion is why a second bug — tool results sent as role
+`user`, so the model answered by calling again — survived for months.
 
 ## Step 9: Commit + tag + push
 
@@ -617,6 +659,69 @@ dart pub publish --dry-run    # verify once more (expect 0 warnings on a clean m
 dart pub publish --force      # only after user approval; --force is non-interactive
 ```
 
+## Step 10b: Run the Codelabs workflow — after the publish, not before
+
+The codelab step apps depend on **published** packages — a hosted constraint
+such as `flutter_gemma: ^1.8.3`, never a `path:` sibling — so their check
+validates the world users install from rather than this repo's tree. (Floors
+differ per codelab: at 1.8.4 twenty step apps pinned `^1.8.3` and four `^1.8.4`,
+so "the codelabs" are never all on the version you just published.) Two things
+follow, and both bit this release:
+
+1. **It is legitimately red between the release merge and the publish.** The
+   floors on the branch name versions that do not exist on pub.dev yet, so
+   `pub get` fails with `… which doesn't match any versions, version solving
+   failed`. That is a correct report, not a defect — do not "fix" it, and do not
+   merge a lower floor to make it green.
+2. **Nothing re-runs it for you.** Whatever run the release merge produces
+   measures the PRE-publish world, and no later event re-measures it. Either the
+   merge touched `codelabs/**` (or `tool/**`, or the workflow file) and you get
+   one red run from before the packages existed — 1.8.4's merge touched 555
+   files under `codelabs/` and did exactly that — or it touched none of them and
+   the push filter yields no run whatsoever, as the two follow-up merges in that
+   same release did. The nightly `cron: '0 3 * * *'` is what would eventually
+   catch it, which is too late to be part of the release.
+
+So run it by hand once the new versions are actually being served. Uploaded is
+not served: pub.dev answers a successful publish with *"it may take up-to 10
+minutes before the new version is available"*, and a run started a minute after
+the upload fails again on the same constraint — the resolver has not seen it
+yet.
+
+```bash
+# 1. is the version SERVED, not merely uploaded? Parse the version list rather
+#    than grepping the body: `grep -c` counts LINES (the string also appears
+#    under `latest`), and `curl -s` without -f pipes an HTTP error body into it.
+curl -sf https://pub.dev/api/packages/<pkg> \
+  | python3 -c "import sys,json;print('<X.Y.Z>' in {v['version'] for v in json.load(sys.stdin)['versions']})"
+# 2. only then DISPATCH a run against main as it stands now
+gh workflow run codelabs.yml --ref main
+# 3. find THAT run — --branch alone also matches the push and schedule runs
+gh run list --workflow codelabs.yml --branch main --event workflow_dispatch \
+  --limit 1 --json databaseId,headSha,status --jq '.[0]'
+```
+
+Two readings to get right: an empty result from (3) means the run has not been
+registered yet — it appears a few seconds after the dispatch — not that the
+dispatch failed. And a traceback from (1) means the fetch failed (`curl -f`
+passed nothing on), not that the version is missing; a missing version prints
+`False`.
+
+**Dispatch, do not re-run.** `gh run rerun` replays the tree of the commit that
+run was created from — and by the point above, that commit is NOT the release:
+the last Codelabs run is whatever last touched `codelabs/**`, often several
+merges back. A `workflow_dispatch` on `--ref main` is the only form that tests
+what main holds now. Re-running the old run is right only when you deliberately
+want that older tree re-measured against the new pub.dev state.
+
+Filter the lookup, do not take the top row: unfiltered, `gh run list`
+interleaves `pull_request` runs from every open branch — during the 1.8.4
+release four of the five newest rows belonged to one feature branch's PR, and
+acting on that row measures nothing and confuses its author.
+
+Its concurrency group keys on the event, so a dispatched run cannot cancel the
+nightly `schedule` one either.
+
 ## Step 11: Optional — GitHub plugin release
 
 The `.github/workflows/release.yml` triggers on `v*.*.*` tag push and creates a GitHub Release with the example APK. Push the tag to fire it (already done in Step 9). Verify:
@@ -636,7 +741,7 @@ The site hardcodes `^X.Y.Z` in pubspec snippets across the docs — these MUST m
 cd website
 grep -rnE "flutter_gemma[a-z_]*: *\^?[0-9]+\.[0-9]+\.[0-9]+" content/
 ```
-Update each `^X.Y.Z` for the core packages (`flutter_gemma`, `flutter_gemma_litertlm`, `flutter_gemma_mediapipe`, `flutter_gemma_embeddings`, `flutter_gemma_rag_qdrant`, `flutter_gemma_rag_sqlite`) AND the Genkit integration packages (`genkit_flutter_gemma`, `genkit_hybrid`) to the just-published versions. Common spots: `installation.md`, `getting-started.md`, `migration.md`, `packages.md`, `genkit.md`. Cross-check against pub.dev so the site never lags the published packages.
+Update each `^X.Y.Z` for EVERY package the site pins — `flutter_gemma`, `flutter_gemma_litertlm`, `flutter_gemma_mediapipe`, `flutter_gemma_embeddings`, `flutter_gemma_rag_qdrant`, `flutter_gemma_rag_sqlite`, `flutter_gemma_speech`, `flutter_gemma_agent`, `flutter_gemma_onnx`, `flutter_gemma_builtin_ai` — AND the Genkit integration packages (`genkit_flutter_gemma`, `genkit_hybrid`) to the just-published versions. Common spots: `installation.md`, `getting-started.md`, `migration.md`, `packages.md`, `genkit.md`. Cross-check against pub.dev so the site never lags the published packages.
 
 ### 12b. Update docs for any behavior/API change
 - **New / changed public API** → the topic doc that covers it (e.g. a new `createSession` param → `getting-started.md`; multimodal → `multimodal.md`; models → `models.md`).
@@ -645,7 +750,7 @@ Update each `^X.Y.Z` for the core packages (`flutter_gemma`, `flutter_gemma_lite
 
 ### 12d. Update the shipped agent skills — they are read by a MACHINE
 
-`packages/flutter_gemma/skills/` holds eight `SKILL.md` files that ship inside
+`packages/flutter_gemma/skills/` holds seven `SKILL.md` files that ship inside
 the core archive and are installed into users' coding agents by
 `dart run skills@ get --all`. They are not a nice-to-have copy of the docs: an agent
 follows them literally when writing code against this package.
@@ -769,6 +874,12 @@ A manual `./deploy.sh` exists in `website/` for local one-off deploys (it does t
 ## Common gotchas
 
 - **Website SSG build fails silently on a non-Dart code fence** — a ```` ```yaml ````/```` ```xml ````/```` ```kotlin ```` fence in any `website/content/docs/*.md` crashes the Jaspr highlighter (Dart-only grammar) → the merge deploy fails → fluttergemma.dev stays on the OLD build while pub.dev shows the new package. Always `jaspr build` the site locally on the branch before merge, use plain fences for non-Dart, and after merge confirm the `firebase-hosting-merge.yml` run says **success** (Step 12c). main is protected — a website hotfix is a new PR, not a direct push.
+- **A version bump verified on a subset of platforms (#545).** native-v0.17.0
+  ran Android GPU once, on one Adreno phone; 0.17.0-a and 0.17.1 ran no Android
+  GPU at all ("only the provider / only Skel alignment changed"). The upstream
+  accelerators had been broken on every Mali GPU since v0.17.0, and upstream
+  #3575 said so six days before our first release. A hotfix tag ships every
+  byte in the bundle, not just the bytes it changed, so it gets the full matrix.
 - **`packages/flutter_gemma_litertlm/native/litert_lm/prebuilt/` excluded from pub package** (`.pubignore`) — end users get dylibs from GitHub Release, NOT from the pub package. Updating local prebuilts without re-uploading them is invisible to users.
 - **The iOS `5e0d86b` pin is obsolete** — modern tags ship their own `prebuilt/ios_arm64/`, and `build_ios.sh` already defaults to the current tag SHA. Always pass the pinned SHA explicitly anyway: every script's `DEFAULT_REF` lags whatever release you are migrating to. The real invariant is that source and accelerator prebuilts come from one tree — see the `build-native` skill, which owns this.
 - **`bazelisk clean --expunge` is NOT free** — it forces a full rebuild (~25 min for one platform). Only do it when WORKSPACE patch_cmds changed; otherwise incremental rebuild.

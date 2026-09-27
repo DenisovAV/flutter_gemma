@@ -11,10 +11,11 @@ dependencies:
   # flutter_gemma 1.0.0 split engines/backends into opt-in packages; register
   # them via FlutterGemma.initialize() in main.dart. The bridge package itself
   # stays engine-agnostic — these deps live in the consuming app only.
-  # As of litertlm 1.5.0 (embedder decoupling), LiteRtEmbeddingBackend lives
-  # in flutter_gemma_litertlm itself — no separate flutter_gemma_embeddings
-  # dependency needed here anymore.
-  flutter_gemma_litertlm: ^1.5.0
+  flutter_gemma_litertlm: ^1.8.0
+  # Declared again as of litertlm 1.8.0: the engine no longer depends on this
+  # package, so the tokenizer provider an app registers comes from here and
+  # arrives through nobody else.
+  flutter_gemma_embeddings: ^2.2.0
   flutter_gemma_mediapipe: ^1.0.0
   genkit: ^0.16.0
   genkit_flutter_gemma:
@@ -34,9 +35,6 @@ dependency_overrides:
     path: ../../flutter_gemma_litertlm
   flutter_gemma_mediapipe:
     path: ../../flutter_gemma_mediapipe
-  # litertlm 1.5.0 (embedder decoupling) hosted-depends on
-  # flutter_gemma_embeddings ^2.0.0, which is not yet published — override to
-  # local path so pub doesn't fall back to the hosted (nonexistent) version.
   flutter_gemma_embeddings:
     path: ../../flutter_gemma_embeddings
 

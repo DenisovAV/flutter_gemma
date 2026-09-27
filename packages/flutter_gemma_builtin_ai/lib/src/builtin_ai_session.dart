@@ -6,6 +6,7 @@ import 'package:flutter_gemma/core/model.dart' show ModelFileType, ModelType;
 import 'package:flutter_gemma/flutter_gemma_interface.dart'
     show InferenceModelSession, SessionMetrics;
 import 'package:flutter_local_ai/flutter_local_ai.dart' show LocalAiSession;
+import 'package:meta/meta.dart' show experimental;
 
 /// A generation session on an OS built-in model, adapting flutter_local_ai's
 /// [LocalAiSession] to flutter_gemma's [InferenceModelSession].
@@ -37,6 +38,10 @@ class BuiltInAiSession extends InferenceModelSession {
   /// schema-constrained output (`getStructuredResponse`). It is the same
   /// native session this adapter drives, so anything read or generated through
   /// it shares this session's context.
+  ///
+  /// Experimental: this is a `flutter_local_ai` type, so it may change with
+  /// that package's next major release independently of this one.
+  @experimental
   LocalAiSession get localAiSession => _session;
 
   @override

@@ -133,6 +133,43 @@ void main() {
     await b.close();
   });
 
+  test(
+    'activationDataType reaches the engine, and a change rebuilds',
+    () async {
+      // The fix for GPUs that write wrong digits is this one value. Dropped
+      // anywhere between the facade and the engine, the model still loads —
+      // at the precision that corrupts the figures — so nothing else would
+      // notice.
+      final engine = await installWithGatedEngine();
+      engine.release();
+
+      final f32 = await FlutterGemma.getActiveModel(
+        maxTokens: 1024,
+        activationDataType: ActivationDataType.float32,
+      );
+      expect(
+        engine.configs.last.activationDataType,
+        ActivationDataType.float32,
+      );
+
+      final same = await FlutterGemma.getActiveModel(
+        maxTokens: 1024,
+        activationDataType: ActivationDataType.float32,
+      );
+      expect(engine.createModelCallCount, 1);
+      expect(identical(same, f32), isTrue);
+
+      // Null is not "float32 by default": it hands the choice back to the model
+      // file, which is a different engine.
+      final unset = await FlutterGemma.getActiveModel(maxTokens: 1024);
+      expect(engine.createModelCallCount, 2);
+      expect(engine.configs.last.activationDataType, isNull);
+      expect(identical(unset, f32), isFalse);
+
+      await unset.close();
+    },
+  );
+
   test('a caller arriving mid-close is not handed the closing model', () async {
     // Scope, stated because the first version of this test implied more than it
     // checks: the guarantee is that C is not handed the model that was ALREADY

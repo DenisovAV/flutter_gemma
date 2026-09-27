@@ -42,9 +42,9 @@ flutter run \
 ```yaml
 genkit: ^0.16.0
 genkit_google_genai: ^0.3.1
-genkit_flutter_gemma: ^0.6.0
-flutter_gemma: ^1.7.0
-flutter_gemma_litertlm: ^1.6.1   # LiteRT-LM engine (flutter_gemma 1.x ships none by default)
+genkit_flutter_gemma: ^0.6.1
+flutter_gemma: ^1.9.0
+flutter_gemma_litertlm: ^1.8.0   # LiteRT-LM engine (flutter_gemma 1.x ships none by default)
 genkit_hybrid: ^0.2.1
 ```
 

@@ -79,11 +79,13 @@ final chat = await model.createChat(maxOutputTokens: 100);        // reply cap
 - **`.litertlm` models require minSdk 30.** `libLiteRtLm.so` depends on API 30+ Bionic syscalls (`pthread_cond_clockwait`, `sem_clockwait`) that can't be shimmed on older devices. MediaPipe `.task` models work on lower API levels.
 - **`.litertlm` / embeddings / vision are `arm64-v8a` only.** MediaPipe text inference (`.task` / `.bin`) also runs on `x86_64` and `armeabi-v7a`. If you only use arm64-only features, add `ndk { abiFilters 'arm64-v8a' }` so the Play Store doesn't offer broken APKs. See [Installation → Android architecture](/docs/installation#android-architecture-support).
 - **GPU:** nothing to add — the OpenCL `<uses-native-library>` entries come from `flutter_gemma`'s own manifest (1.2.0+) through the manifest merger. If the GPU backend still falls back, check that the merged manifest contains `libvndksupport.so` and `libOpenCL.so`. See [Installation → Android](/docs/installation#android).
+- **Google Play rejects the release: "Your app does not support 16 KB memory page sizes".** Fixed in `flutter_gemma_litertlm` 1.8.0. Nothing fails at build or run time — the rejection happens at submission. The Qualcomm Hexagon DSP blobs this package bundles for the NPU path (`libQnnHtpV{73,75,79,81}Skel.so`) arrived from the QAIRT SDK with a 4 KB `p_align`, and they ship in every APK because the NPU libraries are bundled unconditionally; Play scans `lib/**/*.so` without caring that a Hexagon image is loaded by the DSP rather than mapped by the kernel. Upgrade to 1.8.0 and check your own build with Google’s `check_elf_alignment.sh` against the APK. See [#529](https://github.com/DenisovAV/flutter_gemma/issues/529).
+- **GPU backend crashes at `engine_create` on Mali GPUs (`SIGSEGV`, `pc 0` in `libLiteRtOpenClAccelerator.so`).** Fixed in `flutter_gemma_litertlm` 1.8.2. In 1.7.0–1.8.1 the OpenCL and GPU accelerators called `AHardwareBuffer_allocate` without declaring `libandroid.so`, so Android bound the call to address 0; only Mali GPUs (Samsung A-series, MediaTek, Google Tensor) take that path, so CPU and Adreno were unaffected. Upgrade to 1.8.2. See [#545](https://github.com/DenisovAV/flutter_gemma/issues/545).
 - **Zero chunks and `Stream error: <U+FFFD>`, then `SIGABRT`.** Fixed in `flutter_gemma_litertlm` 1.5.2. On Android the first `dlopen` of `libLiteRtLm` decides for the whole process whether its symbols are reachable from the default search scope, and bionic never promotes it afterwards — so an app that embedded or transcribed anything before its first generation left the stream-callback ABI probe blind and the wrong callback shape was registered. Upgrade to 1.5.2. If your own or third-party code loads `libLiteRtLm` first, load it with `RTLD_GLOBAL` — 1.5.2 cannot repair that case, but it raises a `StateError` naming it rather than generating corrupt text. See [#447](https://github.com/DenisovAV/flutter_gemma/issues/447).
 
 ## Web
 
-- **GPU only.** MediaPipe has no web CPU backend, so web models must run on `PreferredBackend.gpu`.
+- **MediaPipe is GPU-only on web.** The web engine ignores `preferredBackend` and always runs on the browser's GPU (WebGPU). ONNX on web is the exception: `PreferredBackend.cpu` pins WASM there.
 - **Mobile `.task` models often don't work on web** — use the `-web.task` (MediaPipe) or `.litertlm` (LiteRT-LM) web variant.
 - **Memory / cache limits:**
 
@@ -131,6 +133,65 @@ executor surface.
 affected versions use `PreferredBackend.cpu` or `.npu`. macOS/Linux GPU and
 Windows CPU/NPU were never affected. See [Desktop → Known
 limitations](/docs/desktop#known-limitations).
+</Warning>
+
+## Wrong numbers on GPU
+
+**Gemma 4 copies digits wrongly out of a long prompt on some GPUs**, the same
+way on every run: asked when a delivery arrived (`2026/06/23`), it answers
+`20226/12/17`. It shows from about 2,000 prompt tokens, on Metal and on Adreno.
+The published Gemma 4 `.litertlm` files ask for half-precision activations;
+ask for full precision instead:
+
+```dart
+final model = await FlutterGemma.getActiveModel(
+  preferredBackend: PreferredBackend.gpu,
+  activationDataType: ActivationDataType.float32,
+);
+```
+
+Prefill gets slower (about 3× on a Snapdragon 8 Elite and an iPhone 11, under
+1.5× on an Apple M3 Max); decode speed barely changes. Upstream:
+[LiteRT-LM#3012](https://github.com/google-ai-edge/LiteRT-LM/issues/3012) (Adreno),
+[LiteRT-LM#2814](https://github.com/google-ai-edge/LiteRT-LM/issues/2814) (Metal).
+
+**Not on web.** The web engine ignores `activationDataType` — it has no such
+setting — and so do MediaPipe, ONNX and built-in AI. On the engines that read
+it, it reaches the text decoder only: the vision and audio encoders keep the
+type the model file asks for.
+
+It needs `flutter_gemma_litertlm` 1.8.3 or later; older versions accept the
+argument and ignore it.
+
+On Android the GPU shares system memory, so on a 4–6 GB phone running out of it
+at `float32` can end the app rather than fall back to CPU. Both precisions share
+one compiled GPU program cache per model, so switching recompiles the GPU
+programs (about 600 MB for Gemma 4 E2B): pick one precision per install rather
+than per request.
+
+`float32` activations also need more GPU memory than `float16`. If the GPU
+engine cannot be created the model falls back to CPU **without an error** — the
+digits are then right and the model is far slower, which is easy to mistake for
+the fix working. Read the backend the model actually got:
+
+```dart
+final model = await FlutterGemma.getActiveModel(
+  preferredBackend: PreferredBackend.gpu,
+  activationDataType: ActivationDataType.float32,
+);
+if (model.activeBackend != PreferredBackend.gpu) {
+  // CPU fallback: right digits, but not the run you asked for.
+}
+```
+
+## Windows embeddings and speech fail with status 3
+
+<Warning>
+**Fixed in litertlm 1.7.0.** On Windows, embeddings and on-device speech
+(STT/TTS) fail with `LiteRT call failed: CreateTensorBufferFromHostMemory(...)
+(status=3)` in litertlm 1.4.0–1.6.4. Upgrade `flutter_gemma_litertlm` to 1.7.0
+(and `flutter_gemma_speech` to 0.5.1). Text generation and the other platforms
+were never affected.
 </Warning>
 
 ## NPU
@@ -206,8 +267,10 @@ inside the package.
 
 - **The build fails with a download error or an HTTP status.** The first build of
   each platform needs `github.com` reachable. In an air-gapped or proxied CI,
-  pre-populate that cache directory, or vendor the archives and point the build
-  at them.
+  copy the whole `flutter_gemma/native` cache directory from a machine that
+  built the same package versions, including its hidden version-marker files —
+  a folder copied without them is discarded and fetched again. There is no
+  setting that points the build at archives you vendor yourself.
 - **The build fails with `CHECKSUM MISMATCH`.** The bytes served do not match
   what the package version was pinned to. Re-run once to rule out a corrupt
   transfer. If it persists, the release asset was replaced after publication —
@@ -218,8 +281,14 @@ inside the package.
   package claims to support now fails the build when its library cannot be
   produced.
 - **Maintainers only:** a local `native/<name>/prebuilt/<target>/` overrides the
-  pinned release, and the hook says so on stderr when it takes that path. If a
-  new release "did not take", that line is the first thing to look for.
+  pinned release. `flutter_gemma_rag_sqlite` says so on stderr when it takes that
+  path; `flutter_gemma_litertlm` and `flutter_gemma_onnx` take it silently. If a
+  new release "did not take", look for that directory first.
+
+## Embeddings
+
+- **`StateError: No embedding tokenizer is configured`** on the first embedding. Since `flutter_gemma` 1.9.0 an embedding backend no longer carries a tokenizer: which family a model needs (Gemma SentencePiece, BERT WordPiece) is a property of the model, not of the engine that runs it, so the app registers it once. Add `flutter_gemma_embeddings` to `pubspec.yaml`, import it, and pass `embeddingTokenizers: [GemmaEmbeddingTokenizers()]` to `FlutterGemma.initialize()` beside `embeddingBackends:`. The error text names the package and the parameter. See [Embeddings & RAG](/docs/embeddings-and-rag).
+- **`Target of URI doesn't exist: package:flutter_gemma_embeddings/web_embedding_model.dart`** at `flutter build web`. `flutter_gemma_embeddings` 2.2.0 moved that file into `flutter_gemma_litertlm` 1.8.0, alongside the rest of the LiteRT.js bundle it belongs to. A lockfile holding `flutter_gemma_litertlm` at 1.7.x while `flutter_gemma_embeddings` moves to 2.2.0 resolves cleanly and only then fails to compile. Upgrade `flutter_gemma_litertlm` to 1.8.0. Native builds are unaffected — that import sits behind a web-only conditional export.
 
 ## Function calling
 

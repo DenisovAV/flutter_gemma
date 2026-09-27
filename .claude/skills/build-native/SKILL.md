@@ -48,7 +48,7 @@ gh api "repos/google-ai-edge/LiteRT-LM/contents/prebuilt/ios_arm64?ref=<tag>" --
 A LiteRT-LM bump silently moves `LITERT_REF` in `WORKSPACE` (line ~6), and that is a **different upstream repo** with its own C API. This matters because three separate things bind to it:
 
 - `flutter_gemma_litertlm` → LiteRT-LM C API (`c/engine.h`)
-- `flutter_gemma_embeddings`, `flutter_gemma_speech` → **LiteRT** C API directly, via hand-written bindings in `lib/src/litert/`
+- `flutter_gemma_speech` → **LiteRT** C API directly, via litertlm's `lib/src/ffi/litert_bindings.dart`
 - **both NPU dispatch libraries** → the `LiteRtDispatchApi` struct and the LiteRT runtime they are loaded into
 
 So a green litertlm smoke run proves nothing about embeddings, and nothing at all about NPU. In the v0.14.0 migration the pin moved, `LiteRtCreateModelFromFile` gained a third parameter (`LiteRtEnvironment` first), and embeddings silently returned `status=500` — a full day lost before the cause was found.
@@ -65,11 +65,12 @@ old embeddings-only grep now misses more than half of them (23 vs 52 symbols):
 ```bash
 grep -rohE "LiteRt[A-Za-z_]+" \
   packages/flutter_gemma_litertlm/lib/src/ffi/litert_bindings.dart \
-  packages/flutter_gemma_embeddings/lib/src/litert/ \
   packages/flutter_gemma_speech/lib/src/litert/ | sort -u
 ```
 
-Known pins: v0.14.0 → `622f1f3c` (**breaking** for embeddings); v0.15.0 → `3cb830ad` (safe — four headers byte-identical, `litert_compiled_model.h` only gains `LiteRtGetCompiledModelEnvironment()`); v0.16.0 → `0ff28117f1cb5556d0e015bf80b773f74e2bee51`.
+**Diff the structs too, not only the function signatures.** A struct we mirror by hand (`LiteRtLayout`, `LiteRtRankedTensorType`) can change layout while every symbol and signature stays the same, so the symbol list above passes. LiteRT `d84656955` (2026-07-09) turned `bool has_strides : 1` into `unsigned int has_strides : 1`, which moved `dimensions[]` from offset 8 to 4 **under MSVC only**; our Windows-only mirror kept offset 8 and broke Windows embeddings and speech from native-v0.16.0 on (pitfall #16). Diff `litert/c/litert_layout.h` and `litert/c/litert_model_types.h` at both refs, and when a divergence we work around disappears upstream, delete the workaround in the same bump. `test/ffi/litert_layout_abi_test.dart` pins the current sizes.
+
+Known pins: v0.14.0 → `622f1f3c` (**breaking** for embeddings; predates `d84656955`); v0.15.0 → `3cb830ad` (safe — four headers byte-identical, `litert_compiled_model.h` only gains `LiteRtGetCompiledModelEnvironment()`); v0.16.0 → `0ff28117f1cb5556d0e015bf80b773f74e2bee51` (contains `d84656955`); v0.17.0 → `9fe5be45564c868408e6514c8aabb83e211a0911` (headers additive; the GPU samplers' `Create` gained a leading `runtime_c_api` argument, prebuilt samplers refreshed upstream in `a24911058`).
 
 **Never hardcode this ref in a build script.** `build_qualcomm_dispatch.sh` carried a literal `5c5b9ce6` from the native-v0.12.0 era and nobody noticed for four releases, because a stale dispatch library does not fail politely — see the NPU section below. Derive it from the WORKSPACE of the LiteRT-LM revision being built:
 
@@ -295,7 +296,7 @@ Expect ~3 minutes warm and a 707-724 KB stripped `ELF 64-bit aarch64` exporting 
 Always pass the pinned SHA explicitly — the scripts' `DEFAULT_REF` lags the release you're migrating to.
 
 ```bash
-REF=<tag-commit-sha>          # v0.16.0 = 924e79c91542761242244e4f1651851f822e4cbb
+REF=<tag-commit-sha>          # v0.17.0 = e9fd8c53ff968071774206163027dd84bedfe925 (v0.16.0 = 924e79c9…)
 export ANDROID_NDK_HOME="$HOME/Library/Android/sdk/ndk/29.0.14206865"   # r29 mandatory
 
 packages/flutter_gemma_litertlm/native/litert_lm/build_macos.sh   "$REF"    # macOS arm64
@@ -435,7 +436,7 @@ cd test_flutter_gemma_native
 # dylibs.
 flutter pub add flutter_gemma --path="$REPO/packages/flutter_gemma"
 flutter pub add flutter_gemma_litertlm --path="$REPO/packages/flutter_gemma_litertlm"
-# add flutter_gemma_embeddings too if embeddings changed — it shares the bundle
+# flutter_gemma_embeddings is pure Dart and shares no bundle — never in this list
 rm -rf .dart_tool build
 flutter pub get
 # → must complete without "Failed to set install names" or any other error
@@ -491,12 +492,128 @@ If anything other than `.framework/` is in there, App Store will reject with ITM
 
 **Count the contents first — an empty `Frameworks/` passes every "must be empty" test.** `flutter build ios` can leave a half-assembled `Runner.app` behind: the Xcode phase reports `Xcode build done`, then flutter_tools dies cleaning up its own temp dir (`PathNotFoundException: Deletion failed … flutter_ios_build_temp_dir…`), and the frameworks are never embedded. The bundle exists, the two negative checks come back perfectly clean, and nothing distinguishes "compliant" from "nothing was built". Re-running the build fixes it; a healthy debug build of the example carries ~10 frameworks, four of them ours. Same failure shape as `nm` on a missing file — assert the positive before trusting the negative.
 
-### 9. NPU on real silicon — the only check that covers the dispatch libraries
+### 9. A tool call, on every platform you shipped
+
+The litertlm smoke suite never passes a tool to a session, so nothing in checks
+1–8 loads `libGemmaModelConstraintProvider`. That library is a Google prebuilt
+you did not build, against a `Constraint` interface that lives in the runtime
+you did — and when the two disagree, the first tool call segfaults in
+`CompositeLogitMask::Apply`, with no Dart-side error and every other check
+green. native-v0.17.0 shipped exactly that.
+
+```bash
+cd packages/flutter_gemma/example
+flutter test integration_test/litertlm_native_tools_test.dart -d <device>
+```
+
+Six cases: FunctionGemma and Gemma 4, a manual round and the SDK loop, plus a
+session switch. Each asserts the **text after the tool result**, not merely that
+a call was parsed — a suite that stops at "a call was detected" stayed green for
+months while the model was answering its own tool result by calling again.
+
+Stage the four models first (`functiongemma-270M-it`, `mobile_actions_q8_ekv1024`,
+`tiny_garden`, `gemma-4-E2B-it`) in the app documents dir, or in
+`/data/local/tmp/flutter_gemma_test/` on Android.
+
+The static pre-check, before any device is involved — the provider must carry
+the type the runtime asks it for:
+
+```bash
+H=/tmp/LiteRT-LM/runtime/components/constrained_decoding/constraint.h
+P=<prebuilt>/libGemmaModelConstraintProvider.dylib   # or .so / .dll — ONE file
+if [ ! -f "$H" ] || [ ! -s "$P" ]; then
+  echo "cannot check: need both $H and a non-empty $P"
+elif [ "$(grep -q ComputeMask "$H" && echo 1 || echo 0)" \
+     = "$(grep -q LogitMask "$P" && echo 1 || echo 0)" ]; then
+  echo "provider ABI: source and provider agree"
+else
+  echo "MISMATCH — every tool call on that platform would segfault"
+fi
+```
+
+Three things this shape is deliberate about: `grep` reads the binary directly
+(`strings … | grep -q` exits at the first match and, under `set -o pipefail`,
+the SIGPIPE makes the whole pipeline report failure — the guard then says "no
+LogitMask" for every provider that has one); it names ONE file rather than a
+glob, because a glob over a directory holding both a `.so` and a `.dylib`
+answers for the union; and it prints rather than `exit`s, because you paste it
+into your own shell.
+
+Two-sided, and `-f` first, for the same reason the CI guard is: a provider
+OLDER than the runtime segfaults, a NEWER one segfaults the same way from the
+other side (which is what happens if you build an older ref while `PREBUILT_REF`
+still points at main), and a `grep` on a missing header silently answers "no".
+
+### 9b. 16 KB page alignment (Android) — Google finds this, not you
+
+Google Play rejects an app when **any** `.so` in its APK has a `PT_LOAD`
+`p_align` below 16 KB: *"Your app does not support 16 KB memory page sizes"*.
+Play scans `lib/**/*.so` and does not care that a Hexagon blob is parsed by the
+DSP rather than mapped by the kernel.
+
+This is not hypothetical and it is not caught by anything else. `native-v0.17.0-a`
+shipped four Qualcomm Skel blobs at `p_align=0x1000` — straight from the QAIRT
+SDK, unchanged by us — and because `androidExtraLibs` puts them in every
+consumer APK, every app shipping `flutter_gemma_litertlm` was rejected. The
+build was green, every test passed, the manifest gate passed, and the report
+came from a downstream app's store submission (#529).
+
+`build_qualcomm_dispatch.sh` now raises `p_align` on the staged blobs (and
+refuses when `p_vaddr` and `p_offset` are not congruent mod 16 KB, because a
+bump there would produce a binary that does not load). `verify_tarball_manifest.sh`
+asserts it for every ELF object inside every tarball. Read its output:
+
+```
+  [ok]   litertlm-android_arm64.tar.gz — 19 ELF object(s), all 16 KB-aligned
+```
+
+A run that reports 0 objects inspected has found nothing, not proven anything.
+Google's own `check_elf_alignment.sh` is the second opinion if you want one.
+
+### 9c. Every Android import is reachable through its own NEEDED
+
+Bionic resolves a library's undefined symbols only through that library's own
+`DT_NEEDED` chain — never through whatever else is already loaded in the
+process, so preloading from the app cannot fix it. A `GLOBAL` import that misses
+fails `dlopen`, which at least is loud. A `WEAK` one fails nothing: it binds to
+NULL, `dlopen` succeeds, and the process jumps to address 0 the first time a
+code path calls it — which may be one GPU vendor's path only.
+
+That is #545. Upstream v0.17.0's `libLiteRtOpenClAccelerator.so` and
+`libLiteRtGpuAccelerator.so` import `AHardwareBuffer_allocate/_release` weakly
+with no `libandroid.so` in NEEDED. Adreno never calls them; Mali does, and
+`engine_create` SIGSEGVs at pc 0. We shipped those bytes unchanged in three
+releases, because the only Android GPU run was on an Adreno phone. #270 was the
+same rule broken by a sampler (GLOBAL `LiteRtCreateEnvironment` without
+`libLiteRtLm.so`), fixed then as a one-off — which is why it came back.
+
+`check_android_needed.py` asserts the rule for every aarch64 library: each
+import that some NDK platform stub or bundle library provides must have a
+provider in the importer's NEEDED closure. `build_android.sh` runs it as step
+8d, `verify_tarball_manifest.sh` runs it on the packed tarball. The fix, when it
+fails, is `patchelf --add-needed` on the importer (steps 8b/8c), never an
+allowlist. patchelf missing is a build error, not a warning.
+
+```
+  [ok]   15 aarch64 libraries checked against API 35 stubs
+```
+
+### 10. NPU on real silicon — the only check that covers the dispatch libraries
 
 Nothing in checks 1–8 touches NPU. Both dispatch libraries load only when `PreferredBackend.npu` is requested on matching hardware, so they need real devices:
 
-- **Intel NPU** — LunarLake/PantherLake. Our access is the Intel Tiber VM (see the `project_intel_npu_vm` memory). Run the litertlm smoke suite with `--plain-name "NPU"` **on its own**: inside the full file the NPU group runs after GPU, and async WebGPU teardown blows the per-test timer on the first NPU `engine_create`.
-- **Qualcomm NPU** — Snapdragon 8 Gen 3 / 8 Elite. Ours is Qualcomm Device Cloud (QDC).
+- **Intel NPU** — LunarLake/PantherLake. Our access is the Intel Tiber box `pdx88-k0687` (see the `project_intel_npu_vm` memory): ssh over ngrok with the mandatory `-i ~/.ssh/flutter_gemma_win_v14`, `cmd.exe` shell, commands in the **foreground** (a detached task dies with the ssh session). The console entry is the reservation's **Connect** button (Guacamole). The model is not on HF — it lives on the box at `%USERPROFILE%\dev-gemma4-2b-lnl\gemma4_2b_lnl.litertlm`. Put the bundle under test in the checkout's `prebuilt/windows_x86_64/` (the hook reads it before the cache), then run the litertlm smoke suite with `--plain-name "NPU"` **on its own**: inside the full file the NPU group runs after GPU, and async WebGPU teardown blows the per-test timer on the first NPU `engine_create`. Reference numbers (0.15.2): `engine_create` ~1 s, ~54 chunks/s, greedy run1 == run2.
+- **Qualcomm NPU** — Snapdragon 8 Gen 3 / 8 Elite. Ours is Qualcomm Device Cloud (QDC); the exact sequence is below.
+
+The NPU group **skips** (and counts as passed) when its model file is absent, so a green run means nothing until the log shows `engine_create` on the NPU. Grep for it; a `[Gemma4 NPU] SKIP` line means the check did not run.
+
+**Record the outcome here, every release** — device, date, pass count. The method was written down long before any result was, and a finished check kept reading as pending:
+
+| Native | Qualcomm (QDC) | Intel (Tiber) |
+|---|---|---|
+| v0.15.2 | — | ✅ 18/18, Lunar Lake 258V, 2026-05-15 |
+| v0.16.0 | ✅ 23/23, Snapdragon 8 Elite, 2026-08-15 | ⚠️ not recorded |
+| v0.17.0 | ⏳ pending | ⏳ pending — Tiber gateway unreachable since 2026-09-18 |
 
 Both are slow, awkward, and easy to skip. Skipping them is what shipped the two frozen dispatch libraries described above.
 
@@ -508,6 +625,37 @@ QDC gives you an SSH tunnel that forwards the **ADB server port (5037)**, not a 
 2. `nohup … & disown` — there is no `setsid` on macOS, and with it the tunnel never starts at all.
 3. `flutter test -d <device>` **cannot work here.** It needs `adb forward` for the Dart VM Service, and with the server itself proxied the forward binds on the remote side. Use an Espresso instrumentation run instead.
 4. Sessions are time-capped (100 min standard, 300 on request). A tunnel that stops responding mid-run is usually just an expired session — check that before debugging the transport.
+
+The tunnel itself (key file and session host come from the QDC session page; the host changes per session — it was `sa762844`, then `sa763293`). The run on 2026-08-14 wrapped it in a small loop that re-spawns ssh when it drops:
+
+```bash
+adb kill-server
+nohup ssh -i ~/Downloads/qdc_id_<date>.pem -o StrictHostKeyChecking=accept-new -o ServerAliveInterval=30 \
+  -L 5037:<session-host>.sa.svc.cluster.local:5037 -N sshtunnel@ssh.qdc.qualcomm.com > tunnel.log 2>&1 & disown
+adb devices -l   # must list the QDC device; check ro.soc.model before anything else
+```
+
+The NPU model is SoC-specific and is not on the device: `gemma-4-E2B-it_qualcomm_sm8750.litertlm` (sm8750 = Snapdragon 8 Elite, QNN HTP V79, ~2.9 GB) from `litert-community/gemma-4-E2B-it-litert-lm`. `engine_create` rejects it on any other SoC. The QDC device has internet, so download it **on the device** — pushing 3 GB through the tunnel eats the session and drops (keep `adb push` with retries only as the fallback):
+
+```bash
+adb shell 'mkdir -p /data/local/tmp/flutter_gemma_test && cd /data/local/tmp/flutter_gemma_test && \
+  curl -sL -o gemma-4-E2B-it_qualcomm_sm8750.litertlm \
+  https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it_qualcomm_sm8750.litertlm'
+```
+
+Check first, before spending minutes: `getprop ro.soc.model` must say `SM8750` (platform `sun`). `/vendor/dsp/cdsp/` carries **no** `libQnnHtpV79Skel.so` even on Qualcomm's own reference image — that is why the bundle ships the Skel libraries itself.
+
+Build **both** APKs with the test as the target, install both, and run the instrumentation (the app id and runner are in `example/android/app/build.gradle.kts`):
+
+```bash
+T=<absolute path to integration_test/litertlm_ffi_test.dart>
+./gradlew app:assembleDebug -Ptarget="$T" app:assembleDebugAndroidTest -Ptarget="$T"
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+adb shell am instrument -w -r dev.flutterberlin.flutter_gemma_example.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+`OK (N tests)` is the pass line. On v0.16.0 the first full pass was `Tests run: 23, Failures: 2`, and the rerun went `OK (23 tests)` — read the failures before rerunning.
 
 Building the instrumentation APK: `flutter build apk` is **wrong**, it packs `main.dart`. The app APK must carry the test entrypoint:
 
@@ -523,6 +671,27 @@ grep -ac "<a string unique to the test file>" app/build/outputs/apk/debug/app-de
 ```
 
 And beware the Espresso idle timeout: `Could not launch intent within 45000 ms` is usually not a broken test but app startup doing real work — ours was restoring a 3 GB active model, so the main thread never went idle. Clear app state, or start from a build that doesn't auto-restore.
+
+### 10. Functional matrix — every platform, every native consumer
+
+The bundle has **three** consumers — LLM inference (LiteRT-LM C API), embeddings and speech (LiteRT C API through hand-mirrored structs) — and a platform can break one while the others pass. Windows embeddings **and** speech were broken from native-v0.16.0 until 2026-09-18 while every Windows GPU and NPU run was green, because nobody ran them there (pitfall #16). Run all three everywhere:
+
+| Suite | What it covers |
+|---|---|
+| `litertlm_ffi_test.dart` (full) | CPU + GPU text/streaming/vision/audio/thinking, chat, multi-session (several `engine_create` per process), embeddings (`Embedding non-blocking (#299)`) |
+| `stt_moonshine_test.dart` | STT through the LiteRT C API (~104 MB model from HF) |
+| `tts_smoke_test.dart` | Matcha TTS; compares against a golden (`rms 0.0781`, error < 1e-5 on every platform in v0.17.0) |
+| `qwen3_tts_test.dart` | only when Qwen3 code changed (~1 GB download); macOS is enough |
+
+Where and how, with the traps that cost time in the v0.17.0 cycle:
+
+- **macOS** — local. The example's Podfile stager copies companions from the **cache** (`~/Library/Caches/flutter_gemma/native/macos_arm64/`), not from the build, so a maintainer machine runs a 0.16/0.17 mix. For the run, move the cache's `libGemmaModelConstraintProvider.dylib` aside (the stager picks its source by that one file and falls back to `prebuilt/`), restore it in a `trap`.
+- **iOS device** — USB only (`ioreg -p IOUSB` must show `iPhone@…`; `transportType: localNetwork` ⇒ "Cannot start app on wirelessly tethered iOS device"). On Xcode 26+ `enable-lldb-debugging` must be `true`, otherwise flutter never sees the VM Service URL and hangs at "not discovered" (memory `project_ios_device_xcode26_lldb`). The simulator is CPU-only by design.
+- **Android** — GPU/OpenCL needs real devices, and **at least one Adreno and one Mali**: Adreno and Mali take different paths through the same accelerator (#545 crashed only on Mali). On FTL: `e1q` (Galaxy S24, Adreno 750), `akita` (Pixel 8a, Mali-G715), `a34x` (Galaxy A34, Mali-G68 — the #545 device). Write codename + GPU per row in the PR body; "Galaxy S24" alone does not say which GPU ran. The `gemma_api36_arm64` emulator is enough for CPU speech.
+- **Linux** — GCE `flutter-gemma-linux` (T4) and `flutter-gemma-linux-gpu` (L4, often stocked out in `us-central1-b`). The T4 box boots a mainline 6.16 kernel without the NVIDIA module (Vulkan falls back to `llvmpipe`); for GPU runs `kexec` once into `6.8.0-*-gcp`. Prove the GPU was used from throughput (T4: ~42 chunks/s GPU vs ~2.4 CPU), not from test names.
+- **Windows** — Tiber for NPU + Arc; GCE `flutter-gemma-gpu` (T4) covers CPU, discrete-GPU WebGPU, embeddings and speech when Tiber is down. On GCE: Scheduled Task (`S4U`) + log polling, `powershell -EncodedCommand` for anything with `$`.
+
+Put a worktree of the branch on each VM instead of switching its checkout, drop the CI artifact into `prebuilt/<platform>/`, and **prove provenance per run**: sha256 (Linux/Windows) or LC_UUID (Apple) of the libraries inside the built app against the artifact. Record the matrix in the PR body.
 
 ---
 
@@ -545,8 +714,10 @@ And beware the Espresso idle timeout: `Could not launch intent within 45000 ms` 
 | 13 | Qualcomm dispatch hardcoded to LiteRT `5c5b9ce6` — SIGSEGV in `LiteRtDestroyOptions`, and `-gcc-toolchain` when rebuilt | Derive `LITERT_REF` from WORKSPACE; check #9 on device | native-v0.12.0 → v0.16.0; rebuilt and **verified on Snapdragon 8 Elite via QDC** at v0.16.0 |
 | 14 | Blanket copy of OpenVino `runtime\bin` ships debug DLLs (`openvinod.dll`) beside release | Explicit allow-list + `throw` on missing | caught pre-publish at v0.16.0 |
 | 15 | QNN runtime libs left at an old QAIRT while the dispatch moved — `Qnn System library version 1.8.0 is mismatched` | Check #9 on device; compare file sizes against the SDK | native-v0.12.0 → v0.16.0, **caught on device** |
+| 16 | Windows-only `LiteRtLayoutMsvc` mirror kept after LiteRT `d84656955` unified the layout — every host-memory tensor buffer got a shape 4 bytes off: `CreateTensorBufferFromHostMemory` `status=3` in embeddings and STT | Check #10 on Windows; struct diff at both `LITERT_REF`s | **native-v0.16.0 → fixed in `67b9857f`**; seen on Tiber 2026-08-10 and misread as a bad box cache |
+| 17 | Upstream companion imports a symbol its NEEDED cannot reach: sampler without `libLiteRtLm.so` (#270, silent CPU fallback); v0.17.0 accelerators without `libandroid.so` (#545, SIGSEGV on Mali only) | Check #9c (`check_android_needed.py`); Android GPU on Adreno **and** Mali | #270: 0.14.x; **#545: native-v0.17.0 → v0.17.1**, upstream #3575 open six days before our first release |
 
-Every one of those would have been caught by checks 1-9 before commit. **Run them all every time.**
+Every one of those would have been caught by checks 1-10 before commit. **Run them all every time.**
 
 Three patterns deserve emphasis because nothing in the build output hints at them:
 
@@ -560,6 +731,7 @@ Three patterns deserve emphasis because nothing in the build output hints at the
 
 We import some dylibs as-is from upstream LiteRT-LM (`libGemmaModelConstraintProvider.dylib`, `libLiteRtMetalAccelerator.dylib`, sampler dylibs). When upstream ships them with insufficient headerpad / wrong arch / broken exports:
 
+0. **Before adopting an upstream tag, read what is already reported against it.** `gh issue list --repo google-ai-edge/LiteRT-LM --search "created:>=<tag-date>"` and skim for crashes on platforms we ship. #545 was upstream #3575 — same crash, same BuildId, same `patchelf` workaround — open six days before our first release with those bytes.
 1. **Rule out our own frozen inputs first.** Before writing the issue, enumerate every input to the failing comparison — defines, SDK versions, pinned SHAs, carried-forward binaries — and confirm which ones actually moved between the working and broken versions. Two of our four most recent upstream reports (#2957, #3217) were our configuration and had to be retracted; in both the "regression" was upstream finally exercising something we had frozen years earlier. A bisection that lands on a version boundary tells you *when*, never *whose*.
 2. **File an issue with reproducer** — see `project_litertlm_upstream_*` memories for our open ones (#1990, #2072, #2073, #2080).
 3. **Don't ship them blindly.** Run check #4 (install_name_tool smoke) on every upstream-sourced dylib **before** copying to `prebuilt/`. If it fails, **don't publish** — find a workaround first (relink, or ship without that lib + change Dart code path).
@@ -569,7 +741,7 @@ We import some dylibs as-is from upstream LiteRT-LM (`libGemmaModelConstraintPro
 
 ## After successful build
 
-1. **Run the verification checklist 1-9 above. All checks must pass.**
+1. **Run the verification checklist 1-10 above. All checks must pass.**
 2. Do NOT try to commit the dylibs — `prebuilt/` is gitignored (`.gitignore` `**/packages/flutter_gemma_litertlm/native/litert_lm/prebuilt/`) and `git ls-files` returns nothing under it. The bundles reach users through the GitHub Release only; the working copy is yours alone. (This step used to say `git add prebuilt/<dir>/*.dylib`, which cannot succeed.)
 3. Pack tarballs + update `hook/build.dart` `checksums` + re-upload to GitHub Release `native-v<version>` (see `release` skill).
 4. Run `dart pub publish --dry-run` — must show 0 warnings.

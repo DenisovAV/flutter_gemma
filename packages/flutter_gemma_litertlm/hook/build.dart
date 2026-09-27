@@ -138,6 +138,14 @@ class _NativeBundle {
 
 /// LiteRT-LM native library version and release info.
 ///
+/// 0.17.0 — built from LiteRT-LM `e9fd8c53` (v0.17.0) with LiteRT `9fe5be45`.
+/// All 7 platforms rebuilt; the zlib mirror patch is gone (the v0.17.0
+/// WORKSPACE lists the mirrors itself).
+/// The GPU samplers' `Create` gained a leading `runtime_c_api` argument —
+/// upstream refreshed the prebuilt samplers with it, so nothing to patch here.
+/// The 4 `tbb*_debug.dll` files 0.16.0 still carried are dropped on purpose
+/// (#437: release TBB only).
+///
 /// 0.16.0 — built from LiteRT-LM `924e79c9` with LiteRT `0ff28117`. There is no
 /// native-v0.15.0; the jump is 0.14.0 → 0.16.0. All 7 platforms rebuilt.
 ///
@@ -166,7 +174,7 @@ class _NativeBundle {
 /// Android: `-Wl,-z,max-page-size=16384` (Google Play 16KB).
 const _litertlmBundle = _NativeBundle(
   namespace: 'litertlm',
-  version: '0.16.0',
+  version: '0.17.1-a',
   releaseTagPrefix: 'native-v',
   archivePrefix: 'litertlm',
   mainLibName: 'LiteRtLm',
@@ -177,24 +185,48 @@ const _litertlmBundle = _NativeBundle(
   // in a dedicated PR (tracked: roadmap entry in CHANGELOG for 0.16.0).
   useFlatLayout: true,
   markerFileName: '.flutter_gemma_native_version',
-  // All 7 rebuilt for 0.16.0. These sums must equal both the bytes GitHub
+  // 0.17.1 is upstream v0.17.1 (5e58e9a0), one commit over v0.17.0: tool-call
+  // arguments declared `"type": "integer"` reach the app as integers instead
+  // of 1000.0. Every platform is rebuilt from that source — Apple and Android
+  // locally, both Linux and Windows in CI — and the LiteRT pin is unchanged
+  // (9fe5be45), so the C API embeddings and speech bind to did not move.
+  //
+  // libGemmaModelConstraintProvider still comes from upstream MAIN (4453b286),
+  // not from the tag: v0.17.1 ships the same pre-ComputeMask provider v0.17.0
+  // did, and against a runtime built from its own source every tool call
+  // segfaults in CompositeLogitMask::Apply. Both build scripts and both CI
+  // workflows assert the two sides agree before compiling anything.
+  //
+  // The Android bundle also carries the Qualcomm Skel blobs with p_align
+  // raised to 16 KB: the QAIRT SDK ships them at 0x1000, androidExtraLibs puts
+  // them in every consumer APK, and Google Play rejects the app for it (#529).
+  // build_qualcomm_dispatch.sh does the bump; verify_tarball_manifest.sh
+  // refuses to publish an Android archive that still has one below 16 KB.
+  //
+  // 0.17.1-a changes two Android files and nothing else: upstream's OpenCL and
+  // GPU accelerators import AHardwareBuffer_* weakly without libandroid.so in
+  // DT_NEEDED, bionic binds them to NULL, and Mali GPUs crash at engine_create
+  // (#545). build_android.sh step 8c adds the NEEDED entry and step 8d refuses a
+  // library whose imports its own NEEDED chain cannot reach. The other six
+  // archives are byte-identical to native-v0.17.1.
+  // These sums must equal both the bytes GitHub
   // serves and the `checksums_litertlm.txt` published on the release — a stale
   // txt sent a user down the wrong path while debugging a mismatch (#316).
   checksums: {
     'litertlm-linux_x86_64.tar.gz':
-        '33734e5de5b915f45a0c4e72b96a21ee71c7708263c665e328af2f7e2b396fc2',
+        '3f7854efdd73c893d48bc43df66102fda5c1de63179295275a37acb9427a949e',
     'litertlm-linux_arm64.tar.gz':
-        '8d3114307ad55261f30d88c8b045509f3abf67461c0503ca14adbe0fe31227de',
+        'c2e784185840534aeb10e78b19b3771e1eab699e193ce72a6ec6dc67fc0eb47e',
     'litertlm-windows_x86_64.tar.gz':
-        '925e665dd2d40245f38457011576b612b2b377e24aaded53f960d0faa4464dec',
+        'e505e247b07313c05bbc957b7c33c82f6adb6c6c78eecae03a590319c7d049e2',
     'litertlm-macos_arm64.tar.gz':
-        'c597554a7a5cdf099658227099a54ef4916c5802b9182757e656e1788f9426b6',
+        '37c64a2e7cd4d5c06ad150b866ee71f39cc84ccd159cf9e2db30792ef0e71d49',
     'litertlm-ios_arm64.tar.gz':
-        '4fae776d252bd58993413284a0612864535c2c6d49b07e9052ff936624d26069',
+        '8aaf35425790d527728dde4736579c660af08f9baddfd0161a868cfb302626de',
     'litertlm-ios_sim_arm64.tar.gz':
-        '669277872ef9825df9762fa1c5225c9335da3ab2323349083cbc62a7626073d3',
+        'a95766deae012c8441ef1e1d2e2501d3db3bbbde6b014cceccc5cde98bb94836',
     'litertlm-android_arm64.tar.gz':
-        '197dd324d82f22b7b6427004bfe8fb90223c625f77282c85305f79db6db16141',
+        '745b89b606eb712a78f06aed41daca1370eae79b00e0a36054c8e775c0251768',
   },
   companions: [
     'GemmaModelConstraintProvider',
@@ -209,10 +241,10 @@ const _litertlmBundle = _NativeBundle(
     'webgpu_dawn', // Linux/Windows Dawn WebGPU (split to a shared lib in v0.14.0)
   ],
   // On macOS, skip the upstream Apple companion dylibs from Native Assets
-  // bundling (#247). The three dylibs Google ships in
+  // bundling (#247). The companion dylibs Google ships in
   // `prebuilt/macos_arm64/` (`libGemmaModelConstraintProvider.dylib`,
-  // `libLiteRtMetalAccelerator.dylib`, `libLiteRtTopKMetalSampler.dylib`)
-  // were linked without `-Wl,-headerpad_max_install_names`, leaving only
+  // `libLiteRtMetalAccelerator.dylib`; the Metal sampler is not shipped at
+  // all) were linked without `-Wl,-headerpad_max_install_names`, leaving only
   // 32 bytes of slack in the load-commands area. Dart Native Assets'
   // JIT path (`dart run`, `dart build_runner`, `flutter test` on a pure
   // Dart library) calls `install_name_tool -id <absolute_path>` with paths

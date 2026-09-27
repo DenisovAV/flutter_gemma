@@ -14,6 +14,7 @@ import 'package:flutter_gemma/flutter_gemma_interface.dart'
     show InferenceModel, InferenceModelSession;
 import 'package:flutter_local_ai/flutter_local_ai.dart'
     show LocalAi, LocalAiModel;
+import 'package:meta/meta.dart' show experimental;
 
 import 'builtin_ai_session.dart';
 
@@ -83,6 +84,10 @@ class BuiltInAiModel extends InferenceModel with CloseNotifier {
   /// through [BuiltInAiSession.localAiSession]) and drive flutter_local_ai's
   /// own API directly; the two APIs share one host, so sessions opened either
   /// way coexist.
+  ///
+  /// Experimental: this is a `flutter_local_ai` type, so it may change with
+  /// that package's next major release independently of this one.
+  @experimental
   LocalAiModel get localAiModel => _model;
 
   bool _isClosed = false;

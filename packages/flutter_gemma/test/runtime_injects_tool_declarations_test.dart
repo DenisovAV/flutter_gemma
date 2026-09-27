@@ -39,8 +39,13 @@ const _tool = Tool(name: 'get_time', description: 'Get the current time.');
 bool _woveToolsPrompt(_RecordingSession s) =>
     s.staged.any((t) => t.contains('You have access to functions'));
 
+/// True if any staged chunk carries FunctionGemma's hand-rendered declarations.
+bool _woveFunctionGemmaDeclarations(_RecordingSession s) =>
+    s.staged.any((t) => t.contains('<start_function_declaration>'));
+
 Future<(InferenceChat, _RecordingSession)> _chat({
   ModelType modelType = ModelType.gemmaIt,
+  ModelFileType fileType = ModelFileType.task,
   bool? runtimeInjectsToolDeclarations,
   bool supportsFunctionCalls = true,
   ToolChoice toolChoice = ToolChoice.auto,
@@ -52,6 +57,7 @@ Future<(InferenceChat, _RecordingSession)> _chat({
     supportsFunctionCalls: supportsFunctionCalls,
     tools: const [_tool],
     modelType: modelType,
+    fileType: fileType,
     toolChoice: toolChoice,
     runtimeInjectsToolDeclarations: runtimeInjectsToolDeclarations,
   );
@@ -162,6 +168,29 @@ void main() {
       );
       await chat.addQueryChunk(const Message(text: 'hi', isUser: true));
       expect(_woveToolsPrompt(session), isTrue);
+    });
+
+    test(
+      'FunctionGemma on .litertlm: does NOT weave (LiteRT-LM renders them)',
+      () async {
+        final (chat, session) = await _chat(
+          modelType: ModelType.functionGemma,
+          fileType: ModelFileType.litertlm,
+        );
+        await chat.addQueryChunk(const Message(text: 'hi', isUser: true));
+        expect(chat.runtimeInjectsToolDeclarations, isTrue);
+        expect(_woveFunctionGemmaDeclarations(session), isFalse);
+      },
+    );
+
+    test('FunctionGemma on .task: weaves its own declarations', () async {
+      final (chat, session) = await _chat(
+        modelType: ModelType.functionGemma,
+        fileType: ModelFileType.task,
+      );
+      await chat.addQueryChunk(const Message(text: 'hi', isUser: true));
+      expect(chat.runtimeInjectsToolDeclarations, isFalse);
+      expect(_woveFunctionGemmaDeclarations(session), isTrue);
     });
 
     test('ToolChoice.none: never weaves regardless of the flag', () async {

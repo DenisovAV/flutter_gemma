@@ -1,3 +1,28 @@
+## Unreleased
+- Apply `activationDataType` to the engine; `float32` fixes wrong digits on some GPUs.
+
+## 1.8.2
+- The Android GPU backend no longer crashes on Mali GPUs (#545).
+
+## 1.8.1
+- A chat stopped mid-reply answered every later message with nothing (#325).
+
+## 1.8.0
+- Google Play no longer rejects apps over 16 KB page sizes (#529).
+- Native runtime LiteRT-LM v0.17.1: integer tool-call arguments stay integers.
+- Web embeddings work: the four JS files ship here now, rebuilt on `@litertjs/core` 2.5.3.
+- No longer depends on `flutter_gemma_embeddings`; asks core for a tokenizer, so register `embeddingTokenizers:`.
+- Refuse a multi-input .tflite at load with a named error instead of a bare native status.
+
+## 1.7.1
+- Native runtime `native-v0.17.0-a`: tool calls no longer crash the app.
+- FunctionGemma on `.litertlm` takes the runtime's tool path — needs core 1.8.4.
+- Windows needs no Visual C++ runtime beyond what a Flutter app ships (#456).
+
+## 1.7.0
+- Native runtime: LiteRT-LM v0.17.0 (`native-v0.17.0`).
+- Windows: embeddings and speech failed with `CreateTensorBufferFromHostMemory` status 3.
+
 ## 1.6.4
 - `maxTokens` is no longer clamped up to 1024 on `PreferredBackend.npu`.
 

@@ -10,6 +10,7 @@
 
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma_builtin_ai/flutter_gemma_builtin_ai.dart';
 import 'package:flutter_local_ai/flutter_local_ai.dart'
     show
@@ -168,5 +169,36 @@ void main() {
     );
 
     expect(result, BuiltInAiAvailability.unavailableOther);
+  });
+
+  // Linux has no OS model and flutter_local_ai registers no plugin there, so
+  // its own probe would say `unavailableOther`. The facade keeps 0.2.2's
+  // answer; the fake host is never asked, which is what the empty call log
+  // shows.
+  group('on Linux', () {
+    setUp(() => debugDefaultTargetPlatformOverride = TargetPlatform.linux);
+    tearDown(() => debugDefaultTargetPlatformOverride = null);
+
+    test('availability() is unavailableDeviceUnsupported', () async {
+      expect(
+        await BuiltInAi.availability(),
+        BuiltInAiAvailability.unavailableDeviceUnsupported,
+      );
+      expect(host.calls, isEmpty);
+    });
+
+    test('ensureReady() throws BuiltInAiUnavailableException', () async {
+      await expectLater(
+        BuiltInAi.ensureReady(),
+        throwsA(
+          isA<BuiltInAiUnavailableException>().having(
+            (e) => e.status,
+            'status',
+            BuiltInAiAvailability.unavailableDeviceUnsupported,
+          ),
+        ),
+      );
+      expect(host.calls, isEmpty);
+    });
   });
 }

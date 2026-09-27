@@ -13,7 +13,7 @@
 
 import 'package:dart_sentencepiece_tokenizer/dart_sentencepiece_tokenizer.dart';
 
-import 'tokenizer_adapter.dart';
+import 'package:flutter_gemma/core/embedding/tokenizer_adapter.dart';
 import 'tokenizer_contract.dart';
 
 /// Gemma special-token IDs, added by this package rather than by the loader:

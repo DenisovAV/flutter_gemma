@@ -3,6 +3,8 @@
 // below the factory now belongs to flutter_local_ai, so these tests assert the
 // routing and the refusals rather than any channel traffic.
 
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, debugDefaultTargetPlatformOverride;
 import 'package:flutter_gemma/core/domain/model_source.dart' show ModelSource;
 import 'package:flutter_gemma/core/model.dart' show ModelFileType, ModelType;
 import 'package:flutter_gemma/core/registry/runtime_config.dart'
@@ -112,6 +114,25 @@ void main() {
         throwsUnsupportedError,
       );
       expect(host.calls, isEmpty);
+    });
+
+    // Linux has no OS model; createModel must fail with the package's own
+    // exception and the true reason, without asking the host to build one.
+    test('refuses to build a model on Linux', () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+
+      await expectLater(
+        const BuiltInAiEngine().createModel(builtInSpec(), builtInConfig),
+        throwsA(
+          isA<BuiltInAiUnavailableException>().having(
+            (e) => e.status,
+            'status',
+            BuiltInAiAvailability.unavailableDeviceUnsupported,
+          ),
+        ),
+      );
+      expect(host.calls, isNot(contains('createModel')));
     });
 
     test('refuses to build a model the OS is not ready to run', () async {

@@ -8,7 +8,7 @@
 #
 # Usage:
 #   ./build_ios.sh [ref]
-#   ./build_ios.sh 032334d        # default for 0.15.0 (post-6571c42 main HEAD)
+#   ./build_ios.sh e9fd8c53       # v0.17.0 (the default)
 #   ./build_ios.sh v0.11.0        # WARNING: v0.11.0 prebuilt accelerators
 #                                 # are ABI-incompatible with libLiteRtLm
 #                                 # rebuilt from v0.11.0 source — crashes
@@ -43,13 +43,11 @@ else
 fi
 
 # 2. Checkout version
-# 032334d (main HEAD on 2026-05-08) is post-6571c42 "Update dependencies of
-# litert_lm" which rebuilt all prebuilt accelerator dylibs (Metal, WebGPU,
-# Gpu, OpenCL, samplers) AND re-synced WORKSPACE LITERT_REF to 5c5b9ce6.
-# This is the first public LiteRT-LM commit where libLiteRtLm rebuilt from
-# source has matching ABI with the prebuilt accelerators. v0.11.0 itself
-# is broken — see the WARNING above and the upstream issue we filed.
-DEFAULT_REF="924e79c91542761242244e4f1651851f822e4cbb"
+# v0.17.0. Build from a release tag: its source and its prebuilt accelerator
+# dylibs come from one tree, which is the invariant that matters — mixing
+# them is what crashed in libLiteRtMetalAccelerator (see the build-native
+# skill). v0.11.0 itself is broken — see the WARNING above.
+DEFAULT_REF="e9fd8c53ff968071774206163027dd84bedfe925"
 TARGET_REF="${VERSION:-$DEFAULT_REF}"
 echo "Checking out $TARGET_REF..."
 git checkout -f "$TARGET_REF"
@@ -81,7 +79,76 @@ bash "$SCRIPT_DIR/patch_c_api.sh" "$LITERT_LM_DIR"
 
 # 4. Pull LFS files
 echo "Pulling LFS files..."
+# The companion prebuilts come from a LATER upstream commit than the source.
+# Upstream changed Constraint on 2026-08-21 (a8a8c445, a41b7c5c): ComputeMask
+# took the vtable slot ComputeBitmap had, and the prebuilt provider at the
+# v0.17.0 and v0.17.1 tags still implements the old one — so a tool call
+# segfaults in CompositeLogitMask::Apply. Upstream refreshed the prebuilts on
+# main in 4453b286, and that provider carries the LogitMask types. Upstream's
+# own release lane never hits this: its wheel compiles the provider in.
+PREBUILT_REF="${PREBUILT_REF:-4453b286c549d216584866ed49b6fed6d11fa3a7}"
+echo "Taking prebuilt companions from $PREBUILT_REF"
 git lfs pull --include="prebuilt/ios_arm64/*,prebuilt/ios_sim_arm64/*"
+# One file, from a different commit than the source: fetch it straight from the
+# LFS media endpoint. `git restore --source=<ref>` does the same job, but then
+# the ref lives in two places — the restore and this build's assumptions — and a
+# stale one is invisible. A URL carries the ref where you can read it.
+curl -fsSL -o "prebuilt/ios_arm64/libGemmaModelConstraintProvider.dylib" \
+  "https://media.githubusercontent.com/media/google-ai-edge/LiteRT-LM/$PREBUILT_REF/prebuilt/ios_arm64/libGemmaModelConstraintProvider.dylib"
+# One file, from a different commit than the source: fetch it straight from the
+# LFS media endpoint. `git restore --source=<ref>` does the same job, but then
+# the ref lives in two places — the restore and this build's assumptions — and a
+# stale one is invisible. A URL carries the ref where you can read it.
+curl -fsSL -o "prebuilt/ios_sim_arm64/libGemmaModelConstraintProvider.dylib" \
+  "https://media.githubusercontent.com/media/google-ai-edge/LiteRT-LM/$PREBUILT_REF/prebuilt/ios_sim_arm64/libGemmaModelConstraintProvider.dylib"
+# Fail here, not an hour later at the end of the build: a wrong PREBUILT_REF
+# looks exactly like a correct one until something reads the binary.
+CONSTRAINT_H=runtime/components/constrained_decoding/constraint.h
+[ -f "$CONSTRAINT_H" ] || {
+  echo "ERROR: $CONSTRAINT_H is missing, so the provider ABI cannot be checked. A guard that cannot read its input must not pass." >&2
+  exit 1
+}
+# Two-sided on purpose. A provider OLDER than the runtime segfaults in
+# CompositeLogitMask::Apply; a provider NEWER than the runtime does the same
+# thing from the other side, and that is reachable whenever this script is
+# pointed at a ref from before upstream's 2026-08-21 Constraint change while
+# PREBUILT_REF still names a post-change commit.
+if grep -q 'ComputeMask' "$CONSTRAINT_H"; then want=1; else want=0; fi
+PROVIDER="prebuilt/ios_arm64/libGemmaModelConstraintProvider.dylib"
+[ -s "$PROVIDER" ] || { echo "ERROR: $PROVIDER is missing or empty — a guard that cannot read its input must not pass." >&2; exit 1; }
+# grep reads the binary directly: `strings … | grep -q` exits at the first
+# match, SIGPIPEs strings, and under `set -o pipefail` the pipeline status is
+# 141 — so the guard reported "no LogitMask" for every provider that has it.
+if grep -q 'LogitMask' "$PROVIDER"; then have=1; else have=0; fi
+[ "$want" = "$have" ] || {
+  echo "ERROR: provider/runtime Constraint ABI mismatch (source wants ComputeMask=$want, provider has LogitMask=$have) — every tool call would segfault. Point PREBUILT_REF at a commit whose prebuilts match this source." >&2
+  exit 1
+}
+echo "provider ABI: source and provider agree (ComputeMask=$want)"
+# Fail here, not an hour later at the end of the build: a wrong PREBUILT_REF
+# looks exactly like a correct one until something reads the binary.
+CONSTRAINT_H=runtime/components/constrained_decoding/constraint.h
+[ -f "$CONSTRAINT_H" ] || {
+  echo "ERROR: $CONSTRAINT_H is missing, so the provider ABI cannot be checked. A guard that cannot read its input must not pass." >&2
+  exit 1
+}
+# Two-sided on purpose. A provider OLDER than the runtime segfaults in
+# CompositeLogitMask::Apply; a provider NEWER than the runtime does the same
+# thing from the other side, and that is reachable whenever this script is
+# pointed at a ref from before upstream's 2026-08-21 Constraint change while
+# PREBUILT_REF still names a post-change commit.
+if grep -q 'ComputeMask' "$CONSTRAINT_H"; then want=1; else want=0; fi
+PROVIDER="prebuilt/ios_sim_arm64/libGemmaModelConstraintProvider.dylib"
+[ -s "$PROVIDER" ] || { echo "ERROR: $PROVIDER is missing or empty — a guard that cannot read its input must not pass." >&2; exit 1; }
+# grep reads the binary directly: `strings … | grep -q` exits at the first
+# match, SIGPIPEs strings, and under `set -o pipefail` the pipeline status is
+# 141 — so the guard reported "no LogitMask" for every provider that has it.
+if grep -q 'LogitMask' "$PROVIDER"; then have=1; else have=0; fi
+[ "$want" = "$have" ] || {
+  echo "ERROR: provider/runtime Constraint ABI mismatch (source wants ComputeMask=$want, provider has LogitMask=$have) — every tool call would segfault. Point PREBUILT_REF at a commit whose prebuilts match this source." >&2
+  exit 1
+}
+echo "provider ABI: source and provider agree (ComputeMask=$want)"
 
 verify_flutter_ios_strip() {
   local dylib="$1"
@@ -146,9 +213,13 @@ echo ""
 echo "=== Copying companion libs ==="
 # libLiteRtMetalAccelerator.dylib was added upstream in commit 5e0d86b ("Update
 # dependencies of litert_lm") — must be on a tag/commit that includes it. The
-# v0.10.2 tag predates that commit. libLiteRt.dylib and libLiteRtTopKMetalSampler.dylib
-# in 5e0d86b are mistakenly x86_64 macOS binaries (upstream issue #2072), so we
-# only pick up the Metal accelerator which is actually arm64 iOS / arm64 iOSSim.
+# v0.10.2 tag predates that commit. The other two upstream iOS prebuilts are not
+# copied, for reasons of our own: libLiteRt.dylib is not needed, because
+# libLiteRtLm.dylib carries the LiteRt C API itself (it exports the LiteRt*
+# symbols and loads no libLiteRt.dylib — checked with otool -L at v0.17.0); and
+# libLiteRtTopKMetalSampler.dylib is unreachable while sampler_factory.cc keeps
+# its basename dlopen (patch_c_api.sh, 10a). Upstream #2072 — those two shipped
+# as x86_64 binaries — was closed in May 2026 and is no longer a reason.
 for lib in libGemmaModelConstraintProvider.dylib libLiteRtMetalAccelerator.dylib; do
   [ -f "prebuilt/ios_arm64/$lib" ] && cp "prebuilt/ios_arm64/$lib" "$DEVICE_DIR/$lib" && echo "  $lib → device"
   [ -f "prebuilt/ios_sim_arm64/$lib" ] && cp "prebuilt/ios_sim_arm64/$lib" "$SIM_DIR/$lib" && echo "  $lib → simulator"
@@ -167,11 +238,6 @@ done
 # and wrapper plist; the actual minimum is enforced by whichever dependency
 # manager the app uses — SwiftPM against the Runner target on the default path,
 # CocoaPods against the Podfile platform when the app has one.
-# NOTE: the published native-v0.16.0 `libStreamProxy.dylib` was compiled at
-# ios16.0 (LC_BUILD_VERSION vtool'd to 13.0, so the artifact cannot show it).
-# Its imports are all pre-iOS-13 libc, so it is safe under the 15.0 floor; the
-# targets above take effect at the next native rebuild. Delete this note after
-# the release that follows native-v0.16.0.
 # See #245, #286.
 echo ""
 echo "=== Patch iOS companion dylibs minos → 13.0 ==="
@@ -186,10 +252,8 @@ echo "=== Patch iOS companion dylibs minos → 13.0 ==="
 # `-output` is the SAME path as the input, deliberately. vtool re-signs its
 # output ad-hoc and derives the signature Identifier from the -output BASENAME,
 # so the `-output "$lib.new"` + `mv` shape bakes ".new" into the shipped
-# binary's identifier — which is what every simulator dylib in this repo carried
-# — the identifier every simulator dylib in native-v0.16.0 still carries, since
-# a released tarball cannot be re-uploaded; corrected from the next native
-# release onward. Same path in and out, no temp name, no wrong identifier.
+# binary's identifier — which every simulator dylib up to native-v0.16.0
+# carried. Same path in and out, no temp name, no wrong identifier.
 #
 # Reads BOTH fields back afterwards. vtool accepts a wrong platform silently, so
 # a device slice stamped MACOS still reports minos 13.0 and passes a minos-only

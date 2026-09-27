@@ -3,7 +3,7 @@
 // `scratchpad/ort_genai_spike/bin/main.dart` (hardened plan Phase 3, Task 1).
 //
 // Why a long-lived worker and not `Isolate.run` per call (mirrors
-// `EmbeddingWorker`'s doc, `flutter_gemma_embeddings/lib/src/embedding_worker.dart`):
+// `EmbeddingWorker`'s doc, `flutter_gemma/lib/core/embedding/embedding_worker.dart`):
 //   - Model + tokenizer load costs hundreds of ms and must happen once.
 //   - FFI `Pointer`/`DynamicLibrary` cannot cross isolate boundaries — every
 //     native handle (model, tokenizer, generator) is created and used

@@ -28,7 +28,7 @@ import 'dart:math' as math;
 
 import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
 import 'package:flutter_gemma_onnx/src/embedding/onnx_embedding_forward_pass.dart';
-import 'package:flutter_gemma_onnx/src/embedding/onnx_tokenizer_loader.dart';
+import 'package:flutter_gemma_embeddings/src/tokenizer_router.dart';
 import 'package:flutter_gemma_onnx/src/embedding/ort_ffi_client.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
@@ -152,7 +152,7 @@ void main() {
           reason: 'download did not produce model.onnx + tokenizer.json',
         );
 
-        final tokenizer = await loadOnnxEmbeddingTokenizer(tokenizerPath);
+        final tokenizer = await resolveEmbeddingTokenizer(tokenizerPath);
         final pass = OnnxEmbeddingForwardPass(
           modelPath,
           clientFactory: OrtFfiClient.new,

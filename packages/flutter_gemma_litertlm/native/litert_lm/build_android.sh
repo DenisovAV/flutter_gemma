@@ -11,7 +11,7 @@
 #
 # Usage:
 #   ./build_android.sh [ref]
-#   ./build_android.sh 032334d        # default for 0.15.0 (post-6571c42 main HEAD)
+#   ./build_android.sh e9fd8c53       # v0.17.0 (the default)
 #   ./build_android.sh v0.11.0        # WARNING: v0.11.0 prebuilt accelerators
 #                                     # are ABI-incompatible with libLiteRtLm
 #                                     # rebuilt from v0.11.0 source. Use 032334d
@@ -23,7 +23,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PREBUILT_DIR="$SCRIPT_DIR/prebuilt/android_arm64"
 LITERT_LM_DIR="/tmp/LiteRT-LM"
-DEFAULT_REF="924e79c91542761242244e4f1651851f822e4cbb"
+DEFAULT_REF="e9fd8c53ff968071774206163027dd84bedfe925"   # v0.17.0
 VERSION="${1:-}"
 
 # Resolve Android NDK — prefer ANDROID_NDK_HOME env, else newest under
@@ -89,7 +89,46 @@ bash "$SCRIPT_DIR/patch_c_api.sh" "$LITERT_LM_DIR"
 
 # 4. Pull LFS files
 echo "Pulling LFS files..."
+# The companion prebuilts come from a LATER upstream commit than the source.
+# Upstream changed Constraint on 2026-08-21 (a8a8c445, a41b7c5c): ComputeMask
+# took the vtable slot ComputeBitmap had, and the prebuilt provider at the
+# v0.17.0 and v0.17.1 tags still implements the old one — so a tool call
+# segfaults in CompositeLogitMask::Apply. Upstream refreshed the prebuilts on
+# main in 4453b286, and that provider carries the LogitMask types. Upstream's
+# own release lane never hits this: its wheel compiles the provider in.
+PREBUILT_REF="${PREBUILT_REF:-4453b286c549d216584866ed49b6fed6d11fa3a7}"
+echo "Taking prebuilt companions from $PREBUILT_REF"
 git lfs pull --include="prebuilt/android_arm64/*"
+# One file, from a different commit than the source: fetch it straight from the
+# LFS media endpoint. `git restore --source=<ref>` does the same job, but then
+# the ref lives in two places — the restore and this build's assumptions — and a
+# stale one is invisible. A URL carries the ref where you can read it.
+curl -fsSL -o "prebuilt/android_arm64/libGemmaModelConstraintProvider.so" \
+  "https://media.githubusercontent.com/media/google-ai-edge/LiteRT-LM/$PREBUILT_REF/prebuilt/android_arm64/libGemmaModelConstraintProvider.so"
+# Fail here, not an hour later at the end of the build: a wrong PREBUILT_REF
+# looks exactly like a correct one until something reads the binary.
+CONSTRAINT_H=runtime/components/constrained_decoding/constraint.h
+[ -f "$CONSTRAINT_H" ] || {
+  echo "ERROR: $CONSTRAINT_H is missing, so the provider ABI cannot be checked. A guard that cannot read its input must not pass." >&2
+  exit 1
+}
+# Two-sided on purpose. A provider OLDER than the runtime segfaults in
+# CompositeLogitMask::Apply; a provider NEWER than the runtime does the same
+# thing from the other side, and that is reachable whenever this script is
+# pointed at a ref from before upstream's 2026-08-21 Constraint change while
+# PREBUILT_REF still names a post-change commit.
+if grep -q 'ComputeMask' "$CONSTRAINT_H"; then want=1; else want=0; fi
+PROVIDER="prebuilt/android_arm64/libGemmaModelConstraintProvider.so"
+[ -s "$PROVIDER" ] || { echo "ERROR: $PROVIDER is missing or empty — a guard that cannot read its input must not pass." >&2; exit 1; }
+# grep reads the binary directly: `strings … | grep -q` exits at the first
+# match, SIGPIPEs strings, and under `set -o pipefail` the pipeline status is
+# 141 — so the guard reported "no LogitMask" for every provider that has it.
+if grep -q 'LogitMask' "$PROVIDER"; then have=1; else have=0; fi
+[ "$want" = "$have" ] || {
+  echo "ERROR: provider/runtime Constraint ABI mismatch (source wants ComputeMask=$want, provider has LogitMask=$have) — every tool call would segfault. Point PREBUILT_REF at a commit whose prebuilts match this source." >&2
+  exit 1
+}
+echo "provider ABI: source and provider agree (ComputeMask=$want)"
 
 # 5. Build for Android arm64
 echo ""
@@ -200,8 +239,10 @@ done
 #       - DenisovAV/flutter_gemma#270
 #       - google-ai-edge/LiteRT-LM#2211
 if ! command -v patchelf >/dev/null 2>&1; then
-  echo "WARN: patchelf not installed — skipping DT_NEEDED fix for samplers"
-  echo "      Install with: brew install patchelf"
+  echo "ERROR: patchelf not installed — the DT_NEEDED fixes below cannot run," >&2
+  echo "       and a bundle without them crashes on device (#270, #545)." >&2
+  echo "       Install with: brew install patchelf" >&2
+  exit 1
 else
   echo ""
   echo "=== Patching sampler DT_NEEDED (#270) ==="
@@ -217,6 +258,42 @@ else
     fi
   done
 fi
+
+# 8c. Patch GPU accelerator libs with DT_NEEDED libandroid.so. At the pinned
+#     PREBUILT_REF, upstream's libLiteRtOpenClAccelerator.so and
+#     libLiteRtGpuAccelerator.so reference AHardwareBuffer_allocate/_release
+#     as WEAK UND but list neither libandroid.so nor libnativewindow.so in
+#     NEEDED, so under BIND_NOW both bind to NULL (same bionic rule as 8b:
+#     a symbol only resolves through the library's own DT_NEEDED chain).
+#     Adreno evidently doesn't take that path (the GPU backend works there).
+#     On Mali, weights preparation on GPU is disabled and buffers go through
+#     AHardwareBuffer, so engine_create jumps to address 0 (SIGSEGV) while
+#     delegating the decode subgraph.
+#     Upstream fixed this by linking accelerators with -landroid under
+#     --no-as-needed (litert_accelerator_library in LiteRT); newer LiteRT-LM
+#     prebuilts already carry libandroid.so, so this becomes a no-op once
+#     PREBUILT_REF moves past that change. libandroid.so pulls in
+#     libnativewindow.so. Verified on Galaxy A34 (Mali-G68 MC4).
+#     patchelf is guaranteed here: step 8b exits without it.
+echo ""
+echo "=== Patching GPU accelerator DT_NEEDED (Mali AHardwareBuffer) ==="
+for lib in libLiteRtOpenClAccelerator.so libLiteRtGpuAccelerator.so; do
+  if [ -f "$PREBUILT_DIR/$lib" ]; then
+    # Idempotent: only add if not already present.
+    if ! patchelf --print-needed "$PREBUILT_DIR/$lib" | grep -q '^libandroid\.so$'; then
+      patchelf --add-needed libandroid.so "$PREBUILT_DIR/$lib"
+      echo "  $lib: added libandroid.so to NEEDED"
+    else
+      echo "  $lib: libandroid.so already in NEEDED, skipping"
+    fi
+  fi
+done
+
+# 8d. Every import must be reachable through the library's own NEEDED (#545).
+#     8b and 8c fix the cases we know about; this catches the next one.
+echo ""
+echo "=== DT_NEEDED closure ==="
+python3 "$SCRIPT_DIR/check_android_needed.py" "$PREBUILT_DIR" || exit 1
 
 # 9. Verify
 echo ""

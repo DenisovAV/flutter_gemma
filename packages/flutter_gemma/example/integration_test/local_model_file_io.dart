@@ -30,10 +30,3 @@ String? localModelFile(String fileName) {
 }
 
 String? _existing(String path) => io.File(path).existsSync() ? path : null;
-
-/// True on the iOS Simulator, which has no GPU backend for LiteRT-LM (Metal on
-/// the simulator caps a single allocation at 256 MB), so a GPU run there always
-/// falls back to CPU.
-bool get isIosSimulator =>
-    io.Platform.isIOS &&
-    io.Platform.environment.containsKey('SIMULATOR_DEVICE_NAME');

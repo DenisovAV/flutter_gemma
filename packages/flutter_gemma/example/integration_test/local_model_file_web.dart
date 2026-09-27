@@ -6,6 +6,3 @@ library;
 /// Always null on web. [fileName] is accepted so the two arms share a
 /// signature.
 String? localModelFile(String fileName) => null;
-
-/// Never the iOS Simulator on web.
-bool get isIosSimulator => false;

@@ -55,10 +55,11 @@ enum PreferredBackend {
 /// ONNX, built-in AI and the web engines ignore it, and so does any
 /// `flutter_gemma_litertlm` before 1.8.3.
 ///
-/// On a phone the GPU shares system memory, so running out of it at [float32]
-/// can end the app rather than fall back to CPU. The compiled GPU cache is one
-/// file per model for both precisions: pick one per install instead of
-/// switching per request, which rebuilds gigabytes of cache every time.
+/// On Android the GPU shares system memory, so on a 4–6 GB phone running out
+/// of it at [float32] can end the app rather than fall back to CPU. Both
+/// precisions share one compiled GPU program cache per model, so switching
+/// recompiles the GPU programs (about 600 MB for Gemma 4 E2B): pick one
+/// precision per install rather than per request.
 enum ActivationDataType { float32, float16 }
 
 /// A single retrieval hit from a vector store query.

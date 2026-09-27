@@ -38,9 +38,16 @@
 /// therefore the part float32 slows down; the float32 test prints its mean
 /// against the default run's. A ratio near 1.00× means the setting never
 /// reached the engine — the run proves nothing then, however clean it looks.
-/// It is printed rather than asserted because on an M3 Max the difference is
-/// small enough to be flaky; on a device where the bug reproduces, pass
-/// `--dart-define=MIN_PREFILL_RATIO=1.5` to make it an assertion.
+/// It is printed rather than asserted because the size of the difference
+/// depends on the GPU: about 3× on a Snapdragon 8 Elite and an iPhone 11, but
+/// only 1.2× on an Apple M4 Pro that shows the bug. To make it an assertion,
+/// pass `--dart-define=MIN_PREFILL_RATIO=1.1` — enough to show the setting
+/// reached the engine on any of them. A requested floor that cannot be checked
+/// (web, the iOS Simulator, or the float32 test run without the default one)
+/// fails rather than passes.
+///
+/// A green run proves the fix only when the default run scrambled a figure;
+/// otherwise the float32 test prints INCONCLUSIVE.
 ///
 /// On web only the default test runs. The web engine does not read
 /// `activationDataType` (`@litert-lm/core` 0.17 has no such setting), runs the
@@ -81,18 +88,20 @@ import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
+
 import 'inference_test_helpers.dart' show registerTestEngines;
 // `dart:io` is not imported here: this file is compiled for web too, where it
 // does not exist. The io arm reads the pushed model; the web arm returns null.
 import 'local_model_file_io.dart'
     if (dart.library.js_interop) 'local_model_file_web.dart';
+import 'platform_helper.dart' show isIosSimulator;
 
 /// E2B or E4B.
 const _variant = String.fromEnvironment('GEMMA4', defaultValue: 'E2B');
 const _file = 'gemma-4-$_variant-it.litertlm';
 
 /// Floor for the float32/default time-to-first-token ratio, from
-/// `--dart-define=MIN_PREFILL_RATIO=1.5`. Empty (the default) only prints it.
+/// `--dart-define=MIN_PREFILL_RATIO=1.1`. Empty (the default) only prints it.
 const _minPrefillRatio = String.fromEnvironment('MIN_PREFILL_RATIO');
 
 /// The web engine takes only the `-web.litertlm` build of each model.
@@ -207,14 +216,21 @@ List<({String text, List<String> figures})> _questions(List<_Delivery> log) {
 /// Every figure in [text]: each run of digits joined by `/`, kept when it is a
 /// date or has three digits or more. Whole runs, so `2026/06/233` is not read
 /// as a right `2026/06/23`.
-Iterable<String> _figures(String text) => RegExp(r'\d+(?:/\d+)*')
-    .allMatches(text)
-    .map((m) => m[0]!)
-    .where((f) => f.contains('/') || f.length >= 3);
+Iterable<String> _figures(String text) =>
+    RegExp(r'\d+(?:/\d+)*')
+        .allMatches(text)
+        .map((m) => m[0]!)
+        .where((f) => f.contains('/') || f.length >= 3);
 
 /// What one run of the three questions produced: a line for each answer that
-/// failed, and the time to first token of every answer that reported one.
-typedef _Run = ({List<String> bad, List<double> ttftMs});
+/// failed, the ones among them that invented a figure (the bug itself, as
+/// opposed to a refusal), and the time to first token of every answer that
+/// reported one.
+typedef _Run = ({
+  List<String> bad,
+  List<String> scrambled,
+  List<double> ttftMs,
+});
 
 /// Asks every question in a fresh greedy session, and returns the answers that
 /// failed — one holding a figure that is nowhere in the log, or one holding no
@@ -230,6 +246,7 @@ Future<_Run> _askAll(ActivationDataType? type) async {
     activationDataType: type,
   );
   final wrong = <String>[];
+  final scrambled = <String>[];
   final ttftMs = <double>[];
   try {
     // The web engine reports no backend; it runs only on WebGPU.
@@ -287,6 +304,7 @@ Future<_Run> _askAll(ActivationDataType? type) async {
         );
         if (invented.isNotEmpty) {
           wrong.add('${q.text} -> not in the log $invented');
+          scrambled.add(q.text);
         } else if (copied.isEmpty) {
           wrong.add('${q.text} -> no figure from the log: "$answer"');
         }
@@ -297,7 +315,7 @@ Future<_Run> _askAll(ActivationDataType? type) async {
   } finally {
     await model.close();
   }
-  return (bad: wrong, ttftMs: ttftMs);
+  return (bad: wrong, scrambled: scrambled, ttftMs: ttftMs);
 }
 
 double _mean(List<double> values) =>
@@ -307,19 +325,59 @@ double _mean(List<double> values) =>
 /// Null when that test was skipped or never reported any.
 List<double>? _defaultTtftMs;
 
-/// Whether the default run showed the bug. Null when it did not run.
+/// Whether the default run scrambled a figure — the bug, not a refusal. Null
+/// when that test did not run in this invocation.
 bool? _defaultShowedBug;
+
+/// The requested prefill floor, checked before any model runs: a floor that
+/// cannot be checked must fail rather than pass without being looked at.
+double? _checkedFloor() {
+  if (_minPrefillRatio.isEmpty) return null;
+  final floor = double.tryParse(_minPrefillRatio);
+  expect(
+    floor,
+    isNotNull,
+    reason: 'MIN_PREFILL_RATIO="$_minPrefillRatio" is not a number',
+  );
+  expect(
+    floor,
+    greaterThan(1.0),
+    reason: 'a floor at or below 1.0 checks nothing',
+  );
+  expect(
+    kIsWeb,
+    isFalse,
+    reason:
+        'MIN_PREFILL_RATIO cannot be checked on web: the web engine does '
+        'not read activationDataType, so the float32 test does not run there',
+  );
+  expect(
+    isIosSimulator,
+    isFalse,
+    reason:
+        'MIN_PREFILL_RATIO cannot be checked on the iOS Simulator: it has '
+        'no GPU backend',
+  );
+  return floor;
+}
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  if (isIosSimulator) {
+    debugPrint(
+      '[setup] iOS Simulator: GPU runs are skipped — the simulator has no GPU '
+      'backend, so it cannot show the bug or the fix',
+    );
+  }
 
   testWidgets(
     'default activations on GPU: answers printed, not asserted',
     (tester) async {
+      _checkedFloor();
       await _install();
       final run = await _askAll(null);
       if (run.ttftMs.isNotEmpty) _defaultTtftMs = run.ttftMs;
-      _defaultShowedBug = run.bad.isNotEmpty;
+      _defaultShowedBug = run.scrambled.isNotEmpty;
       debugPrint(
         run.bad.isEmpty
             ? '[default] every answer copied figures, none of them invented: '
@@ -330,13 +388,25 @@ void main() {
       );
     },
     // The simulator has no GPU backend, so the GPU assertion would always fail.
-    skip: isIosSimulator,
+    // A requested floor still runs it, to fail on that floor with a reason.
+    skip: isIosSimulator && _minPrefillRatio.isEmpty,
     timeout: const Timeout(Duration(minutes: 30)),
   );
 
   testWidgets(
     'float32 activations copy figures back, and scramble none',
     (tester) async {
+      final floor = _checkedFloor();
+      if (floor != null) {
+        expect(
+          _defaultTtftMs,
+          isNotNull,
+          reason:
+              'MIN_PREFILL_RATIO compares against the default test, which '
+              'has to run first in the same invocation and report its times '
+              'to first token',
+        );
+      }
       await _install();
       final run = await _askAll(ActivationDataType.float32);
 
@@ -345,21 +415,7 @@ void main() {
       // the bug — or a build where the setter call was dropped — passes just as
       // green as a real fix.
       final before = _defaultTtftMs;
-      // A floor that was asked for must be checked: without one of these a
-      // single-test run, an early default failure or a typo would pass green.
-      if (_minPrefillRatio.isNotEmpty) {
-        expect(
-          double.tryParse(_minPrefillRatio),
-          isNotNull,
-          reason: 'MIN_PREFILL_RATIO="$_minPrefillRatio" is not a number',
-        );
-        expect(
-          before,
-          isNotNull,
-          reason:
-              'MIN_PREFILL_RATIO needs the default test to run first in the '
-              'same invocation and report its times to first token',
-        );
+      if (floor != null) {
         expect(
           run.ttftMs,
           isNotEmpty,
@@ -374,16 +430,16 @@ void main() {
           '${ratio.toStringAsFixed(2)}x. Near 1.00x means float32 never took '
           'effect, whatever the answers look like.',
         );
-        final floor = double.tryParse(_minPrefillRatio);
         if (floor != null) expect(ratio, greaterThanOrEqualTo(floor));
       }
 
       expect(run.bad, isEmpty);
-      if (_defaultShowedBug == false && _minPrefillRatio.isEmpty) {
+      if (_defaultShowedBug != true) {
         debugPrint(
-          '[float32] INCONCLUSIVE: the default precision was clean on this '
-          'GPU too, so this pass does not show that float32 fixed anything. '
-          'Rerun on a device that shows the bug, or pass MIN_PREFILL_RATIO.',
+          '[float32] INCONCLUSIVE: '
+          '${_defaultShowedBug == null ? 'the default test did not run in this invocation' : 'the default precision scrambled nothing on this GPU either'}'
+          ', so this pass does not show that float32 fixed anything'
+          '${floor == null ? ' — nor, without MIN_PREFILL_RATIO, that it reached the engine' : ''}.',
         );
       }
     },

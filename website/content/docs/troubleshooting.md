@@ -137,8 +137,8 @@ limitations](/docs/desktop#known-limitations).
 
 ## Wrong numbers on GPU
 
-**Gemma 4 copies digits wrongly out of a long prompt on the GPU**, the same way
-on every run: asked when a delivery arrived (`2026/06/23`), it answers
+**Gemma 4 copies digits wrongly out of a long prompt on some GPUs**, the same
+way on every run: asked when a delivery arrived (`2026/06/23`), it answers
 `20226/12/17`. It shows from about 2,000 prompt tokens, on Metal and on Adreno.
 The published Gemma 4 `.litertlm` files ask for half-precision activations;
 ask for full precision instead:
@@ -164,9 +164,10 @@ It needs `flutter_gemma_litertlm` 1.8.3 or later; older versions accept the
 argument and ignore it.
 
 On Android the GPU shares system memory, so on a 4–6 GB phone running out of it
-at `float32` can end the app instead of falling back. The compiled GPU cache is
-one file per model for both precisions, so choose one precision per install
-rather than switching per request — every switch rebuilds gigabytes of cache.
+at `float32` can end the app rather than fall back to CPU. Both precisions share
+one compiled GPU program cache per model, so switching recompiles the GPU
+programs (about 600 MB for Gemma 4 E2B): pick one precision per install rather
+than per request.
 
 `float32` activations also need more GPU memory than `float16`. If the GPU
 engine cannot be created the model falls back to CPU **without an error** — the

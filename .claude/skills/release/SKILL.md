@@ -60,9 +60,19 @@ silently do the other thing.
 [ ] Pre-flight: git clean · analyze 0 err · flutter test green · build web + one native target
 [ ] 1a  every package whose lib/ changed is in the publish list (grep, don't guess)
 [ ] 1b/c native: dylibs/build-scripts changed? → rebuild + SHA256 + native release, else N/A
-[ ] 1b-bis native changed → build-native checks 1–10 done: #9 NPU result written into
-        its table (device, date, pass count), #10 matrix (LLM + embeddings +
-        speech on every platform) pasted into the PR body
+[ ] 1b-bis ANY version moved that reaches a device → build-native checks 1–10 done
+        on EVERY platform, no exemptions. "Version moved" = a new native-v* tag
+        (including -a/-b hotfix tags), PREBUILT_REF / DEFAULT_REF / any upstream
+        pin, a native-carrying dependency (qdrant_edge, sqlite3, ORT, MediaPipe),
+        or a bumped platform floor. "Only one file changed" is not an exemption:
+        the files that did not change also did not get tested.
+        #9 NPU result written into its table (device, date, pass count), #10
+        matrix (LLM + embeddings + speech, CPU AND GPU) pasted into the PR body,
+        one row per device with codename + GPU.
+        Android GPU = at least one Adreno AND one Mali (FTL akita / a34x).
+[ ] 1b-ter an upstream pin moved → read upstream's open issues filed since that
+        tag (`gh issue list --repo google-ai-edge/LiteRT-LM --search "created:>=<tag-date>"`)
+        and note in the PR body which ones touch us
 [ ] 5b  manifest gate RUN and printed "N platform(s) compared" — N == number of tarballs
 [ ] 1d-bis  any packages/*/README.md changed since its published version? → that
         package needs a version bump EVEN IF its lib/ did not change; the README
@@ -863,6 +873,12 @@ A manual `./deploy.sh` exists in `website/` for local one-off deploys (it does t
 ## Common gotchas
 
 - **Website SSG build fails silently on a non-Dart code fence** — a ```` ```yaml ````/```` ```xml ````/```` ```kotlin ```` fence in any `website/content/docs/*.md` crashes the Jaspr highlighter (Dart-only grammar) → the merge deploy fails → fluttergemma.dev stays on the OLD build while pub.dev shows the new package. Always `jaspr build` the site locally on the branch before merge, use plain fences for non-Dart, and after merge confirm the `firebase-hosting-merge.yml` run says **success** (Step 12c). main is protected — a website hotfix is a new PR, not a direct push.
+- **A version bump verified on a subset of platforms (#545).** native-v0.17.0
+  ran Android GPU once, on one Adreno phone; 0.17.0-a and 0.17.1 ran no Android
+  GPU at all ("only the provider / only Skel alignment changed"). The upstream
+  accelerators had been broken on every Mali GPU since v0.17.0, and upstream
+  #3575 said so six days before our first release. A hotfix tag ships every
+  byte in the bundle, not just the bytes it changed, so it gets the full matrix.
 - **`packages/flutter_gemma_litertlm/native/litert_lm/prebuilt/` excluded from pub package** (`.pubignore`) — end users get dylibs from GitHub Release, NOT from the pub package. Updating local prebuilts without re-uploading them is invisible to users.
 - **The iOS `5e0d86b` pin is obsolete** — modern tags ship their own `prebuilt/ios_arm64/`, and `build_ios.sh` already defaults to the current tag SHA. Always pass the pinned SHA explicitly anyway: every script's `DEFAULT_REF` lags whatever release you are migrating to. The real invariant is that source and accelerator prebuilts come from one tree — see the `build-native` skill, which owns this.
 - **`bazelisk clean --expunge` is NOT free** — it forces a full rebuild (~25 min for one platform). Only do it when WORKSPACE patch_cmds changed; otherwise incremental rebuild.

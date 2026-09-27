@@ -124,9 +124,11 @@ await FlutterGemma.rag.addDocumentWithEmbedding(
 
 LiteRT embeddings always run on CPU on native, and so do ONNX ones. `getActiveEmbedder(preferredBackend:)` is accepted for symmetry with `getActiveModel` and never applied; core logs one line per isolate saying so, in debug builds only. Read `EmbeddingModel.activeBackend` when it matters — that answer exists in release builds too. CPU is the correct answer rather than a fallback: LiteRT's GPU delegate compiles and then returns all-zero vectors for EmbeddingGemma's int4 weights, and the ONNX client appends no execution provider.
 
-Web is not configurable either, and its accelerator is not a single fact. `litert_embeddings.js` asks for `accelerator: 'webgpu'` and recompiles for `'wasm'` when the browser has none. LiteRT then has a SECOND fallback that raises nothing: a model that is not fully accelerated is partly delegated to WASM where the browser has JSPI, and recompiled for WASM entirely where it does not.
+Web is not configurable either, and on the LiteRT web embedder its accelerator is not a single fact. `litert_embeddings.js` asks for `accelerator: 'webgpu'` and recompiles for `'wasm'` when the browser has none. LiteRT then has a SECOND fallback that raises nothing: a model that is not fully accelerated is partly delegated to WASM where the browser has JSPI, and recompiled for WASM entirely where it does not.
 
 So two things are worth reading, and they answer different questions. `window.getLiteRtEmbeddingFullyAccelerated()` is known at compile time and is the only way to see the JSPI partial case, which keeps WebGPU buffers and therefore looks like a clean WebGPU run to everything downstream. `window.getLiteRtEmbeddingAccelerator()` is known after the first embedding — query or document — and says where the output buffer lived. `EmbeddingModel.activeBackend` is null on web for that reason: a synchronous getter cannot carry an answer that does not exist until the first run.
+
+Both getters belong to the LiteRT web embedder. The ONNX web arm has no equivalent — it hands `onnxruntime-web` `['webgpu', 'wasm']` in one call and is never told which was kept — so calling them in an ONNX-web app fails with "not a function".
 
 ## Web
 

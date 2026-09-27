@@ -16,15 +16,18 @@ import 'package:meta/meta.dart' show immutable;
 /// - [cpu]: All platforms
 /// - [gpu]: All platforms (Metal on macOS, DirectX on Windows, Vulkan on Linux,
 ///   OpenCL on Android)
-/// - [npu]: With LiteRT-LM (.litertlm models) — Android (Qualcomm, MediaTek,
-///   Google Tensor) and Windows (Intel LunarLake/PantherLake)
+/// - [npu]: With LiteRT-LM (.litertlm models) — Android (Qualcomm Snapdragon
+///   only: the Android archive ships the Qualcomm QNN dispatch stack and
+///   nothing for MediaTek or Google Tensor) and Windows (Intel
+///   LunarLake/PantherLake). Asking for it elsewhere falls back rather than
+///   throwing; read `InferenceModel.activeBackend` for what actually ran.
 ///
 /// If the selected backend is unavailable, the engine falls back to GPU, then
 /// CPU.
 enum PreferredBackend {
   cpu,
   gpu,
-  npu, // Android (Qualcomm/MediaTek/Tensor) + Windows (Intel LunarLake/PantherLake)
+  npu, // Android (Qualcomm only) + Windows (Intel LunarLake/PantherLake)
 }
 
 /// A single retrieval hit from a vector store query.

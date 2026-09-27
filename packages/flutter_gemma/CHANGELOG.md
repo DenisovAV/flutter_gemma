@@ -1,6 +1,9 @@
 ## 1.10.0
 - New `EmbeddingModel.activeBackend`: `getActiveEmbedder(preferredBackend:)` no longer goes unremarked.
-- **Breaking for engine authors:** add `EmbeddingModel.activeBackend` (`implements` only) and `ForwardPassDescriptor.activeBackend`.
+- **Breaking for `implements EmbeddingModel`:** add `activeBackend`; `extends` inherits a default.
+- Embedder reuse compares resolved paths, so another model file is no longer answered from the cache.
+- Two concurrent first calls build one embedder, not two, on every platform.
+- Desktop embeddings no longer throw for `PreferredBackend.npu`; they report CPU instead.
 - Fix two wrong claims in the shipped RAG skill that agents read as instructions.
 
 ## 1.9.0

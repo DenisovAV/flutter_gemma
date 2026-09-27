@@ -616,8 +616,9 @@ void main() {
     //     dispatch stack bundled in the Windows native archive since 0.15.1.
     //   * `PreferredBackend`'s own contract promises a fallback: "If the
     //     selected backend is unavailable, the engine falls back to GPU, then
-    //     CPU", and `nativeBackendChain(npu)` is [npu, gpu, cpu]. Nothing
-    //     throws by design.
+    //     CPU". `ffiBackendFallbackOrder(npu)` is [npu, gpu, cpu] where an NPU
+    //     dispatch stack ships (Android, Windows) and [gpu, cpu] where none
+    //     does. Nothing throws by design.
     //
     // What IS worth pinning is that the fallback is not silent: `activeBackend`
     // must name what actually ran, so a benchmark cannot attribute CPU numbers
@@ -643,26 +644,24 @@ void main() {
             reason:
                 'a silent fallback is the defect; the value must be readable',
           );
-          // Named per platform, because `anyOf` over the whole enum is a
-          // tautology after isNotNull: PreferredBackend has exactly these three
-          // values, so such a test passes for any answer at all — including a
-          // wrong one. Only Windows bundles an NPU dispatch stack (Intel
-          // LunarLake/PantherLake), so on macOS and Linux a reported `npu` is
-          // precisely the misattribution this group exists to catch.
-          expect(
-            model.activeBackend,
-            Platform.isWindows
-                ? anyOf(
-                    PreferredBackend.npu,
-                    PreferredBackend.gpu,
-                    PreferredBackend.cpu,
-                  )
-                : anyOf(PreferredBackend.gpu, PreferredBackend.cpu),
-            reason: Platform.isWindows
-                ? 'whatever ran must be one of nativeBackendChain(npu)'
-                : 'no NPU dispatch ships for this platform, so claiming npu '
-                      'would attribute CPU or GPU work to an NPU',
-          );
+          // Only macOS and Linux can be checked further. `anyOf` over the
+          // whole enum is a tautology after isNotNull — PreferredBackend has
+          // exactly three values — and on Windows all three ARE legitimate,
+          // because it is the one desktop platform that bundles an NPU dispatch
+          // stack (Intel LunarLake/PantherLake). So Windows gets no second
+          // assertion rather than a vacuous one; verifying its positive arm
+          // needs a device that has the NPU, not a matcher. On macOS and Linux
+          // nothing NPU-shaped ships at all, so a reported `npu` is precisely
+          // the misattribution this group exists to catch.
+          if (!Platform.isWindows) {
+            expect(
+              model.activeBackend,
+              anyOf(PreferredBackend.gpu, PreferredBackend.cpu),
+              reason:
+                  'no NPU dispatch ships for this platform, so claiming npu '
+                  'would attribute CPU or GPU work to an NPU',
+            );
+          }
         } finally {
           // Closed, or the 2048-token model stays cached and the next test's
           // request is answered by this one.

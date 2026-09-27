@@ -616,12 +616,14 @@ abstract class EmbeddingModel {
   /// happen, instead of learning it from a debug-only log line.
   ///
   /// Null on web, where the runtime picks for itself and does not report back:
-  /// LiteRT.js selects per operation and names the result only in the browser
-  /// console, and onnxruntime-web resolves `['webgpu', 'wasm']` in order.
+  /// LiteRT.js selects per COMPILE (with per-operation delegation only in the
+  /// JSPI partial case) and names the result only in the browser console, and
+  /// onnxruntime-web resolves `['webgpu', 'wasm']` in order.
   ///
-  /// Defaulted rather than abstract so an existing implementation of this
-  /// public interface keeps compiling; override it wherever the answer is
-  /// actually known.
+  /// Defaulted rather than abstract so an existing SUBCLASS keeps compiling.
+  /// `implements` does not inherit a default body, so those break regardless —
+  /// which is why the CHANGELOG calls this breaking for engine authors. Override
+  /// it wherever the answer is actually known.
   PreferredBackend? get activeBackend => null;
 
   /// See [InferenceModel.addCloseListener].

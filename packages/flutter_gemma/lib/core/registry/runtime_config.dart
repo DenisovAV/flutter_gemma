@@ -244,16 +244,31 @@ class ActiveModelParams {
 /// property of the model.
 @immutable
 class ActiveEmbedderParams {
-  /// [preferredBackend] is normalised HERE rather than in a method a caller has
-  /// to remember, so the field always means "the backend this embedder was
-  /// built for" and there is no way to compare un-normalised values by
+  /// The requested backend is normalised HERE rather than in a method a caller
+  /// has to remember, so [activeBackend] always means "the backend this embedder
+  /// was built for" and there is no way to compare un-normalised values by
   /// accident.
+  ///
+  /// `modelPath` is checked with a throw, not an `assert`. An assert is stripped
+  /// in release, and the release failure is not a crash: an empty path makes
+  /// every embedder compare equal to every other, so the cache hands back a
+  /// stale model's vectors — the exact silent-wrong-data failure this type was
+  /// created to prevent. `RuntimeConfig.modelPath` in this same file documents
+  /// `''` as the ordinary value on web, so an adopter wiring it straight in is
+  /// the reachable route.
   ActiveEmbedderParams({
     required this.modelPath,
     this.tokenizerPath,
     PreferredBackend? preferredBackend,
-  }) : preferredBackend = _resolvedBackend(preferredBackend),
-       assert(modelPath.isNotEmpty, 'modelPath identifies the embedder');
+  }) : activeBackend = _resolvedBackend(preferredBackend) {
+    if (modelPath.isEmpty) {
+      throw ArgumentError.value(
+        modelPath,
+        'modelPath',
+        'identifies the embedder, so it cannot be empty',
+      );
+    }
+  }
 
   /// The file the compiled model opens. Compared instead of the spec NAME,
   /// which is what the shells compared before: reinstalling a same-named model
@@ -264,7 +279,14 @@ class ActiveEmbedderParams {
   final String? tokenizerPath;
 
   /// What the embedder actually runs on, which is CPU whatever was asked.
-  final PreferredBackend preferredBackend;
+  ///
+  /// Named for the answer, not the request — deliberately unlike the
+  /// `preferredBackend` on [ActiveModelParams] and `RuntimeConfig`, which do
+  /// hold the raw request. The shells build this object and a `RuntimeConfig`
+  /// from the same local a few lines apart, so two fields with one name and
+  /// opposite meanings is a trap; this one matches
+  /// `EmbeddingModel.activeBackend`, which is where the value surfaces.
+  final PreferredBackend activeBackend;
 
   /// The single place the "embeddings run on CPU" fact is written.
   ///
@@ -294,7 +316,7 @@ class ActiveEmbedderParams {
   String? firstDifference(ActiveEmbedderParams other) {
     if (modelPath != other.modelPath) return 'modelPath';
     if (tokenizerPath != other.tokenizerPath) return 'tokenizerPath';
-    if (preferredBackend != other.preferredBackend) return 'preferredBackend';
+    if (activeBackend != other.activeBackend) return 'activeBackend';
     return null;
   }
 
@@ -307,13 +329,13 @@ class ActiveEmbedderParams {
   static bool isIgnoredBackend(PreferredBackend? requested) =>
       requested != null && _resolvedBackend(requested) != requested;
 
+  /// Delegates to [firstDifference] rather than repeating its three
+  /// comparisons: two copies of one rule is how the copies stop agreeing, and a
+  /// fourth field would otherwise have to be remembered in both.
   @override
   bool operator ==(Object other) =>
-      other is ActiveEmbedderParams &&
-      other.modelPath == modelPath &&
-      other.tokenizerPath == tokenizerPath &&
-      other.preferredBackend == preferredBackend;
+      other is ActiveEmbedderParams && firstDifference(other) == null;
 
   @override
-  int get hashCode => Object.hash(modelPath, tokenizerPath, preferredBackend);
+  int get hashCode => Object.hash(modelPath, tokenizerPath, activeBackend);
 }

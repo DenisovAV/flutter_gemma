@@ -3,6 +3,7 @@ import 'dart:developer' as developer;
 import 'dart:io';
 
 import 'package:flutter_gemma/core/domain/platform_types.dart';
+import 'package:flutter_gemma/core/utils/gemma_log.dart';
 
 /// Whether this host ships an NPU dispatch stack at all.
 ///
@@ -138,16 +139,22 @@ Future<({T client, PreferredBackend activeBackend})> initializeFfiRuntime<T>({
   // Said out loud rather than dropped: the request cannot be honoured here, and
   // a caller who reads `activeBackend` will see gpu or cpu with no explanation
   // of why the thing they asked for is absent.
+  //
+  // Through `gemmaLog`, not `developer.log`, even though the attempt failures
+  // below use the latter. flutter_tools never subscribes to the VM-service
+  // `Logging` stream, so `developer.log` reaches DevTools and an IDE console but
+  // NOT a `flutter run` terminal — and this is a message for whoever typed the
+  // backend name. `clampLitertlmContextTokens` reports the same kind of thing
+  // ("you asked for X, you are getting Y") the same way, one file over.
   if (preferredBackend == PreferredBackend.npu &&
       !backends.contains(PreferredBackend.npu)) {
-    developer.log(
-      '$logTag npu was requested, but no NPU dispatch stack ships for '
+    gemmaLog(
+      '⚠️  $logTag npu was requested, but no NPU dispatch stack ships for '
       '${Platform.operatingSystem} — trying '
       '${backends.map(ffiBackendWireName).join(" -> ")} instead. '
       'NPU is available on Android (Qualcomm) and Windows (Intel '
-      'LunarLake/PantherLake).',
-      name: 'flutter_gemma',
-      level: 900,
+      'LunarLake/PantherLake). Read InferenceModel.activeBackend for what '
+      'actually ran; it survives a release build, this line does not.',
     );
   }
 

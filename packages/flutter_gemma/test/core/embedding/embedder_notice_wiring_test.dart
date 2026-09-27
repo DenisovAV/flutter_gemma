@@ -252,6 +252,11 @@ void main() {
       // explicit paths saw another model's name in the reuse log.
       final plugin = FlutterGemmaDesktop.instance;
       addTearDown(() => plugin.initializedEmbeddingModel?.close());
+      // `FlutterGemmaDesktop.instance` is a process singleton and its manager
+      // holds the active spec in memory, which `setUp`'s mock preferences do
+      // not reach. Without this, every later desktop test in this file inherits
+      // an active embedder it never asked for.
+      addTearDown(plugin.modelManager.clearModelCache);
       plugin.modelManager.setActiveModel(
         EmbeddingModelSpec(
           name: 'unrelated-active-embedder',

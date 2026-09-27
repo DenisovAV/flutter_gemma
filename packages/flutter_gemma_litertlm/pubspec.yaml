@@ -25,12 +25,14 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  # ^1.9.0: this version needs core's embedding seam and the tokenizer registry
-  # (`EmbeddingTokenizerRegistry`), which land in 1.9.0. That also covers the
-  # two older floors it still depends on — 1.8.4's runtime tool path for
-  # FunctionGemma, and 1.7.3's `createChat` fix, without which web function
-  # calling resolves, compiles, and the tools silently never reach the model.
-  flutter_gemma: ^1.9.0
+  # ^1.10.0: this version overrides `EmbeddingModel.activeBackend` and passes
+  # `ForwardPassDescriptor.activeBackend`, both of which land in 1.10.0. That
+  # also covers the older floors it still depends on — 1.9.0's embedding seam
+  # and tokenizer registry (`EmbeddingTokenizerRegistry`), 1.8.4's runtime tool
+  # path for FunctionGemma, and 1.7.3's `createChat` fix, without which web
+  # function calling resolves, compiles, and the tools silently never reach the
+  # model.
+  flutter_gemma: ^1.10.0
   ffi: ^2.1.0
   mutex: ^3.1.0
   hooks: ^2.0.0

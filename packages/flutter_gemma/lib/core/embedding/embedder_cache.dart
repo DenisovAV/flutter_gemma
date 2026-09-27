@@ -10,26 +10,36 @@ import 'package:flutter_gemma/flutter_gemma_interface.dart' show EmbeddingModel;
 ///
 /// Each of the three shells (mobile/desktop/web) used to hold this state as its
 /// own private fields and re-implement the decision over them. Three copies is
-/// three chances to get it wrong, and all three were wrong in different ways:
-/// desktop gated the comparison on a field that is only assigned after the
-/// build returns (so a second caller arriving during a build fell through and
-/// started another one), web joined an in-flight build without comparing
-/// anything at all (so asking for a different model file handed back the first
-/// model's vectors), and mobile dropped its baseline only after awaiting the old
-/// model's `close()` (so a matching caller could be handed a model that was
-/// already closing). One object, one rule; the shells keep the wiring.
+/// three chances to get it wrong, and all three were wrong differently:
 ///
-/// There is deliberately no `Completer` here. Its only job was to let a
+///  * **mobile** compared the active spec's NAME, so a same-named embedder
+///    reinstalled to a new path was served stale; its explicit-paths entry
+///    returned the cached model with no comparison at all; and its reuse gate
+///    required a field that is only assigned AFTER the build returns, so a
+///    second caller arriving mid-build fell through and started a SECOND build,
+///    leaving the loser with nobody holding a reference to close it.
+///  * **desktop** gated its comparison on that same after-the-build field and
+///    then joined any build in flight without comparing anything, so a caller
+///    asking for a different model file was handed the one already being built.
+///  * **web** was the strictest — it did compare resolved paths — but had no
+///    in-flight guard whatsoever, so two concurrent first callers each compiled
+///    their own model.
+///
+/// None of the three identity-guarded its close listener, so a late close of a
+/// superseded embedder evicted the live one. One object, one rule; the shells
+/// keep the wiring.
+///
+/// There is deliberately no `Completer` here. Its only job would be to let a
 /// concurrent caller join a build already in flight, which [serialize] makes
-/// impossible — and a completer that outlives its build is exactly what turned
-/// one misconfiguration into a permanent hang: a throw between "completer
-/// installed" and the enclosing `try` left every later caller awaiting
-/// something nobody would ever complete.
+/// impossible — and a completer that outlives its build is a hang waiting to
+/// happen: any throw between installing it and entering the enclosing `try`
+/// leaves every later caller awaiting something nobody will ever complete.
 class EmbedderCache {
   /// One field, so "a model with no idea what it was built from" is not a state
   /// this class can be in. As two fields it was representable, which is why the
-  /// web shell carried a defensive "no recorded config for the cached embedder"
-  /// branch — a branch for a state that should not exist.
+  /// web shell opened its comparison with `paths == null ||` — a branch for a
+  /// state that should not exist, treated as "changed" because there was nothing
+  /// else honest to do with it.
   _CachedEmbedder? _cached;
   Future<void> _lane = Future<void>.value();
 
@@ -85,13 +95,26 @@ class EmbedderCache {
     // cached model is no longer a valid answer to anybody.
     _cached = null;
     gemmaLog('🔄 Closing old embedding model and creating new one...');
-    await cached.model.close();
+    // Reported on its own terms, not as the new caller's failure. They asked for
+    // a different embedder; handing them the old one's teardown error would name
+    // neither model, and the rebuild they asked for would never happen. The
+    // inference lane in the shells does the same (see `createModel`). Nothing
+    // depends on this succeeding — the bookkeeping is already cleared above.
+    try {
+      await cached.model.close();
+    } catch (e) {
+      gemmaLog('Old embedder close() failed, continuing with rebuild: $e');
+    }
     return null;
   }
 
   /// Records a freshly built [model] and what it was built from.
   void record(EmbeddingModel model, ActiveEmbedderParams params) {
-    _cached = _CachedEmbedder(model, params);
+    // Listener first, cache second. `addCloseListener` is abstract on the
+    // published interface, not inherited from `CloseNotifier`, so a third-party
+    // model may throw here — and with the assignment first, the shells' `catch`
+    // would forget a live, open model with nobody left to close it. The closure
+    // reads `_cached` when it fires, not now, so this order is safe.
     model.addCloseListener(() {
       // Identity-guarded, as the inference singleton and the session layer
       // already are. Without it a late close of a SUPERSEDED model clears
@@ -101,6 +124,7 @@ class EmbedderCache {
       if (!identical(_cached?.model, model)) return;
       _cached = null;
     });
+    _cached = _CachedEmbedder(model, params);
   }
 
   /// Forgets the cached embedder without closing it.

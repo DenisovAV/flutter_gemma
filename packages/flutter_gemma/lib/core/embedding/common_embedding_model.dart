@@ -108,11 +108,19 @@ class CommonEmbeddingModel extends EmbeddingModel with CloseNotifier {
   Future<void> close() async {
     if (_isClosed) return;
     _isClosed = true;
+    // Fired BEFORE the teardown is awaited, not after. Every later call on this
+    // model already throws (`_assertNotClosed`), so anything still holding it —
+    // core's embedder cache above all — has to learn immediately. Waiting for
+    // the worker meant up to the worker's own five-second cap during which the
+    // cache still matched this model on params and handed it to a new caller,
+    // whose first `generateEmbedding` then threw.
+    fireCloseListeners();
     try {
       await _worker.close();
     } finally {
+      // The engine's own hook stays after teardown: it means "this model is
+      // fully gone", which is only true here.
       onClose();
-      fireCloseListeners();
     }
   }
 }

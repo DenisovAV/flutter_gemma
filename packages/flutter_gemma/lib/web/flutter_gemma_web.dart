@@ -44,11 +44,14 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
   SpeechRecognizer? _initializedSttModel;
 
   /// The cached embedder and the rule for reusing it, shared with the mobile
-  /// and desktop shells. It replaces the package-type downcast this shell used
-  /// to do (a cast to `WebEmbeddingModel`) to read the
-  /// paths back, and the hand-rolled version it replaces was the worst of the
-  /// three: it joined a build in flight without comparing anything, so a
-  /// caller asking for a different model file got the first model's vectors.
+  /// and desktop shells.
+  ///
+  /// The hand-rolled version it replaces was the STRICTEST of the three — this
+  /// shell already compared resolved paths, where mobile and desktop compared a
+  /// spec name — but it had no in-flight guard at all, so two concurrent first
+  /// callers each compiled their own model and the loser was left with nobody
+  /// holding a reference to close it. Its close listener was not identity-guarded
+  /// either. Both are now the cache's problem, once, for all three shells.
   final EmbedderCache _embedderCache = EmbedderCache();
 
   /// The embedder's params live in [_embedderCache]; STT still keeps its own.
@@ -171,9 +174,14 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     // held for the app's lifetime; if it does not speak here it never speaks.
     noticeEmbedderBackendIgnored(preferredBackend);
 
-    // Serialised, so that resolving paths, comparing them and compiling are one
-    // step. A WASM/WebGPU compile is the longest of the three platforms' builds
-    // and so the widest window for a second caller to slip through.
+    // Serialised, so that resolving paths, comparing them and constructing the
+    // model are one step — which is what stops two concurrent first callers from
+    // each building one, the defect this shell actually had.
+    //
+    // Note what this does NOT cover on the LiteRT web arm: `WebEmbeddingModel`'s
+    // constructor is trivial and the WASM/WebGPU compile happens lazily on the
+    // first `generateEmbedding`, outside this lane. Concurrent first embeddings
+    // are guarded by that model, not by this.
     return _embedderCache.serialize(
       () => _reuseOrBuildEmbedder(
         modelPath: modelPath,
@@ -253,9 +261,10 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
       // ONLY config.modelPath/config.tokenizerPath — it ignores the spec for path
       // resolution. Web selects by the sole registered backend (WebGPU LiteRT.js).
       //
-      // Inside the try, where every other shell has it: this throw used to sit
-      // between "slot claimed" and the try, so a missing backend reported itself
-      // once and then wedged every later call on a completer nobody completed.
+      // Inside the try, where every other shell has it. There is no completer to
+      // leak here any more, but the shape matters: a throw between claiming a
+      // build slot and entering the `try` that releases it is how a single
+      // misconfiguration becomes a permanent hang.
       final activeEmb = (modelManager as WebModelManager).activeEmbeddingModel;
       final EmbeddingBackendProvider? backend = activeEmb is EmbeddingModelSpec
           ? EmbeddingRegistry.instance.findFor(activeEmb)

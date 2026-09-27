@@ -40,9 +40,12 @@ let liteRtWasmLoaded = false;  // Track if LiteRT WASM runtime is loaded
 // spilled to WASM inside a webgpu build still leaves WebGPU buffers, which is
 // why `fullyAccelerated` below exists rather than this answering alone.
 let actualAccelerator = null;
-// What the model was actually COMPILED for — set from `model.options` right
+// What we ASKED for. Never overwritten after the compile, because it is the
+// only thing a mismatch can be measured against.
+let askedAccelerator = null;
+// What the model was actually COMPILED for — read from `model.options` right
 // after compiling, so it survives LiteRT.js silently recompiling for WASM.
-let requestedAccelerator = null;
+let compiledAccelerator = null;
 // Null until the model is compiled; false when LiteRT had to spill ops to WASM.
 let fullyAccelerated = null;
 
@@ -115,7 +118,7 @@ async function loadLiteRTModel(modelPath, wasmPath = '/node_modules/@litertjs/co
     // Pass modelPath directly - LiteRT.js handles blob URLs internally
     try {
       console.log('[LiteRT] Attempting to compile model with WebGPU...');
-      requestedAccelerator = 'webgpu';
+      askedAccelerator = 'webgpu';
       tfliteModel = await loadAndCompile(modelPath, {
         accelerator: 'webgpu',
       });
@@ -128,7 +131,7 @@ async function loadLiteRTModel(modelPath, wasmPath = '/node_modules/@litertjs/co
       console.log('[LiteRT] Model compiled, accelerator confirmed on first run');
     } catch (error) {
       console.warn('[LiteRT] WebGPU not available, falling back to WASM:', error.message);
-      requestedAccelerator = 'wasm';
+      askedAccelerator = 'wasm';
       tfliteModel = await loadAndCompile(modelPath, {
         accelerator: 'wasm',
       });
@@ -147,11 +150,18 @@ async function loadLiteRTModel(modelPath, wasmPath = '/node_modules/@litertjs/co
     // SUCCESSFUL compile — indistinguishable from "not compiled yet", and on
     // exactly the browsers the fallback exists for.
     //
-    // The accelerator is read back off the model rather than from what we asked
-    // for: LiteRT.js can delete a webgpu build and return a wasm one without
-    // throwing, so `requestedAccelerator` is a guess until the model corrects
-    // it, and `options.accelerator` is the compile that actually happened.
-    requestedAccelerator = tfliteModel.options?.accelerator ?? requestedAccelerator;
+    // Read off the model rather than taken from what we asked for: LiteRT.js can
+    // delete a webgpu build and return a wasm one without throwing. Kept in a
+    // SEPARATE variable — folding it into the asked-for value silenced the one
+    // warning below that this whole block exists to produce, because the
+    // comparison then had nothing left to disagree with.
+    compiledAccelerator = tfliteModel.options?.accelerator ?? null;
+    if (compiledAccelerator && compiledAccelerator !== askedAccelerator) {
+      console.warn(
+        `[LiteRT] Compiled for ${compiledAccelerator}, not the requested ` +
+        `${askedAccelerator}. LiteRT recompiled without raising.`,
+      );
+    }
     reportFullAcceleration(tfliteModel);
 
     // Auto-detect sequence length from model input shape (like iOS/Android)
@@ -371,7 +381,7 @@ function reportFullAcceleration(model) {
   if (full === false) {
     fullyAccelerated = false;
     console.warn(
-      `[LiteRT] Model is not fully accelerated on ${requestedAccelerator}. ` +
+      `[LiteRT] Model is not fully accelerated on ${compiledAccelerator ?? askedAccelerator}. ` +
       `Unsupported ops run in WASM, so the accelerator reported after the ` +
       `first embedding is where the output buffer lives, not where every op ran.`,
     );
@@ -391,9 +401,9 @@ function reportFullAcceleration(model) {
 function reportAccelerator(accelerator) {
   if (actualAccelerator !== null || !accelerator) return;
   actualAccelerator = accelerator;
-  if (requestedAccelerator && accelerator !== requestedAccelerator) {
+  if (askedAccelerator && accelerator !== askedAccelerator) {
     console.warn(
-      `[LiteRT] Running on ${accelerator}, not the requested ${requestedAccelerator}. ` +
+      `[LiteRT] Running on ${accelerator}, not the requested ${askedAccelerator}. ` +
       `LiteRT fell back without raising — the model was not fully accelerated.`,
     );
   } else {
@@ -543,7 +553,8 @@ window.getLiteRtEmbeddingDimension = function() {
  */
 window.cleanupLiteRtEmbeddings = async function() {
   actualAccelerator = null;
-  requestedAccelerator = null;
+  askedAccelerator = null;
+  compiledAccelerator = null;
   fullyAccelerated = null;
   console.log('[LiteRT] ========================================');
   console.log('[LiteRT] Starting cleanup...');

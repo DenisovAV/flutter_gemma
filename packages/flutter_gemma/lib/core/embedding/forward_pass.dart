@@ -173,7 +173,7 @@ class ForwardPassDescriptor {
     required this.factory,
     required this.tokenizerFactory,
     required this.outputContract,
-    required this.activeBackend,
+    this.activeBackend,
   });
 
   /// Human-readable engine identifier for diagnostics (e.g. `'LiteRT-LM'`,
@@ -200,14 +200,23 @@ class ForwardPassDescriptor {
   /// The backend this engine's forward pass actually runs on, surfaced by
   /// [EmbeddingModel.activeBackend].
   ///
-  /// Required, and deliberately not defaulted to CPU: a default would let the
-  /// next engine — including one that really does use an accelerator — be
-  /// reported as CPU by omission, which is the same "accepted the argument and
-  /// said nothing" defect this field exists to answer. The engine that built
-  /// the pass is the only thing that knows, so it has to say.
+  /// Deliberately NOT defaulted to CPU. A CPU default would let the next engine
+  /// — including one that really does use an accelerator — be reported as CPU
+  /// by omission, which is the same "accepted the argument and said nothing"
+  /// defect this field exists to answer. The engine that built the pass is the
+  /// only thing that knows, so it is the only thing that can say.
   ///
-  /// Null where the runtime chooses per operation and does not report back,
-  /// which is the web arms' situation.
+  /// Optional rather than required, because required would be a break no
+  /// version constraint can guard. Core must not depend on an engine package,
+  /// so it cannot declare a floor on one: a newer core with an older engine
+  /// would simply stop compiling, and nothing in either pubspec could have
+  /// warned. Omitting it answers `null` — "this engine did not say" — which is
+  /// honest in a way a CPU default is not.
+  ///
+  /// Every engine that builds a pass in the embedding worker does know its
+  /// backend, so both in-tree engines pass it explicitly. The web arms never
+  /// construct a descriptor at all — they build their own [EmbeddingModel] —
+  /// so `null` here is not the web case.
   final PreferredBackend? activeBackend;
 
   /// How the worker must turn this engine's [ForwardResult] into the final

@@ -102,6 +102,48 @@ void main() {
     });
   });
 
+  group('EmbedderCache.record', () {
+    test('a model whose addCloseListener throws is never cached', () {
+      // `addCloseListener` is abstract on the published interface, so a
+      // third-party model can throw from it. Caching before registering would
+      // leave a live, open model that the shells' catch then forgets without
+      // closing it.
+      final cache = EmbedderCache();
+      final hostile = _HostileListenerEmbedder();
+
+      expect(
+        () => cache.record(hostile, paramsFor('/a')),
+        throwsStateError,
+        reason: 'the throw belongs to its caller',
+      );
+      expect(
+        cache.model,
+        isNull,
+        reason: 'nothing may be cached that the cache cannot be told about',
+      );
+    });
+  });
+
+  test(
+    'a throwing close does not fail the caller who asked to rebuild',
+    () async {
+      // The caller asked for /b. The old model's teardown error names neither
+      // model, and failing here means /b is never built at all — while a retry
+      // succeeds, erasing the evidence. CloseNotifier does not guard a throwing
+      // listener, so an app that registered one on the old embedder is enough.
+      final cache = EmbedderCache();
+      final hostile = _FakeEmbedder(throwOnClose: true);
+      cache.record(hostile, paramsFor('/a'));
+
+      expect(
+        await cache.reuseOrInvalidate(paramsFor('/b'), label: 'rebuild'),
+        isNull,
+        reason: 'the answer is still "build a new one"',
+      );
+      expect(cache.model, isNull);
+    },
+  );
+
   group('EmbedderCache close listener', () {
     test('closing the cached model empties the cache', () async {
       final cache = EmbedderCache();
@@ -251,10 +293,19 @@ void main() {
   });
 }
 
+/// Refuses to register a close listener, the way a third-party implementation
+/// that does not mix in `CloseNotifier` might.
+class _HostileListenerEmbedder extends _FakeEmbedder {
+  @override
+  void addCloseListener(void Function() listener) =>
+      throw StateError('this model does not support close listeners');
+}
+
 class _FakeEmbedder extends EmbeddingModel with CloseNotifier {
-  _FakeEmbedder({this.closeGate});
+  _FakeEmbedder({this.closeGate, this.throwOnClose = false});
 
   final Completer<void>? closeGate;
+  final bool throwOnClose;
   int closeCount = 0;
 
   @override
@@ -279,5 +330,6 @@ class _FakeEmbedder extends EmbeddingModel with CloseNotifier {
     closeCount++;
     if (closeGate != null) await closeGate!.future;
     fireCloseListeners();
+    if (throwOnClose) throw StateError('teardown failed');
   }
 }

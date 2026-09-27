@@ -99,10 +99,9 @@ void main() {
       // modelPath IS the identity. RuntimeConfig documents '' as the web value,
       // so an adopter wiring config.modelPath straight in would make every
       // embedder compare equal to every other and silently reuse a stale one.
-      expect(
-        () => ActiveEmbedderParams(modelPath: ''),
-        throwsA(isA<AssertionError>()),
-      );
+      // A throw, not an assert: an assert is stripped in release, which is the
+      // build where that silent reuse would actually ship.
+      expect(() => ActiveEmbedderParams(modelPath: ''), throwsArgumentError);
     });
 
     test('isIgnoredBackend is true only for something CPU is not', () {
@@ -204,9 +203,42 @@ void main() {
     },
   );
 
+  test('close() tells its listeners before it awaits the teardown', () async {
+    // The cache evicts on this listener. Firing it only after the worker
+    // teardown returned left a window — up to the worker's own five-second cap
+    // — in which `_isClosed` was already true (so every call threw) while the
+    // cache still matched this model on params and handed it to a new caller.
+    final model = await CommonEmbeddingModel.create(
+      descriptor: ForwardPassDescriptor(
+        engineTag: 'fake',
+        modelPath: 'fake',
+        factory: buildFakePass,
+        tokenizerFactory: buildFakeTokenizer,
+        outputContract: EmbeddingOutputContract.pooledFinal,
+        activeBackend: PreferredBackend.cpu,
+      ),
+      tokenizerPath: 'fake',
+    );
+
+    var fired = false;
+    model.addCloseListener(() => fired = true);
+
+    // Deliberately not awaited: `close()` is async, so everything before its
+    // first await has already run by the time it hands control back.
+    final closing = model.close();
+    expect(
+      fired,
+      isTrue,
+      reason: 'a listener that learns after the teardown learns too late',
+    );
+
+    await closing;
+  });
+
   test('EmbeddingModel.activeBackend defaults to null, not to a guess', () {
-    // Defaulted rather than abstract so an existing implementation of this
-    // public interface keeps compiling. Null means "not known here".
+    // Defaulted rather than abstract so an existing SUBCLASS keeps compiling.
+    // `implements` does not inherit a default body, so those still break — this
+    // PR's own genkit fake had to add the override. Null means "not known here".
     expect(_BareEmbedder().activeBackend, isNull);
   });
 }

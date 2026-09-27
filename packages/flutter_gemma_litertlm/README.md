@@ -285,6 +285,21 @@ Android binds the call to address 0. Only Mali takes that path.
 Fix: upgrade to 1.8.2 (`native-v0.17.1-a`). No app change is needed. See
 [#545](https://github.com/DenisovAV/flutter_gemma/issues/545).
 
+### Linux x86_64 native tool calling can abort the process
+
+With the current `native-v0.17.x` Linux x86_64 bundle, FunctionGemma or Gemma
+4 native tool calling can terminate the process in
+`libGemmaModelConstraintProvider.so` before Dart receives an exception. Text
+generation without native tools is unaffected. See
+[#551](https://github.com/DenisovAV/flutter_gemma/issues/551).
+
+The FFI engine now rejects this combination with an `UnsupportedError` before
+creating a native conversation. Use a non-native tool-call format supported by
+the model, another supported platform, or a native bundle whose LiteRT-LM
+runtime and constraint provider were built with matching C++ ABIs. This guard
+is limited to Linux x86_64 and does not disable native tools on Android, Apple
+platforms, Windows, or Linux ARM64.
+
 ### Any tool call kills the app (fixed in 1.7.1)
 
 Symptom: in 1.7.0, a chat or session created with `tools` dies on the first

@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ffi' show Abi;
+import 'dart:io';
 import 'package:flutter_gemma/core/utils/gemma_log.dart';
 
 import 'package:flutter/foundation.dart';
@@ -15,6 +17,18 @@ import 'package:flutter_gemma/core/function_call_parser.dart';
 import 'package:flutter_gemma/core/parsing/sdk_response_parser.dart';
 import 'litert_lm_client.dart';
 import 'package:flutter_gemma/core/domain/platform_types.dart';
+
+/// Whether the native SDK tool path must be rejected on this host.
+///
+/// The Linux x86_64 `native-v0.17.x` bundle can abort in
+/// `libGemmaModelConstraintProvider.so` as soon as constrained decoding starts
+/// (#551). Keep the platform check separate from the format check so the
+/// safety boundary can be unit-tested without loading native libraries.
+@visibleForTesting
+bool isLinuxX64NativeToolsBlocked({
+  required bool isLinuxX64,
+  required bool nativeTools,
+}) => isLinuxX64 && nativeTools;
 
 /// FFI implementation of InferenceModel using dart:ffi → LiteRT-LM C API.
 /// Shared between desktop and mobile (iOS) for .litertlm models.
@@ -61,6 +75,26 @@ class FfiInferenceModel extends InferenceModel with CloseNotifier {
   List<InferenceModelSession> get sessions =>
       List.unmodifiable([if (_session != null) _session!, ..._openSessions]);
 
+  void _assertNativeToolsSupported(List<Tool> tools) {
+    final nativeTools =
+        tools.isNotEmpty &&
+        FunctionCallParser.usesSdkPassthrough(modelType, fileType: fileType);
+    final isLinuxX64 = Platform.isLinux && Abi.current() == Abi.linuxX64;
+    if (isLinuxX64NativeToolsBlocked(
+      isLinuxX64: isLinuxX64,
+      nativeTools: nativeTools,
+    )) {
+      throw UnsupportedError(
+        'Native LiteRT-LM tool calling is unavailable on Linux x86_64 with '
+        'the current native bundle. The constrained-decoding companion can '
+        'abort the process before Dart receives an exception (#551). Use a '
+        'non-native tool-call format supported by the model, another supported '
+        'platform, or a native bundle rebuilt with matching C++ '
+        'runtime/constraint-provider ABIs.',
+      );
+    }
+  }
+
   @override
   Future<InferenceModelSession> createSession({
     double temperature = .8,
@@ -80,6 +114,8 @@ class FfiInferenceModel extends InferenceModel with CloseNotifier {
         'Model is closed. Create a new instance to use it again',
       );
     }
+
+    _assertNativeToolsSupported(tools);
 
     if (loraPath != null) {
       throw UnsupportedError(
@@ -203,6 +239,7 @@ class FfiInferenceModel extends InferenceModel with CloseNotifier {
         'Model is closed. Create a new instance to use it again',
       );
     }
+    _assertNativeToolsSupported(tools);
     if (loraPath != null) {
       throw UnsupportedError(
         'LoRA weights are not supported on the .litertlm FFI path '

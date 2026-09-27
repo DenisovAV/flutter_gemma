@@ -613,18 +613,19 @@ void main() {
   // runs, regardless of seed/temperature).
   //
   // Platforms covered:
-  //   - Android with .litertlm NPU executor (Pixel 8 / API 31+ with
-  //     NNAPI accelerator that exposes "npu" backend tag)
-  //   - Windows with Intel dispatch DLLs (Lunar Lake / PantherLake — once
-  //     Matt + Intel partner deliver the bundle in 0.15.1 RC)
+  //   - Android on Qualcomm Snapdragon (QNN dispatch; verified on QDC sm8750).
+  //     A phone without FastRPC (Pixel, Exynos, Dimensity) never reaches npu.
+  //   - Windows with Intel dispatch DLLs (Lunar Lake / PantherLake).
   // Other platforms (macOS/iOS/Linux/Web): skipped — no NPU dispatch.
   group('Gemma4-E2B NPU', () {
     tearDownAll(_closeSharedModel);
 
     // Real NPU tests need a model precompiled for the target NPU (Intel
     // LunarLake / PantherLake or Qualcomm QNN). Generic Gemma 4 from HF
-    // doesn't carry NPU executor sections and `engine_create` will reject
-    // it. Pre-arranged LNL artifact lives in the workspace dir; SKIP if
+    // doesn't carry NPU executor sections. Whether `engine_create` rejects it
+    // or, as on macOS, accepts npu without honouring it is not measured on
+    // NPU hardware — which is why the helper below asserts the backend that
+    // ran. Pre-arranged LNL artifact lives in the workspace dir; SKIP if
     // absent (covers CI and dev machines without NPU hardware).
     String? _findNpuModel() {
       final candidates = <String>[
@@ -652,7 +653,9 @@ void main() {
     Future<InferenceModel?> _installAndGetNpu() async {
       final npuModelPath = _findNpuModel();
       if (npuModelPath == null) {
-        print('[Gemma4 NPU] SKIP: no NPU-compiled model found');
+        // A skip the report shows as one, not a pass: a bare `return` from the
+        // test read as PASSED, which is how a missing model looked green.
+        markTestSkipped('no NPU-compiled model staged for this host');
         return null;
       }
       await FlutterGemma.installModel(
@@ -671,6 +674,10 @@ void main() {
         maxTokens: 4096,
         preferredBackend: PreferredBackend.npu,
       );
+      // Closed on every path out of the test, the failed expect below included:
+      // an engine left open here stays cached into the later groups. `close()`
+      // is idempotent, so the tests' own closes still stand.
+      addTearDown(model.close);
       // The point of this group, and the one line it lacked. Both tests below
       // pass on a GPU or CPU fallback — `paris` comes back either way, and CPU
       // greedy is deterministic too — so without this they report NPU facts

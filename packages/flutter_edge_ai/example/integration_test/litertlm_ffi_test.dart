@@ -824,9 +824,9 @@ void main() {
         );
       }
       expect(
-        resolved.contains('flutter_edge_ai'),
+        resolved.contains('flutter_gemma'),
         isTrue,
-        reason: 'Path should be namespaced under flutter_edge_ai/',
+        reason: 'Path should stay namespaced under flutter_gemma/ (kept across the rename)',
       );
 
       // It should NOT land directly under Documents (where 0.15.0 and

@@ -239,8 +239,10 @@ done
 #       - DenisovAV/flutter_gemma#270
 #       - google-ai-edge/LiteRT-LM#2211
 if ! command -v patchelf >/dev/null 2>&1; then
-  echo "WARN: patchelf not installed — skipping DT_NEEDED fix for samplers"
-  echo "      Install with: brew install patchelf"
+  echo "ERROR: patchelf not installed — the DT_NEEDED fixes below cannot run," >&2
+  echo "       and a bundle without them crashes on device (#270, #545)." >&2
+  echo "       Install with: brew install patchelf" >&2
+  exit 1
 else
   echo ""
   echo "=== Patching sampler DT_NEEDED (#270) ==="
@@ -256,6 +258,12 @@ else
     fi
   done
 fi
+
+# 8d. Every import must be reachable through the library's own NEEDED (#545).
+#     8b fixes the case we know about; this catches the next one.
+echo ""
+echo "=== DT_NEEDED closure ==="
+python3 "$SCRIPT_DIR/check_android_needed.py" "$PREBUILT_DIR" || exit 1
 
 # 9. Verify
 echo ""

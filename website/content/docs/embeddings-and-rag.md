@@ -174,8 +174,8 @@ Call `FlutterEdgeAi.rag.flush()` after indexing. What it does depends on the sto
   3.4.0 through 3.5.2 returned early over a write batch already in flight
   ([upstream #408](https://github.com/simolus3/sqlite3.dart/issues/408)), which
   is why `flutter_gemma_rag_sqlite` 1.4.0 requires sqlite3 3.6.0 and, with it,
-  **Flutter 3.47** — a higher floor than every other package here. An app on
-  Flutter 3.44 resolves to rag_sqlite 1.3.2 instead and keeps the partial drain;
+  **Flutter 3.47** — a higher floor than every other package here. On Flutter
+  3.44 only the old `flutter_gemma_rag_sqlite` 1.3.2 resolves, with the partial drain;
   `close()` is the full drain on every version.
 
 A store that cannot persist at all (the web in-memory fallback) throws

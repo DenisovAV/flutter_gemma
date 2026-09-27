@@ -263,7 +263,7 @@ class PlatformFileSystemService implements FileSystemService {
       }
       dir = Directory(path.join(base.path, 'flutter_gemma'));
     } else {
-      // macOS, Linux — namespace under flutter_edge_ai/ inside Application
+      // macOS, Linux — namespace under flutter_gemma/ inside Application
       // Support so models don't pollute the package root.
       final base = await getApplicationSupportDirectory();
       dir = Directory(path.join(base.path, 'flutter_gemma'));

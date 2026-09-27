@@ -41,10 +41,10 @@ String computeTaskId(BaseDirectory base, String directory, String filename) =>
 /// [Task.split] maps an absolute path onto background_downloader's BaseDirectory
 /// model, but a target NOT under one of its recognized bases falls back to
 /// [BaseDirectory.root] with the drive/root STRIPPED from [splitDirectory]. The
-/// case that bites us is Windows' `%LOCALAPPDATA%\flutter_edge_ai`: LocalAppData is
+/// case that bites us is Windows' `%LOCALAPPDATA%\flutter_gemma`: LocalAppData is
 /// not a background_downloader base (path_provider maps applicationSupport →
 /// Roaming, applicationDocuments → Documents), so split returns root +
-/// `Users\..\AppData\Local\flutter_edge_ai`. On Windows the root base resolves to
+/// `Users\..\AppData\Local\flutter_gemma`. On Windows the root base resolves to
 /// `''` (not the drive), so the reconstructed filePath is `$CWD`-relative and the
 /// file lands in the wrong place while getReadTargetPath / validateModelFiles
 /// look at the absolute path — `install()` "succeeds" but `isModelInstalled()`

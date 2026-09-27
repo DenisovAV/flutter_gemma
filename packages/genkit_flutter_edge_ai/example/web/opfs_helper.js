@@ -1,5 +1,5 @@
 /**
- * OPFS (Origin Private File System) Helper for Flutter Edge AI
+ * OPFS (Origin Private File System) Helper for Flutter Gemma
  *
  * Provides OPFS-based storage for large model files (>2GB) to bypass
  * ArrayBuffer memory limitations in browsers.

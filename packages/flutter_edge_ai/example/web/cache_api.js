@@ -1,5 +1,5 @@
 /**
- * Cache API wrapper for flutter_edge_ai
+ * Cache API wrapper for flutter_gemma
  *
  * Provides browser Cache API operations with proper error handling.
  * All functions are async and return Promises.

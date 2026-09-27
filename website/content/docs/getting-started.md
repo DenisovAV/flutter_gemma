@@ -19,7 +19,7 @@ SmolLM and more — see [Models](/docs/models) for the full list.
 - **Local Execution:** Run Gemma and other LLMs (Qwen, DeepSeek, Phi, FastVLM, SmolLM, …) directly on user devices for enhanced privacy and offline functionality.
 - **Platform Support:** Compatible with iOS, Android, Web, macOS, Windows, and Linux.
 - **Desktop Support:** Native desktop apps with GPU acceleration via LiteRT-LM, called directly from Dart through `dart:ffi` — no JVM/JRE bundling. See [Desktop Support](/docs/desktop).
-- **Built-in / System AI:** Use the OS's own on-device model, no download — Gemini Nano (Android + Chrome) + Apple Foundation Models (iOS/macOS). See [Built-in AI](/docs/builtin-ai).
+- **Built-in / System AI:** Use the OS's own on-device model, no download — Gemini Nano (Android + Chrome), Apple Foundation Models (iOS/macOS) and Windows AI Foundry. See [Built-in AI](/docs/builtin-ai).
 - **Pluggable Engines:** Opt-in engine packages — LiteRT-LM, MediaPipe, ONNX Runtime, built-in OS AI — registered via `FlutterEdgeAi.initialize(...)`. See [Packages](/docs/packages).
 - **Multimodal Support:** Text + image input with Gemma 4, Gemma3n, FastVLM, Qwen2-VL, SmolVLM2, and LLaVA-OneVision vision models. See [Multimodal](/docs/multimodal).
 - **Audio Input:** Record and send audio messages with Gemma 4 and Gemma3n models (Android, iOS device, Desktop).
@@ -62,7 +62,7 @@ Releases up to 1.11 shipped under the `flutter_gemma*` names.
 
 - **`flutter_edge_ai_onnx`** — new opt-in ONNX Runtime engine: text generation via ORT-GenAI (`OnnxEngine`) + embeddings via plain ONNX Runtime (`OnnxEmbeddingBackend`), both `dart:ffi`. Device-verified on macOS, Linux, Windows, Android, and iOS (arm64) — plus **Web**, via Transformers.js (generation) and onnxruntime-web (embeddings). See [Packages](/docs/packages#onnx-runtime-engine).
 - **`flutter_edge_ai_builtin_ai` on Web** — Gemini Nano through Chrome's Prompt API, next to Gemini Nano on Android and Apple Foundation Models on iOS/macOS. See [Built-in AI](/docs/builtin-ai).
-- **BREAKING (`flutter_gemma_embeddings` 2.0.0):** the embedder is now runtime-agnostic — `LiteRtEmbeddingBackend` moved to `flutter_edge_ai_litertlm` (1.5.0). See [Migration](/docs/migration).
+- **BREAKING (`flutter_gemma_embeddings` 2.0.0):** the embedder is now runtime-agnostic — `LiteRtEmbeddingBackend` moved to `flutter_gemma_litertlm` (1.5.0). See [Migration](/docs/migration).
 
 ## What's new in 1.5
 

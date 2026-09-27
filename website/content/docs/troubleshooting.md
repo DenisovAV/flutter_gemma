@@ -226,16 +226,18 @@ Desktop builds store downloaded models **outside** the user's `Documents/` folde
 to avoid OneDrive / iCloud / Domain-Roaming sync corrupting FFI mmap of large
 `.litertlm` files:
 
-- **Windows:** `%LOCALAPPDATA%\flutter_edge_ai\` (never OneDrive-synced)
-- **macOS:** `~/Library/Application Support/<bundle>/flutter_edge_ai/`
-- **Linux:** `~/.local/share/<app>/flutter_edge_ai/`
+- **Windows:** `%LOCALAPPDATA%\flutter_gemma\` (never OneDrive-synced)
+- **macOS:** `~/Library/Application Support/<bundle>/flutter_gemma/`
+- **Linux:** `~/.local/share/<app>/flutter_gemma/`
+
+The directory keeps its `flutter_gemma` name across the rename, so installed models stay found.
 
 Models installed by older 0.14.x / 0.15.0 builds that still live under
 `Documents/` keep working via a fallback read.
 
-On Windows, flutter_edge_ai **before 1.4.0** could write a *fresh* download to a
-`$CWD`-relative path (`<cwd>\Users\…\AppData\Local\flutter_edge_ai\`) instead of the
-absolute `%LOCALAPPDATA%\flutter_edge_ai\`, because `%LOCALAPPDATA%` is not one of
+On Windows, flutter_gemma **before 1.4.0** could write a *fresh* download to a
+`$CWD`-relative path (`<cwd>\Users\…\AppData\Local\flutter_gemma\`) instead of the
+absolute `%LOCALAPPDATA%\flutter_gemma\`, because `%LOCALAPPDATA%` is not one of
 `background_downloader`'s base directories. The model then reported "installed"
 but failed to load with *"model file paths not found"*. **Fixed in 1.4.0** — it
 affected every fresh inference / embedding / STT download on Windows, so upgrade
@@ -288,7 +290,7 @@ inside the package.
 ## Embeddings
 
 - **`StateError: No embedding tokenizer is configured`** on the first embedding. Since `flutter_gemma` 1.9.0 an embedding backend no longer carries a tokenizer: which family a model needs (Gemma SentencePiece, BERT WordPiece) is a property of the model, not of the engine that runs it, so the app registers it once. Add `flutter_edge_ai_embeddings` to `pubspec.yaml`, import it, and pass `embeddingTokenizers: [GemmaEmbeddingTokenizers()]` to `FlutterEdgeAi.initialize()` beside `embeddingBackends:`. The error text names the package and the parameter. See [Embeddings & RAG](/docs/embeddings-and-rag).
-- **`Target of URI doesn't exist: package:flutter_gemma_embeddings/web_embedding_model.dart`** at `flutter build web`. `flutter_gemma_embeddings` 2.2.0 moved that file into `flutter_gemma_litertlm` 1.8.0, alongside the rest of the LiteRT.js bundle it belongs to. A lockfile holding `flutter_edge_ai_litertlm` at 1.7.x while `flutter_edge_ai_embeddings` moves to 2.2.0 resolves cleanly and only then fails to compile. Upgrade `flutter_gemma_litertlm` to 1.8.0. Native builds are unaffected — that import sits behind a web-only conditional export.
+- **`Target of URI doesn't exist: package:flutter_gemma_embeddings/web_embedding_model.dart`** at `flutter build web`. `flutter_gemma_embeddings` 2.2.0 moved that file into `flutter_gemma_litertlm` 1.8.0, alongside the rest of the LiteRT.js bundle it belongs to. A lockfile holding `flutter_gemma_litertlm` at 1.7.x while `flutter_gemma_embeddings` moves to 2.2.0 resolves cleanly and only then fails to compile. Upgrade `flutter_gemma_litertlm` to 1.8.0. Native builds are unaffected — that import sits behind a web-only conditional export.
 
 ## Function calling
 

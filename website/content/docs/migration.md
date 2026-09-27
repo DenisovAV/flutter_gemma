@@ -45,7 +45,12 @@ hard-coded `'flutter-gemma/<name>'` string has to change. The old Dart names are
 deprecated aliases here too.
 
 Depend on one name per package: an app that pulls in both `flutter_gemma_X` and
-`flutter_edge_ai_X` gets the same Android classes twice and the build fails.
+`flutter_edge_ai_X` gets the same native libraries and Android classes twice, and
+the build fails. An old satellite you did not bump (say `flutter_gemma_speech`
+0.5.x) pulls the old engine back in the same way.
+
+`flutter_edge_ai_sqlite` needs Flutter 3.47. An app on Flutter 3.44 that uses
+the SQLite store upgrades Flutter first.
 
 If you cannot switch right away, the last release under each old name
 re-exports its successor. Bump **every** `flutter_gemma*` dependency to it in
@@ -114,7 +119,8 @@ file type.
 > **New opt-in packages since 1.2** (not migration targets from the 0.16.x
 > monolith — they add new capabilities): `flutter_edge_ai_agent` (on-device agent
 > skills — SKILL.md + tool-calling loop), `flutter_edge_ai_builtin_ai` (OS
-> system models — Gemini Nano on Android, Apple Foundation Models on iOS/macOS),
+> system models — Gemini Nano on Android and Web, Apple Foundation Models on
+> iOS/macOS, Windows AI Foundry on Windows),
 > and `flutter_edge_ai_onnx` (ONNX Runtime — ORT-GenAI text generation +
 > plain-ORT embeddings via `dart:ffi` on native, + Web via Transformers.js /
 > onnxruntime-web). Add any of them only if you want that feature. See
@@ -157,6 +163,34 @@ throws a `StateError` naming that step. You still depend on
 longer import a backend class from it. If you'd rather run embeddings over an
 ONNX/ORT model instead, `flutter_edge_ai_onnx`'s `OnnxEmbeddingBackend` is a
 drop-in alternative — see [Packages](/docs/packages#onnx-runtime-engine).
+
+## Breaking: builtin_ai 0.3.0 — the native layer moved to `flutter_local_ai`
+
+<Warning>
+`flutter_edge_ai_builtin_ai` **0.3.0** is no longer a Flutter plugin. It ships no
+Kotlin/Swift/C++ and no pigeon; every OS backend now comes from
+[`flutter_local_ai`](https://pub.dev/packages/flutter_local_ai), which it depends
+on. **No Dart code changes** — `BuiltInAi`, `BuiltInAiEngine`, `BuiltInAiModels`,
+`BuiltInAiAvailability`, `BuiltInAiUnavailableException` and
+`BuiltInAiHuggingFaceResolver` keep their names, signatures and import — but
+three build-level things move.
+</Warning>
+
+1. **`pub get` regenerates the plugin registrants and `Podfile.lock`**: this
+   package leaves them, `flutter_local_ai` enters. CI that runs a frozen
+   `pod install --deployment` fails until you re-commit the lockfile.
+2. **The macOS deployment floor rises from 10.15 to 12.0.** A macOS 11 target
+   fails resolution with a message naming the `flutter_local_ai` pod, not the
+   package you added. iOS is unaffected — `flutter_local_ai` builds from 13.0 and
+   core `flutter_edge_ai` still requires 15.0.
+3. **`package:flutter_edge_ai_builtin_ai/pigeon.g.dart` is gone** with the channel
+   it wrapped. It was generated plumbing that the documented API never used.
+
+In exchange, **Windows joins the supported platforms** (AI Foundry / Phi Silica),
+and `BuiltInAiModels` gains `windowsAiFoundry`, `chromePromptApi`, `all` and
+`forCurrentPlatform`. Requesting vision on a backend that has none now throws at
+model creation instead of dropping images mid-conversation. See [Built-in
+AI](/docs/builtin-ai).
 
 ## Breaking: rag_sqlite 1.1.0 — the index does not carry over
 

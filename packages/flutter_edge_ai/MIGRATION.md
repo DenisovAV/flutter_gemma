@@ -41,7 +41,12 @@ hard-coded `'flutter-gemma/<name>'` string has to change. The old Dart names are
 deprecated aliases here too.
 
 Depend on one name per package: an app that pulls in both `flutter_gemma_X` and
-`flutter_edge_ai_X` gets the same Android classes twice and the build fails.
+`flutter_edge_ai_X` gets the same native libraries and Android classes twice, and
+the build fails. An old satellite you did not bump (say `flutter_gemma_speech`
+0.5.x) pulls the old engine back in the same way.
+
+`flutter_edge_ai_sqlite` needs Flutter 3.47. An app on Flutter 3.44 that uses
+the SQLite store upgrades Flutter first.
 
 If you cannot switch right away, the last release under each old name
 re-exports its successor. Bump **every** `flutter_gemma*` dependency to it in
@@ -107,7 +112,9 @@ Pick by what you actually used in 0.16.x:
 > **New opt-in packages since 1.2/1.3** (not migration targets from the 0.16.x
 > monolith — they add new capabilities): `flutter_edge_ai_agent` (on-device agent
 > skills — SKILL.md + tool-calling loop) and `flutter_edge_ai_builtin_ai` (OS
-> system models — Gemini Nano on Android, Apple Foundation Models on iOS/macOS).
+> system models — Gemini Nano on Android and Web, Apple Foundation Models on
+> iOS/macOS, Windows AI Foundry on Windows; a thin adapter over
+> `flutter_local_ai`, which owns the native layer).
 > Add either only if you want that feature — see the README **Features** list.
 
 ## 2. main.dart — the one new call

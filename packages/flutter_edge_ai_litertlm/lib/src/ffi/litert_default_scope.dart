@@ -144,7 +144,7 @@ _Scope _loadAndVerify(String soname, {required String proxyFailureContext}) {
       'libStreamProxy.so could not be loaded ($e), so $soname was not '
       'preloaded into the default search scope. $proxyFailureContext This '
       'usually means a partial or stale native cache — `flutter clean` plus '
-      'removing the flutter_edge_ai native cache directory rebuilds it.',
+      'removing the flutter_gemma native cache directory rebuilds it.',
     );
     return _Scope.proxyUnavailable;
   }
@@ -207,7 +207,7 @@ String _notExported(String soname) =>
     '$soname loaded but does not export $_controlSymbol. This is not a '
     'load-order problem: the bundled native library is not a libLiteRtLm this '
     'version of flutter_edge_ai_litertlm can drive. Usually a stale native '
-    'cache — remove the flutter_edge_ai native cache directory and rebuild.';
+    'cache — remove the flutter_gemma native cache directory and rebuild.';
 
 String _poisonedBy(String soname) =>
     'Something opened $soname with a plain DynamicLibrary.open (or '
@@ -327,7 +327,7 @@ DynamicLibrary openLiteRtLmRequiringDefaultScope(String soname) {
         'be put into the default search scope and the stream-callback ABI '
         'cannot be probed. Both libraries ship in one native archive, so this '
         'points at a partial or stale native cache: run `flutter clean` and '
-        'remove the flutter_edge_ai native cache directory. See '
+        'remove the flutter_gemma native cache directory. See '
         'https://github.com/DenisovAV/flutter_gemma/issues/447',
       );
   }

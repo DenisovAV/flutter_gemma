@@ -730,7 +730,7 @@ Future<void> _processBundle({
   // dropped from the app's deps and the survivor rebuilds without `flutter
   // clean`, the survivor reads the stale owner, skips registration, and nobody
   // bundles the dylib → an opaque dlopen "no such file" at first use. Fix:
-  // `flutter clean` + delete the flutter_edge_ai native cache (see each package's
+  // `flutter clean` + delete the flutter_gemma native cache (see each package's
   // README troubleshooting). Upstream deliberately chose "one registrant + error
   // on conflict, no auto-dedup" (dart-lang/native#190, flutter#158214).
   //

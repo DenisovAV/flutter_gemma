@@ -213,7 +213,7 @@ model formats and features you need.
       # Inference engines — add at least one:
       flutter_edge_ai_litertlm: latest_version     # .litertlm models (FFI; mobile + desktop + web)
       flutter_edge_ai_mediapipe: latest_version    # .task / .bin models (MediaPipe; mobile + web)
-      flutter_edge_ai_builtin_ai: latest_version   # OS system models — Gemini Nano (Android) / Apple FM (iOS 26+/macOS)
+      flutter_edge_ai_builtin_ai: latest_version   # OS system models — Gemini Nano (Android) / Apple FM (iOS 26+/macOS) / Windows AI Foundry / Chrome Prompt API (Web)
       flutter_edge_ai_onnx: latest_version         # ONNX Runtime — ORT-GenAI text gen + ORT embeddings (FFI, native) / Transformers.js + onnxruntime-web (Web)
 
       # Optional — text embeddings (EmbeddingGemma / Gecko via flutter_edge_ai_litertlm's
@@ -300,8 +300,14 @@ For development, prefer an Apple Silicon Mac — the Android emulator runs `arm6
 
 * **Set the minimum iOS version to 15.0** — or **16.0** if your app depends on
   `flutter_edge_ai_mediapipe`, which needs MediaPipe GenAI. Core,
-  `flutter_edge_ai_litertlm`, built-in AI and embeddings build from 15.0. (Requires
+  `flutter_edge_ai_litertlm` and embeddings build from 15.0. (Requires
   `flutter_gemma` 1.6.4 or newer; earlier versions declared 16.0.)
+
+* **`flutter_edge_ai_builtin_ai` 0.3.0+ sets no Apple floor of its own** — its
+  native layer is `flutter_local_ai`, which builds from **iOS 13.0 / macOS
+  12.0**. iOS is unaffected (core's 15.0 still wins); on **macOS the floor rises
+  from 10.15 to 12.0**, and a lower deployment target fails resolution with a
+  message naming the `flutter_local_ai` pod rather than the package you added.
 
   **Where you set it depends on the dependency manager.** Swift Package Manager is the
   default since Flutter 3.44 (opt-in before that), and an SPM-only app has no `Podfile` at all — set
@@ -974,7 +980,7 @@ void main() async {
     inferenceEngines: const [
       LiteRtLmEngine(),     // flutter_edge_ai_litertlm  — .litertlm models
       MediaPipeEngine(),    // flutter_edge_ai_mediapipe — .task / .bin models
-      BuiltInAiEngine(),    // flutter_edge_ai_builtin_ai — Gemini Nano / Apple FM
+      BuiltInAiEngine(),    // flutter_edge_ai_builtin_ai — Gemini Nano / Apple FM / Windows AI Foundry
     ],
     // Optional — embeddings (needed for RAG / generateEmbedding):
     embeddingBackends: const [
@@ -1007,7 +1013,7 @@ void main() async {
 |---|---|---|
 | `inferenceEngines: [LiteRtLmEngine()]` | `flutter_edge_ai_litertlm` | `.litertlm` (mobile + desktop + web) |
 | `inferenceEngines: [MediaPipeEngine()]` | `flutter_edge_ai_mediapipe` | `.task` / `.bin` (mobile + web) |
-| `inferenceEngines: [BuiltInAiEngine()]` | `flutter_edge_ai_builtin_ai` | OS system models — Gemini Nano (Android) / Apple FM (iOS 26+/macOS) |
+| `inferenceEngines: [BuiltInAiEngine()]` | `flutter_edge_ai_builtin_ai` | OS system models — Gemini Nano (Android + Web) / Apple FM (iOS 26+/macOS) / Windows AI Foundry. A thin adapter over `flutter_local_ai`, which owns the native layer |
 | `inferenceEngines: [OnnxEngine()]` | `flutter_edge_ai_onnx` | ONNX models — ORT-GenAI (FFI; macOS/Linux/Windows/Android/iOS arm64) or Transformers.js (Web) |
 | `embeddingBackends: [LiteRtEmbeddingBackend()]` | `flutter_edge_ai_litertlm` | text embeddings |
 | `embeddingBackends: [OnnxEmbeddingBackend()]` | `flutter_edge_ai_onnx` | text embeddings from ONNX/ORT models (FFI native; onnxruntime-web on Web) |
@@ -2028,8 +2034,8 @@ fully supported.
 Desktop builds store downloaded models outside the user's `Documents/` folder to avoid OneDrive / iCloud / Domain-Roaming sync corrupting FFI mmap of large `.litertlm` files (since 0.15.1):
 
 - **Windows:** `%LOCALAPPDATA%\flutter_gemma\` (never OneDrive-synced; the name predates the rename and is kept so installed models stay found)
-- **macOS:** `~/Library/Application Support/<bundle>/flutter_edge_ai/`
-- **Linux:** `~/.local/share/<app>/flutter_edge_ai/`
+- **macOS:** `~/Library/Application Support/<bundle>/flutter_gemma/`
+- **Linux:** `~/.local/share/<app>/flutter_gemma/`
 
 Models installed by 0.14.x / 0.15.0 builds that still live under `Documents/` keep working via a fallback read (a debug log nudges users to re-install once for migration).
 

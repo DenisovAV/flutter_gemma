@@ -447,6 +447,29 @@ enum Model implements InferenceModelInterface {
     isThinking: true,
   ),
 
+  // Qwen3.5 0.8B text-only LiteRT-LM artifact. The 0.8B vision bundle is a
+  // separate, larger file; keep this curated example entry text-only and use
+  // the manifest resolver when selecting the vision variant or a device
+  // specific backend.
+  qwen35_0_8B(
+    baseUrl:
+        'https://huggingface.co/litert-community/Qwen3.5-0.8B/resolve/main/Qwen3.5-0.8B_int8.litertlm',
+    desktopUrl:
+        'https://huggingface.co/litert-community/Qwen3.5-0.8B/resolve/main/Qwen3.5-0.8B_int8.litertlm',
+    filename: 'Qwen3.5-0.8B_int8.litertlm',
+    displayName: 'Qwen3.5 0.8B',
+    size: '0.96GB',
+    licenseUrl: 'https://huggingface.co/litert-community/Qwen3.5-0.8B',
+    needsAuth: false,
+    preferredBackend: PreferredBackend.cpu,
+    modelType: ModelType.qwen,
+    fileType: ModelFileType.litertlm,
+    temperature: 0.7,
+    topK: 40,
+    topP: 0.95,
+    maxTokens: 4096,
+  ),
+
   deepseek(
     baseUrl:
         'https://huggingface.co/litert-community/DeepSeek-R1-Distill-Qwen-1.5B/resolve/main/deepseek_q8_ekv1280.task',

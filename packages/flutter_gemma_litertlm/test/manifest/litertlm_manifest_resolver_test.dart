@@ -755,9 +755,20 @@ void main() {
       expect(map('Qwen/Qwen3.5-0.8B'), ModelType.qwen);
     });
 
+    test('unlisted dotted Qwen3 releases are not guessed as qwen3', () {
+      for (final id in ['Qwen/Qwen3.6-27B', 'Qwen/Qwen3.8-27B']) {
+        expect(
+          map(id),
+          isNull,
+          reason: '$id has no verified LiteRT-LM chat contract yet',
+        );
+      }
+    });
+
     test('qwen3 by id, and by the Qwen3ForCausalLM class token when the id '
         'hides the family (a finetune)', () {
       expect(map('Qwen/Qwen3-4B-Thinking-2507'), ModelType.qwen3);
+      expect(map('Qwen/Qwen3ForCausalLM'), ModelType.qwen3);
       expect(
         map(
           'superwhisper/s1-mini',

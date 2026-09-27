@@ -12,7 +12,7 @@
 
 **Token NOT Required (public repos):**
 - Gemma 4 E2B/E4B, Gemma 3 1B, Gemma 3 270M, FunctionGemma 270M
-- FastVLM, Qwen3, Qwen 2.5, DeepSeek R1, Phi-4 Mini, SmolLM
+- FastVLM, Qwen3, Qwen3.5 0.8B, Qwen 2.5, DeepSeek R1, Phi-4 Mini, SmolLM
 - Gecko embedding models
 - Local asset / bundled models
 

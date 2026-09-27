@@ -7,9 +7,9 @@
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/flutter_gemma)
 
-**The plugin supports not only Gemma, but also other models. Here's the full list of supported models:** [Gemma 4 E2B/E4B](https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm), [Gemma3n E2B/E4B](https://huggingface.co/google/gemma-3n-E2B-it-litert-preview), [FastVLM 0.5B](https://huggingface.co/litert-community/FastVLM-0.5B), [Gemma-3 1B](https://huggingface.co/litert-community/Gemma3-1B-IT), [Gemma 3 270M](https://huggingface.co/litert-community/gemma-3-270m-it), [FunctionGemma 270M](https://huggingface.co/sasha-denisov/function-gemma-270M-it), [Qwen3 0.6B](https://huggingface.co/litert-community/Qwen3-0.6B), [Qwen 2.5](https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct), [Phi-4 Mini](https://huggingface.co/litert-community/Phi-4-mini-instruct), [DeepSeek R1](https://huggingface.co/litert-community/DeepSeek-R1-Distill-Qwen-1.5B), [SmolLM 135M](https://huggingface.co/litert-community/SmolLM-135M-Instruct), [LFM2.5 230M](https://huggingface.co/litert-community/LFM2.5-230M), [SmolLM3 3B](https://huggingface.co/litert-community/SmolLM3-3B), [Phi-4 Mini Reasoning](https://huggingface.co/litert-community/Phi-4-mini-reasoning), [Qwen2-VL 2B](https://huggingface.co/litert-community/Qwen2-VL-2B), [SmolVLM2 500M](https://huggingface.co/litert-community/SmolVLM2-500M), [LLaVA-OneVision 0.5B](https://huggingface.co/litert-community/LLaVA-OneVision-0.5B), [TranslateGemma 4B](https://huggingface.co/google/translategemma-4b-it) (CPU-only).
+**The plugin supports not only Gemma, but also other models. Here's the full list of supported models:** [Gemma 4 E2B/E4B](https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm), [Gemma3n E2B/E4B](https://huggingface.co/google/gemma-3n-E2B-it-litert-preview), [FastVLM 0.5B](https://huggingface.co/litert-community/FastVLM-0.5B), [Gemma-3 1B](https://huggingface.co/litert-community/Gemma3-1B-IT), [Gemma 3 270M](https://huggingface.co/litert-community/gemma-3-270m-it), [FunctionGemma 270M](https://huggingface.co/sasha-denisov/function-gemma-270M-it), [Qwen3 0.6B](https://huggingface.co/litert-community/Qwen3-0.6B), [Qwen3.5 0.8B](https://huggingface.co/litert-community/Qwen3.5-0.8B), [Qwen3.5 2B](https://huggingface.co/litert-community/Qwen3.5-2B), [Qwen3.5 4B](https://huggingface.co/litert-community/Qwen3.5-4B), [Qwen 2.5](https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct), [Phi-4 Mini](https://huggingface.co/litert-community/Phi-4-mini-instruct), [DeepSeek R1](https://huggingface.co/litert-community/DeepSeek-R1-Distill-Qwen-1.5B), [SmolLM 135M](https://huggingface.co/litert-community/SmolLM-135M-Instruct), [LFM2.5 230M](https://huggingface.co/litert-community/LFM2.5-230M), [SmolLM3 3B](https://huggingface.co/litert-community/SmolLM3-3B), [Phi-4 Mini Reasoning](https://huggingface.co/litert-community/Phi-4-mini-reasoning), [Qwen2-VL 2B](https://huggingface.co/litert-community/Qwen2-VL-2B), [SmolVLM2 500M](https://huggingface.co/litert-community/SmolVLM2-500M), [LLaVA-OneVision 0.5B](https://huggingface.co/litert-community/LLaVA-OneVision-0.5B), [TranslateGemma 4B](https://huggingface.co/google/translategemma-4b-it) (CPU-only).
 
-*Note: The flutter_gemma plugin supports Gemma 4 and Gemma3n (with **multimodal vision and audio support**), FastVLM, Qwen2-VL, SmolVLM2 and LLaVA-OneVision (vision), Gemma-3, FunctionGemma, Qwen3, Qwen 2.5, Phi-4 (incl. Phi-4 Mini Reasoning), DeepSeek R1, SmolLM and SmolLM3. Desktop platforms (macOS, Windows, Linux) require `.litertlm` model format.
+*Note: The flutter_gemma plugin supports Gemma 4 and Gemma3n (with **multimodal vision and audio support**), FastVLM, Qwen2-VL, Qwen3.5 0.8B/2B, SmolVLM2 and LLaVA-OneVision (vision), Gemma-3, FunctionGemma, Qwen3, Qwen3.5, Qwen 2.5, Phi-4 (incl. Phi-4 Mini Reasoning), DeepSeek R1, SmolLM and SmolLM3. Desktop platforms (macOS, Windows, Linux) require `.litertlm` model format.
 
 [Gemma](https://ai.google.dev/gemma) is a family of lightweight, state-of-the art open models built from the same research and technology used to create the Gemini models
 
@@ -148,6 +148,8 @@ The example app offers a curated list of models, each suited for different tasks
 | **Phi-4 Mini Reasoning** | Step-by-step reasoning | ❌ | ✅ | ❌ | Multilingual | 2.8GB |
 | **DeepSeek R1** | High-performance reasoning and code generation | ✅ | ✅ | ❌ | Multilingual | 1.7GB |
 | **Qwen3 0.6B** | Compact multilingual chat with function calling | ✅ | ✅ | ❌ | Multilingual | 586MB |
+| **Qwen3.5 0.8B / 2B** | Compact multimodal ChatML models | ❌ | ❌ | ✅ | Multilingual | 0.96-3.15GB |
+| **Qwen3.5 4B** | Text-only hybrid ChatML model | ❌ | ❌ | ❌ | Multilingual | 2.75-4.41GB |
 | **Qwen 2.5** | Strong multilingual chat and instruction following | ✅ | ❌ | ❌ | Multilingual | 0.5-1.6GB |
 | **Gemma 3 1B** | Balanced and efficient text generation | ✅ | ❌ | ❌ | Multilingual | 0.5GB |
 | **Gemma 3 270M** | Ideal for fine-tuning (LoRA) for specific tasks | ❌ | ❌ | ❌ | Multilingual | 0.3GB |
@@ -158,6 +160,8 @@ The example app offers a curated list of models, each suited for different tasks
 | **TranslateGemma 4B** † | Single-shot 55-language translation | ❌ | ❌ | ❌ | 55 languages | 2-4GB |
 
 † **TranslateGemma is CPU-only for now.** Google hasn't released a mobile/desktop `.litertlm` bundle (HF discussion [#5](https://huggingface.co/google/translategemma-4b-it/discussions/5) — "no concrete plans"). The example app uses a community-converted bundle from [`barakplasma/translategemma-4b-it-android-task-quantized`](https://huggingface.co/barakplasma/translategemma-4b-it-android-task-quantized), which publishes `.litertlm` artifacts. Both of them run correctly on `PreferredBackend.cpu` and return **only padding** on `PreferredBackend.gpu`: measured on an M4 Pro (Metal), `int4-generic` and `dynamic_int8-generic` each answered `Guten Morgen` on CPU and emitted 997 `<pad>` tokens and nothing else on GPU, from the same prompt and the same code. Nothing throws — the Metal engine is created, `activeBackend` reports `gpu`, and generation runs to the context limit. A `gemma-4-E2B-it.litertlm` bundle on the same machine, the same code path and the same backend answers correctly with no padding, so this is not the Metal path in general. Tracked upstream at [LiteRT-LM#1748](https://github.com/google-ai-edge/LiteRT-LM/issues/1748). Use CPU for this model (≈90 s prefill on a 4 B int4 bundle on M-series Macs).
+
+**Qwen3.5 notes:** The current LiteRT-LM catalog contains 0.8B, 2B, and 4B artifacts. The 0.8B and 2B repos include vision variants; the 4B repo is text-only. These bundles declare thinking disabled and do not declare tool calling, and they use `ModelType.qwen` — not `ModelType.qwen3` — because `ModelType.qwen3` appends `/no_think` to user messages. Use the manifest resolver so the app can select a tested artifact and surface device/backend caveats. Qwen3.6 and Qwen3.8 are not automatically treated as supported until a compatible LiteRT-LM artifact and chat contract are verified.
 
 ## ModelType Reference
 
@@ -170,6 +174,7 @@ When installing models, you need to specify the correct `ModelType`. Use this ta
 | **DeepSeek** | `ModelType.deepSeek` | DeepSeek R1 |
 | **Qwen 2.5** | `ModelType.qwen` | Qwen 2.5 1.5B, Qwen 2.5 0.5B |
 | **Qwen 3** | `ModelType.qwen3` | Qwen3 0.6B |
+| **Qwen 3.5** | `ModelType.qwen` | Qwen3.5 0.8B, 2B, 4B (LiteRT-LM) |
 | **FunctionGemma** | `ModelType.functionGemma` | FunctionGemma 270M IT |
 | **Phi** | `ModelType.phi` | Phi-4 Mini |
 | **General** | `ModelType.general` | FastVLM 0.5B, SmolLM 135M, LFM2.5 230M, SmolLM3 3B, Phi-4 Mini Reasoning, Qwen2-VL 2B, SmolVLM2 500M, LLaVA-OneVision 0.5B |
@@ -1721,6 +1726,9 @@ together. Three things are worth knowing:
 | [Gemma 3 270M](https://huggingface.co/litert-community/gemma-3-270m-it) | 0.3GB | ✅ | ✅ | ✅ |
 | [FunctionGemma 270M](https://huggingface.co/sasha-denisov/function-gemma-270M-it) | 284MB | ✅ | ✅ | ❌ |
 | [Qwen3 0.6B](https://huggingface.co/litert-community/Qwen3-0.6B) | 586MB | ✅ | ✅ | ✅ |
+| [Qwen3.5 0.8B](https://huggingface.co/litert-community/Qwen3.5-0.8B) | 0.96-1.30GB | ✅ | ✅ | ⚠️ |
+| [Qwen3.5 2B](https://huggingface.co/litert-community/Qwen3.5-2B) | 2.12-3.15GB | ✅ | ✅ | ⚠️ |
+| [Qwen3.5 4B](https://huggingface.co/litert-community/Qwen3.5-4B) | 2.75-4.41GB | ✅ | ⚠️ | ⚠️ |
 | [Qwen 2.5 1.5B](https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct) | 1.6GB | ✅ | ✅ | ❌ |
 | [Qwen 2.5 0.5B](https://huggingface.co/litert-community/Qwen2.5-0.5B-Instruct) | 0.5GB | ❌ | ✅ | ❌ |
 | [SmolLM 135M](https://huggingface.co/litert-community/SmolLM-135M-Instruct) | 135MB | ❌ | ✅ | ❌ |
@@ -1731,6 +1739,8 @@ together. Three things are worth knowing:
 | [TranslateGemma 4B](https://huggingface.co/google/translategemma-4b-it) † | 2-4GB | ❌ | ✅ | ❌ |
 
 † **TranslateGemma is CPU-only.** Google ships no bundle of its own; the community repo ([`barakplasma/translategemma-4b-it-android-task-quantized`](https://huggingface.co/barakplasma/translategemma-4b-it-android-task-quantized)) publishes `.litertlm` artifacts that load and translate on desktop CPU, but return only padding on the GPU. See the [Model Capabilities](#model-capabilities) note for the measurements.
+
+⚠️ means the LiteRT-LM artifact is available, but the current manifest carries device/backend caveats or the web path is not verified. Prefer `resolveHuggingFace` and surface `r.notes` before enabling vision or GPU on Qwen3.5.
 
 ### 📊 Text Embedding Models
 
@@ -2027,8 +2037,8 @@ The full and complete example you can find in `example` folder
 ## **Important Considerations**
 
 * **Model Size:** Larger models (such as 7b and 7b-it) might be too resource-intensive for on-device inference.
-* **Function Calling Support:** Gemma 4, Gemma3n, Gemma 3 1B, FunctionGemma, DeepSeek, Qwen3, Qwen 2.5, and Phi-4 models support function calling. Other models will ignore tools and show a warning. See [Model Function Calling Support](#%EF%B8%8F-model-function-calling-support).
-* **Thinking Mode:** Gemma 4, DeepSeek, Qwen3, SmolLM3, and Phi-4 Mini Reasoning models support thinking mode. Enable with `isThinking: true` on the matching `ModelType`.
+* **Function Calling Support:** Gemma 4, Gemma3n, Gemma 3 1B, FunctionGemma, DeepSeek, Qwen3, Qwen 2.5, and Phi-4 models support function calling. Qwen3.5 artifacts currently do not declare it. Other models will ignore tools and show a warning. See [Model Function Calling Support](#%EF%B8%8F-model-function-calling-support).
+* **Thinking Mode:** Gemma 4, DeepSeek, Qwen3, SmolLM3, and Phi-4 Mini Reasoning models support thinking mode. Qwen3.5 artifacts currently declare thinking disabled. Enable with `isThinking: true` on the matching `ModelType`.
 * **Multimodal Models:** Gemma3n models with vision support require more memory and are recommended for devices with 8GB+ RAM.
 * **iOS Memory Requirements:** Large models require memory entitlements in `Runner.entitlements`.
 * **LoRA Weights:** They provide efficient customization without the need for full model retraining.

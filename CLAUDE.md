@@ -73,12 +73,15 @@
 | Phi-4 Mini | ✅ | ❌ | ❌ | Android, iOS, Web, Desktop |
 | DeepSeek R1 | ✅ | ✅ | ❌ | Android, iOS |
 | Qwen3 0.6B | ✅ | ✅ ² | ❌ | Android, iOS, Web, Desktop |
+| Qwen3.5 0.8B/2B/4B | ❌ | ❌ | ✅ vision on 0.8B/2B | Android, iOS, Desktop (`.litertlm`) |
 | Qwen 2.5 (0.5B/1.5B) | ✅ | ❌ | ❌ | Android, iOS |
 | SmolLM 135M | ❌ | ❌ | ❌ | Android, iOS |
 | LFM2.5 230M | ❌ | ❌ | ❌ | Android, iOS, Desktop |
 
 > ¹ Thinking Mode for Gemma 4: Android, iOS, Desktop only. Web (MediaPipe) does not support `extraContext`.
 > ² Qwen3 generates thinking by default; tags are stripped when `isThinking: false`.
+
+Qwen3.5 LiteRT-LM artifacts use `ModelType.qwen`, not `ModelType.qwen3`, because the latter appends `/no_think` to user turns. Qwen3.6/Qwen3.8 must not be auto-mapped until a compatible LiteRT-LM artifact and chat contract are verified.
 
 ### Platform Limitations
 

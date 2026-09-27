@@ -82,6 +82,12 @@ the same defaults on `InferenceInstallation.runtime` (plus `notes`). The
 two-step form above stays the offline-safe one — manifest mode needs the network
 on every install, because the variant's filename is only known after the fetch.
 
+### Qwen3.5 and future Qwen releases
+
+The current LiteRT-LM catalog includes [Qwen3.5 0.8B](https://huggingface.co/litert-community/Qwen3.5-0.8B), [Qwen3.5 2B](https://huggingface.co/litert-community/Qwen3.5-2B), and [Qwen3.5 4B](https://huggingface.co/litert-community/Qwen3.5-4B). The 0.8B and 2B repos include vision variants; the 4B repo is text-only. These artifacts declare thinking disabled and no tool calling, and the resolver maps them to `ModelType.qwen` so it does not append Qwen3's `/no_think` suffix.
+
+Do not infer LiteRT-LM support from a new Qwen model name alone. Qwen3.6 and Qwen3.8 are left unmapped until a compatible LiteRT-LM artifact and chat contract are verified; pass an explicit `ModelType` only after testing that model's template and runtime behavior.
+
 ## Embeddings
 
 ```dart

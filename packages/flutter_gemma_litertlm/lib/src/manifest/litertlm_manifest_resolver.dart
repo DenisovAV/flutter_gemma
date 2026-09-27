@@ -320,6 +320,12 @@ class LitertlmManifestResolver implements HuggingFaceResolver {
   /// Qwen3.5 maps to [ModelType.qwen], not `qwen3`: same ChatML handling,
   /// but `qwen3` also appends ` /no_think` to user turns when thinking is
   /// off, which Qwen3.5 does not understand and would read as literal text.
+  ///
+  /// Do not treat every dotted `Qwen3.x` name as Qwen3. Newer Qwen releases
+  /// can change the chat contract (Qwen3.6 adds thinking preservation), so an
+  /// unlisted minor release must be explicitly verified before this resolver
+  /// assigns a [ModelType]. A null result makes the app choose the model type
+  /// deliberately instead of silently applying Qwen3-specific behavior.
   @visibleForTesting
   static ModelType? mapModelType({
     required String baseModel,
@@ -341,7 +347,13 @@ class LitertlmManifestResolver implements HuggingFaceResolver {
     }
     if (id.contains('gemma')) return ModelType.gemmaIt;
     if (id.contains('qwen3.5')) return ModelType.qwen;
-    if (id.contains('qwen3') || arch.contains('qwen3forcausallm')) {
+    // The separator after qwen3 is intentional: it matches shipped ids such
+    // as Qwen3-4B and Qwen3 0.6B, but not future dotted releases such as
+    // Qwen3.6 or Qwen3.8 whose chat behavior has not been verified here.
+    if (RegExp(r'qwen3\.\d+').hasMatch(id)) return null;
+    if (RegExp(r'qwen3(?:$|[\s_-])').hasMatch(id) ||
+        id.contains('qwen3forcausallm') ||
+        arch.contains('qwen3forcausallm')) {
       return ModelType.qwen3;
     }
     if (id.contains('qwen') || arch.contains('qwen2forcausallm')) {

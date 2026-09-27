@@ -72,7 +72,8 @@ silently do the other thing.
         Android GPU = at least one Adreno AND one Mali (FTL akita / a34x).
 [ ] 1b-ter an upstream pin moved → read upstream's open issues filed since that
         tag (`gh issue list --repo google-ai-edge/LiteRT-LM --search "created:>=<tag-date>"`)
-        and note in the PR body which ones touch us
+        and list in the PR body the ones that touch us by number, or
+        "none as of <date>" — plus the tag date the search started from
 [ ] 5b  manifest gate RUN and printed "N platform(s) compared" — N == number of tarballs
 [ ] 1d-bis  any packages/*/README.md changed since its published version? → that
         package needs a version bump EVEN IF its lib/ did not change; the README

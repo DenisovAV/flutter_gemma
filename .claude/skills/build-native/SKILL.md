@@ -595,7 +595,7 @@ fails, is `patchelf --add-needed` on the importer (steps 8b/8c), never an
 allowlist. patchelf missing is a build error, not a warning.
 
 ```
-  [ok]   15 aarch64 libraries checked against 35 stubs
+  [ok]   15 aarch64 libraries checked against API 35 stubs
 ```
 
 ### 10. NPU on real silicon — the only check that covers the dispatch libraries

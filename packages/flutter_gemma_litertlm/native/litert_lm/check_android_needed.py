@@ -88,7 +88,10 @@ def exports(p):
 
 
 def needed(p):
-    return re.findall(r"\(NEEDED\)\s+Shared library: \[([^\]]+)\]", run(readelf, "-d", p))
+    # Basenames: providers are keyed by file name, and Android loads jniLibs by
+    # name from one flat directory anyway.
+    return [os.path.basename(n) for n in
+            re.findall(r"\(NEEDED\)\s+Shared library: \[([^\]]+)\]", run(readelf, "-d", p))]
 
 
 def imports(p):
@@ -114,6 +117,13 @@ for s in glob.glob(os.path.join(stubs, "*.so")):
     for sym in exports(s):
         providers.setdefault(sym, set()).add(norm(os.path.basename(s)))
 # Skel blobs are Hexagon DSP images, not aarch64 — they never meet bionic.
+# Android loads jniLibs from one flat lib/<abi>/ directory, so a library in a
+# subdirectory is a packing error — and one this check would otherwise skip.
+nested = [p for p in glob.glob(os.path.join(bundle, "**", "*.so"), recursive=True)
+          if os.path.normpath(os.path.dirname(p)) != os.path.normpath(bundle)]
+if nested:
+    die("libraries outside the bundle's top level, which Android never loads: "
+        + ", ".join(sorted(os.path.relpath(p, bundle) for p in nested)))
 libs = [p for p in sorted(glob.glob(os.path.join(bundle, "*.so"))) if is_aarch64(p)]
 libs or die(f"no aarch64 libraries in {bundle} — wrong path, nothing was checked")
 for p in libs:
@@ -147,5 +157,5 @@ for p in libs:
               f"{', '.join(prov)}, none in its NEEDED ({what})")
         fail = 1
 print(f"  [{'FAIL' if fail else 'ok'}]   {len(libs)} aarch64 librar"
-      f"{'y' if len(libs) == 1 else 'ies'} checked against {os.path.basename(stubs)} stubs")
+      f"{'y' if len(libs) == 1 else 'ies'} checked against API {os.path.basename(stubs)} stubs")
 sys.exit(fail)

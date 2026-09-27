@@ -79,6 +79,22 @@ jobs:
       - name: Build libLiteRtLm.so
         run: |
           cd /tmp/LiteRT-LM
+          # The Linux constraint provider is built with Google's libc++
+          # (std::__u). A normal Ubuntu Clang invocation selects libstdc++, and
+          # the runtime then crosses the provider boundary with incompatible
+          # C++ standard-library objects. Use LiteRT-LM's hermetic Google
+          # toolchain instead of silently producing another ABI-mismatched
+          # archive. The config targets glibc 2.31 and is defined upstream in
+          # .bazelrc; the clone step must fail if a requested ref does not
+          # contain that toolchain configuration.
+          grep -q 'build:hermetic_linux' .bazelrc || {
+            echo "::error::LiteRT-LM ref does not provide the hermetic Linux toolchain required by the prebuilt constraint provider"
+            exit 1
+          }
+          grep -q 'rules_ml_toolchain' WORKSPACE || {
+            echo "::error::LiteRT-LM ref does not provide rules_ml_toolchain for the hermetic Linux build"
+            exit 1
+          }
           # Same correction as the Windows job: litert_link_capi_so no longer
           # exists upstream, so it was a no-op and the LiteRt runtime ended up
           # linked statically inside libLiteRtLm. Linux masked that with our
@@ -87,9 +103,51 @@ jobs:
           # engine_create trips 'wgpu::Instance already set'. Upstream docs
           # require both defines for GPU on every platform.
           bazelisk build -c opt --strip=always \
+            --config=hermetic_linux \
             --define=litert_runtime_link_mode=dynamic \
             --define=resolve_symbols_in_exec=false \
             '//c:libLiteRtLm.dylib'
+
+      - name: Verify Linux C++ ABI matches the constraint provider
+        run: |
+          set -euo pipefail
+          runtime=/tmp/LiteRT-LM/bazel-bin/c/libLiteRtLm.dylib
+          provider=/tmp/LiteRT-LM/prebuilt/linux_x86_64/libGemmaModelConstraintProvider.so
+          [ -s "$runtime" ] || { echo "::error::runtime binary is missing"; exit 1; }
+          [ -s "$provider" ] || { echo "::error::constraint provider is missing"; exit 1; }
+
+          # The provider is a prebuilt C++ implementation behind an opaque C
+          # entry point, but LiteRT-LM reinterprets the returned object as its
+          # C++ Constraint interface. Matching only ComputeMask/LogitMask is
+          # insufficient: the inline libc++ ABI namespace must match too.
+          provider_abis="$({ nm -D -C "$provider" 2>/dev/null || true; strings "$provider" || true; } \
+            | grep -oE 'std::__[[:alnum:]_]+' | sort -u || true)"
+          provider_count="$(printf '%s\n' "$provider_abis" | sed '/^$/d' | wc -l | tr -d ' ')"
+          if [ "$provider_count" != 1 ]; then
+            echo "::error::could not identify exactly one provider C++ ABI namespace"
+            printf '%s\n' "$provider_abis"
+            exit 1
+          fi
+          provider_abi="$(printf '%s\n' "$provider_abis" | sed '/^$/d')"
+
+          runtime_abis="$({ nm -D -C "$runtime" 2>/dev/null || true; strings "$runtime" || true; } \
+            | grep -oE 'std::__[[:alnum:]_]+' | sort -u || true)"
+          if printf '%s\n' "$runtime_abis" | grep -q 'std::__cxx11'; then
+            echo "::error::runtime still references libstdc++ C++11 ABI symbols"
+            printf '%s\n' "$runtime_abis"
+            exit 1
+          fi
+          if ! printf '%s\n' "$runtime_abis" | grep -Fxq "$provider_abi"; then
+            echo "::error::runtime C++ ABI does not match provider ($provider_abi)"
+            echo "runtime ABI markers:"
+            printf '%s\n' "$runtime_abis"
+            exit 1
+          fi
+          if readelf -d "$runtime" | grep -q 'libstdc++'; then
+            echo "::error::runtime links libstdc++; the constraint provider requires the hermetic libc++ ABI"
+            exit 1
+          fi
+          echo "Linux C++ ABI matches: $provider_abi"
 
       - name: Build libStreamProxy.so
         run: |

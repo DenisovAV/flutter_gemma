@@ -82,6 +82,16 @@ class EmbedderCache {
     final cached = _cached;
     if (cached == null) return null;
 
+    // Checked, not trusted. Eviction rides the close listener, so a model that
+    // never fires one — or that was already closed when it was recorded, after
+    // which `fireCloseListeners` has nothing left to call — would be handed to
+    // every later caller, and every `generateEmbedding` on it throws.
+    if (cached.model.isClosed) {
+      gemmaLog('ℹ️  Cached embedder is closed; building a new one for $label');
+      _cached = null;
+      return null;
+    }
+
     final changedParam = cached.params.firstDifference(requested);
     if (changedParam == null) {
       gemmaLog('ℹ️  Reusing existing embedding model instance for $label');

@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter_gemma_litertlm/src/ffi/backend_preference.dart';
 import 'package:flutter_gemma/core/domain/platform_types.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -37,14 +35,36 @@ void main() {
       );
     });
 
-    test('the host default offers NPU only on Android and Windows', () {
-      expect(
-        hostShipsNpuDispatch,
-        Platform.isAndroid || Platform.isWindows,
-        reason:
-            'only those two native tarballs carry a dispatch stack — Qualcomm '
-            'QNN and Intel OpenVino respectively',
-      );
+    test(
+      'the rule: Windows always, Android only with FastRPC, nowhere else',
+      () {
+        // The predicate rather than `hostShipsNpuDispatch`, because
+        // `Platform.operatingSystem` has no override seam — asserting the getter
+        // on a macOS runner compares false to false and would pass for an
+        // implementation that disabled NPU everywhere.
+        expect(
+          npuDispatchShipsFor('windows', androidHasFastRpc: false),
+          isTrue,
+        );
+        expect(npuDispatchShipsFor('android', androidHasFastRpc: true), isTrue);
+        expect(
+          npuDispatchShipsFor('android', androidHasFastRpc: false),
+          isFalse,
+          reason:
+              'the Qualcomm stack ships for every arm64 Android build, so the '
+              'APK proves nothing about the silicon',
+        );
+        for (final os in ['macos', 'linux', 'ios', 'fuchsia', '']) {
+          expect(
+            npuDispatchShipsFor(os, androidHasFastRpc: true),
+            isFalse,
+            reason: '$os ships no NPU dispatch stack at all',
+          );
+        }
+      },
+    );
+
+    test('the host getter agrees with the rule it delegates to', () {
       expect(
         ffiBackendFallbackOrder(
           PreferredBackend.npu,

@@ -194,6 +194,11 @@ class FakeEmbeddingModel implements gemma.EmbeddingModel {
   @override
   gemma.PreferredBackend? get activeBackend => gemma.PreferredBackend.cpu;
 
+  // `implements` does not inherit the interface's default, so this has to
+  // be spelled out. The fake is never closed.
+  @override
+  bool get isClosed => false;
+
   @override
   Future<List<double>> generateEmbedding(
     String text, {

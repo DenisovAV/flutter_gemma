@@ -626,6 +626,21 @@ abstract class EmbeddingModel {
   /// it wherever the answer is actually known.
   PreferredBackend? get activeBackend => null;
 
+  /// Whether [close] has already been called.
+  ///
+  /// Core's embedder cache is the caller that needs this. It evicts on the close
+  /// listener, which means it trusts an implementation to fire one — and a model
+  /// that never does, or that was already closed before the cache took custody,
+  /// would otherwise be handed to every later caller, whose first
+  /// `generateEmbedding` throws. This lets the cache check instead of trust.
+  ///
+  /// Defaulted to `false` rather than abstract: it reproduces exactly what the
+  /// cache assumed before it existed, so an implementation that does not answer
+  /// behaves as it does today. `implements` does not inherit a default body, so
+  /// those break — which is the same break this release already takes for
+  /// [activeBackend], not a second one.
+  bool get isClosed => false;
+
   /// See [InferenceModel.addCloseListener].
   void addCloseListener(void Function() listener);
 

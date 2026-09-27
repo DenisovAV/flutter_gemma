@@ -25,6 +25,9 @@ class WebEmbeddingModel extends EmbeddingModel with CloseNotifier {
   final String? _modelPath;
   final String? _tokenizerPath;
   bool _isClosed = false;
+
+  @override
+  bool get isClosed => _isClosed;
   bool _isInitialized = false;
 
   /// The one in-flight initialisation, shared by every caller.

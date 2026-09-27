@@ -144,6 +144,27 @@ void main() {
     },
   );
 
+  test(
+    'a cached model that reports itself closed is rebuilt, not reused',
+    () async {
+      // Eviction normally rides the close listener. A model that never fires one
+      // — or that was already closed when it was recorded, after which
+      // `fireCloseListeners` has nothing left to call — would otherwise be
+      // handed to every later caller, and every call on it throws.
+      final cache = EmbedderCache();
+      final silent = _SilentCloseEmbedder();
+      cache.record(silent, paramsFor('/a'));
+      await silent.close();
+
+      expect(
+        await cache.reuseOrInvalidate(paramsFor('/a'), label: 'test'),
+        isNull,
+        reason: 'the params match, so only isClosed can save this caller',
+      );
+      expect(cache.model, isNull);
+    },
+  );
+
   group('EmbedderCache close listener', () {
     test('closing the cached model empties the cache', () async {
       final cache = EmbedderCache();
@@ -291,6 +312,20 @@ void main() {
       expect(model.closeCount, 0);
     });
   });
+}
+
+/// Closes without telling anyone, the way a third-party implementation that
+/// does not mix in `CloseNotifier` might.
+class _SilentCloseEmbedder extends _FakeEmbedder {
+  bool _closed = false;
+
+  @override
+  bool get isClosed => _closed;
+
+  @override
+  Future<void> close() async {
+    _closed = true; // deliberately no fireCloseListeners()
+  }
 }
 
 /// Refuses to register a close listener, the way a third-party implementation

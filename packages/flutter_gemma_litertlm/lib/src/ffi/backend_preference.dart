@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:developer' as developer;
+import 'dart:ffi';
 import 'dart:io';
 
 import 'package:flutter_gemma/core/domain/platform_types.dart';
@@ -19,7 +20,55 @@ import 'package:flutter_gemma/core/utils/gemma_log.dart';
 /// `InferenceModel.activeBackend` promises to "reflect any fallback the plugin
 /// performed internally", so that was a false report: a benchmark asking for
 /// NPU attributed its CPU or GPU numbers to an NPU the machine does not have.
-bool get hostShipsNpuDispatch => Platform.isAndroid || Platform.isWindows;
+bool get hostShipsNpuDispatch => npuDispatchShipsFor(
+  Platform.operatingSystem,
+  androidHasFastRpc: _androidHasFastRpc,
+);
+
+/// The rule behind [hostShipsNpuDispatch], as a pure function.
+///
+/// Split out because `Platform.operatingSystem` has no override seam — `dart:io`'s
+/// `IOOverrides` covers files, directories and sockets, not the platform — so the
+/// Android and Windows arms are otherwise unreachable from a `flutter test` run
+/// on a Mac, and a test can only restate the implementation back at itself.
+bool npuDispatchShipsFor(
+  String operatingSystem, {
+  required bool androidHasFastRpc,
+}) => switch (operatingSystem) {
+  'windows' => true,
+  'android' => androidHasFastRpc,
+  _ => false,
+};
+
+bool? _fastRpcProbe;
+
+/// Whether Qualcomm's FastRPC bridge resolves in this process.
+///
+/// The OS is the wrong granularity on Android. The Qualcomm stack ships in every
+/// `android_arm64` build, so a Tensor, Exynos or Dimensity phone has all eleven
+/// libraries in its APK and no Hexagon DSP to run them on. Offering `npu` there
+/// costs a 55.1 MiB zip extraction out of the APK into `codeCacheDir` — measured
+/// on the native-v0.17.1 bundle, of which 44 MiB is the four per-SoC Skels — and
+/// that extraction runs on the platform thread inside a `MethodChannel` handler,
+/// so it stalls input dispatch and the Choreographer. Then `engine_create` fails
+/// anyway. `codeCacheDir` is cache-class storage, so "Clear cache" and every app
+/// upgrade make it happen again.
+///
+/// `libcdsprpc.so` is the precondition for the chain: the per-SoC `QnnHtp*Stub`
+/// libraries carry it as a `DT_NEEDED`, and the core plugin's manifest declares
+/// it `required="false"` so it resolves in the app's namespace where it exists.
+/// So one `dlopen` answers the silicon question, before the gate lets anything
+/// reach the channel that does the extracting.
+///
+/// Probed once: the answer cannot change within a process.
+bool get _androidHasFastRpc => _fastRpcProbe ??= () {
+  try {
+    DynamicLibrary.open('libcdsprpc.so');
+    return true;
+  } on Object {
+    return false;
+  }
+}();
 
 /// The backends to try, in order, for a [preferredBackend] request.
 ///

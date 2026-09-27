@@ -38,6 +38,9 @@ class CommonEmbeddingModel extends EmbeddingModel with CloseNotifier {
   final PreferredBackend? activeBackend;
   bool _isClosed = false;
 
+  @override
+  bool get isClosed => _isClosed;
+
   /// Sequence length the forward pass reported at load, if any (see
   /// [EmbeddingForwardPass.inputSequenceLength]).
   int? get inputSequenceLength =>

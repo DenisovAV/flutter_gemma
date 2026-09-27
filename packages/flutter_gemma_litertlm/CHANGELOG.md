@@ -1,6 +1,7 @@
 ## 1.8.2
 - Web reports the accelerator it ran on, and whether the graph was fully accelerated.
 - `activeBackend` no longer claims NPU where no NPU dispatch stack ships.
+- A non-Qualcomm Android phone no longer unpacks 55 MiB of NPU libraries it cannot use.
 
 ## 1.8.1
 - A chat stopped mid-reply answered every later message with nothing (#325).

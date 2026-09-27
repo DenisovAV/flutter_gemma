@@ -60,6 +60,9 @@ class OnnxWebEmbeddingModel extends EmbeddingModel with CloseNotifier {
   OnnxWebEmbeddingForwardPass? _pass;
   EmbeddingTokenizer? _tokenizer;
   bool _isClosed = false;
+
+  @override
+  bool get isClosed => _isClosed;
   Future<void>? _initFuture;
 
   void _assertNotClosed() {

@@ -249,9 +249,10 @@ void _assertAndroid(String fn) {
 /// result — so a failed preload logs and carries on rather than breaking an
 /// app over a condition it does not depend on.
 ///
-/// The warning goes through [developer.log] rather than `gemmaLog` so it
-/// survives release builds — a third-party load-order conflict is precisely
-/// what someone debugs in release.
+/// The warning goes through [_warn], i.e. bare `print`, for the reason that
+/// function documents: `gemmaLog` and `dart:developer`'s `log` are BOTH silent
+/// in release, and a third-party load-order conflict is precisely what someone
+/// debugs in release.
 DynamicLibrary openLiteRtLmPreferringDefaultScope(String soname) {
   _assertAndroid('openLiteRtLmPreferringDefaultScope');
   final scope = _loadAndVerify(

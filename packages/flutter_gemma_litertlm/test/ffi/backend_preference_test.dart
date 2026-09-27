@@ -1,15 +1,120 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter_gemma_litertlm/src/ffi/backend_preference.dart';
 import 'package:flutter_gemma/core/domain/platform_types.dart';
+import 'package:flutter_gemma/core/utils/gemma_log.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+/// Runs [body] and returns everything it `print`ed, with `gemmaLog` muted — so
+/// a line that shows up here reached `print` itself, the one channel a release
+/// build keeps.
+Future<List<String>> _printedWithGemmaLogMuted(
+  Future<void> Function() body,
+) async {
+  final printed = <String>[];
+  final level = gemmaLogLevel;
+  gemmaLogLevel = GemmaLogLevel.none;
+  try {
+    await runZoned(
+      body,
+      zoneSpecification: ZoneSpecification(
+        print: (_, _, _, line) => printed.add(line),
+      ),
+    );
+  } finally {
+    gemmaLogLevel = level;
+  }
+  return printed;
+}
 
 void main() {
   group('ffiBackendFallbackOrder', () {
-    test('tries NPU, then GPU, then CPU for an NPU preference', () {
-      expect(ffiBackendFallbackOrder(PreferredBackend.npu), const [
-        PreferredBackend.npu,
-        PreferredBackend.gpu,
-        PreferredBackend.cpu,
-      ]);
+    test('tries NPU, then GPU, then CPU where an NPU dispatch stack ships', () {
+      expect(
+        ffiBackendFallbackOrder(
+          PreferredBackend.npu,
+          npuDispatchAvailable: true,
+        ),
+        const [
+          PreferredBackend.npu,
+          PreferredBackend.gpu,
+          PreferredBackend.cpu,
+        ],
+      );
+    });
+
+    test('does not offer NPU where no dispatch stack ships', () {
+      // The native runtime accepts `backend: "npu"` on a host that cannot
+      // honour it and does not fail, and initializeFfiRuntime reports the first
+      // candidate whose init did not throw — so offering npu here is what made
+      // a Mac report `activeBackend == npu`. Measured on macOS with Gemma 4
+      // E2B before this gate existed.
+      expect(
+        ffiBackendFallbackOrder(
+          PreferredBackend.npu,
+          npuDispatchAvailable: false,
+        ),
+        const [PreferredBackend.gpu, PreferredBackend.cpu],
+        reason:
+            'a backend we cannot run must not be reported as the one we ran',
+      );
+    });
+
+    test(
+      'the rule: Windows always, Android only with FastRPC, nowhere else',
+      () {
+        // The predicate rather than `hostShipsNpuDispatch`, because
+        // `Platform.operatingSystem` has no override seam — asserting the getter
+        // on a macOS runner compares false to false and would pass for an
+        // implementation that disabled NPU everywhere.
+        expect(
+          npuDispatchShipsFor('windows', androidHasFastRpc: false),
+          isTrue,
+        );
+        expect(npuDispatchShipsFor('android', androidHasFastRpc: true), isTrue);
+        expect(
+          npuDispatchShipsFor('android', androidHasFastRpc: false),
+          isFalse,
+          reason:
+              'the Qualcomm stack ships for every arm64 Android build, so the '
+              'APK proves nothing about the silicon',
+        );
+        for (final os in ['macos', 'linux', 'ios', 'fuchsia', '']) {
+          expect(
+            npuDispatchShipsFor(os, androidHasFastRpc: true),
+            isFalse,
+            reason: '$os ships no NPU dispatch stack at all',
+          );
+        }
+      },
+    );
+
+    test('the FastRPC probe runs on Android only', () {
+      // As an eagerly evaluated argument it ran on every host that asked for
+      // npu — including Windows, where LoadLibrary walks PATH.
+      expect(
+        hostShipsNpuDispatch,
+        npuDispatchShipsFor(Platform.operatingSystem, androidHasFastRpc: false),
+      );
+      expect(fastRpcProbed, isFalse);
+    }, skip: Platform.isAndroid ? 'the probe is the point on Android' : false);
+
+    test('the reason npu is missing is worded per platform', () {
+      final android = npuUnavailableReason(
+        'android',
+        fastRpcError: 'dlopen failed: library "libcdsprpc.so" not found',
+      );
+      expect(android, contains('libcdsprpc.so'));
+      expect(android, contains('not found'), reason: 'the probe error is kept');
+      expect(
+        android,
+        isNot(contains('ships')),
+        reason: 'the stack does ship on Android; the device lacks FastRPC',
+      );
+
+      expect(npuUnavailableReason('macos'), contains('no NPU dispatch stack'));
+      expect(npuUnavailableReason('macos'), isNot(contains('FastRPC')));
     });
 
     test('tries GPU, then CPU for a GPU preference', () {
@@ -77,6 +182,9 @@ void main() {
       await expectLater(
         initializeFfiRuntime<_FakeClient>(
           preferredBackend: PreferredBackend.npu,
+          // Pinned rather than host-dependent: this case is about all THREE
+          // attempts being reported, which needs npu to be on offer.
+          npuDispatchAvailable: true,
           logTag: '[Test]',
           createClient: () {
             final client = _FakeClient();
@@ -111,6 +219,48 @@ void main() {
 
       expect(clients, hasLength(3));
       expect(clients.every((client) => client.isShutdown), isTrue);
+    });
+
+    test(
+      'an npu request that cannot be honoured is printed, not only logged',
+      () async {
+        final printed = await _printedWithGemmaLogMuted(() async {
+          await initializeFfiRuntime<_FakeClient>(
+            preferredBackend: PreferredBackend.npu,
+            npuDispatchAvailable: false,
+            logTag: '[Test]',
+            createClient: _FakeClient.new,
+            initializeClient: (_, _) async {},
+            shutdownClient: (client) => client.shutdown(),
+          );
+        });
+        expect(printed, hasLength(1));
+        expect(printed.single, contains('npu was requested'));
+        expect(printed.single, contains('gpu -> cpu'));
+      },
+    );
+
+    test('a failed backend is printed, and the last one does not promise a '
+        'next', () async {
+      final printed = await _printedWithGemmaLogMuted(() async {
+        await expectLater(
+          initializeFfiRuntime<_FakeClient>(
+            preferredBackend: PreferredBackend.gpu,
+            logTag: '[Test]',
+            createClient: _FakeClient.new,
+            initializeClient: (_, backend) async =>
+                throw Exception('${ffiBackendWireName(backend)} failed'),
+            shutdownClient: (client) => client.shutdown(),
+          ),
+          throwsA(isA<BackendInitException>()),
+        );
+      });
+      expect(printed, hasLength(2));
+      expect(printed.first, contains('gpu backend failed, trying the next'));
+      expect(
+        printed.last,
+        contains('cpu backend failed, no candidates are left'),
+      );
     });
 
     test('requires at least one failed backend attempt', () {

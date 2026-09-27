@@ -142,7 +142,13 @@ so pass the `cache_length` the bundle was compiled for. Note that requesting
 `PreferredBackend.npu` does not guarantee the NPU runs: if it fails to
 initialize, the engine falls back to GPU and then CPU, and the floor applies
 again to those attempts — so a value chosen for an NPU bundle is raised to 1024
-on the fallback rather than crashing it.
+on the fallback rather than crashing it. The NPU candidate is attempted only on
+Windows and on Android phones with Qualcomm FastRPC; on other Android phones,
+macOS, Linux and iOS it is skipped, because nothing there can run it — and on
+macOS the native runtime was measured accepting `npu` anyway, which made
+`activeBackend` report an NPU that does not exist on the machine. On Windows
+the check is per OS, so a PC without an Intel NPU still attempts it, and
+`activeBackend` can then report `npu` while the model runs elsewhere.
 </Warning>
 
 ## `maxTokens` is the CONTEXT window, not the reply length

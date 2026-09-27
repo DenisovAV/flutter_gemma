@@ -172,7 +172,7 @@ final inferenceModel = await FlutterGemmaPlugin.instance.createModel(
 | `gpu` | ✅ | ✅ | ✅ (required) | ✅ |
 | `npu` | ✅ (.litertlm) | ❌ | ❌ | ❌ |
 
-- **NPU**: Qualcomm AI Engine, MediaTek NeuroPilot, Google Tensor. Up to 25x faster than CPU.
+- **NPU**: Qualcomm Snapdragon only — the Android archive ships the Qualcomm QNN dispatch stack and nothing for MediaTek or Google Tensor.
 - **Web**: GPU only (MediaPipe limitation). CPU models will fail to initialize.
 - **Desktop**: GPU uses Metal (macOS), DirectX 12 (Windows), Vulkan (Linux).
 
@@ -730,9 +730,9 @@ python tools/convert_sentencepiece_to_json.py --input path/to/sentencepiece.mode
 
 ```dart
 // Create embedding model instance
-final embeddingModel = await FlutterGemma.getActiveEmbedder(
-  preferredBackend: PreferredBackend.gpu, // Optional: use GPU acceleration
-);
+// `preferredBackend` is accepted but not applied to embeddings: native runs on
+// CPU and web lets the runtime pick. Read embeddingModel.activeBackend.
+final embeddingModel = await FlutterGemma.getActiveEmbedder();
 
 // Generate query embedding (for search)
 final queryEmb = await embeddingModel.generateEmbedding('What is Flutter?');

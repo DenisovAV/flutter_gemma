@@ -1,3 +1,6 @@
+## 0.5.0
+- Native inference `activeBackend` reports null instead of echoing the requested backend.
+
 ## 0.4.0
 - No longer depends on `flutter_gemma_embeddings`; asks core for a tokenizer, so register `embeddingTokenizers:`.
 

@@ -17,16 +17,28 @@ import 'package:flutter_gemma/flutter_gemma_interface.dart'
 
 import 'embedding_worker.dart';
 import 'forward_pass.dart';
+import 'package:flutter_gemma/core/domain/platform_types.dart'
+    show PreferredBackend;
 
 /// Signature for the `onClose` callback. Same name Flutter uses.
 typedef VoidCallback = void Function();
 
 class CommonEmbeddingModel extends EmbeddingModel with CloseNotifier {
-  CommonEmbeddingModel._(this._worker, this.onClose);
+  CommonEmbeddingModel._(this._worker, this.onClose, this.activeBackend);
 
   final EmbeddingWorker _worker;
   final VoidCallback onClose;
+
+  /// Carried from the engine's [ForwardPassDescriptor], never decided here.
+  /// This facade is runtime-agnostic by design, so it is not entitled to an
+  /// opinion about which backend ran — asserting CPU here would report the
+  /// next GPU-capable engine as CPU with nothing to catch it.
+  @override
+  final PreferredBackend? activeBackend;
   bool _isClosed = false;
+
+  @override
+  bool get isClosed => _isClosed;
 
   /// Sequence length the forward pass reported at load, if any (see
   /// [EmbeddingForwardPass.inputSequenceLength]).
@@ -52,7 +64,11 @@ class CommonEmbeddingModel extends EmbeddingModel with CloseNotifier {
       descriptor: descriptor,
       tokenizerPath: tokenizerPath,
     );
-    return CommonEmbeddingModel._(worker, onClose ?? () {});
+    return CommonEmbeddingModel._(
+      worker,
+      onClose ?? () {},
+      descriptor.activeBackend,
+    );
   }
 
   void _assertNotClosed() {
@@ -99,6 +115,16 @@ class CommonEmbeddingModel extends EmbeddingModel with CloseNotifier {
       await _worker.close();
     } finally {
       onClose();
+      // Deliberately AFTER the teardown, not before it. A listener is app code
+      // (`addCloseListener` is public) and `CloseNotifier` calls each one bare,
+      // so firing them first would let one throw exit here before
+      // `_worker.close()` was ever sent — a leaked isolate that `_isClosed`
+      // then makes unrecoverable. It happened once, in this branch.
+      //
+      // The window that ordering left — the cache still matching this model on
+      // params while the teardown ran — is closed by [isClosed] instead, which
+      // is already true above and which `EmbedderCache` checks on every read.
+      // That covers every implementation in one place, not just this one.
       fireCloseListeners();
     }
   }

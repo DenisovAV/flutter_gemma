@@ -1,3 +1,4 @@
+import 'package:meta/meta.dart' show immutable;
 import 'package:flutter_gemma/core/domain/platform_types.dart'
     show ActivationDataType, PreferredBackend;
 
@@ -235,4 +236,133 @@ class ActiveModelParams {
     if (!_sameRanks(loraRanks, other.loraRanks)) return 'loraRanks';
     return null;
   }
+}
+
+/// The runtime knobs a caller passes to `getActiveEmbedder`, captured so a
+/// second call can tell whether the cached singleton still satisfies it.
+///
+/// Its own record rather than [ActiveModelParams], which carries ten inference
+/// knobs and no identity at all: `maxTokens` is required there and compared
+/// first, and `normalized()` would apply vision and audio defaults to a model
+/// that has no encoders. (The `maxTokens: 0` filler in the web shell is on
+/// [RuntimeConfig], not on that class — no shell builds an `ActiveModelParams`
+/// for an embedder.)
+///
+/// The empirical reason, which is the same one that justified the neighbour:
+/// the reuse check was written three times and disagreed. Mobile compared the
+/// spec NAME, so reinstalling a same-named embedder to a new path was
+/// invisible; web kept its own record with both paths nullable; desktop
+/// compared the name too. All three call this now.
+///
+/// Only three values decide what an embedder IS. Everything else a caller can
+/// vary is per-call — `taskType` is an argument to `generateEmbedding`, not a
+/// property of the model.
+@immutable
+class ActiveEmbedderParams {
+  /// The requested backend is normalised HERE rather than in a method a caller
+  /// has to remember, so [activeBackend] always means "the backend this embedder
+  /// was built for" and there is no way to compare un-normalised values by
+  /// accident.
+  ///
+  /// `modelPath` is checked with a throw, not an `assert`. An assert is stripped
+  /// in release, and the release failure is not a crash: an empty path makes
+  /// every embedder compare equal to every other, so the cache hands back a
+  /// stale model's vectors — the exact silent-wrong-data failure this type was
+  /// created to prevent. `RuntimeConfig.modelPath` in this same file documents
+  /// `''` as the ordinary value on web, so an adopter wiring it straight in is
+  /// the reachable route.
+  ActiveEmbedderParams({
+    required this.modelPath,
+    this.tokenizerPath,
+    PreferredBackend? preferredBackend,
+  }) : activeBackend = _resolvedBackend(preferredBackend) {
+    if (modelPath.isEmpty) {
+      throw ArgumentError.value(
+        modelPath,
+        'modelPath',
+        'identifies the embedder, so it cannot be empty',
+      );
+    }
+  }
+
+  /// The file the compiled model opens. Compared instead of the spec NAME,
+  /// which is what the shells compared before: reinstalling a same-named model
+  /// to a new path was invisible to them.
+  final String modelPath;
+
+  /// Resolved by core and baked into the embedding worker at spawn.
+  final String? tokenizerPath;
+
+  /// What the embedder actually runs on, which is CPU whatever was asked — ON
+  /// NATIVE. The web shell builds this object too, and there it still holds
+  /// `cpu` while `EmbeddingModel.activeBackend` is null and the runtime may be
+  /// on WebGPU. That is harmless because this field is a cache KEY: it is a
+  /// constant, so it can never trigger a rebuild. Read the model's own
+  /// `activeBackend` for the answer; do not read this one.
+  ///
+  /// Named for the answer, not the request — deliberately unlike the
+  /// `preferredBackend` on [ActiveModelParams] and `RuntimeConfig`, which do
+  /// hold the raw request. The shells build this object and a `RuntimeConfig`
+  /// from the same local a few lines apart, so two fields with one name and
+  /// opposite meanings is a trap; this one matches
+  /// `EmbeddingModel.activeBackend`, which is where the value surfaces.
+  final PreferredBackend activeBackend;
+
+  /// The single place the "embeddings run on CPU" fact is written.
+  ///
+  ///   * LiteRT is CPU-only by decision, not by omission — the GPU delegate
+  ///     compiles and then returns all-zero vectors for EmbeddingGemma's int4
+  ///     weights (removed in `ab3df2bf`).
+  ///   * ONNX never appends an execution provider, so it runs ORT's default
+  ///     CPU provider.
+  ///
+  /// Two requests differing only in the requested backend therefore build the
+  /// same model and must NOT rebuild — a rebuild would unload and reload a
+  /// bit-identical model at the 570-780 ms compile measured in
+  /// `docs/issue-299-embedding-ui-isolate.md`.
+  ///
+  /// The day a backend honours the value, THREE things change together and this
+  /// is only the first: return `requested ?? PreferredBackend.cpu` here (never
+  /// the raw value — null and an explicit `cpu` are the same request, which is
+  /// why the neighbour normalises its encoder backends the same way), thread the
+  /// value into the backend that now reads it, and drop [isIgnoredBackend] so
+  /// callers stop being told it did nothing.
+  static PreferredBackend _resolvedBackend(PreferredBackend? requested) =>
+      PreferredBackend.cpu;
+
+  /// Name of the first field that differs from [other], or null when the cached
+  /// embedder can be reused. No normalisation step to forget: the constructor
+  /// already did it.
+  String? firstDifference(ActiveEmbedderParams other) {
+    if (modelPath != other.modelPath) return 'modelPath';
+    if (tokenizerPath != other.tokenizerPath) return 'tokenizerPath';
+    if (activeBackend != other.activeBackend) return 'activeBackend';
+    return null;
+  }
+
+  /// True when [requested] asks for something other than what an embedder
+  /// actually uses, so a caller can be told once that it changed nothing.
+  ///
+  /// Derived from [_resolvedBackend] rather than repeating the CPU constant, so
+  /// the fact still has exactly one site: the day that method returns the
+  /// request, this stops speaking on its own.
+  static bool isIgnoredBackend(PreferredBackend? requested) =>
+      requested != null && _resolvedBackend(requested) != requested;
+
+  /// Delegates to [firstDifference] rather than repeating its three
+  /// comparisons: two copies of one rule is how the copies stop agreeing, and a
+  /// fourth field would otherwise have to be remembered in both.
+  @override
+  bool operator ==(Object other) =>
+      other is ActiveEmbedderParams && firstDifference(other) == null;
+
+  /// The same three fields [firstDifference] compares, because `==` delegates
+  /// to it — so a fourth field goes in BOTH places, not "both" of `==` and
+  /// [firstDifference]. And if [firstDifference] ever normalises its inputs, as
+  /// [ActiveModelParams.firstDifference] does, hash the normalised values too,
+  /// or two objects would compare equal with different hashes and break every
+  /// `Map` and `Set` holding them. This one is safe today only because it
+  /// normalises in the constructor instead.
+  @override
+  int get hashCode => Object.hash(modelPath, tokenizerPath, activeBackend);
 }

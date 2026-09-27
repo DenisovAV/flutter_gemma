@@ -1,6 +1,6 @@
 name: flutter_gemma_embeddings
 description: "Embedding tokenizers for flutter_gemma: Gemma SentencePiece and BERT WordPiece, as a registrable provider. The pipeline they feed lives in flutter_gemma."
-version: 2.2.0
+version: 2.2.1
 homepage: https://fluttergemma.dev
 repository: https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_gemma_embeddings
 topics: [embeddings, gemma, litert, rag, on-device]

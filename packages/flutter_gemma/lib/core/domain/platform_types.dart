@@ -16,15 +16,22 @@ import 'package:meta/meta.dart' show immutable;
 /// - [cpu]: All platforms
 /// - [gpu]: All platforms (Metal on macOS, DirectX on Windows, Vulkan on Linux,
 ///   OpenCL on Android)
-/// - [npu]: With LiteRT-LM (.litertlm models) — Android (Qualcomm, MediaTek,
-///   Google Tensor) and Windows (Intel LunarLake/PantherLake)
+/// - [npu]: With LiteRT-LM (.litertlm models) — Android (Qualcomm Snapdragon
+///   only: the Android archive ships the Qualcomm QNN dispatch stack and
+///   nothing for MediaTek or Google Tensor) and Windows (Intel
+///   LunarLake/PantherLake). Asking for it elsewhere falls back rather than
+///   throwing; read `InferenceModel.activeBackend` for what actually ran.
+///   On Windows the check is per OS, not per device: a PC without an Intel
+///   NPU is still offered npu, and has been measured reporting
+///   `activeBackend == npu` while running elsewhere. There, npu is a request,
+///   not a proof.
 ///
-/// If the selected backend is unavailable, the engine falls back to GPU, then
-/// CPU.
+/// [gpu] and [npu] fall back if unavailable — GPU, then CPU. [cpu] does not
+/// fall back: it is the last resort already.
 enum PreferredBackend {
   cpu,
   gpu,
-  npu, // Android (Qualcomm/MediaTek/Tensor) + Windows (Intel LunarLake/PantherLake)
+  npu, // Android (Qualcomm only) + Windows (Intel LunarLake/PantherLake)
 }
 
 /// Numeric type of the model's activations, for native `.litertlm` models

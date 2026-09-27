@@ -613,18 +613,19 @@ void main() {
   // runs, regardless of seed/temperature).
   //
   // Platforms covered:
-  //   - Android with .litertlm NPU executor (Pixel 8 / API 31+ with
-  //     NNAPI accelerator that exposes "npu" backend tag)
-  //   - Windows with Intel dispatch DLLs (Lunar Lake / PantherLake — once
-  //     Matt + Intel partner deliver the bundle in 0.15.1 RC)
+  //   - Android on Qualcomm Snapdragon (QNN dispatch; verified on QDC sm8750).
+  //     A phone without FastRPC (Pixel, Exynos, Dimensity) never reaches npu.
+  //   - Windows with Intel dispatch DLLs (Lunar Lake / PantherLake).
   // Other platforms (macOS/iOS/Linux/Web): skipped — no NPU dispatch.
   group('Gemma4-E2B NPU', () {
     tearDownAll(_closeSharedModel);
 
     // Real NPU tests need a model precompiled for the target NPU (Intel
     // LunarLake / PantherLake or Qualcomm QNN). Generic Gemma 4 from HF
-    // doesn't carry NPU executor sections and `engine_create` will reject
-    // it. Pre-arranged LNL artifact lives in the workspace dir; SKIP if
+    // doesn't carry NPU executor sections. Whether `engine_create` rejects it
+    // or, as on macOS, accepts npu without honouring it is not measured on
+    // NPU hardware — which is why the helper below asserts the backend that
+    // ran. Pre-arranged LNL artifact lives in the workspace dir; SKIP if
     // absent (covers CI and dev machines without NPU hardware).
     String? _findNpuModel() {
       final candidates = <String>[
@@ -638,8 +639,10 @@ void main() {
         // Windows (Intel NPU): LunarLake/PantherLake-compiled model.
         if (Platform.isWindows)
           '${Platform.environment['USERPROFILE']}\\dev-gemma4-2b-lnl\\gemma4_2b_lnl.litertlm',
-        if (Platform.isLinux || Platform.isMacOS)
-          '${Platform.environment['HOME']}/dev-gemma4-2b-lnl/gemma4_2b_lnl.litertlm',
+        // No macOS or Linux candidate. The header above says those hosts are
+        // skipped, and since the NPU candidate is gated on a host that ships a
+        // dispatch stack, a bundle staged there would run on GPU or CPU while
+        // both tests below reported NPU facts about it.
       ];
       for (final p in candidates) {
         if (File(p).existsSync()) return p;
@@ -650,7 +653,9 @@ void main() {
     Future<InferenceModel?> _installAndGetNpu() async {
       final npuModelPath = _findNpuModel();
       if (npuModelPath == null) {
-        print('[Gemma4 NPU] SKIP: no NPU-compiled model found');
+        // A skip the report shows as one, not a pass: a bare `return` from the
+        // test read as PASSED, which is how a missing model looked green.
+        markTestSkipped('no NPU-compiled model staged for this host');
         return null;
       }
       await FlutterGemma.installModel(
@@ -665,10 +670,30 @@ void main() {
       // model wasn't staged so the test silently skipped, and even with a model
       // the catch would have hidden the dispatch_lib_dir failure. "No model" is
       // a legit skip (handled above); "model present but engine threw" is a FAIL.
-      return await FlutterGemma.getActiveModel(
+      final model = await FlutterGemma.getActiveModel(
         maxTokens: 4096,
         preferredBackend: PreferredBackend.npu,
       );
+      // Closed on every path out of the test, the failed expect below included:
+      // an engine left open here stays cached into the later groups. `close()`
+      // is idempotent, so the tests' own closes still stand.
+      addTearDown(model.close);
+      // The point of this group, and the one line it lacked. Both tests below
+      // pass on a GPU or CPU fallback — `paris` comes back either way, and CPU
+      // greedy is deterministic too — so without this they report NPU facts
+      // about whatever actually ran. A silent SKIP is how native-v0.13.1's
+      // missing dispatch libs passed green; a silent fallback is the same
+      // failure one layer up. opencl_leak_2699_test.dart guards OpenCL this
+      // way already.
+      expect(
+        model.activeBackend,
+        PreferredBackend.npu,
+        reason:
+            'an NPU-compiled bundle is staged, so ${model.activeBackend} here '
+            'means the dispatch stack did not load (#155) — and the sampler and '
+            'greedy behaviour asserted below are NPU facts only',
+      );
+      return model;
     }
 
     testWidgets('NPU engine_create accepts non-default sampler params', (

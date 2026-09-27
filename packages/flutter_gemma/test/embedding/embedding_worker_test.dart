@@ -21,6 +21,7 @@ import 'package:flutter_gemma_embeddings/src/embedding_tokenizer.dart';
 import 'package:flutter_gemma/core/embedding/embedding_worker.dart';
 import 'package:flutter_gemma/core/embedding/forward_pass.dart';
 import 'package:flutter_gemma/core/embedding/tokenizer_adapter.dart';
+import 'package:flutter_gemma/core/domain/platform_types.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Fake forward pass: behavior selected by [_FakeMode] (encoded into the
@@ -247,6 +248,7 @@ void main() {
           factory: _buildFake,
           tokenizerFactory: loadGemmaSentencePieceEmbeddingTokenizer,
           outputContract: EmbeddingOutputContract.pooledFinal,
+          activeBackend: PreferredBackend.cpu,
         ),
         tokenizerPath: tokenizerPath,
       );
@@ -266,6 +268,7 @@ void main() {
           factory: _buildFake,
           tokenizerFactory: loadGemmaSentencePieceEmbeddingTokenizer,
           outputContract: EmbeddingOutputContract.tokenLevel,
+          activeBackend: PreferredBackend.cpu,
         ),
         tokenizerPath: tokenizerPath,
       );
@@ -293,6 +296,7 @@ void main() {
             // Descriptor says tokenLevel — the pass's outputContract getter
             // must win instead.
             outputContract: EmbeddingOutputContract.tokenLevel,
+            activeBackend: PreferredBackend.cpu,
           ),
           tokenizerPath: tokenizerPath,
         );
@@ -316,6 +320,7 @@ void main() {
           factory: _buildFake,
           tokenizerFactory: _buildFixedMaskTokenizer,
           outputContract: EmbeddingOutputContract.pooledFinal,
+          activeBackend: PreferredBackend.cpu,
         ),
         tokenizerPath: tokenizerPath,
       );
@@ -341,6 +346,7 @@ void main() {
           // mask=[1,1,0] excludes the padding row (index 2).
           tokenizerFactory: _buildFixedMaskTokenizer,
           outputContract: EmbeddingOutputContract.tokenLevel,
+          activeBackend: PreferredBackend.cpu,
         ),
         tokenizerPath: tokenizerPath,
       );
@@ -352,6 +358,7 @@ void main() {
           // Gemma-style tokenizer: no mask at all -> every row counted.
           tokenizerFactory: loadGemmaSentencePieceEmbeddingTokenizer,
           outputContract: EmbeddingOutputContract.tokenLevel,
+          activeBackend: PreferredBackend.cpu,
         ),
         tokenizerPath: tokenizerPath,
       );
@@ -380,6 +387,7 @@ void main() {
           // Sends mask=[1,1,0] in the request...
           tokenizerFactory: _buildFixedMaskTokenizer,
           outputContract: EmbeddingOutputContract.tokenLevel,
+          activeBackend: PreferredBackend.cpu,
         ),
         tokenizerPath: tokenizerPath,
       );
@@ -403,6 +411,7 @@ void main() {
           factory: _buildFake,
           tokenizerFactory: _buildMismatchedMaskTokenizer, // mask length 2
           outputContract: EmbeddingOutputContract.tokenLevel,
+          activeBackend: PreferredBackend.cpu,
         ),
         tokenizerPath: tokenizerPath,
       );
@@ -426,6 +435,7 @@ void main() {
           factory: _buildFake,
           tokenizerFactory: loadGemmaSentencePieceEmbeddingTokenizer,
           outputContract: EmbeddingOutputContract.pooledFinal,
+          activeBackend: PreferredBackend.cpu,
         ),
         tokenizerPath: tokenizerPath,
       );
@@ -450,6 +460,7 @@ void main() {
           factory: _buildFake,
           tokenizerFactory: loadGemmaSentencePieceEmbeddingTokenizer,
           outputContract: EmbeddingOutputContract.pooledFinal,
+          activeBackend: PreferredBackend.cpu,
         ),
         tokenizerPath: tokenizerPath,
       );
@@ -476,6 +487,7 @@ void main() {
           factory: _buildFake,
           tokenizerFactory: loadGemmaSentencePieceEmbeddingTokenizer,
           outputContract: EmbeddingOutputContract.pooledFinal,
+          activeBackend: PreferredBackend.cpu,
         ),
         tokenizerPath: tokenizerPath,
       );
@@ -493,6 +505,7 @@ void main() {
           factory: _buildFake,
           tokenizerFactory: loadGemmaSentencePieceEmbeddingTokenizer,
           outputContract: EmbeddingOutputContract.pooledFinal,
+          activeBackend: PreferredBackend.cpu,
         ),
         tokenizerPath: tokenizerPath,
       );

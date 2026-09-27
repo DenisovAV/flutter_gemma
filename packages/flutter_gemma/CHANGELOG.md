@@ -1,3 +1,8 @@
+## 1.11.0
+- New `EmbeddingModel.activeBackend`: `getActiveEmbedder(preferredBackend:)` no longer goes unremarked.
+- **Breaking for `implements EmbeddingModel`:** add `activeBackend` and `isClosed`; `extends` inherits defaults.
+- The cached embedder is rebuilt when its model file changes, and built once under concurrent calls.
+
 ## 1.10.0
 - Add `activationDataType` to `getActiveModel`; `float32` fixes wrong digits on some GPUs.
 

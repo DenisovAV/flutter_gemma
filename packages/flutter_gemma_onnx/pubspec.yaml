@@ -1,6 +1,6 @@
 name: flutter_gemma_onnx
 description: "ONNX Runtime engine for flutter_gemma: GenAI inference on 5 native platforms + web generation (Transformers.js) & embeddings (onnxruntime-web)."
-version: 0.4.0
+version: 0.5.0
 homepage: https://fluttergemma.dev
 repository: https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_gemma_onnx
 topics: [gemma, llm, onnx, onnxruntime, on-device]
@@ -27,10 +27,13 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  # ^1.9.0: this version needs core's embedding seam and the tokenizer
-  # registry (`EmbeddingTokenizerRegistry`), which land in 1.9.0. An older
-  # core resolves and then fails to compile — better here than there.
-  flutter_gemma: ^1.9.0
+  # ^1.11.0: this version passes `activeBackend:` to `ForwardPassDescriptor` —
+  # a named parameter that does not exist before 1.11.0, so an older core is a
+  # compile error — and overrides `EmbeddingModel.activeBackend`, which lands in
+  # 1.11.0 too, on top of 1.9.0's embedding seam and tokenizer registry
+  # (`EmbeddingTokenizerRegistry`). An older core resolves and then fails to
+  # compile — better here than there.
+  flutter_gemma: ^1.11.0
   ffi: ^2.1.0
   mutex: ^3.1.0
   hooks: ^2.0.0

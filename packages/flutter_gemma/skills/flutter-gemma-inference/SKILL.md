@@ -247,12 +247,12 @@ print(model.activeBackend); // what actually loaded
 | `preferredBackend` | Tried in order |
 | --- | --- |
 | `null` or `gpu` | GPU, then CPU |
-| `npu` | NPU, GPU, CPU on Android and Windows; GPU, CPU everywhere else |
+| `npu` | NPU, GPU, CPU on Windows and on Qualcomm Android; GPU, CPU everywhere else |
 | `cpu` | CPU only |
 
 Read `activeBackend` rather than assuming the requested one loaded; the web `.litertlm` engine reports `null`. `PreferredBackend.npu` needs a Snapdragon (Android) or Intel Lunar/Panther Lake (Windows) and a model compiled for that NPU; `PreferredBackend.cpu` never falls back. The iOS Simulator is CPU-only. On web, MediaPipe is GPU-only.
 
-On NPU, run a **Gemma 4** bundle. A Gemma 3 bundle on either vendor's NPU drops every prefill chunk after the first — no error, no log line, and a fluent reply that answers from the opening of the prompt and ignores the rest (LiteRT-LM#3508). `maxTokens` is also not clamped up to 1024 on the NPU attempt the way it is on CPU and GPU, because the safe context is baked into the compiled bundle: pass the `cache_length` it was built for. Requesting `PreferredBackend.npu` does not guarantee the NPU runs — the engine falls back to GPU then CPU, and the floor applies to those attempts, so a fallback is clamped rather than crashed. Only Android (Qualcomm) and Windows (Intel) ship an NPU dispatch stack at all; on macOS, Linux and iOS the NPU candidate is not attempted, because the native runtime accepts `npu` there without complaint and `activeBackend` then reported an NPU the machine does not have.
+On NPU, run a **Gemma 4** bundle. A Gemma 3 bundle on either vendor's NPU drops every prefill chunk after the first — no error, no log line, and a fluent reply that answers from the opening of the prompt and ignores the rest (LiteRT-LM#3508). `maxTokens` is also not clamped up to 1024 on the NPU attempt the way it is on CPU and GPU, because the safe context is baked into the compiled bundle: pass the `cache_length` it was built for. Requesting `PreferredBackend.npu` does not guarantee the NPU runs — the engine falls back to GPU then CPU, and the floor applies to those attempts, so a fallback is clamped rather than crashed. The NPU candidate is attempted only on Windows and on Android phones with Qualcomm FastRPC; on other Android phones, macOS, Linux and iOS it is skipped, because nothing there can run it — and on macOS the native runtime was measured accepting `npu` anyway, which made `activeBackend` report an NPU the machine does not have.
 
 ## Platform setup
 

@@ -730,9 +730,9 @@ python tools/convert_sentencepiece_to_json.py --input path/to/sentencepiece.mode
 
 ```dart
 // Create embedding model instance
-final embeddingModel = await FlutterGemma.getActiveEmbedder(
-  preferredBackend: PreferredBackend.gpu, // Optional: use GPU acceleration
-);
+// `preferredBackend` is accepted but not applied to embeddings: native runs on
+// CPU and web lets the runtime pick. Read embeddingModel.activeBackend.
+final embeddingModel = await FlutterGemma.getActiveEmbedder();
 
 // Generate query embedding (for search)
 final queryEmb = await embeddingModel.generateEmbedding('What is Flutter?');

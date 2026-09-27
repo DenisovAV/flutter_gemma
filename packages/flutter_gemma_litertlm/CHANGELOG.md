@@ -1,7 +1,6 @@
 ## 1.8.3
-- Web logs the accelerator it ran on, and whether it was fully accelerated, to the console.
-- `activeBackend` no longer claims NPU where no NPU dispatch stack ships.
-- A non-Qualcomm Android phone no longer unpacks 55 MiB of NPU libraries it cannot use.
+- Web reports the accelerator embeddings ran on, and whether it was fully accelerated.
+- `activeBackend` no longer claims NPU where none can run; non-Qualcomm Android skips a 55 MiB unpack.
 
 ## 1.8.2
 - The Android GPU backend no longer crashes on Mali GPUs (#545).

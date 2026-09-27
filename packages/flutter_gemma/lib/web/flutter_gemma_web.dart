@@ -250,7 +250,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     final reused = await _embedderCache.reuseOrInvalidate(
       requestedParams,
       // Reusing: on web the runtime picks the accelerator itself — LiteRT.js
-      // per operation, onnxruntime-web by trying ['webgpu', 'wasm'] in order —
+      // per compile, onnxruntime-web by trying ['webgpu', 'wasm'] in order —
       // and the notice already fired at the top of this method.
       label: 'web embedder',
     );

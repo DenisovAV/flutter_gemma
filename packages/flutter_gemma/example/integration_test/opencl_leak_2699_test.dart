@@ -69,7 +69,7 @@ Future<List<int>> _turnLoop(PreferredBackend backend, int turns) async {
   );
 
   // The FFI runtime falls back silently: `gpu` resolves to [gpu, cpu], and a
-  // failed OpenCL init is only a developer.log line (backend_preference.dart).
+  // failed OpenCL init is only a printed warning (backend_preference.dart).
   // On a device where the vendor ICD does not load (#324) the "GPU" leg would
   // run on CPU, show flat RSS, and report #2699 as fixed on a build where the
   // suspect path never executed. Assert what actually initialised.

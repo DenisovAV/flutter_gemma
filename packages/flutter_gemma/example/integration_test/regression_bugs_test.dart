@@ -614,11 +614,11 @@ void main() {
     //
     //   * Windows NPU is supported (Intel LunarLake/PantherLake), with the
     //     dispatch stack bundled in the Windows native archive since 0.15.1.
-    //   * `PreferredBackend`'s own contract promises a fallback: "If the
-    //     selected backend is unavailable, the engine falls back to GPU, then
-    //     CPU". `ffiBackendFallbackOrder(npu)` is [npu, gpu, cpu] where an NPU
-    //     dispatch stack ships (Android, Windows) and [gpu, cpu] where none
-    //     does. Nothing throws by design.
+    //   * `PreferredBackend`'s own contract promises a fallback: "[gpu] and
+    //     [npu] fall back if unavailable". `ffiBackendFallbackOrder(npu)` is
+    //     [npu, gpu, cpu] where an NPU dispatch stack can run (Windows, and
+    //     Android with Qualcomm FastRPC) and [gpu, cpu] everywhere else.
+    //     Nothing throws by design.
     //
     // What IS worth pinning is that the fallback is not silent: `activeBackend`
     // must name what actually ran, so a benchmark cannot attribute CPU numbers

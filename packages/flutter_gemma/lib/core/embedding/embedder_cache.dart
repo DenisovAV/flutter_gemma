@@ -70,6 +70,10 @@ class EmbedderCache {
   /// two compiles, and the loser orphaned with nobody to close it. It also
   /// removes the reordering hazard — moving an await earlier in the entry point
   /// silently widened that window once already.
+  ///
+  /// Not reentrant: a [body] that calls back into the same entry point waits
+  /// for itself. Nothing in the plugin does; a backend's `createModel` that
+  /// called `getActiveEmbedder` would.
   Future<T> serialize<T>(Future<T> Function() body) {
     final previous = _lane;
     // The lane advances on a completer of its own rather than on a handler
@@ -97,7 +101,9 @@ class EmbedderCache {
     // Checked, not trusted. Eviction rides the close listener, so a model that
     // never fires one — or that was already closed when it was recorded, after
     // which `fireCloseListeners` has nothing left to call — would be handed to
-    // every later caller, and every `generateEmbedding` on it throws.
+    // every later caller, and every `generateEmbedding` on it throws. Only as
+    // good as the model's own `isClosed`: the interface default is false, for
+    // implementations that predate it.
     if (cached.model.isClosed) {
       gemmaLog('ℹ️  Cached embedder is closed; building a new one for $label');
       _cached = null;

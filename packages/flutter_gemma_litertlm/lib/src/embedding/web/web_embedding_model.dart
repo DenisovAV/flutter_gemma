@@ -59,8 +59,7 @@ class WebEmbeddingModel extends EmbeddingModel with CloseNotifier {
   /// throws synchronously when a load is already in flight, so one of the two
   /// failed outright with "LiteRT is already loading / loaded". A `Future.wait`
   /// over two `rag.addDocument` calls is enough to reach it, which is usually
-  /// the first embedding an app ever makes. The ONNX web arm already dedupes
-  /// this way.
+  /// the first embedding an app ever makes.
   Future<void>? _initFuture;
 
   // Public getters for parameter comparison

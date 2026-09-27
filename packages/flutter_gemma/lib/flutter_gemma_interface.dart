@@ -617,7 +617,9 @@ abstract class EmbeddingModel {
   ///
   /// Null on web, where the runtime picks for itself and does not report back:
   /// LiteRT.js selects per COMPILE (with per-operation delegation only in the
-  /// JSPI partial case) and names the result only in the browser console, and
+  /// JSPI partial case) and reports it through
+  /// `window.getLiteRtEmbeddingAccelerator()` and
+  /// `getLiteRtEmbeddingFullyAccelerated()` rather than here, and
   /// onnxruntime-web resolves `['webgpu', 'wasm']` in order.
   ///
   /// Null also means "this implementation did not say" — a native engine whose

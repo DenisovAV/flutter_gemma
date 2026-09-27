@@ -1,10 +1,7 @@
 ## 1.10.0
 - New `EmbeddingModel.activeBackend`: `getActiveEmbedder(preferredBackend:)` no longer goes unremarked.
 - **Breaking for `implements EmbeddingModel`:** add `activeBackend` and `isClosed`; `extends` inherits defaults.
-- Embedder reuse compares resolved paths, so another model file is no longer answered from the cache.
-- Two concurrent first calls build one embedder, not two, on every platform.
-- Desktop embeddings no longer throw for `PreferredBackend.npu`; they report CPU instead.
-- Fix two wrong claims in the shipped RAG skill that agents read as instructions.
+- The cached embedder is rebuilt when its model file changes, and built once under concurrent calls.
 
 ## 1.9.0
 - New `initialize(embeddingTokenizers:)` — register one or embeddings throw; engines no longer bundle a tokenizer.

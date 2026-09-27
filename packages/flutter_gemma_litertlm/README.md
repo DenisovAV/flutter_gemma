@@ -107,6 +107,14 @@ On web it runs via LiteRT.js instead; see
 [Embeddings on web](#embeddings-on-web) below for the four files and the
 `<script>` tag your app needs.
 
+`EmbeddingModel.activeBackend` is `cpu` on native, the only backend this
+package's embedder uses, so `preferredBackend` is not applied. On web it is
+`null` and LiteRT.js picks: `window.getLiteRtEmbeddingAccelerator()` names where
+the output buffer lived after the first embedding, and
+`window.getLiteRtEmbeddingFullyAccelerated()` says whether the graph landed
+entirely on the requested accelerator — `false` also when LiteRT silently
+recompiled a WebGPU request for WASM.
+
 ## Embeddings on web
 
 On web, `flutter_gemma_litertlm`'s embedding backend runs via LiteRT.js. Copy
@@ -221,6 +229,11 @@ Native platforms need no web setup.
 > `PreferredBackend.gpu` in 1.2.0–1.3.1. Upgrade to 1.4.0; on the affected
 > versions use `PreferredBackend.cpu` or `.npu`. macOS/Linux GPU and Windows
 > CPU/NPU were never affected.
+
+`PreferredBackend.npu` is attempted only on Windows and on Android devices with
+Qualcomm FastRPC (`libcdsprpc.so`); elsewhere it falls back to GPU, then CPU,
+and prints why. On Windows the check is per OS, so a PC without an Intel NPU can
+report `activeBackend == npu` while the model runs elsewhere.
 
 The native library is fetched at build time by `hook/build.dart` (Native Assets)
 from a SHA256-verified GitHub release — no manual setup on native platforms.

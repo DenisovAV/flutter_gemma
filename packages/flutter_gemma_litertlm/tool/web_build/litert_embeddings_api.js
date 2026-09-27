@@ -368,6 +368,16 @@ async function generateDocumentEmbeddingInternal(text) {
  * that path.
  */
 function reportFullAcceleration(model) {
+  // Checked before anything is read off the model: a compile that is not the
+  // one we asked for already answers the getter's question. LiteRT.js deletes a
+  // webgpu build that is not fully accelerated and returns a wasm one without
+  // raising, so the graph did not land on the requested accelerator at all —
+  // and the wasm guard below used to turn that into "unknown" (null), on
+  // exactly the path this getter exists for.
+  if (compiledAccelerator && compiledAccelerator !== askedAccelerator) {
+    fullyAccelerated = false;
+    return;
+  }
   let full;
   try {
     full = model.isFullyAccelerated;
@@ -378,10 +388,11 @@ function reportFullAcceleration(model) {
     // truthful to report about one.
     return;
   }
-  // A wasm compile is not a question about acceleration: every op runs in WASM
-  // by construction, there is no buffer-vs-execution distinction to report, and
-  // LiteRT itself only consults this flag for webgpu/webnn — so whatever it
-  // answers for wasm is unspecified and we say nothing rather than guess.
+  // A wasm compile that was ASKED for is not a question about acceleration:
+  // every op runs in WASM by construction, there is no buffer-vs-execution
+  // distinction to report, and LiteRT itself only consults this flag for
+  // webgpu/webnn — so whatever it answers for wasm is unspecified and we say
+  // nothing rather than guess.
   const target = compiledAccelerator ?? askedAccelerator;
   if (target === 'wasm') return;
 
@@ -393,10 +404,8 @@ function reportFullAcceleration(model) {
       `first embedding is where the output buffer lives, not where every op ran.`,
     );
   } else if (full === true) {
-    // Answers the question the getter documents — "did the graph land entirely
-    // on the accelerator that was ASKED for" — which is false when LiteRT
-    // silently recompiled for something else, however complete that compile is.
-    fullyAccelerated = compiledAccelerator === askedAccelerator;
+    // The compile matches the request (checked above), so this is the answer.
+    fullyAccelerated = true;
   }
 }
 

@@ -5,7 +5,8 @@
   "description": "Build for flutter_gemma_litertlm's web/ bundle (LiteRT.js + SentencePiece).",
   "type": "module",
   "scripts": {
-    "build": "vite build"
+    "build": "vite build",
+    "test": "node --test \"test/**/*.test.mjs\""
   },
   "dependencies": {
     "@litertjs/core": "2.5.3",

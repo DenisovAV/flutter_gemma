@@ -3,8 +3,8 @@ import { l as C, a as b, T as E } from "./litert.js";
 import { S as x } from "./sentencepiece.js";
 const _ = "task: search result | query: ", D = "title: none | text: ", L = 2, R = 1, A = 0;
 let c = 256;
-const w = 768;
-let l = null, d = null, f = !1, p = !1, T = null, u = null, m = null, y = null;
+const p = 768;
+let l = null, d = null, f = !1, T = !1, y = null, u = null, g = null, w = null;
 async function I(t) {
   try {
     const o = await fetch(t);
@@ -35,7 +35,7 @@ async function I(t) {
 }
 async function W(t, o = "/node_modules/@litertjs/core/wasm/") {
   try {
-    console.log(`[LiteRT] Loading model from: ${t}`), console.log(`[LiteRT] WASM loaded flag: ${p}`), await $("webgl"), await z(), p ? console.log("[LiteRT] WASM runtime already loaded, reusing") : (console.log(`[LiteRT] Loading WASM runtime from: ${o}`), await C(o), p = !0, console.log("[LiteRT] WASM runtime loaded successfully"));
+    console.log(`[LiteRT] Loading model from: ${t}`), console.log(`[LiteRT] WASM loaded flag: ${T}`), await $("webgl"), await z(), T ? console.log("[LiteRT] WASM runtime already loaded, reusing") : (console.log(`[LiteRT] Loading WASM runtime from: ${o}`), await C(o), T = !0, console.log("[LiteRT] WASM runtime loaded successfully"));
     try {
       console.log("[LiteRT] Attempting to compile model with WebGPU..."), u = "webgpu", l = await b(t, {
         accelerator: "webgpu"
@@ -45,8 +45,8 @@ async function W(t, o = "/node_modules/@litertjs/core/wasm/") {
         accelerator: "wasm"
       }), console.log("[LiteRT] Model compiled with WASM successfully");
     }
-    m = l.options?.accelerator ?? null, m && m !== u && console.warn(
-      `[LiteRT] Compiled for ${m}, not the requested ${u}. LiteRT recompiled without raising.`
+    g = l.options?.accelerator ?? null, g && g !== u && console.warn(
+      `[LiteRT] Compiled for ${g}, not the requested ${u}. LiteRT recompiled without raising.`
     ), v(l);
     try {
       const r = l.getInputDetails();
@@ -96,8 +96,8 @@ async function k(t) {
     S(i.accelerator);
     let s = i;
     i.accelerator === "webgpu" && (s = await i.moveTo("wasm"));
-    const h = s.toTypedArray(), g = Array.from(h);
-    return g.length !== w && console.warn(`Unexpected embedding dimension: ${g.length}, expected ${w}`), e !== n && !e.deleted && e.delete(), n.deleted || n.delete(), s !== i && !s.deleted && s.delete(), i.deleted || i.delete(), g;
+    const h = s.toTypedArray(), m = Array.from(h);
+    return m.length !== p && console.warn(`Unexpected embedding dimension: ${m.length}, expected ${p}`), e !== n && !e.deleted && e.delete(), n.deleted || n.delete(), s !== i && !s.deleted && s.delete(), i.deleted || i.delete(), m;
   } catch (a) {
     try {
       e !== n && !e.deleted && e.delete(), n.deleted || n.delete();
@@ -116,8 +116,8 @@ async function B(t) {
     S(i.accelerator);
     let s = i;
     i.accelerator === "webgpu" && (s = await i.moveTo("wasm"));
-    const h = s.toTypedArray(), g = Array.from(h);
-    return g.length !== w && console.warn(`Unexpected embedding dimension: ${g.length}, expected ${w}`), e !== n && !e.deleted && e.delete(), n.deleted || n.delete(), s !== i && !s.deleted && s.delete(), i.deleted || i.delete(), g;
+    const h = s.toTypedArray(), m = Array.from(h);
+    return m.length !== p && console.warn(`Unexpected embedding dimension: ${m.length}, expected ${p}`), e !== n && !e.deleted && e.delete(), n.deleted || n.delete(), s !== i && !s.deleted && s.delete(), i.deleted || i.delete(), m;
   } catch (a) {
     try {
       e !== n && !e.deleted && e.delete(), n.deleted || n.delete();
@@ -128,19 +128,23 @@ async function B(t) {
   }
 }
 function v(t) {
+  if (g && g !== u) {
+    w = !1;
+    return;
+  }
   let o;
   try {
     o = t.isFullyAccelerated;
   } catch {
     return;
   }
-  const r = m ?? u;
-  r !== "wasm" && (o === !1 ? (y = !1, console.warn(
+  const r = g ?? u;
+  r !== "wasm" && (o === !1 ? (w = !1, console.warn(
     `[LiteRT] Model is not fully accelerated on ${r}. Unsupported ops run in WASM, so the accelerator reported after the first embedding is where the output buffer lives, not where every op ran.`
-  )) : o === !0 && (y = m === u));
+  )) : o === !0 && (w = !0));
 }
 function S(t) {
-  T !== null || !t || (T = t, u && t !== u ? console.warn(
+  y !== null || !t || (y = t, u && t !== u ? console.warn(
     `[LiteRT] Running on ${t}, not the requested ${u}. LiteRT fell back without raising — the model was not fully accelerated.`
   ) : console.log(`[LiteRT] Running on ${t}`));
 }
@@ -151,7 +155,7 @@ window.loadLiteRtEmbeddings = async function(t, o, r) {
       try {
         await window.cleanupLiteRtEmbeddings();
       } catch (e) {
-        console.warn("[LiteRT] Non-fatal cleanup error (will reinitialize anyway):", e), l = null, d = null, p = !1, f = !1;
+        console.warn("[LiteRT] Non-fatal cleanup error (will reinitialize anyway):", e), l = null, d = null, T = !1, f = !1;
       }
     }
     const n = r ?? "/node_modules/@litertjs/core/wasm/";
@@ -191,16 +195,16 @@ window.generateEmbeddings = async function(t) {
   return o;
 };
 window.getLiteRtEmbeddingAccelerator = function() {
-  return T;
-};
-window.getLiteRtEmbeddingFullyAccelerated = function() {
   return y;
 };
-window.getLiteRtEmbeddingDimension = function() {
+window.getLiteRtEmbeddingFullyAccelerated = function() {
   return w;
 };
+window.getLiteRtEmbeddingDimension = function() {
+  return p;
+};
 window.cleanupLiteRtEmbeddings = async function() {
-  if (T = null, u = null, m = null, y = null, console.log("[LiteRT] ========================================"), console.log("[LiteRT] Starting cleanup..."), console.log("[LiteRT] ========================================"), l)
+  if (y = null, u = null, g = null, w = null, console.log("[LiteRT] ========================================"), console.log("[LiteRT] Starting cleanup..."), console.log("[LiteRT] ========================================"), l)
     try {
       typeof l.delete == "function" && !l.deleted && (l.delete(), console.log("[LiteRT] ✅ Model deleted"));
     } catch (t) {

@@ -50,7 +50,9 @@ Pick by what you actually used in 0.16.x:
 > **New opt-in packages since 1.2/1.3** (not migration targets from the 0.16.x
 > monolith — they add new capabilities): `flutter_gemma_agent` (on-device agent
 > skills — SKILL.md + tool-calling loop) and `flutter_gemma_builtin_ai` (OS
-> system models — Gemini Nano on Android, Apple Foundation Models on iOS/macOS).
+> system models — Gemini Nano on Android and Web, Apple Foundation Models on
+> iOS/macOS, Windows AI Foundry on Windows; a thin adapter over
+> `flutter_local_ai`, which owns the native layer).
 > Add either only if you want that feature — see the README **Features** list.
 
 ## 2. main.dart — the one new call

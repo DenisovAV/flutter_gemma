@@ -285,6 +285,15 @@ Android binds the call to address 0. Only Mali takes that path.
 Fix: upgrade to 1.8.2 (`native-v0.17.1-a`). No app change is needed. See
 [#545](https://github.com/DenisovAV/flutter_gemma/issues/545).
 
+### Windows ARM64 native inference is not available
+
+The LiteRT-LM release currently has no `windows_arm64` native archive. The
+build hook reports this explicitly and continues so applications using another
+engine can still build, but `.litertlm` inference cannot run on a native
+Windows ARM64 process. Use Windows x86_64 (including emulation), a supported
+mobile/desktop target, or the ONNX engine instead. See
+[#326](https://github.com/DenisovAV/flutter_gemma/issues/326).
+
 ### Any tool call kills the app (fixed in 1.7.1)
 
 Symptom: in 1.7.0, a chat or session created with `tools` dies on the first

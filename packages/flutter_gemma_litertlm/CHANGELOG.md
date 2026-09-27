@@ -1,3 +1,6 @@
+## Unreleased
+- Explain when a target has no published LiteRT-LM native archive (#326).
+
 ## 1.8.5
 - Web setup pins `@litert-lm/core` 0.17.1.
 

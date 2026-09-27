@@ -1,3 +1,6 @@
+## Unreleased
+- Fail safely when the LiteRT-LM stream ABI cannot be resolved from the loaded native library (#453).
+
 ## 1.8.5
 - Web setup pins `@litert-lm/core` 0.17.1.
 

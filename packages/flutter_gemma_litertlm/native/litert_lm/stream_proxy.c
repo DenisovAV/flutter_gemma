@@ -53,37 +53,90 @@ static ChunkGetTextFn stream_chunk_get_text = NULL;
 static ChunkGetErrorFn stream_chunk_get_error = NULL;
 static ChunkIsFinalFn stream_chunk_is_final = NULL;
 static int stream_abi_probed = 0;
+static int stream_abi_probe_result = 0;
+static void* stream_proxy_litert_lm_handle = NULL;
 
-static void* stream_proxy_resolve(const char* name) {
+static const char* stream_proxy_control_symbol = "litert_lm_engine_create";
+
+static void* stream_proxy_resolve_from_handle(void* handle, const char* name) {
+  if (handle == NULL) return NULL;
 #ifdef _WIN32
-  // The bundle ships the lib under both names depending on platform packaging.
-  static const char* modules[] = {"LiteRtLm.dll", "libLiteRtLm.dll", NULL};
-  for (int i = 0; modules[i] != NULL; i++) {
-    HMODULE mod = GetModuleHandleA(modules[i]);
-    if (mod != NULL) {
-      FARPROC sym = GetProcAddress(mod, name);
-      if (sym != NULL) return (void*)sym;
-    }
-  }
-  return NULL;
+  return (void*)GetProcAddress((HMODULE)handle, name);
 #else
-  // Dart preloads libLiteRtLm with RTLD_GLOBAL (stream_proxy_load_global), so
-  // its exports are reachable from the default search scope.
-  return dlsym(RTLD_DEFAULT, name);
+  return dlsym(handle, name);
 #endif
 }
 
-// Resolve the v0.15.0 chunk accessors once. Their presence *is* the version
-// probe: they simply do not exist in v0.14.0 and earlier.
-static void stream_proxy_probe_abi(void) {
-  if (stream_abi_probed) return;
+static void stream_proxy_record_litert_lm_handle(const char* path,
+                                                 void* handle) {
+  // stream_proxy_load_global is also used to preload LiteRT and accelerator
+  // dependencies. Only retain the handle for the library whose symbols the
+  // callback ABI belongs to; otherwise the later ABI probe could inspect an
+  // unrelated dependency and report a plausible but wrong result.
+  if (path == NULL || strstr(path, "LiteRtLm") == NULL) return;
+
+  stream_proxy_litert_lm_handle = NULL;
+  stream_abi_probed = 0;
+  stream_abi_probe_result = 0;
+  stream_chunk_get_text = NULL;
+  stream_chunk_get_error = NULL;
+  stream_chunk_is_final = NULL;
+  if (stream_proxy_resolve_from_handle(handle, stream_proxy_control_symbol) !=
+      NULL) {
+    stream_proxy_litert_lm_handle = handle;
+  }
+}
+
+static void* stream_proxy_resolve(const char* name) {
+#ifdef _WIN32
+  // Windows has no process-wide equivalent of dlsym(RTLD_DEFAULT). Resolve
+  // against the exact module that stream_proxy_load_global loaded instead of
+  // guessing by DLL basename.
+  return stream_proxy_resolve_from_handle(stream_proxy_litert_lm_handle, name);
+#elif defined(__APPLE__)
+  // Apple loads the framework's exports into the default lookup scope, and
+  // stream_proxy_load_global is not part of the Apple load path.
+  return dlsym(RTLD_DEFAULT, name);
+#else
+  // On Linux and Android, RTLD_GLOBAL does not repair a library that was
+  // opened locally first. Resolve against the exact handle returned by the
+  // preload instead of treating an ambient miss as the legacy ABI.
+  return stream_proxy_resolve_from_handle(stream_proxy_litert_lm_handle, name);
+#endif
+}
+
+// Resolve the v0.15.0 chunk accessors once. Their presence distinguishes the
+// v0.15 ABI from the legacy v0.14 ABI, but only after the control symbol proves
+// that the handle is actually a LiteRT-LM library. A partial accessor set is
+// rejected rather than silently selecting a callback shape with null readers.
+static int stream_proxy_probe_abi(void) {
+  if (stream_abi_probed) return stream_abi_probe_result;
   stream_abi_probed = 1;
+
+  if (stream_proxy_resolve(stream_proxy_control_symbol) == NULL) {
+    return 0;
+  }
+
   stream_chunk_get_text =
       (ChunkGetTextFn)stream_proxy_resolve("litert_lm_stream_chunk_get_text");
   stream_chunk_get_error =
       (ChunkGetErrorFn)stream_proxy_resolve("litert_lm_stream_chunk_get_error");
   stream_chunk_is_final =
       (ChunkIsFinalFn)stream_proxy_resolve("litert_lm_stream_chunk_is_final");
+
+  const int has_text = stream_chunk_get_text != NULL;
+  const int has_error = stream_chunk_get_error != NULL;
+  const int has_final = stream_chunk_is_final != NULL;
+  if ((has_text || has_error || has_final) &&
+      !(has_text && has_error && has_final)) {
+    stream_chunk_get_text = NULL;
+    stream_chunk_get_error = NULL;
+    stream_chunk_is_final = NULL;
+    return 0;
+  }
+
+  stream_abi_probe_result = 1;
+  return stream_abi_probe_result;
 }
 
 // Proxy callback data: holds the Dart callback and memory to free
@@ -142,11 +195,18 @@ STREAM_PROXY_EXPORT
 void* stream_proxy_create(LiteRtLmStreamCallback dart_callback,
                           void* dart_data,
                           LiteRtLmStreamCallback* out_proxy_fn) {
+  if (out_proxy_fn == NULL) return NULL;
+  *out_proxy_fn = NULL;
+
+  if (!stream_proxy_probe_abi()) {
+    return NULL;
+  }
+
   ProxyData* proxy = (ProxyData*)malloc(sizeof(ProxyData));
+  if (proxy == NULL) return NULL;
   proxy->dart_callback = dart_callback;
   proxy->dart_data = dart_data;
 
-  stream_proxy_probe_abi();
   // The out-param is typed as the 4-arg callback because that is what the Dart
   // binding declares; LiteRT-LM only ever consumes the address, so handing back
   // the 2-arg entry point through the same slot is safe.
@@ -193,7 +253,7 @@ int stream_proxy_redirect_stderr(const char* path) {
 }
 
 // Load a shared library so its exports are visible to subsequent
-// dlopen/LoadLibrary calls and to dlsym(RTLD_DEFAULT)-style lookups.
+// dlopen/LoadLibrary calls, and retain the LiteRT-LM handle for the ABI probe.
 //
 // POSIX: Dart's DynamicLibrary.open uses RTLD_LOCAL which hides symbols
 // from other modules; we re-open with RTLD_GLOBAL so accelerator plugins
@@ -212,12 +272,16 @@ void* stream_proxy_load_global(const char* path) {
   // from the directory of `path` (i.e. the bundle dir) instead of just
   // the application directory — same effect as preloading on POSIX with
   // RTLD_GLOBAL: the module is now reachable by name for later loads.
-  return (void*)LoadLibraryExA(path, NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
+  void* handle = (void*)LoadLibraryExA(path, NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
+  stream_proxy_record_litert_lm_handle(path, handle);
+  return handle;
 }
 #else
 #include <dlfcn.h>
 STREAM_PROXY_EXPORT
 void* stream_proxy_load_global(const char* path) {
-  return dlopen(path, RTLD_LAZY | RTLD_GLOBAL);
+  void* handle = dlopen(path, RTLD_LAZY | RTLD_GLOBAL);
+  stream_proxy_record_litert_lm_handle(path, handle);
+  return handle;
 }
 #endif

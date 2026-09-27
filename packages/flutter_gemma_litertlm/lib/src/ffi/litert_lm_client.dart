@@ -1670,6 +1670,18 @@ class LiteRtLmFfiClient {
     final proxyFn = outProxyFn.value;
     calloc.free(outProxyFn);
 
+    if (proxyData == nullptr || proxyFn == nullptr) {
+      callable.close();
+      calloc.free(messagePtr);
+      if (extraPtr != nullptr) calloc.free(extraPtr);
+      throw StateError(
+        'stream_proxy_create could not resolve a compatible LiteRT-LM '
+        'stream callback ABI. The native library may be stale, incomplete, '
+        'or was loaded before flutter_gemma could verify its exports. '
+        'Restart the app after rebuilding the native cache.',
+      );
+    }
+
     // v0.12.0 send_message_stream takes a LiteRtLmConversationOptionalArgs*
     // that must be a real allocation (passing null sigsegvs inside
     // litert_lm_lib). We allocate an empty one per call and free it after

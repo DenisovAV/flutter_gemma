@@ -1,11 +1,11 @@
-name: flutter_gemma_speech
-description: "On-device speech (STT + TTS) for flutter_gemma via the LiteRT C API + dart:ffi. Opt-in Stt/TtsBackendProvider."
+name: flutter_edge_ai_speech
+description: "On-device speech (STT + TTS) for flutter_edge_ai via the LiteRT C API + dart:ffi. Opt-in Stt/TtsBackendProvider."
 version: 0.5.2
 homepage: https://fluttergemma.dev
-repository: https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_gemma_speech
+repository: https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_edge_ai_speech
 topics: [speech, stt, gemma, litert, on-device]
 
-# 5 native platforms via dart:ffi (LiteRT C API, shared with flutter_gemma_litertlm).
+# 5 native platforms via dart:ffi (LiteRT C API, shared with flutter_edge_ai_litertlm).
 # Web is declared but not yet implemented — the web arm of the conditional
 # export throws UnsupportedError until the STT web pipeline lands (follow-on).
 platforms:
@@ -30,11 +30,11 @@ dependencies:
   # `getActiveStt(language:)`. On an older core it resolves, compiles and
   # transcribes — always in English — so the feature would be advertised and
   # silently inert.
-  flutter_gemma: ^1.8.0
+  flutter_edge_ai: ^1.11.0
   # ^1.7.0: every tensor this package builds goes through litertlm's
   # LiteRtRankedTensorTypeView, and before 1.7.0 that view still used the MSVC
   # LiteRtLayout on Windows — STT/TTS failed there with status 3.
-  flutter_gemma_litertlm: ^1.7.0
+  flutter_edge_ai_litertlm: ^1.8.4
   ffi: ^2.1.0
   meta: ^1.9.0
 
@@ -46,4 +46,4 @@ dev_dependencies:
 
 # No flutter: plugin/asset block, no hook/build.dart of its own. The LiteRt
 # interpreter FFI (LiteRtBindings) and the shared libLiteRtLm native bundle
-# come transitively from flutter_gemma_litertlm, which owns the sole hook.
+# come transitively from flutter_edge_ai_litertlm, which owns the sole hook.

@@ -1,8 +1,8 @@
-name: flutter_gemma_rag_sqlite
-description: "SQLite vector search (sqlite-vec) on-device RAG vector store for flutter_gemma. Opt-in package; implements flutter_gemma's VectorStoreRepository."
+name: flutter_edge_ai_sqlite
+description: "SQLite vector search (sqlite-vec) on-device RAG vector store for flutter_edge_ai. Opt-in package; implements flutter_edge_ai's VectorStoreRepository."
 version: 1.4.0
 homepage: https://fluttergemma.dev
-repository: https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_gemma_rag_sqlite
+repository: https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_edge_ai_sqlite
 topics: [rag, sqlite, vector-search, embeddings, web]
 
 # All six platforms: native (sqlite3 + sqlite-vec/vec0 via dart:ffi) and web
@@ -33,7 +33,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_gemma: ^1.8.1
+  flutter_edge_ai: ^1.11.0
   sqlite3: ^3.6.0
   # Native Assets hook deps — hook/build.dart fetches the per-platform
   # sqlite-vec (vec0) loadable extension from the native-sqlite-vec-v* GitHub
@@ -50,8 +50,8 @@ dev_dependencies:
   # tool/bench_vector_stores.dart benchmarks the vec0 store against qdrant in
   # the same harness; dev-only, never exported from lib/ (the published package
   # has no qdrant dependency). Path-pinned to the workspace sibling.
-  flutter_gemma_rag_qdrant:
-    path: ../flutter_gemma_rag_qdrant
+  flutter_edge_ai_qdrant:
+    path: ../flutter_edge_ai_qdrant
 
 # No `flutter:` plugin block. This package has NO hand-written native code and
 # NO web platform-channel class. On native, sqlite3 is a normal pub dep and the

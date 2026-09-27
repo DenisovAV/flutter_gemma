@@ -1,4 +1,4 @@
-name: flutter_gemma
+name: flutter_edge_ai
 description: "Run Gemma and other LLMs on-device in Flutter (Android, iOS, Web, Desktop). Multimodal vision/audio, function calling, thinking mode, GPU, embeddings, RAG."
 version: 1.11.0
 resolution: workspace

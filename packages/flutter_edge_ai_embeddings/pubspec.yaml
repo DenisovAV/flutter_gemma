@@ -1,8 +1,8 @@
-name: flutter_gemma_embeddings
-description: "Embedding tokenizers for flutter_gemma: Gemma SentencePiece and BERT WordPiece, as a registrable provider. The pipeline they feed lives in flutter_gemma."
+name: flutter_edge_ai_embeddings
+description: "Embedding tokenizers for flutter_edge_ai: Gemma SentencePiece and BERT WordPiece, as a registrable provider. The pipeline they feed lives in flutter_edge_ai."
 version: 2.2.1
 homepage: https://fluttergemma.dev
-repository: https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_gemma_embeddings
+repository: https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_edge_ai_embeddings
 topics: [embeddings, gemma, litert, rag, on-device]
 
 # All six platforms: pure Dart, no native handle and no web asset of its own.
@@ -28,7 +28,7 @@ dependencies:
   # ^1.9.0: this version needs core's embedding seam and the tokenizer
   # registry (`EmbeddingTokenizerRegistry`), which land in 1.9.0. An older
   # core resolves and then fails to compile — better here than there.
-  flutter_gemma: ^1.9.0
+  flutter_edge_ai: ^1.11.0
   # Floor is 1.4.1, not 1.3.3, and that is deliberate. 1.4.0 added
   # `pre_tokenizer` validation with no `Split` case and rejected the
   # Gemma-family tokenizer.json this package loads (upstream #35); 1.4.1 accepts
@@ -59,8 +59,8 @@ dev_dependencies:
 
 # No flutter: plugin/asset block, no hook/build.dart of its own, and — since
 # the embedder decoupling refactor (2.0.0) — NO dependency on
-# flutter_gemma_litertlm: this package no longer touches dart:ffi or any
+# flutter_edge_ai_litertlm: this package no longer touches dart:ffi or any
 # native handle at all. It owns the tokenizers and their routing; the seam,
-# the isolate worker and the pooling live in flutter_gemma, and the concrete
+# the isolate worker and the pooling live in flutter_edge_ai, and the concrete
 # forward pass in whichever engine package supplies it (e.g.
-# flutter_gemma_litertlm's LiteRtEmbeddingBackend).
+# flutter_edge_ai_litertlm's LiteRtEmbeddingBackend).

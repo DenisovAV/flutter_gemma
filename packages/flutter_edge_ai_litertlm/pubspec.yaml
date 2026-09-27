@@ -1,8 +1,8 @@
-name: flutter_gemma_litertlm
-description: "LiteRT-LM (.litertlm) on-device inference engine for flutter_gemma via dart:ffi (5 native platforms) + web. Opt-in InferenceEngineProvider. Also ships the LiteRT C API embedding backend (LiteRtEmbeddingBackend)."
+name: flutter_edge_ai_litertlm
+description: "LiteRT-LM (.litertlm) on-device inference engine for flutter_edge_ai via dart:ffi (5 native platforms) + web. Opt-in InferenceEngineProvider. Also ships the LiteRT C API embedding backend (LiteRtEmbeddingBackend)."
 version: 1.8.4
 homepage: https://fluttergemma.dev
-repository: https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_gemma_litertlm
+repository: https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_edge_ai_litertlm
 topics: [gemma, llm, litert, on-device, ffi]
 
 # All six platforms: 5 native via dart:ffi (LiteRT-LM C API) + web via
@@ -33,7 +33,7 @@ dependencies:
   # (`EmbeddingTokenizerRegistry`), 1.8.4's runtime tool path for FunctionGemma,
   # and 1.7.3's `createChat` fix, without which web function calling resolves,
   # compiles, and the tools silently never reach the model.
-  flutter_gemma: ^1.11.0
+  flutter_edge_ai: ^1.11.0
   ffi: ^2.1.0
   mutex: ^3.1.0
   hooks: ^2.0.0

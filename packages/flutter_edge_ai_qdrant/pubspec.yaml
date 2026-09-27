@@ -1,13 +1,13 @@
-name: flutter_gemma_rag_qdrant
-description: "qdrant-edge on-device RAG vector store for flutter_gemma, via the official qdrant_edge UniFFI SDK. Opt-in VectorStoreRepository with payload filtering. Native platforms only (no web)."
+name: flutter_edge_ai_qdrant
+description: "qdrant-edge on-device RAG vector store for flutter_edge_ai, via the official qdrant_edge UniFFI SDK. Opt-in VectorStoreRepository with payload filtering. Native platforms only (no web)."
 version: 1.3.2
 homepage: https://fluttergemma.dev
-repository: https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_gemma_rag_qdrant
+repository: https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_edge_ai_qdrant
 topics: [rag, qdrant, vector-search, embeddings, on-device]
 
 # Native-only (qdrant-edge Rust FFI). Declared explicitly so the supported
 # platform set is the package's own contract, not inferred from the transitive
-# import graph. No web — use flutter_gemma_rag_sqlite (WebSqliteVectorStore).
+# import graph. No web — use flutter_edge_ai_sqlite (WebSqliteVectorStore).
 platforms:
   android:
   ios:
@@ -24,7 +24,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_gemma: ^1.8.1
+  flutter_edge_ai: ^1.11.0
   uuid: ^4.0.0
   # For the store's owned-subdir path handling (qdrant_edge_v1).
   path: ^1.9.0

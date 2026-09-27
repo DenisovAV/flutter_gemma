@@ -1,8 +1,8 @@
-name: flutter_gemma_mediapipe
-description: "MediaPipe (.task) on-device inference engine for flutter_gemma (Android/iOS/Web). Opt-in package; provides an InferenceEngineProvider. Bundles Google's MediaPipe Pod/Gradle deps."
+name: flutter_edge_ai_mediapipe
+description: "MediaPipe (.task) on-device inference engine for flutter_edge_ai (Android/iOS/Web). Opt-in package; provides an InferenceEngineProvider. Bundles Google's MediaPipe Pod/Gradle deps."
 version: 1.0.7
 homepage: https://fluttergemma.dev
-repository: https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_gemma_mediapipe
+repository: https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_edge_ai_mediapipe
 topics: [gemma, llm, mediapipe, on-device, ai]
 
 resolution: workspace
@@ -14,7 +14,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_gemma: ^1.0.2
+  flutter_edge_ai: ^1.11.0
   mutex: ^3.1.0
   plugin_platform_interface: ^2.0.2
   # Direct import in the pigeon-generated lib/pigeon.g.dart (immutable, etc.).

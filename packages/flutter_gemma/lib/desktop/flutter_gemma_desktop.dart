@@ -143,6 +143,7 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
     bool supportImage = false,
     bool supportAudio = false,
     bool? enableSpeculativeDecoding,
+    ActivationDataType? activationDataType,
     int? maxConcurrentSessions,
   }) async {
     // Check active model
@@ -168,6 +169,7 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
       supportAudio: supportAudio,
       maxNumImages: maxNumImages,
       enableSpeculativeDecoding: enableSpeculativeDecoding,
+      activationDataType: activationDataType,
       maxConcurrentSessions: maxConcurrentSessions,
       loraRanks: loraRanks,
     );
@@ -304,6 +306,7 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
         supportImage: supportImage,
         supportAudio: supportAudio,
         enableSpeculativeDecoding: enableSpeculativeDecoding,
+        activationDataType: activationDataType,
         maxConcurrentSessions: maxConcurrentSessions,
       );
     }
@@ -357,6 +360,7 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
         supportAudio: supportAudio,
         maxNumImages: maxNumImages,
         enableSpeculativeDecoding: enableSpeculativeDecoding,
+        activationDataType: activationDataType,
         maxConcurrentSessions: maxConcurrentSessions,
         // Forwarded, not merely compared. ActiveModelParams treats loraRanks as
         // a rebuild trigger and its dartdoc says the engine receives it — but

@@ -2,6 +2,7 @@
 - New `EmbeddingModel.activeBackend`: `getActiveEmbedder(preferredBackend:)` no longer goes unremarked.
 - **Breaking for `implements EmbeddingModel`:** add `activeBackend` and `isClosed`; `extends` inherits defaults.
 - The cached embedder is rebuilt when its model file changes, and built once under concurrent calls.
+- Add `activationDataType` to `getActiveModel`; `float32` fixes wrong digits on some GPUs.
 
 ## 1.9.0
 - New `initialize(embeddingTokenizers:)` — register one or embeddings throw; engines no longer bundle a tokenizer.

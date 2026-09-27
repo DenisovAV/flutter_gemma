@@ -1,6 +1,7 @@
 ## 1.8.3
 - Web reports the accelerator embeddings ran on, and whether it was fully accelerated.
 - `activeBackend` no longer claims NPU on macOS, Linux, iOS or non-Qualcomm Android.
+- Apply `activationDataType` to the engine; `float32` fixes wrong digits on some GPUs.
 
 ## 1.8.2
 - The Android GPU backend no longer crashes on Mali GPUs (#545).

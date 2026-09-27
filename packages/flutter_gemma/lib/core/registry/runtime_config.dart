@@ -1,6 +1,6 @@
 import 'package:meta/meta.dart' show immutable;
 import 'package:flutter_gemma/core/domain/platform_types.dart'
-    show PreferredBackend;
+    show ActivationDataType, PreferredBackend;
 
 /// Runtime config for building a model — the per-call params `getActiveModel`
 /// collects, kept as a small holder so the provider contract stays stable as
@@ -17,6 +17,7 @@ class RuntimeConfig {
     this.supportAudio = false,
     this.maxNumImages,
     this.enableSpeculativeDecoding,
+    this.activationDataType,
     this.maxConcurrentSessions,
     this.loraRanks,
     this.artifactPaths,
@@ -70,6 +71,14 @@ class RuntimeConfig {
   final bool supportAudio;
   final int? maxNumImages;
   final bool? enableSpeculativeDecoding;
+
+  /// Activation type for the native LiteRT-LM engine's text decoder. Null
+  /// leaves it to the model file; when set, it overrides LiteRT-LM's own
+  /// choice (float16 on GPU by default). Set [ActivationDataType.float32]
+  /// when a GPU writes wrong digits
+  /// (LiteRT-LM#2814, #3012). The vision and audio encoders keep the model's
+  /// own type; MediaPipe, ONNX, built-in AI and the web engines ignore it.
+  final ActivationDataType? activationDataType;
   final int? maxConcurrentSessions;
 
   /// LoRA ranks for the MediaPipe path; null falls back to the platform's
@@ -126,6 +135,7 @@ class ActiveModelParams {
     this.supportAudio = false,
     this.maxNumImages,
     this.enableSpeculativeDecoding,
+    this.activationDataType,
     this.maxConcurrentSessions,
     this.loraRanks,
   });
@@ -138,6 +148,7 @@ class ActiveModelParams {
   final bool supportAudio;
   final int? maxNumImages;
   final bool? enableSpeculativeDecoding;
+  final ActivationDataType? activationDataType;
   final int? maxConcurrentSessions;
 
   /// MediaPipe LoRA ranks. Forwarded to the engine by `createModel`, so a
@@ -175,6 +186,7 @@ class ActiveModelParams {
     supportAudio: supportAudio,
     maxNumImages: supportImage ? (maxNumImages ?? 1) : null,
     enableSpeculativeDecoding: enableSpeculativeDecoding,
+    activationDataType: activationDataType,
     maxConcurrentSessions: maxConcurrentSessions,
     loraRanks: loraRanks,
   );
@@ -214,6 +226,9 @@ class ActiveModelParams {
     if (maxNumImages != other.maxNumImages) return 'maxNumImages';
     if (enableSpeculativeDecoding != other.enableSpeculativeDecoding) {
       return 'enableSpeculativeDecoding';
+    }
+    if (activationDataType != other.activationDataType) {
+      return 'activationDataType';
     }
     if (maxConcurrentSessions != other.maxConcurrentSessions) {
       return 'maxConcurrentSessions';

@@ -130,7 +130,10 @@ so pass the `cache_length` the bundle was compiled for. Note that requesting
 `PreferredBackend.npu` does not guarantee the NPU runs: if it fails to
 initialize, the engine falls back to GPU and then CPU, and the floor applies
 again to those attempts — so a value chosen for an NPU bundle is raised to 1024
-on the fallback rather than crashing it.
+on the fallback rather than crashing it. On macOS, Linux and iOS the NPU
+candidate is not attempted at all, because no NPU dispatch stack ships for them
+and the native runtime accepts `npu` there without raising — which made
+`activeBackend` report an NPU that does not exist on the machine.
 </Warning>
 
 ## `maxTokens` is the CONTEXT window, not the reply length

@@ -72,11 +72,28 @@ final embeddings = await embedder.generateEmbeddings(
 <Info>
 On native, `LiteRtEmbeddingBackend` runs embedding on **CPU only**: EmbeddingGemma
 is an int4 `.tflite` model, and the TFLite GPU delegate cannot run int4 — so GPU
-embedding is not possible for that model format. On web both backends try
-**WebGPU** first and fall back to WASM (LiteRT.js, onnxruntime-web). On native,
+embedding is not possible for that model format. The ONNX backend is CPU-only too:
+it appends no execution provider, so it runs ORT's default. On web both backends
+try **WebGPU** first and fall back to WASM (LiteRT.js, onnxruntime-web). On native,
 embedding runs on a background isolate so it doesn't block the UI thread; on web
 it runs on the main thread.
 </Info>
+
+`getActiveEmbedder(preferredBackend:)` is accepted for symmetry with
+`getActiveModel` and **never applied** — no embedding backend reads it. Core logs
+one line per isolate saying so, but only in debug builds. Read
+`EmbeddingModel.activeBackend` when it matters:
+
+```dart
+final embedder = await FlutterGemma.getActiveEmbedder(
+  preferredBackend: PreferredBackend.gpu, // accepted, not applied
+);
+print(embedder.activeBackend); // PreferredBackend.cpu on native
+```
+
+That answer survives a release build, which the log line does not. It is `null` on
+web, where the runtime picks for itself and does not report back synchronously —
+see the LiteRT web getters below.
 
 ## On-device RAG / vector store
 

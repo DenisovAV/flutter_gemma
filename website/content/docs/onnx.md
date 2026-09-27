@@ -124,6 +124,11 @@ Text-only, greedy decoding, one session at a time (v1): no vision, no audio, no
 LoRA, no sampling parameters yet. Prompts use the model's own chat template
 (ORT-GenAI's `OgaTokenizerApplyChatTemplate` natively; the model's
 `chat_template` on Web) — the engine never builds turn markers itself.
+On native, `preferredBackend` is not applied at all: neither ORT client appends an
+execution provider, so ORT picks its own — for ORT-GenAI, from the model
+directory's `genai_config.json`, which the plugin never reads. `activeBackend` is
+therefore `null` rather than a guess.
+
 `PreferredBackend.cpu` pins WASM on Web; anything else tries WebGPU first and
 falls back to WASM.
 

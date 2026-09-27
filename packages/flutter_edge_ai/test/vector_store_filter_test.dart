@@ -1,4 +1,4 @@
-import 'package:flutter_gemma/core/services/vector_store_filter.dart';
+import 'package:flutter_edge_ai/core/services/vector_store_filter.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

@@ -16,21 +16,21 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart' show VoidCallback;
-import 'package:flutter_gemma/core/lifecycle/close_notifier.dart';
-import 'package:flutter_gemma/core/utils/gemma_log.dart' show gemmaLog;
-import 'package:flutter_gemma/flutter_gemma_interface.dart'
+import 'package:flutter_edge_ai/core/lifecycle/close_notifier.dart';
+import 'package:flutter_edge_ai/core/utils/gemma_log.dart' show gemmaLog;
+import 'package:flutter_edge_ai/flutter_gemma_interface.dart'
     show EmbeddingModel, TaskType;
-import 'package:flutter_gemma/core/embedding/forward_pass.dart'
+import 'package:flutter_edge_ai/core/embedding/forward_pass.dart'
     show EmbeddingOutputContract, ForwardResult;
-import 'package:flutter_gemma/core/embedding/pooling.dart'
+import 'package:flutter_edge_ai/core/embedding/pooling.dart'
     show meanPoolAndNormalize;
-import 'package:flutter_gemma/core/embedding/tokenizer_adapter.dart'
+import 'package:flutter_edge_ai/core/embedding/tokenizer_adapter.dart'
     show EmbeddingTokenizer, EmbeddingTokenizerFactory;
 
 import 'onnx_web_embedding_forward_pass.dart';
 import 'opfs_web_resolver.dart';
 import 'ort_web_client.dart';
-import 'package:flutter_gemma/core/domain/platform_types.dart'
+import 'package:flutter_edge_ai/core/domain/platform_types.dart'
     show PreferredBackend;
 
 /// ONNX Runtime Web embedding model — `onnxruntime-web` over a WordPiece

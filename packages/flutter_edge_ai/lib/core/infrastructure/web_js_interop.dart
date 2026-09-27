@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'package:flutter_gemma/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 import 'package:flutter/foundation.dart';

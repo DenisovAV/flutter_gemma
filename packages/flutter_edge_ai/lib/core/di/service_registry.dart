@@ -1,47 +1,47 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:flutter_gemma/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_gemma/core/domain/web_storage_mode.dart';
-import 'package:flutter_gemma/core/services/download_service.dart';
-import 'package:flutter_gemma/core/services/file_system_service.dart';
-import 'package:flutter_gemma/core/services/asset_loader.dart';
-import 'package:flutter_gemma/core/services/model_repository.dart';
-import 'package:flutter_gemma/core/services/protected_files_registry.dart';
-import 'package:flutter_gemma/core/handlers/source_handler.dart';
-import 'package:flutter_gemma/core/handlers/network_source_handler.dart';
-import 'package:flutter_gemma/core/handlers/web_network_source_handler_stub.dart'
-    if (dart.library.js_interop) 'package:flutter_gemma/core/handlers/web_network_source_handler.dart';
-import 'package:flutter_gemma/core/handlers/asset_source_handler.dart';
-import 'package:flutter_gemma/core/handlers/web_asset_source_handler_stub.dart'
-    if (dart.library.js_interop) 'package:flutter_gemma/core/handlers/web_asset_source_handler.dart';
-import 'package:flutter_gemma/core/handlers/bundled_source_handler.dart';
-import 'package:flutter_gemma/core/handlers/file_source_handler.dart';
-import 'package:flutter_gemma/core/handlers/web_bundled_source_handler_stub.dart'
-    if (dart.library.js_interop) 'package:flutter_gemma/core/handlers/web_bundled_source_handler.dart';
-import 'package:flutter_gemma/core/handlers/web_file_source_handler_stub.dart'
-    if (dart.library.js_interop) 'package:flutter_gemma/core/handlers/web_file_source_handler.dart';
-import 'package:flutter_gemma/core/handlers/source_handler_registry.dart';
-import 'package:flutter_gemma/core/infrastructure/platform_file_system_service.dart'
-    if (dart.library.js_interop) 'package:flutter_gemma/core/infrastructure/platform_file_system_service_stub.dart';
-import 'package:flutter_gemma/core/infrastructure/web_file_system_service.dart';
-import 'package:flutter_gemma/core/infrastructure/flutter_asset_loader_stub.dart'
-    if (dart.library.io) 'package:flutter_gemma/core/infrastructure/flutter_asset_loader.dart';
-import 'package:flutter_gemma/core/infrastructure/shared_preferences_model_repository.dart';
-import 'package:flutter_gemma/core/infrastructure/in_memory_model_repository.dart';
-import 'package:flutter_gemma/core/services/vector_store_repository.dart';
-import 'package:flutter_gemma/core/di/download_hub/configure_download_updates_stream_mobile.dart'
-    if (dart.library.js_interop) 'package:flutter_gemma/core/di/download_hub/configure_download_updates_stream_stub.dart'
+import 'package:flutter_edge_ai/core/domain/web_storage_mode.dart';
+import 'package:flutter_edge_ai/core/services/download_service.dart';
+import 'package:flutter_edge_ai/core/services/file_system_service.dart';
+import 'package:flutter_edge_ai/core/services/asset_loader.dart';
+import 'package:flutter_edge_ai/core/services/model_repository.dart';
+import 'package:flutter_edge_ai/core/services/protected_files_registry.dart';
+import 'package:flutter_edge_ai/core/handlers/source_handler.dart';
+import 'package:flutter_edge_ai/core/handlers/network_source_handler.dart';
+import 'package:flutter_edge_ai/core/handlers/web_network_source_handler_stub.dart'
+    if (dart.library.js_interop) 'package:flutter_edge_ai/core/handlers/web_network_source_handler.dart';
+import 'package:flutter_edge_ai/core/handlers/asset_source_handler.dart';
+import 'package:flutter_edge_ai/core/handlers/web_asset_source_handler_stub.dart'
+    if (dart.library.js_interop) 'package:flutter_edge_ai/core/handlers/web_asset_source_handler.dart';
+import 'package:flutter_edge_ai/core/handlers/bundled_source_handler.dart';
+import 'package:flutter_edge_ai/core/handlers/file_source_handler.dart';
+import 'package:flutter_edge_ai/core/handlers/web_bundled_source_handler_stub.dart'
+    if (dart.library.js_interop) 'package:flutter_edge_ai/core/handlers/web_bundled_source_handler.dart';
+import 'package:flutter_edge_ai/core/handlers/web_file_source_handler_stub.dart'
+    if (dart.library.js_interop) 'package:flutter_edge_ai/core/handlers/web_file_source_handler.dart';
+import 'package:flutter_edge_ai/core/handlers/source_handler_registry.dart';
+import 'package:flutter_edge_ai/core/infrastructure/platform_file_system_service.dart'
+    if (dart.library.js_interop) 'package:flutter_edge_ai/core/infrastructure/platform_file_system_service_stub.dart';
+import 'package:flutter_edge_ai/core/infrastructure/web_file_system_service.dart';
+import 'package:flutter_edge_ai/core/infrastructure/flutter_asset_loader_stub.dart'
+    if (dart.library.io) 'package:flutter_edge_ai/core/infrastructure/flutter_asset_loader.dart';
+import 'package:flutter_edge_ai/core/infrastructure/shared_preferences_model_repository.dart';
+import 'package:flutter_edge_ai/core/infrastructure/in_memory_model_repository.dart';
+import 'package:flutter_edge_ai/core/services/vector_store_repository.dart';
+import 'package:flutter_edge_ai/core/di/download_hub/configure_download_updates_stream_mobile.dart'
+    if (dart.library.js_interop) 'package:flutter_edge_ai/core/di/download_hub/configure_download_updates_stream_stub.dart'
     as download_hub;
-import 'package:flutter_gemma/core/services/vector_store_filter.dart';
-import 'package:flutter_gemma/core/infrastructure/unconfigured_vector_store.dart';
-import 'package:flutter_gemma/core/infrastructure/web_download_service_stub.dart'
-    if (dart.library.js_interop) 'package:flutter_gemma/core/infrastructure/web_download_service.dart';
-import 'package:flutter_gemma/core/infrastructure/web_js_interop_stub.dart'
-    if (dart.library.js_interop) 'package:flutter_gemma/core/infrastructure/web_js_interop.dart';
+import 'package:flutter_edge_ai/core/services/vector_store_filter.dart';
+import 'package:flutter_edge_ai/core/infrastructure/unconfigured_vector_store.dart';
+import 'package:flutter_edge_ai/core/infrastructure/web_download_service_stub.dart'
+    if (dart.library.js_interop) 'package:flutter_edge_ai/core/infrastructure/web_download_service.dart';
+import 'package:flutter_edge_ai/core/infrastructure/web_js_interop_stub.dart'
+    if (dart.library.js_interop) 'package:flutter_edge_ai/core/infrastructure/web_js_interop.dart';
 import 'platform/mobile_service_factory.dart'
     if (dart.library.js_interop) 'platform/web_service_factory.dart'
     as platform;
-import 'package:flutter_gemma/core/infrastructure/shared_preferences_protected_registry.dart';
+import 'package:flutter_edge_ai/core/infrastructure/shared_preferences_protected_registry.dart';
 
 /// Dependency Injection Container for managing service lifecycle
 ///

@@ -1,7 +1,7 @@
 @TestOn('browser')
 library;
 
-import 'package:flutter_gemma_builtin_ai/flutter_gemma_builtin_ai.dart';
+import 'package:flutter_edge_ai_builtin_ai/flutter_edge_ai_builtin_ai.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'fake_prompt_api.dart';

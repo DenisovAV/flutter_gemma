@@ -20,7 +20,7 @@ library;
 // plain sight, directly under the comment that explains it.
 
 import 'package:dart_sentencepiece_tokenizer/dart_sentencepiece_tokenizer.dart';
-import 'package:flutter_gemma_embeddings/src/tokenizer_contract.dart';
+import 'package:flutter_edge_ai_embeddings/src/tokenizer_contract.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// A future `dart_sentencepiece_tokenizer` whose `noPadding()`/`noTruncation()`

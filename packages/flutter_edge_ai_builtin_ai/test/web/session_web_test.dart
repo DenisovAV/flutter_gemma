@@ -4,14 +4,14 @@ library;
 import 'dart:async';
 import 'dart:js_interop';
 
-import 'package:flutter_gemma/core/domain/model_source.dart';
-import 'package:flutter_gemma/core/message.dart';
-import 'package:flutter_gemma/core/model.dart';
-import 'package:flutter_gemma/core/model_management/model_specs.dart';
-import 'package:flutter_gemma/core/registry/runtime_config.dart';
-import 'package:flutter_gemma_builtin_ai/flutter_gemma_builtin_ai.dart';
-import 'package:flutter_gemma_builtin_ai/src/web/builtin_ai_model_web.dart';
-import 'package:flutter_gemma_builtin_ai/src/web/builtin_ai_session_web.dart';
+import 'package:flutter_edge_ai/core/domain/model_source.dart';
+import 'package:flutter_edge_ai/core/message.dart';
+import 'package:flutter_edge_ai/core/model.dart';
+import 'package:flutter_edge_ai/core/model_management/model_specs.dart';
+import 'package:flutter_edge_ai/core/registry/runtime_config.dart';
+import 'package:flutter_edge_ai_builtin_ai/flutter_edge_ai_builtin_ai.dart';
+import 'package:flutter_edge_ai_builtin_ai/src/web/builtin_ai_model_web.dart';
+import 'package:flutter_edge_ai_builtin_ai/src/web/builtin_ai_session_web.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'fake_prompt_api.dart';

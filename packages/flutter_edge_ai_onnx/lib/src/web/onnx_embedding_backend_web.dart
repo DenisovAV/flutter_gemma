@@ -3,11 +3,11 @@
 // HARD RULE 2) — no host gate here: onnxruntime-web's WASM fallback always
 // exists in a browser (unlike the native arm's per-platform archive gate).
 
-import 'package:flutter_gemma/core/registry/embedding_backend_provider.dart';
-import 'package:flutter_gemma/core/registry/runtime_config.dart';
-import 'package:flutter_gemma/core/registry/embedding_tokenizer_registry.dart';
-import 'package:flutter_gemma/flutter_gemma_interface.dart' show EmbeddingModel;
-import 'package:flutter_gemma/core/model_management/model_specs.dart'
+import 'package:flutter_edge_ai/core/registry/embedding_backend_provider.dart';
+import 'package:flutter_edge_ai/core/registry/runtime_config.dart';
+import 'package:flutter_edge_ai/core/registry/embedding_tokenizer_registry.dart';
+import 'package:flutter_edge_ai/flutter_gemma_interface.dart' show EmbeddingModel;
+import 'package:flutter_edge_ai/core/model_management/model_specs.dart'
     show EmbeddingModelSpec;
 
 import 'onnx_web_embedding_model.dart';

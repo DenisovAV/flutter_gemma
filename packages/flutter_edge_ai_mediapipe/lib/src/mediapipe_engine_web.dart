@@ -1,10 +1,10 @@
-import 'package:flutter_gemma/core/model.dart' show ModelFileType;
-import 'package:flutter_gemma/core/registry/inference_engine_provider.dart';
-import 'package:flutter_gemma/core/registry/runtime_config.dart';
-import 'package:flutter_gemma/flutter_gemma_interface.dart' show InferenceModel;
-import 'package:flutter_gemma/core/model_management/model_specs.dart'
+import 'package:flutter_edge_ai/core/model.dart' show ModelFileType;
+import 'package:flutter_edge_ai/core/registry/inference_engine_provider.dart';
+import 'package:flutter_edge_ai/core/registry/runtime_config.dart';
+import 'package:flutter_edge_ai/flutter_gemma_interface.dart' show InferenceModel;
+import 'package:flutter_edge_ai/core/model_management/model_specs.dart'
     show InferenceModelSpec;
-import 'package:flutter_gemma/web/web_model_source.dart';
+import 'package:flutter_edge_ai/web/web_model_source.dart';
 
 import 'web/web_inference_model.dart';
 

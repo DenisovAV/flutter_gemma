@@ -8,8 +8,8 @@ library;
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter_gemma_litertlm/src/manifest/manifest_fetch_io.dart';
-import 'package:flutter_gemma_litertlm/src/manifest/manifest_fetch_types.dart';
+import 'package:flutter_edge_ai_litertlm/src/manifest/manifest_fetch_io.dart';
+import 'package:flutter_edge_ai_litertlm/src/manifest/manifest_fetch_types.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Bytes no UTF-8 decoder accepts strictly: a lone continuation byte and an

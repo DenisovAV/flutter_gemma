@@ -17,13 +17,13 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show debugPrint;
-import 'package:flutter_gemma/flutter_gemma.dart' show PreferredBackend;
+import 'package:flutter_edge_ai/flutter_edge_ai.dart' show PreferredBackend;
 // ignore: implementation_imports
-import 'package:flutter_gemma_speech/src/litert/inflect_tts_core.dart';
+import 'package:flutter_edge_ai_speech/src/litert/inflect_tts_core.dart';
 // ignore: implementation_imports
-import 'package:flutter_gemma_speech/src/model/tts_model_profile.dart';
+import 'package:flutter_edge_ai_speech/src/model/tts_model_profile.dart';
 // ignore: implementation_imports
-import 'package:flutter_gemma_speech/src/tts/inflect_text_frontend.dart';
+import 'package:flutter_edge_ai_speech/src/tts/inflect_text_frontend.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:path_provider/path_provider.dart';

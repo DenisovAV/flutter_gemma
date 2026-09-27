@@ -9,7 +9,7 @@
 
 import 'dart:math' as math;
 
-import 'package:flutter_gemma/flutter_gemma.dart' hide Message;
+import 'package:flutter_edge_ai/flutter_edge_ai.dart' hide Message;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genkit/genkit.dart';
 

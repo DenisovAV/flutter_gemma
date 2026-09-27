@@ -27,11 +27,11 @@
 import 'dart:ffi';
 import 'dart:io';
 
-import 'package:flutter_gemma_litertlm/litert_bindings.dart';
+import 'package:flutter_edge_ai_litertlm/litert_bindings.dart';
 // ignore: implementation_imports — the branches under test are internal by
 // design; exporting them would invite apps to call an Android-only,
 // RTLD-flag-sensitive primitive directly.
-import 'package:flutter_gemma_litertlm/src/ffi/litert_default_scope.dart';
+import 'package:flutter_edge_ai_litertlm/src/ffi/litert_default_scope.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 

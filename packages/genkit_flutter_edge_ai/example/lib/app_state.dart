@@ -2,10 +2,10 @@ import 'dart:developer' as developer;
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter_gemma/flutter_gemma.dart' hide Message;
-import 'package:flutter_gemma/flutter_gemma.dart' as gemma show ModelType;
+import 'package:flutter_edge_ai/flutter_edge_ai.dart' hide Message;
+import 'package:flutter_edge_ai/flutter_edge_ai.dart' as gemma show ModelType;
 import 'package:genkit/genkit.dart';
-import 'package:genkit_flutter_gemma/genkit_flutter_gemma.dart';
+import 'package:genkit_flutter_edge_ai/genkit_flutter_edge_ai.dart';
 
 bool get _isDesktop {
   if (kIsWeb) return false;

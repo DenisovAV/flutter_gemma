@@ -3,17 +3,17 @@ import 'dart:collection';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter_gemma/core/extensions.dart';
-import 'package:flutter_gemma/core/function_call_parser.dart';
-import 'package:flutter_gemma/core/message.dart';
-import 'package:flutter_gemma/core/model_response.dart';
-import 'package:flutter_gemma/core/parsing/sdk_response_parser.dart';
-import 'package:flutter_gemma/core/tool.dart';
-import 'package:flutter_gemma/flutter_gemma_interface.dart';
+import 'package:flutter_edge_ai/core/extensions.dart';
+import 'package:flutter_edge_ai/core/function_call_parser.dart';
+import 'package:flutter_edge_ai/core/message.dart';
+import 'package:flutter_edge_ai/core/model_response.dart';
+import 'package:flutter_edge_ai/core/parsing/sdk_response_parser.dart';
+import 'package:flutter_edge_ai/core/tool.dart';
+import 'package:flutter_edge_ai/flutter_gemma_interface.dart';
 import 'package:mutex/mutex.dart';
 
 import 'model.dart';
-import 'package:flutter_gemma/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
 
 /// Default maximum length for function call buffer before flushing as text.
 /// Must accommodate verbose formats (DeepSeek tags, parallel calls).
@@ -71,7 +71,7 @@ class InferenceChat {
   /// Serializes genai_primitives sendMessage/generateContent calls so
   /// concurrent turns can't interleave staging into the shared session buffer.
   ///
-  /// Internal to the `package:flutter_gemma/genai.dart` extension — not part of
+  /// Internal to the `package:flutter_edge_ai/genai.dart` extension — not part of
   /// the public API. External `acquire()`/`release()` would deadlock the chat.
   @internal
   final Mutex genaiLock = Mutex();

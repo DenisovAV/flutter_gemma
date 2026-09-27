@@ -1,7 +1,7 @@
 import 'dart:ffi';
 
-import 'package:flutter_gemma_litertlm/src/ffi/litert_lm_bindings.dart';
-import 'package:flutter_gemma_litertlm/src/ffi/litert_lm_client.dart';
+import 'package:flutter_edge_ai_litertlm/src/ffi/litert_lm_bindings.dart';
+import 'package:flutter_edge_ai_litertlm/src/ffi/litert_lm_client.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 // #379: a conversation deleted by model/handle/engine teardown must be dropped

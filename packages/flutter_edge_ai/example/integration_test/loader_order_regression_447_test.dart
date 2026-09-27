@@ -15,7 +15,7 @@
 import 'dart:ffi';
 import 'dart:io';
 
-import 'package:flutter_gemma_litertlm/litert_bindings.dart';
+import 'package:flutter_edge_ai_litertlm/litert_bindings.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 

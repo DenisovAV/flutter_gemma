@@ -4,7 +4,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:flutter_gemma/flutter_gemma.dart' show SpeechRecognizer;
+import 'package:flutter_edge_ai/flutter_edge_ai.dart' show SpeechRecognizer;
 import 'package:path_provider/path_provider.dart';
 
 /// Resolve a device-local staged model file (no network, no token) — the same

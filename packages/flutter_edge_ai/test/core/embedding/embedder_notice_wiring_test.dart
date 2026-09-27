@@ -17,16 +17,16 @@ import 'dart:async';
 // Run: flutter test test/core/embedding/embedder_notice_wiring_test.dart
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter_gemma/core/embedding/embedder_backend_notice.dart';
-import 'package:flutter_gemma/core/lifecycle/close_notifier.dart';
-import 'package:flutter_gemma/core/domain/model_source.dart';
-import 'package:flutter_gemma/core/registry/embedding_backend_provider.dart';
-import 'package:flutter_gemma/core/registry/embedding_registry.dart';
-import 'package:flutter_gemma/core/registry/runtime_config.dart';
-import 'package:flutter_gemma/core/domain/platform_types.dart';
-import 'package:flutter_gemma/desktop/flutter_gemma_desktop.dart';
-import 'package:flutter_gemma/flutter_gemma_interface.dart';
-import 'package:flutter_gemma/mobile/flutter_gemma_mobile.dart';
+import 'package:flutter_edge_ai/core/embedding/embedder_backend_notice.dart';
+import 'package:flutter_edge_ai/core/lifecycle/close_notifier.dart';
+import 'package:flutter_edge_ai/core/domain/model_source.dart';
+import 'package:flutter_edge_ai/core/registry/embedding_backend_provider.dart';
+import 'package:flutter_edge_ai/core/registry/embedding_registry.dart';
+import 'package:flutter_edge_ai/core/registry/runtime_config.dart';
+import 'package:flutter_edge_ai/core/domain/platform_types.dart';
+import 'package:flutter_edge_ai/desktop/flutter_gemma_desktop.dart';
+import 'package:flutter_edge_ai/flutter_gemma_interface.dart';
+import 'package:flutter_edge_ai/mobile/flutter_gemma_mobile.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 

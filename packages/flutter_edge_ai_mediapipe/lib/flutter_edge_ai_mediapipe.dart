@@ -4,11 +4,11 @@
 /// `FlutterGemma.initialize(inferenceEngines: [MediaPipeEngine()])`.
 ///
 /// ```dart
-/// import 'package:flutter_gemma/flutter_gemma.dart';
-/// import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
+/// import 'package:flutter_edge_ai/flutter_edge_ai.dart';
+/// import 'package:flutter_edge_ai_mediapipe/flutter_edge_ai_mediapipe.dart';
 /// await FlutterGemma.initialize(inferenceEngines: [MediaPipeEngine()]);
 /// ```
-library flutter_gemma_mediapipe;
+library flutter_edge_ai_mediapipe;
 
 export 'src/mediapipe_engine_web.dart'
     if (dart.library.io) 'src/mediapipe_engine.dart';

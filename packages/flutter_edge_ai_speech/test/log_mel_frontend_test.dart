@@ -3,8 +3,8 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
-import 'package:flutter_gemma_speech/src/litert/log_mel_frontend.dart';
-import 'package:flutter_gemma_speech/src/litert/mel_filter_assets.dart';
+import 'package:flutter_edge_ai_speech/src/litert/log_mel_frontend.dart';
+import 'package:flutter_edge_ai_speech/src/litert/mel_filter_assets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 int _argmaxOf(List<double> values) {

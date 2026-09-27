@@ -1,5 +1,5 @@
-import 'package:flutter_gemma/core/domain/platform_types.dart';
-import 'package:flutter_gemma/core/model.dart';
+import 'package:flutter_edge_ai/core/domain/platform_types.dart';
+import 'package:flutter_edge_ai/core/model.dart';
 
 import '../translation/prompt_strategy.dart';
 import '../translation/translate_gemma_xml_strategy.dart';

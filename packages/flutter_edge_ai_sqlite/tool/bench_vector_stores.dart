@@ -40,14 +40,14 @@
 import 'dart:io';
 import 'dart:math';
 
-import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma_rag_sqlite/flutter_gemma_rag_sqlite.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
+import 'package:flutter_edge_ai_sqlite/flutter_edge_ai_sqlite.dart';
 // Dev-only import (qdrant is a dev_dependency, never exported from lib/). The
 // qdrant arm is gated at runtime: it is probed at startup (open a throwaway
 // shard) and skipped if that fails — the official qdrant_edge SDK resolves
 // its own native library via its Native Assets build hook, with no override
 // for this bench tool to set.
-import 'package:flutter_gemma_rag_qdrant/flutter_gemma_rag_qdrant.dart';
+import 'package:flutter_edge_ai_qdrant/flutter_edge_ai_qdrant.dart';
 
 /// One measured cell: how a single store performed at one (size, topK).
 class _Cell {

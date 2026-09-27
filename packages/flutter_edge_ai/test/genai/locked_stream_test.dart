@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma/genai.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
+import 'package:flutter_edge_ai/genai.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// A no-engine [InferenceChat] whose staging (addQueryChunk) and generation

@@ -10,7 +10,7 @@ import 'package:code_assets/code_assets.dart';
 import 'package:crypto/crypto.dart';
 import 'package:hooks/hooks.dart';
 
-const _packageName = 'flutter_gemma';
+const _packageName = 'flutter_edge_ai';
 
 // ============================================================================
 // Native bundles

@@ -18,7 +18,7 @@
 import 'dart:ffi';
 import 'dart:io';
 
-import 'package:flutter_gemma/core/utils/host_native_library.dart';
+import 'package:flutter_edge_ai/core/utils/host_native_library.dart';
 
 import 'package:ffi/ffi.dart';
 
@@ -200,7 +200,7 @@ List<String> _candidatesFor(String hostDir) => hostNativeLibraryCandidates(
   libFileName: hostNativeLibraryFileName('LiteRtLm'),
   // LiteRT uses the FLAT cache layout: <cacheBase>/<host>/, no namespace.
   relativePaths: [
-    'packages/flutter_gemma_litertlm/native/litert_lm/prebuilt/'
+    'packages/flutter_edge_ai_litertlm/native/litert_lm/prebuilt/'
         '$hostDir/${hostNativeLibraryFileName('LiteRtLm')}',
     'native/litert_lm/prebuilt/'
         '$hostDir/${hostNativeLibraryFileName('LiteRtLm')}',

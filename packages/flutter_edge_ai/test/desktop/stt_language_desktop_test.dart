@@ -30,14 +30,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_gemma/core/di/service_registry.dart';
-import 'package:flutter_gemma/core/lifecycle/close_notifier.dart';
-import 'package:flutter_gemma/core/registry/runtime_config.dart';
-import 'package:flutter_gemma/core/registry/stt_backend_provider.dart';
-import 'package:flutter_gemma/core/registry/stt_registry.dart';
-import 'package:flutter_gemma/core/services/download_service.dart';
-import 'package:flutter_gemma/desktop/flutter_gemma_desktop.dart';
-import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_edge_ai/core/di/service_registry.dart';
+import 'package:flutter_edge_ai/core/lifecycle/close_notifier.dart';
+import 'package:flutter_edge_ai/core/registry/runtime_config.dart';
+import 'package:flutter_edge_ai/core/registry/stt_backend_provider.dart';
+import 'package:flutter_edge_ai/core/registry/stt_registry.dart';
+import 'package:flutter_edge_ai/core/services/download_service.dart';
+import 'package:flutter_edge_ai/desktop/flutter_gemma_desktop.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 
 final _fakeBundleBytes = Uint8List(1024 * 1024 + 16);
 

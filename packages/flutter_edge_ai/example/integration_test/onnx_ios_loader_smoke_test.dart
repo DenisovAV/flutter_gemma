@@ -35,8 +35,8 @@
 //   flutter test integration_test/onnx_ios_loader_smoke_test.dart -d <device-id>
 import 'dart:io';
 
-import 'package:flutter_gemma_onnx/src/embedding/ort_ffi_client.dart';
-import 'package:flutter_gemma_onnx/src/ffi/gen_ai_client.dart';
+import 'package:flutter_edge_ai_onnx/src/embedding/ort_ffi_client.dart';
+import 'package:flutter_edge_ai_onnx/src/ffi/gen_ai_client.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 

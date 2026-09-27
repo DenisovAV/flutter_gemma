@@ -25,7 +25,7 @@ library;
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter_gemma_embeddings/src/embedding_tokenizer.dart';
+import 'package:flutter_edge_ai_embeddings/src/embedding_tokenizer.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// A HuggingFace `tokenizer.json` carrying SigLIP2's pipeline blocks verbatim.

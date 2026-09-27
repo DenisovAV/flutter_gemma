@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 
-import 'package:flutter_gemma_speech/src/litert/stt_core.dart'
+import 'package:flutter_edge_ai_speech/src/litert/stt_core.dart'
     show ctcGreedyDecode;
 import 'package:flutter_test/flutter_test.dart';
 

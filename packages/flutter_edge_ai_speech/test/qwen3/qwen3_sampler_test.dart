@@ -10,7 +10,7 @@
 import 'dart:math';
 import 'dart:typed_data';
 
-import 'package:flutter_gemma_speech/src/qwen3/qwen3_sampler.dart';
+import 'package:flutter_edge_ai_speech/src/qwen3/qwen3_sampler.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

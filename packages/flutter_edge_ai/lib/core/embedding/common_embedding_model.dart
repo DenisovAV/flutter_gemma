@@ -11,13 +11,13 @@
 // Public method signatures (`generateEmbedding`/`generateEmbeddings`/
 // `getDimension`/`close`) are unchanged from `LitertEmbeddingModel`.
 
-import 'package:flutter_gemma/core/lifecycle/close_notifier.dart';
-import 'package:flutter_gemma/flutter_gemma_interface.dart'
+import 'package:flutter_edge_ai/core/lifecycle/close_notifier.dart';
+import 'package:flutter_edge_ai/flutter_gemma_interface.dart'
     show EmbeddingModel, TaskType;
 
 import 'embedding_worker.dart';
 import 'forward_pass.dart';
-import 'package:flutter_gemma/core/domain/platform_types.dart'
+import 'package:flutter_edge_ai/core/domain/platform_types.dart'
     show PreferredBackend;
 
 /// Signature for the `onClose` callback. Same name Flutter uses.

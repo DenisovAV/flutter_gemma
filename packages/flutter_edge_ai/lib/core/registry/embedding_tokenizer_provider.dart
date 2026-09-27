@@ -1,6 +1,6 @@
-import 'package:flutter_gemma/core/embedding/tokenizer_adapter.dart'
+import 'package:flutter_edge_ai/core/embedding/tokenizer_adapter.dart'
     show EmbeddingTokenizerFactory;
-import 'package:flutter_gemma/core/model_management/model_specs.dart'
+import 'package:flutter_edge_ai/core/model_management/model_specs.dart'
     show EmbeddingModelSpec;
 
 /// A pluggable source of [EmbeddingTokenizerFactory] — the "text -> token ids"

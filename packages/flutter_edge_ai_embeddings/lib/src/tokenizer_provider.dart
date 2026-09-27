@@ -1,8 +1,8 @@
-import 'package:flutter_gemma/core/embedding/tokenizer_adapter.dart'
+import 'package:flutter_edge_ai/core/embedding/tokenizer_adapter.dart'
     show EmbeddingTokenizerFactory;
-import 'package:flutter_gemma/core/model_management/model_specs.dart'
+import 'package:flutter_edge_ai/core/model_management/model_specs.dart'
     show EmbeddingModelSpec;
-import 'package:flutter_gemma/core/registry/embedding_tokenizer_provider.dart';
+import 'package:flutter_edge_ai/core/registry/embedding_tokenizer_provider.dart';
 
 // Real arm by default, web overrides -- core's own convention. The native
 // router reads the file with dart:io and can reach SentencePiece; the web one

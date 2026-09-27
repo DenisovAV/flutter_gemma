@@ -1,4 +1,4 @@
-import 'package:flutter_gemma_speech/flutter_gemma_speech.dart';
+import 'package:flutter_edge_ai_speech/flutter_edge_ai_speech.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

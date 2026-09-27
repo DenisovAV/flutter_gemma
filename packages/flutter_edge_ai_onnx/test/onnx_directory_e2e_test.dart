@@ -14,18 +14,18 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_gemma/core/di/service_registry.dart';
-import 'package:flutter_gemma/core/domain/platform_types.dart'
+import 'package:flutter_edge_ai/core/di/service_registry.dart';
+import 'package:flutter_edge_ai/core/domain/platform_types.dart'
     show PreferredBackend;
-import 'package:flutter_gemma/core/registry/hugging_face_resolver.dart';
-import 'package:flutter_gemma/core/registry/hugging_face_resolver_registry.dart';
-import 'package:flutter_gemma/core/registry/runtime_config.dart';
-import 'package:flutter_gemma/core/services/download_service.dart';
-import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma/mobile/flutter_gemma_mobile.dart'
+import 'package:flutter_edge_ai/core/registry/hugging_face_resolver.dart';
+import 'package:flutter_edge_ai/core/registry/hugging_face_resolver_registry.dart';
+import 'package:flutter_edge_ai/core/registry/runtime_config.dart';
+import 'package:flutter_edge_ai/core/services/download_service.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
+import 'package:flutter_edge_ai/mobile/flutter_gemma_mobile.dart'
     show MobileModelManager;
 
-import 'package:flutter_gemma_onnx/src/onnx_engine.dart';
+import 'package:flutter_edge_ai_onnx/src/onnx_engine.dart';
 
 import 'fakes/fake_gen_ai_client.dart';
 

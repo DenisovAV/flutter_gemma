@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genkit/plugin.dart';
-import 'package:genkit_flutter_gemma/src/converters/tool_converter.dart';
+import 'package:genkit_flutter_edge_ai/src/converters/tool_converter.dart';
 
 void main() {
   group('convertTools', () {

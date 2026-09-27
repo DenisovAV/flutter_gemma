@@ -39,14 +39,14 @@
 //   flutter test test/cross_backend_parity_test.dart
 import 'dart:io';
 
-import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma_rag_qdrant/flutter_gemma_rag_qdrant.dart';
-import 'package:flutter_gemma_rag_sqlite/flutter_gemma_rag_sqlite.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
+import 'package:flutter_edge_ai_qdrant/flutter_edge_ai_qdrant.dart';
+import 'package:flutter_edge_ai_sqlite/flutter_edge_ai_sqlite.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'vec0_locator.dart';
 
-import 'package:flutter_gemma_rag_sqlite/src/testing/parity_cases.dart';
+import 'package:flutter_edge_ai_sqlite/src/testing/parity_cases.dart';
 
 void main() {
   final vec0Skip = vec0SkipReason;

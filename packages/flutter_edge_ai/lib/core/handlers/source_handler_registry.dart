@@ -1,5 +1,5 @@
-import 'package:flutter_gemma/core/domain/model_source.dart';
-import 'package:flutter_gemma/core/handlers/source_handler.dart';
+import 'package:flutter_edge_ai/core/domain/model_source.dart';
+import 'package:flutter_edge_ai/core/handlers/source_handler.dart';
 
 /// Registry for managing source handlers
 ///

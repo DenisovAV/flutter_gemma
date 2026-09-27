@@ -44,7 +44,7 @@ import 'package:code_assets/code_assets.dart';
 import 'package:crypto/crypto.dart';
 import 'package:hooks/hooks.dart';
 
-const _packageName = 'flutter_gemma_rag_sqlite';
+const _packageName = 'flutter_edge_ai_sqlite';
 
 /// Logical CodeAsset name (the runtime resolves the bundled file by its
 /// filename; this is just the asset identity inside the package).

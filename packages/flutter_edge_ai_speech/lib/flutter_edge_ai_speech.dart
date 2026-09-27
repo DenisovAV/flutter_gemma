@@ -6,8 +6,8 @@
 /// [LiteRtTtsBackend()])`.
 ///
 /// ```dart
-/// import 'package:flutter_gemma/flutter_gemma.dart';
-/// import 'package:flutter_gemma_speech/flutter_gemma_speech.dart';
+/// import 'package:flutter_edge_ai/flutter_edge_ai.dart';
+/// import 'package:flutter_edge_ai_speech/flutter_edge_ai_speech.dart';
 ///
 /// await FlutterGemma.initialize(
 ///   sttBackends: [LiteRtSttBackend()],

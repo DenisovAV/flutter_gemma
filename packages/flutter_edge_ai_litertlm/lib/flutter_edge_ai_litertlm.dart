@@ -4,12 +4,12 @@
 /// `FlutterGemma.initialize(inferenceEngines: [LiteRtLmEngine()])`.
 ///
 /// ```dart
-/// import 'package:flutter_gemma/flutter_gemma.dart';
-/// import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
+/// import 'package:flutter_edge_ai/flutter_edge_ai.dart';
+/// import 'package:flutter_edge_ai_litertlm/flutter_edge_ai_litertlm.dart';
 ///
 /// await FlutterGemma.initialize(inferenceEngines: [LiteRtLmEngine()]);
 /// ```
-library flutter_gemma_litertlm;
+library flutter_edge_ai_litertlm;
 
 export 'src/litert_lm_engine_web.dart'
     if (dart.library.ffi) 'src/litert_lm_engine.dart';

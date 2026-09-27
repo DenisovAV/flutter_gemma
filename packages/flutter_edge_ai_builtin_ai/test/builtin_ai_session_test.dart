@@ -1,8 +1,8 @@
 import 'package:flutter/services.dart';
-import 'package:flutter_gemma/core/message.dart';
-import 'package:flutter_gemma/core/model.dart';
-import 'package:flutter_gemma_builtin_ai/pigeon.g.dart';
-import 'package:flutter_gemma_builtin_ai/src/builtin_ai_session.dart';
+import 'package:flutter_edge_ai/core/message.dart';
+import 'package:flutter_edge_ai/core/model.dart';
+import 'package:flutter_edge_ai_builtin_ai/pigeon.g.dart';
+import 'package:flutter_edge_ai_builtin_ai/src/builtin_ai_session.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _prefix = 'dev.flutter.pigeon.flutter_gemma_builtin_ai.BuiltInAiService';

@@ -1,8 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma_rag_qdrant/src/filter_codec.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
+import 'package:flutter_edge_ai_qdrant/src/filter_codec.dart';
 
 Map<String, dynamic> _decode(String? json) {
   expect(json, isNotNull);

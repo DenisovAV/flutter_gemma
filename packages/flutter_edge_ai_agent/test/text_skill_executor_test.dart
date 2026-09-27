@@ -1,4 +1,4 @@
-import 'package:flutter_gemma_agent/flutter_gemma_agent.dart';
+import 'package:flutter_edge_ai_agent/flutter_edge_ai_agent.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Skill _skill(SkillType type) => Skill(

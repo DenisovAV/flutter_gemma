@@ -1,14 +1,14 @@
 import 'dart:async';
 import 'dart:typed_data';
 
-import 'package:flutter_gemma/core/lifecycle/close_notifier.dart';
-import 'package:flutter_gemma/core/tool.dart';
-import 'package:flutter_gemma/core/chat.dart';
-import 'package:flutter_gemma/core/message.dart';
-import 'package:flutter_gemma/core/model.dart';
-import 'package:flutter_gemma/core/services/vector_store_filter.dart';
-import 'package:flutter_gemma/model_file_manager_interface.dart';
-import 'package:flutter_gemma/core/domain/platform_types.dart';
+import 'package:flutter_edge_ai/core/lifecycle/close_notifier.dart';
+import 'package:flutter_edge_ai/core/tool.dart';
+import 'package:flutter_edge_ai/core/chat.dart';
+import 'package:flutter_edge_ai/core/message.dart';
+import 'package:flutter_edge_ai/core/model.dart';
+import 'package:flutter_edge_ai/core/services/vector_store_filter.dart';
+import 'package:flutter_edge_ai/model_file_manager_interface.dart';
+import 'package:flutter_edge_ai/core/domain/platform_types.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
 // Conditional default instance: the mobile/desktop default pulls dart:io;

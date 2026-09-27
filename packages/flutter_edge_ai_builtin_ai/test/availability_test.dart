@@ -1,8 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter_gemma_builtin_ai/flutter_gemma_builtin_ai.dart';
-import 'package:flutter_gemma_builtin_ai/pigeon.g.dart';
+import 'package:flutter_edge_ai_builtin_ai/flutter_edge_ai_builtin_ai.dart';
+import 'package:flutter_edge_ai_builtin_ai/pigeon.g.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _prefix = 'dev.flutter.pigeon.flutter_gemma_builtin_ai.BuiltInAiService';

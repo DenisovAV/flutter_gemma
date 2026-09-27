@@ -1,6 +1,6 @@
-import 'package:flutter_gemma/core/domain/model_source.dart';
-import 'package:flutter_gemma/core/model.dart';
-import 'package:flutter_gemma/core/model_management/model_specs.dart'
+import 'package:flutter_edge_ai/core/domain/model_source.dart';
+import 'package:flutter_edge_ai/core/model.dart';
+import 'package:flutter_edge_ai/core/model_management/model_specs.dart'
     show InferenceModelSpec;
 
 /// Ready-made [InferenceModelSpec]s for the OS built-in models.

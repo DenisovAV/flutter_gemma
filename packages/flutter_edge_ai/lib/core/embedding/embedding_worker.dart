@@ -22,7 +22,7 @@
 // (reply).
 
 import 'dart:async';
-import 'package:flutter_gemma/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
 import 'dart:isolate';
 
 import 'forward_pass.dart';

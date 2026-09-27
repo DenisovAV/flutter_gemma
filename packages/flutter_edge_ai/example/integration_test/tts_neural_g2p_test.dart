@@ -11,18 +11,18 @@
 // (yet) exposed on the public SpeechSynthesizer surface, and this test's
 // purpose is to white-box-verify the graph load + decode, mirroring how
 // `tts_core_test.dart` (package-internal unit tests) already imports
-// `package:flutter_gemma_speech/src/litert/tts_core.dart`.
+// `package:flutter_edge_ai_speech/src/litert/tts_core.dart`.
 //
 // Run: cd packages/flutter_gemma/example && \
 //   flutter test integration_test/tts_neural_g2p_test.dart -d macos
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:flutter_gemma/flutter_gemma.dart'
+import 'package:flutter_edge_ai/flutter_edge_ai.dart'
     show FlutterGemma, FlutterGemmaPlugin, TtsModelSpec, TtsModelType;
-import 'package:flutter_gemma_speech/flutter_gemma_speech.dart'
+import 'package:flutter_edge_ai_speech/flutter_edge_ai_speech.dart'
     show LiteRtTtsBackend;
-import 'package:flutter_gemma_speech/src/litert/tts_core.dart' show TtsCore;
-import 'package:flutter_gemma_speech/src/model/tts_model_profile.dart'
+import 'package:flutter_edge_ai_speech/src/litert/tts_core.dart' show TtsCore;
+import 'package:flutter_edge_ai_speech/src/model/tts_model_profile.dart'
     show TtsModelProfile;
 
 const _modelUrl =

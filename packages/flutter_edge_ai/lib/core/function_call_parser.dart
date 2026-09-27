@@ -1,9 +1,9 @@
-import 'package:flutter_gemma/core/model.dart';
-import 'package:flutter_gemma/core/model_response.dart';
-import 'package:flutter_gemma/core/parsing/function_call_format.dart';
-import 'package:flutter_gemma/core/parsing/function_call_format_factory.dart';
-import 'package:flutter_gemma/core/parsing/sdk_passthrough_function_call_format.dart';
-import 'package:flutter_gemma/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/model.dart';
+import 'package:flutter_edge_ai/core/model_response.dart';
+import 'package:flutter_edge_ai/core/parsing/function_call_format.dart';
+import 'package:flutter_edge_ai/core/parsing/function_call_format_factory.dart';
+import 'package:flutter_edge_ai/core/parsing/sdk_passthrough_function_call_format.dart';
+import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
 
 /// Facade for backward compatibility.
 /// Delegates to model-specific [FunctionCallFormat] implementations.

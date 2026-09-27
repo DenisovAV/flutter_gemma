@@ -2,11 +2,11 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter_gemma/core/utils/gemma_log.dart';
-import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma_rag_qdrant/src/filter_codec.dart';
-import 'package:flutter_gemma_rag_qdrant/src/point_id_hasher.dart';
-import 'package:flutter_gemma_rag_qdrant/src/qdrant_edge_client.dart';
+import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
+import 'package:flutter_edge_ai_qdrant/src/filter_codec.dart';
+import 'package:flutter_edge_ai_qdrant/src/point_id_hasher.dart';
+import 'package:flutter_edge_ai_qdrant/src/qdrant_edge_client.dart';
 import 'package:path/path.dart' as p;
 
 /// Thrown when a store written by `flutter_gemma_rag_qdrant` 1.x is found at

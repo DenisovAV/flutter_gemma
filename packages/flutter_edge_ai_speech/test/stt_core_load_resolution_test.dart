@@ -11,9 +11,9 @@
 // - an unresolvable name fails loud (StateError naming it), never a silent
 //   fallback id.
 
-import 'package:flutter_gemma_speech/src/litert/stt_core.dart'
+import 'package:flutter_edge_ai_speech/src/litert/stt_core.dart'
     show resolveSttSpecialTokens;
-import 'package:flutter_gemma_speech/src/model/stt_model_profile.dart';
+import 'package:flutter_edge_ai_speech/src/model/stt_model_profile.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

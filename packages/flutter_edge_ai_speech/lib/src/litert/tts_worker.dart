@@ -48,9 +48,9 @@ import 'dart:async';
 import 'dart:isolate';
 import 'dart:typed_data';
 
-import 'package:flutter_gemma/core/domain/platform_types.dart'
+import 'package:flutter_edge_ai/core/domain/platform_types.dart'
     show PreferredBackend;
-import 'package:flutter_gemma/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
 
 import '../model/tts_model_profile.dart';
 import '../qwen3/npy_reader.dart';

@@ -18,12 +18,12 @@ library;
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter_gemma/core/domain/platform_types.dart'
+import 'package:flutter_edge_ai/core/domain/platform_types.dart'
     show PreferredBackend;
-import 'package:flutter_gemma/core/model.dart' show ModelType;
-import 'package:flutter_gemma/core/registry/hugging_face_resolver.dart'
+import 'package:flutter_edge_ai/core/model.dart' show ModelType;
+import 'package:flutter_edge_ai/core/registry/hugging_face_resolver.dart'
     show ResolvedHfModel;
-import 'package:flutter_gemma_litertlm/src/manifest/litertlm_manifest_resolver.dart';
+import 'package:flutter_edge_ai_litertlm/src/manifest/litertlm_manifest_resolver.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _platforms = [

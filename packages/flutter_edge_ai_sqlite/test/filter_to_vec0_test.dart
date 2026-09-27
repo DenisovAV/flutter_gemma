@@ -1,7 +1,7 @@
 // Pure-Dart unit tests for the vec0 filter translator. No sqlite, no FFI —
 // these assert the SQL fragment + bind list shapes only.
-import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma_rag_sqlite/src/filter_to_vec0.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
+import 'package:flutter_edge_ai_sqlite/src/filter_to_vec0.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Schema with one column of each storage type, plus the columns the tests

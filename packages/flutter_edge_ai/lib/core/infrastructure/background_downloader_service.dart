@@ -1,7 +1,7 @@
 import 'dart:async';
-import 'package:flutter_gemma/core/services/download_service.dart';
-import 'package:flutter_gemma/core/model_management/cancel_token.dart';
-import 'package:flutter_gemma/mobile/smart_downloader.dart';
+import 'package:flutter_edge_ai/core/services/download_service.dart';
+import 'package:flutter_edge_ai/core/model_management/cancel_token.dart';
+import 'package:flutter_edge_ai/mobile/smart_downloader.dart';
 
 /// Download service implementation using SmartDownloader
 ///

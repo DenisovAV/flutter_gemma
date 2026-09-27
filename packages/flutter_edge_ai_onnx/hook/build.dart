@@ -48,7 +48,7 @@ import 'package:code_assets/code_assets.dart';
 import 'package:crypto/crypto.dart';
 import 'package:hooks/hooks.dart';
 
-const _packageName = 'flutter_gemma_onnx';
+const _packageName = 'flutter_edge_ai_onnx';
 
 /// One archive to fetch, verify, and extract: a GitHub Release tarball for
 /// one (library, platform) pair.

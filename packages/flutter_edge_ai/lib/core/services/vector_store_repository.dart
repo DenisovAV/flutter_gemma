@@ -1,5 +1,5 @@
-import 'package:flutter_gemma/core/services/vector_store_filter.dart';
-import 'package:flutter_gemma/core/domain/platform_types.dart';
+import 'package:flutter_edge_ai/core/services/vector_store_filter.dart';
+import 'package:flutter_edge_ai/core/domain/platform_types.dart';
 
 /// Abstract repository for vector store operations
 ///

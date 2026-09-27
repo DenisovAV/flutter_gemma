@@ -1,8 +1,8 @@
-import 'package:flutter_gemma/core/registry/stt_backend_provider.dart';
-import 'package:flutter_gemma/core/registry/runtime_config.dart';
-import 'package:flutter_gemma/flutter_gemma_interface.dart'
+import 'package:flutter_edge_ai/core/registry/stt_backend_provider.dart';
+import 'package:flutter_edge_ai/core/registry/runtime_config.dart';
+import 'package:flutter_edge_ai/flutter_gemma_interface.dart'
     show SpeechRecognizer;
-import 'package:flutter_gemma/core/model_management/model_specs.dart'
+import 'package:flutter_edge_ai/core/model_management/model_specs.dart'
     show SttModelSpec;
 
 /// Web stub for [LiteRtSttBackend] — the STT web arm is a follow-on (see the

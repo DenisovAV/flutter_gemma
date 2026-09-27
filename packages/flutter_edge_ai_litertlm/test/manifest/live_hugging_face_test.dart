@@ -39,17 +39,17 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart'
     show TargetPlatform, debugDefaultTargetPlatformOverride;
-import 'package:flutter_gemma/core/di/service_registry.dart';
-import 'package:flutter_gemma/core/domain/platform_types.dart'
+import 'package:flutter_edge_ai/core/di/service_registry.dart';
+import 'package:flutter_edge_ai/core/domain/platform_types.dart'
     show PreferredBackend;
-import 'package:flutter_gemma/core/model.dart' show ModelFileType;
-import 'package:flutter_gemma/core/registry/engine_registry.dart';
-import 'package:flutter_gemma/core/registry/hugging_face_resolver_registry.dart';
-import 'package:flutter_gemma/flutter_gemma.dart' show FlutterGemma;
-import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart'
+import 'package:flutter_edge_ai/core/model.dart' show ModelFileType;
+import 'package:flutter_edge_ai/core/registry/engine_registry.dart';
+import 'package:flutter_edge_ai/core/registry/hugging_face_resolver_registry.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart' show FlutterGemma;
+import 'package:flutter_edge_ai_litertlm/flutter_edge_ai_litertlm.dart'
     show LiteRtLmEngine;
-import 'package:flutter_gemma_litertlm/src/manifest/litertlm_manifest_resolver.dart';
-import 'package:flutter_gemma_litertlm/src/manifest/manifest_fetch_io.dart';
+import 'package:flutter_edge_ai_litertlm/src/manifest/litertlm_manifest_resolver.dart';
+import 'package:flutter_edge_ai_litertlm/src/manifest/manifest_fetch_io.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 

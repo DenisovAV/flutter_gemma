@@ -1,12 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_gemma/core/domain/model_source.dart';
-import 'package:flutter_gemma/core/services/file_system_service.dart';
-import 'package:flutter_gemma/core/services/download_service.dart';
-import 'package:flutter_gemma/core/model_management/cancel_token.dart';
-import 'package:flutter_gemma/core/services/asset_loader.dart';
-import 'package:flutter_gemma/core/services/model_repository.dart';
-import 'package:flutter_gemma/core/services/protected_files_registry.dart';
+import 'package:flutter_edge_ai/core/domain/model_source.dart';
+import 'package:flutter_edge_ai/core/services/file_system_service.dart';
+import 'package:flutter_edge_ai/core/services/download_service.dart';
+import 'package:flutter_edge_ai/core/model_management/cancel_token.dart';
+import 'package:flutter_edge_ai/core/services/asset_loader.dart';
+import 'package:flutter_edge_ai/core/services/model_repository.dart';
+import 'package:flutter_edge_ai/core/services/protected_files_registry.dart';
 
 /// Mock FileSystemService that tracks file operations
 class MockFileSystemService implements FileSystemService {

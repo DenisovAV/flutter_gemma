@@ -1,4 +1,4 @@
-import 'package:flutter_gemma_speech/src/tts/english_text_normalizer.dart';
+import 'package:flutter_edge_ai_speech/src/tts/english_text_normalizer.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

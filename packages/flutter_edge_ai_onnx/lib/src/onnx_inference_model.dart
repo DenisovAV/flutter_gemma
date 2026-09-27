@@ -9,12 +9,12 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart' show VoidCallback;
-import 'package:flutter_gemma/core/domain/platform_types.dart'
+import 'package:flutter_edge_ai/core/domain/platform_types.dart'
     show PreferredBackend;
-import 'package:flutter_gemma/core/lifecycle/close_notifier.dart';
-import 'package:flutter_gemma/core/model.dart';
-import 'package:flutter_gemma/core/tool.dart';
-import 'package:flutter_gemma/flutter_gemma_interface.dart';
+import 'package:flutter_edge_ai/core/lifecycle/close_notifier.dart';
+import 'package:flutter_edge_ai/core/model.dart';
+import 'package:flutter_edge_ai/core/tool.dart';
+import 'package:flutter_edge_ai/flutter_gemma_interface.dart';
 
 import 'ffi/gen_ai_client.dart';
 import 'onnx_session.dart';

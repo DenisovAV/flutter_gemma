@@ -8,9 +8,9 @@
 
 import 'dart:typed_data';
 
-import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma_onnx/src/embedding/ort_client.dart';
-import 'package:flutter_gemma_onnx/src/web/onnx_web_embedding_forward_pass.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
+import 'package:flutter_edge_ai_onnx/src/embedding/ort_client.dart';
+import 'package:flutter_edge_ai_onnx/src/web/onnx_web_embedding_forward_pass.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class _FakeOrtClient implements OrtClient {

@@ -1,8 +1,8 @@
-import 'package:flutter_gemma/core/model_management/model_specs.dart';
+import 'package:flutter_edge_ai/core/model_management/model_specs.dart';
 // ModelReplacePolicy moved into model_specs.dart (breaks the specs↔interface
 // import cycle); re-export it here so existing importers of this interface
 // keep seeing it.
-export 'package:flutter_gemma/core/model_management/model_specs.dart'
+export 'package:flutter_edge_ai/core/model_management/model_specs.dart'
     show ModelReplacePolicy;
 
 abstract class ModelFileManager {

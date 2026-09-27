@@ -1,7 +1,7 @@
 @TestOn('!vm')
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_gemma/mobile/flutter_gemma_mobile.dart';
-import 'package:flutter_gemma/core/domain/model_source.dart';
+import 'package:flutter_edge_ai/mobile/flutter_gemma_mobile.dart';
+import 'package:flutter_edge_ai/core/domain/model_source.dart';
 
 void main() {
   group('BundledSource Models', () {

@@ -1,5 +1,5 @@
 import 'package:meta/meta.dart' show immutable;
-import 'package:flutter_gemma/core/domain/platform_types.dart'
+import 'package:flutter_edge_ai/core/domain/platform_types.dart'
     show ActivationDataType, PreferredBackend;
 
 /// Runtime config for building a model — the per-call params `getActiveModel`

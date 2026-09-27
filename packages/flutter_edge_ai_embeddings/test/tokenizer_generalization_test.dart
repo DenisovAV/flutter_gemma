@@ -17,7 +17,7 @@
 
 import 'dart:io';
 
-import 'package:flutter_gemma_embeddings/src/embedding_tokenizer.dart';
+import 'package:flutter_edge_ai_embeddings/src/embedding_tokenizer.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Relative to this package's root (`flutter test`'s cwd):

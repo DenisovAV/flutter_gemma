@@ -1,7 +1,7 @@
-import 'package:flutter_gemma/flutter_gemma.dart' as gemma;
+import 'package:flutter_edge_ai/flutter_edge_ai.dart' as gemma;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genkit/plugin.dart';
-import 'package:genkit_flutter_gemma/src/flutter_gemma_embedder.dart';
+import 'package:genkit_flutter_edge_ai/src/flutter_gemma_embedder.dart';
 
 import 'src/fake_runtime.dart';
 

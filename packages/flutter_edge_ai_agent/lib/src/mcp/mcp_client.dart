@@ -47,7 +47,7 @@ class McpClient {
   McpClient({
     required this.config,
     http.Client? httpClient,
-    this.clientName = 'flutter_gemma_agent',
+    this.clientName = 'flutter_edge_ai_agent',
     this.clientVersion = '0.2.3',
     this.protocolVersion = '2025-11-25',
   }) : _ownsClient = httpClient == null,

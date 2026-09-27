@@ -1,12 +1,12 @@
-name: flutter_gemma_example
-description: "Demonstrates how to use the flutter_gemma plugin."
+name: flutter_edge_ai_example
+description: "Demonstrates how to use the flutter_edge_ai plugin."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 
 environment:
   sdk: '>=3.12.0 <4.0.0'
-  # Inherited from the flutter_gemma_rag_sqlite path dependency, which needs
+  # Inherited from the flutter_edge_ai_sqlite path dependency, which needs
   # sqlite3 3.6.0 and therefore Flutter 3.47. Declared rather than left to be
   # discovered, so the solver names this app instead of a transitive package.
   flutter: '>=3.47.0'
@@ -23,26 +23,26 @@ dependencies:
 
   equatable: ^2.0.3
   flutter_bloc: ^8.0.1
-  flutter_gemma:
+  flutter_edge_ai:
     path: ../
-  flutter_gemma_rag_sqlite:
-    path: ../../flutter_gemma_rag_sqlite
-  flutter_gemma_rag_qdrant:
-    path: ../../flutter_gemma_rag_qdrant
-  flutter_gemma_litertlm:
-    path: ../../flutter_gemma_litertlm
-  flutter_gemma_embeddings:
-    path: ../../flutter_gemma_embeddings
-  flutter_gemma_speech:
-    path: ../../flutter_gemma_speech
-  flutter_gemma_mediapipe:
-    path: ../../flutter_gemma_mediapipe
-  flutter_gemma_agent:
-    path: ../../flutter_gemma_agent
-  flutter_gemma_builtin_ai:
-    path: ../../flutter_gemma_builtin_ai
-  flutter_gemma_onnx:
-    path: ../../flutter_gemma_onnx
+  flutter_edge_ai_sqlite:
+    path: ../../flutter_edge_ai_sqlite
+  flutter_edge_ai_qdrant:
+    path: ../../flutter_edge_ai_qdrant
+  flutter_edge_ai_litertlm:
+    path: ../../flutter_edge_ai_litertlm
+  flutter_edge_ai_embeddings:
+    path: ../../flutter_edge_ai_embeddings
+  flutter_edge_ai_speech:
+    path: ../../flutter_edge_ai_speech
+  flutter_edge_ai_mediapipe:
+    path: ../../flutter_edge_ai_mediapipe
+  flutter_edge_ai_agent:
+    path: ../../flutter_edge_ai_agent
+  flutter_edge_ai_builtin_ai:
+    path: ../../flutter_edge_ai_builtin_ai
+  flutter_edge_ai_onnx:
+    path: ../../flutter_edge_ai_onnx
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
@@ -65,24 +65,24 @@ dependencies:
   permission_handler: ^11.3.1
   just_audio: ^0.9.36
 
-# The opt-in packages now declare a HOSTED dependency on flutter_gemma
+# The opt-in packages now declare a HOSTED dependency on flutter_edge_ai
 # (`^1.0.0-rc.1`) for publishing. This example consumes the local source, so
-# override flutter_gemma to the local path — this resolves the path-vs-hosted
+# override flutter_edge_ai to the local path — this resolves the path-vs-hosted
 # conflict (every package, including the siblings, resolves core from source).
-# Same conflict for flutter_gemma_litertlm (flutter_gemma_speech declares a
+# Same conflict for flutter_edge_ai_litertlm (flutter_edge_ai_speech declares a
 # hosted dependency on it) and, since the embedder decoupling refactor
-# (litertlm 1.5.0 / embeddings 2.0.0), for flutter_gemma_embeddings too:
-# flutter_gemma_litertlm now declares a hosted dependency on
-# flutter_gemma_embeddings (D3 edge — the direction flipped from the
+# (litertlm 1.5.0 / embeddings 2.0.0), for flutter_edge_ai_embeddings too:
+# flutter_edge_ai_litertlm now declares a hosted dependency on
+# flutter_edge_ai_embeddings (D3 edge — the direction flipped from the
 # pre-2.0.0 shape, where embeddings hosted-depended on litertlm).
 # Overrides only apply to this example; they are ignored for published packages.
 dependency_overrides:
-  flutter_gemma:
+  flutter_edge_ai:
     path: ../
-  flutter_gemma_litertlm:
-    path: ../../flutter_gemma_litertlm
-  flutter_gemma_embeddings:
-    path: ../../flutter_gemma_embeddings
+  flutter_edge_ai_litertlm:
+    path: ../../flutter_edge_ai_litertlm
+  flutter_edge_ai_embeddings:
+    path: ../../flutter_edge_ai_embeddings
   flutter_markdown: ^0.7.1
   url_launcher: ^6.3.1
   http: ^1.3.0

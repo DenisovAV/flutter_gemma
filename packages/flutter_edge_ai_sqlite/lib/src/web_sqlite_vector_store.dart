@@ -1,8 +1,8 @@
 import 'dart:typed_data';
 
-import 'package:flutter_gemma/core/utils/gemma_log.dart';
-import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma_rag_sqlite/src/filter_to_vec0.dart';
+import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
+import 'package:flutter_edge_ai_sqlite/src/filter_to_vec0.dart';
 import 'package:sqlite3/wasm.dart';
 
 /// Web implementation of [VectorStoreRepository] backed by sqlite-vec (`vec0`)

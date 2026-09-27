@@ -14,13 +14,13 @@ import 'package:path/path.dart' as path;
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_gemma/core/di/service_registry.dart';
-import 'package:flutter_gemma/core/domain/model_source.dart';
-import 'package:flutter_gemma/core/model_management/constants/preferences_keys.dart';
-import 'package:flutter_gemma/core/services/download_service.dart';
-import 'package:flutter_gemma/core/services/model_repository.dart' as repo;
-import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma/mobile/flutter_gemma_mobile.dart'
+import 'package:flutter_edge_ai/core/di/service_registry.dart';
+import 'package:flutter_edge_ai/core/domain/model_source.dart';
+import 'package:flutter_edge_ai/core/model_management/constants/preferences_keys.dart';
+import 'package:flutter_edge_ai/core/services/download_service.dart';
+import 'package:flutter_edge_ai/core/services/model_repository.dart' as repo;
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
+import 'package:flutter_edge_ai/mobile/flutter_gemma_mobile.dart'
     show MobileModelManager;
 
 // FileSourceHandler enforces a minimum size per extension (1MB for model

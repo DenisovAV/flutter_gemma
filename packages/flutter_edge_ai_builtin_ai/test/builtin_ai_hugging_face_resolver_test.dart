@@ -2,8 +2,8 @@
 // resolveHuggingFace(...) says "not possible" clearly (the OS owns the weights;
 // there is no HF file) instead of core's generic "no resolver registered".
 
-import 'package:flutter_gemma/core/model.dart' show ModelFileType;
-import 'package:flutter_gemma_builtin_ai/flutter_gemma_builtin_ai.dart'
+import 'package:flutter_edge_ai/core/model.dart' show ModelFileType;
+import 'package:flutter_edge_ai_builtin_ai/flutter_edge_ai_builtin_ai.dart'
     show BuiltInAiHuggingFaceResolver;
 import 'package:flutter_test/flutter_test.dart';
 

@@ -7,9 +7,9 @@
 
 import 'dart:typed_data';
 
-import 'package:flutter_gemma_speech/src/litert/litert_speech_recognizer.dart'
+import 'package:flutter_edge_ai_speech/src/litert/litert_speech_recognizer.dart'
     show pcm16LEToFloat32;
-import 'package:flutter_gemma_speech/src/litert/stt_core.dart'
+import 'package:flutter_edge_ai_speech/src/litert/stt_core.dart'
     show argmax, padOrTrimToWindow, shouldStopDecoding, sttDecodeEosId;
 import 'package:flutter_test/flutter_test.dart';
 

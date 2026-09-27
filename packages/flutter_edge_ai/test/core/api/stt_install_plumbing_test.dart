@@ -16,12 +16,12 @@ import 'package:path/path.dart' as path;
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_gemma/core/di/service_registry.dart';
-import 'package:flutter_gemma/core/lifecycle/close_notifier.dart';
-import 'package:flutter_gemma/core/registry/runtime_config.dart';
-import 'package:flutter_gemma/core/registry/stt_backend_provider.dart';
-import 'package:flutter_gemma/core/registry/stt_registry.dart';
-import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_edge_ai/core/di/service_registry.dart';
+import 'package:flutter_edge_ai/core/lifecycle/close_notifier.dart';
+import 'package:flutter_edge_ai/core/registry/runtime_config.dart';
+import 'package:flutter_edge_ai/core/registry/stt_backend_provider.dart';
+import 'package:flutter_edge_ai/core/registry/stt_registry.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 
 // FileSourceHandler enforces a minimum size per extension (1MB for model
 // files, 1KB for small/config extensions like .json) to catch truncated

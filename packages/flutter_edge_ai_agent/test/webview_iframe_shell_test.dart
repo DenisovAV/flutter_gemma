@@ -1,7 +1,7 @@
 @TestOn('vm')
 library;
 
-import 'package:flutter_gemma_agent/src/ui/webview_widget_io.dart';
+import 'package:flutter_edge_ai_agent/src/ui/webview_widget_io.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

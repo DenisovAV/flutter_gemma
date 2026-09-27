@@ -1,4 +1,4 @@
-import 'package:flutter_gemma/core/model.dart';
+import 'package:flutter_edge_ai/core/model.dart';
 
 import 'deepseek_function_call_format.dart';
 import 'function_call_format.dart';

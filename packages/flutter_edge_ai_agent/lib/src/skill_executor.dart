@@ -1,4 +1,4 @@
-import 'package:flutter_gemma/flutter_gemma.dart' show SkillExecutorProvider;
+import 'package:flutter_edge_ai/flutter_edge_ai.dart' show SkillExecutorProvider;
 
 import 'skill.dart';
 import 'skill_result.dart';

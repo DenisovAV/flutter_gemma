@@ -24,7 +24,7 @@
 @TestOn('chrome')
 library;
 
-import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'inference_test_helpers.dart' show registerTestEngines;

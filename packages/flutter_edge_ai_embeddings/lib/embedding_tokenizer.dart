@@ -5,7 +5,7 @@
 /// reached on web) — engine packages' embedding backends (e.g.
 /// `flutter_gemma_litertlm`'s `LiteRtEmbeddingBackend`).
 ///
-/// Prefer this over `package:flutter_gemma_embeddings/src/embedding_tokenizer.dart`
+/// Prefer this over `package:flutter_edge_ai_embeddings/src/embedding_tokenizer.dart`
 /// in native-only files, matching the same pattern
 /// `flutter_gemma_litertlm/lib/litert_bindings.dart` uses for its FFI
 /// bindings: a stable public entry point instead of an `implementation_imports`

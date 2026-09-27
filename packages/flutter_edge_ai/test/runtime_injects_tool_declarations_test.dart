@@ -1,6 +1,6 @@
-import 'package:flutter_gemma/core/parsing/json_function_call_format.dart';
-import 'package:flutter_gemma/core/parsing/sdk_passthrough_function_call_format.dart';
-import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_edge_ai/core/parsing/json_function_call_format.dart';
+import 'package:flutter_edge_ai/core/parsing/sdk_passthrough_function_call_format.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Records the text of every chunk staged into the session, so a test can

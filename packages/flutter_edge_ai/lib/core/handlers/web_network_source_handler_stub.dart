@@ -1,7 +1,7 @@
-import 'package:flutter_gemma/core/handlers/source_handler.dart';
-import 'package:flutter_gemma/core/domain/model_source.dart';
-import 'package:flutter_gemma/core/model_management/cancel_token.dart';
-import 'package:flutter_gemma/core/services/model_repository.dart';
+import 'package:flutter_edge_ai/core/handlers/source_handler.dart';
+import 'package:flutter_edge_ai/core/domain/model_source.dart';
+import 'package:flutter_edge_ai/core/model_management/cancel_token.dart';
+import 'package:flutter_edge_ai/core/services/model_repository.dart';
 
 /// Stub implementation for non-web platforms
 class WebNetworkSourceHandler implements SourceHandler {

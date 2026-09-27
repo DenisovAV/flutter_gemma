@@ -1,5 +1,5 @@
-import 'package:flutter_gemma/core/utils/gemma_log.dart';
-import 'package:flutter_gemma/core/services/model_repository.dart';
+import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/services/model_repository.dart';
 
 /// In-memory implementation of ModelRepository
 ///

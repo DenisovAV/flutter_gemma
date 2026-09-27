@@ -1,5 +1,5 @@
-import 'package:flutter_gemma_agent/flutter_gemma_agent.dart';
-import 'package:flutter_gemma_example/tools/agent_voice_responder.dart';
+import 'package:flutter_edge_ai_agent/flutter_edge_ai_agent.dart';
+import 'package:flutter_edge_ai_example/tools/agent_voice_responder.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

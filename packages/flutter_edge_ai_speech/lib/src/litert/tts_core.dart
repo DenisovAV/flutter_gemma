@@ -16,7 +16,7 @@
 // `dlopen`: `matcha_synth.dart` opens the dylib directly by path, which does
 // NOT work inside this package (the native lib is loaded via Native
 // Assets — see `LiteRtBindings.open()`/`_openLiteRt()` in
-// `package:flutter_gemma_litertlm/litert_bindings.dart`). So every graph run
+// `package:flutter_edge_ai_litertlm/litert_bindings.dart`). So every graph run
 // here goes through `LiteRtBindings`'s create -> run -> lock(Read) ->
 // copy-through-locked-ptr -> unlock -> destroy tensor-buffer sequence,
 // exactly like `SttCore._encode`/`_decodeLoop`, generalized to N inputs / M
@@ -57,15 +57,15 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:ffi/ffi.dart';
-import 'package:flutter_gemma/core/domain/platform_types.dart'
+import 'package:flutter_edge_ai/core/domain/platform_types.dart'
     show PreferredBackend;
-import 'package:flutter_gemma/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
 import 'package:meta/meta.dart' show visibleForTesting;
 // Public, native-only bindings library (not the package barrel) — see the
 // equivalent comment in `stt_core.dart`/`litert_embedding_core.dart` for why
 // this import (not the `if (dart.library.ffi)` barrel) is correct in a
 // native-only file.
-import 'package:flutter_gemma_litertlm/litert_bindings.dart';
+import 'package:flutter_edge_ai_litertlm/litert_bindings.dart';
 
 import '../model/tts_model_profile.dart';
 import '../tts/neural_g2p_decode.dart';

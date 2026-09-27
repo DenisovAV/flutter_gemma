@@ -1,7 +1,7 @@
 // Integration test for supportAudio parameter in Pigeon API
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_gemma_mediapipe/pigeon.g.dart';
+import 'package:flutter_edge_ai_mediapipe/pigeon.g.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

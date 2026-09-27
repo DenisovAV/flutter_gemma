@@ -14,10 +14,10 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter_gemma/core/message.dart';
-import 'package:flutter_gemma/core/model.dart';
-import 'package:flutter_gemma_onnx/src/ffi/gen_ai_client.dart';
-import 'package:flutter_gemma_onnx/src/onnx_session.dart';
+import 'package:flutter_edge_ai/core/message.dart';
+import 'package:flutter_edge_ai/core/model.dart';
+import 'package:flutter_edge_ai_onnx/src/ffi/gen_ai_client.dart';
+import 'package:flutter_edge_ai_onnx/src/onnx_session.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

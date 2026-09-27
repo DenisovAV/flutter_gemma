@@ -41,14 +41,14 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:ffi/ffi.dart';
-import 'package:flutter_gemma/core/domain/platform_types.dart'
+import 'package:flutter_edge_ai/core/domain/platform_types.dart'
     show PreferredBackend;
-import 'package:flutter_gemma/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
 // Public, native-only bindings library (not the package barrel): this file
 // is native-only — never reached on web — so it always needs the real FFI
 // bindings. See the equivalent comment in `litert_embedding_core.dart` for
 // why this import (not the `if (dart.library.ffi)` barrel) is correct here.
-import 'package:flutter_gemma_litertlm/litert_bindings.dart';
+import 'package:flutter_edge_ai_litertlm/litert_bindings.dart';
 
 import '../model/stt_model_profile.dart';
 import '../tokenizer/stt_special_tokens.dart'

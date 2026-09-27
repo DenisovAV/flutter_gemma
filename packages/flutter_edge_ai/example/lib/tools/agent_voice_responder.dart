@@ -1,6 +1,6 @@
-import 'package:flutter_gemma_agent/flutter_gemma_agent.dart'
+import 'package:flutter_edge_ai_agent/flutter_edge_ai_agent.dart'
     show AgentEvent, AgentSession, DoneEvent, MaxIterationsEvent;
-import 'package:flutter_gemma_speech/flutter_gemma_speech.dart'
+import 'package:flutter_edge_ai_speech/flutter_edge_ai_speech.dart'
     show VoiceResponder;
 
 const _kFallback = "Sorry, I couldn't finish that.";

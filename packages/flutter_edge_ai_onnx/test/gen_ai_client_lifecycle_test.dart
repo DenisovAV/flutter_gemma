@@ -19,7 +19,7 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter_gemma_onnx/src/ffi/gen_ai_client.dart';
+import 'package:flutter_edge_ai_onnx/src/ffi/gen_ai_client.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'fakes/fake_gen_ai_worker.dart';

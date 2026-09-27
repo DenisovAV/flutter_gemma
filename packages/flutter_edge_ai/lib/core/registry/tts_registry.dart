@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart' show kDebugMode;
-import 'package:flutter_gemma/core/utils/gemma_log.dart';
-import 'package:flutter_gemma/core/registry/tts_backend_provider.dart';
-import 'package:flutter_gemma/core/model_management/model_specs.dart'
+import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/registry/tts_backend_provider.dart';
+import 'package:flutter_edge_ai/core/model_management/model_specs.dart'
     show TtsModelSpec;
 
 /// Holds TTS backends registered via `FlutterGemma.initialize`.

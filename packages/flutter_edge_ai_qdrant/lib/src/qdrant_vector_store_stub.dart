@@ -1,4 +1,4 @@
-import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 
 /// Non-web stub for [QdrantVectorStore]. qdrant-edge can't compile to WASM,
 /// so on web every method throws; web RAG uses flutter_gemma_rag_sqlite's

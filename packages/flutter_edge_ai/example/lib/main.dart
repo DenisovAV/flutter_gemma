@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_gemma_example/gemma_bootstrap.dart';
-import 'package:flutter_gemma_example/home_screen.dart';
+import 'package:flutter_edge_ai_example/gemma_bootstrap.dart';
+import 'package:flutter_edge_ai_example/home_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

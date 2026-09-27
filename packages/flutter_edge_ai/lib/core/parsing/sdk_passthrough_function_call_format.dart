@@ -1,5 +1,5 @@
 import 'function_call_format.dart';
-import 'package:flutter_gemma/core/model_response.dart';
+import 'package:flutter_edge_ai/core/model_response.dart';
 
 /// Passthrough [FunctionCallFormat] for backends that surface tool calls
 /// through structured SDK responses rather than text-stream parsing

@@ -4,7 +4,7 @@
 // engine's identity (name/priority/fileType gate) to catch registration-wiring
 // regressions, mirroring the litertlm/embeddings package identity tests.
 
-import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
+import 'package:flutter_edge_ai_mediapipe/flutter_edge_ai_mediapipe.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

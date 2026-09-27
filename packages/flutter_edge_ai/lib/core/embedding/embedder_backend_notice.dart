@@ -1,9 +1,9 @@
 import 'package:flutter/foundation.dart' show kDebugMode, visibleForTesting;
-import 'package:flutter_gemma/core/domain/platform_types.dart'
+import 'package:flutter_edge_ai/core/domain/platform_types.dart'
     show PreferredBackend;
-import 'package:flutter_gemma/core/registry/runtime_config.dart'
+import 'package:flutter_edge_ai/core/registry/runtime_config.dart'
     show ActiveEmbedderParams;
-import 'package:flutter_gemma/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
 
 /// Said once per isolate. The parameter is passed on every call or on none, so
 /// repeating it per embedder would only drown the console — and a caller who

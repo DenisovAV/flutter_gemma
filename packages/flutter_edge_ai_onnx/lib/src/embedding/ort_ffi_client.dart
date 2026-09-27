@@ -379,7 +379,7 @@ class OrtFfiClient implements OrtClient {
     ffi.Pointer<OrtSession>? session;
     ffi.Pointer<OrtMemoryInfo>? cpuMemoryInfo;
     try {
-      final logIdC = 'flutter_gemma_onnx'.toNativeUtf8();
+      final logIdC = 'flutter_edge_ai_onnx'.toNativeUtf8();
       final envOut = pkg_ffi.calloc<ffi.Pointer<OrtEnv>>();
       try {
         _check(

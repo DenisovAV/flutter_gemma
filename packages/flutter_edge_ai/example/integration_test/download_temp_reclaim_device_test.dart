@@ -14,10 +14,10 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:background_downloader/background_downloader.dart';
-import 'package:flutter_gemma/core/model_management/utils/download_temp_reclaim.dart';
-import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma/mobile/flutter_gemma_mobile.dart';
-import 'package:flutter_gemma/mobile/smart_downloader.dart';
+import 'package:flutter_edge_ai/core/model_management/utils/download_temp_reclaim.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
+import 'package:flutter_edge_ai/mobile/flutter_gemma_mobile.dart';
+import 'package:flutter_edge_ai/mobile/smart_downloader.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:path/path.dart' as p;

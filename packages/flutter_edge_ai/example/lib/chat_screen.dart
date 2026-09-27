@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma_builtin_ai/flutter_gemma_builtin_ai.dart';
-import 'package:flutter_gemma_example/chat_widget.dart';
-import 'package:flutter_gemma_example/loading_widget.dart';
-import 'package:flutter_gemma_example/models/model.dart';
-import 'package:flutter_gemma_example/services/auth_token_service.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
+import 'package:flutter_edge_ai_builtin_ai/flutter_edge_ai_builtin_ai.dart';
+import 'package:flutter_edge_ai_example/chat_widget.dart';
+import 'package:flutter_edge_ai_example/loading_widget.dart';
+import 'package:flutter_edge_ai_example/models/model.dart';
+import 'package:flutter_edge_ai_example/services/auth_token_service.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({

@@ -8,7 +8,7 @@
 //
 // Mirrors the resolution core itself does for MediaPipe/LiteRT-LM inference
 // models in `WebModelSourceResolver._toSource`
-// (`package:flutter_gemma/web/web_model_source.dart`) — same
+// (`package:flutter_edge_ai/web/web_model_source.dart`) — same
 // `ServiceRegistry.instance.useStreamingStorage` + `WebDownloadService.opfsService`
 // lookup — but produces a `blob:` URL instead of a raw `ReadableStream`
 // since both consumers here want a URL, not a stream/reader.
@@ -17,8 +17,8 @@
 // (or a plain HTTPS URL when caching is off) and pass through unchanged.
 import 'dart:js_interop';
 
-import 'package:flutter_gemma/core/di/service_registry.dart';
-import 'package:flutter_gemma/core/infrastructure/web_download_service.dart';
+import 'package:flutter_edge_ai/core/di/service_registry.dart';
+import 'package:flutter_edge_ai/core/infrastructure/web_download_service.dart';
 
 @JS('Response')
 extension type _JSResponse._(JSObject _) implements JSObject {

@@ -32,9 +32,9 @@
 // both the normalizer directly and `create`'s acceptance of mixed-case
 // `'auto'` (still without spawning a real worker).
 
-import 'package:flutter_gemma_speech/src/litert/litert_speech_synthesizer.dart';
-import 'package:flutter_gemma_speech/src/model/tts_model_profile.dart';
-import 'package:flutter_gemma_speech/src/qwen3/qwen3_languages.dart';
+import 'package:flutter_edge_ai_speech/src/litert/litert_speech_synthesizer.dart';
+import 'package:flutter_edge_ai_speech/src/model/tts_model_profile.dart';
+import 'package:flutter_edge_ai_speech/src/qwen3/qwen3_languages.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

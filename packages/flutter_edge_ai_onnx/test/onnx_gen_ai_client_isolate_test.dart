@@ -8,7 +8,7 @@
 // teardown, with no hang. The macOS host smoke test
 // (onnx_generation_host_smoke_test.dart) is the success-path AOT boundary
 // proof, per the same gate.
-import 'package:flutter_gemma_onnx/src/ffi/gen_ai_client.dart';
+import 'package:flutter_edge_ai_onnx/src/ffi/gen_ai_client.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

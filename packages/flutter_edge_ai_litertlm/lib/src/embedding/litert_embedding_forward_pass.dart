@@ -23,14 +23,14 @@
 // `meanPoolAndNormalize` a second time.
 
 import 'dart:ffi';
-import 'package:flutter_gemma/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
 
 import 'package:ffi/ffi.dart';
 // Imported by file rather than through core's barrel: the seam is plain,
 // platform-agnostic Dart with no conditional split, while the barrel also
 // carries `CommonEmbeddingModel` behind an `if (dart.library.js_interop)` —
 // the same analyzer quirk `litert_bindings.dart` below works around.
-import 'package:flutter_gemma/core/embedding/forward_pass.dart'
+import 'package:flutter_edge_ai/core/embedding/forward_pass.dart'
     show EmbeddingForwardPass, EmbeddingOutputContract, ForwardResult;
 // Public, native-only bindings library (not the package barrel): this file
 // is native-only — never reached on web — so it always needs the real FFI
@@ -43,7 +43,7 @@ import 'package:flutter_gemma/core/embedding/forward_pass.dart'
 // the same bindings for native-only leaves — imported here as an
 // intra-package import for the same reason capability packages
 // (flutter_gemma_embeddings pre-refactor, flutter_gemma_speech) use it.
-import 'package:flutter_gemma_litertlm/litert_bindings.dart';
+import 'package:flutter_edge_ai_litertlm/litert_bindings.dart';
 
 /// Backend selector for the LiteRT embedding forward pass. Only `cpu` is
 /// wired up end-to-end today — see [createLiteRtEmbeddingForwardPass].

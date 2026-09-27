@@ -1,13 +1,13 @@
 import 'dart:io';
 
-import 'package:flutter_gemma/core/domain/model_source.dart';
-import 'package:flutter_gemma/core/model.dart';
-import 'package:flutter_gemma/core/model_management/model_specs.dart'
+import 'package:flutter_edge_ai/core/domain/model_source.dart';
+import 'package:flutter_edge_ai/core/model.dart';
+import 'package:flutter_edge_ai/core/model_management/model_specs.dart'
     show InferenceModelSpec;
-import 'package:flutter_gemma/core/registry/runtime_config.dart';
-import 'package:flutter_gemma/core/domain/platform_types.dart';
-import 'package:flutter_gemma_onnx/src/onnx_engine.dart';
-import 'package:flutter_gemma_onnx/src/onnx_inference_model.dart';
+import 'package:flutter_edge_ai/core/registry/runtime_config.dart';
+import 'package:flutter_edge_ai/core/domain/platform_types.dart';
+import 'package:flutter_edge_ai_onnx/src/onnx_engine.dart';
+import 'package:flutter_edge_ai_onnx/src/onnx_inference_model.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'fakes/fake_gen_ai_client.dart';

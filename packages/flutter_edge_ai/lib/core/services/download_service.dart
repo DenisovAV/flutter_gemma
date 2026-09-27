@@ -1,4 +1,4 @@
-import 'package:flutter_gemma/core/model_management/cancel_token.dart';
+import 'package:flutter_edge_ai/core/model_management/cancel_token.dart';
 
 /// Abstraction for downloading files from network
 /// Different implementations for different strategies

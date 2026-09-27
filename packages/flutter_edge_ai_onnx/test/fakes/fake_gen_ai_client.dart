@@ -3,7 +3,7 @@
 // native ORT-GenAI (hardened plan Phase 3, Task 6).
 import 'dart:async';
 
-import 'package:flutter_gemma_onnx/src/ffi/gen_ai_client.dart';
+import 'package:flutter_edge_ai_onnx/src/ffi/gen_ai_client.dart';
 
 class FakeGenAiClient implements GenAiClient {
   FakeGenAiClient({this.chunksToEmit = const ['Hello', ' ', 'world']});

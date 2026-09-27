@@ -29,9 +29,9 @@
 /// `dart_sentencepiece_tokenizer` is `dart:io`/`dart:isolate`-only).
 ///
 /// ```dart
-/// import 'package:flutter_gemma/flutter_gemma.dart';
-/// import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
-/// import 'package:flutter_gemma_onnx/flutter_gemma_onnx.dart';
+/// import 'package:flutter_edge_ai/flutter_edge_ai.dart';
+/// import 'package:flutter_edge_ai_embeddings/flutter_edge_ai_embeddings.dart';
+/// import 'package:flutter_edge_ai_onnx/flutter_edge_ai_onnx.dart';
 ///
 /// await FlutterGemma.initialize(
 ///   inferenceEngines: [OnnxEngine()],

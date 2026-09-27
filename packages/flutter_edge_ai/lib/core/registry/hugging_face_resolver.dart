@@ -1,6 +1,6 @@
-import 'package:flutter_gemma/core/domain/platform_types.dart'
+import 'package:flutter_edge_ai/core/domain/platform_types.dart'
     show PreferredBackend;
-import 'package:flutter_gemma/core/model.dart' show ModelFileType, ModelType;
+import 'package:flutter_edge_ai/core/model.dart' show ModelFileType, ModelType;
 
 /// Runtime defaults resolved from a Hugging Face repo's deployment metadata
 /// (e.g. a `litertlm_manifest.json`), in flutter_gemma's own runtime vocabulary.

@@ -1,8 +1,8 @@
 // Fake-backed unit tests for OnnxInferenceModel — zero dlopen (hardened
 // plan Phase 3, Task 6).
-import 'package:flutter_gemma/core/domain/platform_types.dart';
-import 'package:flutter_gemma/core/model.dart';
-import 'package:flutter_gemma_onnx/src/onnx_inference_model.dart';
+import 'package:flutter_edge_ai/core/domain/platform_types.dart';
+import 'package:flutter_edge_ai/core/model.dart';
+import 'package:flutter_edge_ai_onnx/src/onnx_inference_model.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'fakes/fake_gen_ai_client.dart';

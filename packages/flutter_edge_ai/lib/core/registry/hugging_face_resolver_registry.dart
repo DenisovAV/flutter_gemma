@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart' show kDebugMode;
-import 'package:flutter_gemma/core/registry/hugging_face_resolver.dart';
-import 'package:flutter_gemma/core/model.dart' show ModelFileType;
-import 'package:flutter_gemma/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/registry/hugging_face_resolver.dart';
+import 'package:flutter_edge_ai/core/model.dart' show ModelFileType;
+import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
 
 /// Holds Hugging Face manifest resolvers registered via
 /// `FlutterGemma.initialize`. Same probe-chain selection as [EngineRegistry]:

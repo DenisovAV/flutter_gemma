@@ -1,5 +1,5 @@
-import 'package:flutter_gemma/core/infrastructure/web_js_interop.dart';
-import 'package:flutter_gemma/core/infrastructure/web_file_system_service.dart';
+import 'package:flutter_edge_ai/core/infrastructure/web_js_interop.dart';
+import 'package:flutter_edge_ai/core/infrastructure/web_file_system_service.dart';
 
 /// Manages blob URL lifecycle to prevent memory leaks.
 ///

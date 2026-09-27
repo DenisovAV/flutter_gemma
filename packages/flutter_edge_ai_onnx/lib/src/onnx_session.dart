@@ -5,11 +5,11 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart' show VoidCallback;
-import 'package:flutter_gemma/core/extensions.dart';
-import 'package:flutter_gemma/core/model.dart';
-import 'package:flutter_gemma/core/message.dart';
-import 'package:flutter_gemma/core/utils/gemma_log.dart';
-import 'package:flutter_gemma/flutter_gemma_interface.dart';
+import 'package:flutter_edge_ai/core/extensions.dart';
+import 'package:flutter_edge_ai/core/model.dart';
+import 'package:flutter_edge_ai/core/message.dart';
+import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/flutter_gemma_interface.dart';
 
 import 'ffi/gen_ai_client.dart';
 

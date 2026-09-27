@@ -25,10 +25,10 @@
 import 'dart:io';
 import 'dart:math' as math;
 
-import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
-import 'package:flutter_gemma_onnx/src/embedding/onnx_embedding_forward_pass.dart';
-import 'package:flutter_gemma_embeddings/src/tokenizer_router.dart';
-import 'package:flutter_gemma_onnx/src/embedding/ort_ffi_client.dart';
+import 'package:flutter_edge_ai_embeddings/flutter_edge_ai_embeddings.dart';
+import 'package:flutter_edge_ai_onnx/src/embedding/onnx_embedding_forward_pass.dart';
+import 'package:flutter_edge_ai_embeddings/src/tokenizer_router.dart';
+import 'package:flutter_edge_ai_onnx/src/embedding/ort_ffi_client.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 double _cosine(List<double> a, List<double> b) {

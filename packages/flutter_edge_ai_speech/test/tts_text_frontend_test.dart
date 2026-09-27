@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 
-import 'package:flutter_gemma_speech/src/tts/matcha_text_frontend.dart';
-import 'package:flutter_gemma_speech/src/tts/tts_frontend_input.dart';
+import 'package:flutter_edge_ai_speech/src/tts/matcha_text_frontend.dart';
+import 'package:flutter_edge_ai_speech/src/tts/tts_frontend_input.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

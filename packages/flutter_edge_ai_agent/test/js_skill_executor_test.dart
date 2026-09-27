@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:flutter_gemma_agent/flutter_gemma_agent.dart';
+import 'package:flutter_edge_ai_agent/flutter_edge_ai_agent.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// A 1x1 transparent PNG, base64-encoded (used to assert image decoding).

@@ -8,9 +8,9 @@
 /// 3. Only then create the Genkit instance with this plugin
 library;
 
-import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 import 'package:genkit/genkit.dart';
-import 'package:genkit_flutter_gemma/genkit_flutter_gemma.dart';
+import 'package:genkit_flutter_edge_ai/genkit_flutter_edge_ai.dart';
 
 Future<void> main() async {
   // 1. Initialize flutter_gemma (done once in the app).

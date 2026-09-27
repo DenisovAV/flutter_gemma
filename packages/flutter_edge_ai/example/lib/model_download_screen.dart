@@ -1,9 +1,9 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_gemma/core/domain/platform_types.dart';
-import 'package:flutter_gemma_example/chat_screen.dart';
-import 'package:flutter_gemma_example/services/model_download_service.dart';
-import 'package:flutter_gemma_example/utils/gated_model_access_dialog.dart';
+import 'package:flutter_edge_ai/core/domain/platform_types.dart';
+import 'package:flutter_edge_ai_example/chat_screen.dart';
+import 'package:flutter_edge_ai_example/services/model_download_service.dart';
+import 'package:flutter_edge_ai_example/utils/gated_model_access_dialog.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'models/model.dart';

@@ -3,9 +3,9 @@
 // .builtIn — ORT-GenAI's OgaTokenizerApplyChatTemplate owns the chat
 // template, so core must never inject manual <start_of_turn>/<|im_end|>
 // markers for onnx. Mirrors builtin_file_type_test.dart.
-import 'package:flutter_gemma/core/extensions.dart';
-import 'package:flutter_gemma/core/message.dart';
-import 'package:flutter_gemma/core/model.dart';
+import 'package:flutter_edge_ai/core/extensions.dart';
+import 'package:flutter_edge_ai/core/message.dart';
+import 'package:flutter_edge_ai/core/model.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

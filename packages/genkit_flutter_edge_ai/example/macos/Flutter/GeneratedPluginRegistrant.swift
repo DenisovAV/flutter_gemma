@@ -6,7 +6,7 @@ import FlutterMacOS
 import Foundation
 
 import connectivity_plus
-import flutter_gemma
+import flutter_edge_ai
 import large_file_handler
 import shared_preferences_foundation
 

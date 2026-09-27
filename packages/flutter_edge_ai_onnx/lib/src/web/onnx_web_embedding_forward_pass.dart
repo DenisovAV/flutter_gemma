@@ -19,7 +19,7 @@
 // treats the graph as dynamic-shape (no padding/truncation) — true for every
 // HF-exported MiniLM/BERT ONNX graph this backend targets in v1 (dynamic
 // `sequence_length` axis).
-import 'package:flutter_gemma/core/embedding/forward_pass.dart'
+import 'package:flutter_edge_ai/core/embedding/forward_pass.dart'
     show EmbeddingForwardPass, EmbeddingOutputContract, ForwardResult;
 
 import '../embedding/ort_client.dart';

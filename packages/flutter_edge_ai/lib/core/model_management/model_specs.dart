@@ -9,10 +9,10 @@
 /// in the mobile implementation's `dart:io`.
 library;
 
-import 'package:flutter_gemma/core/domain/model_source.dart';
-import 'package:flutter_gemma/core/model.dart';
-import 'package:flutter_gemma/core/model_management/constants/preferences_keys.dart';
-import 'package:flutter_gemma/core/utils/file_name_utils.dart';
+import 'package:flutter_edge_ai/core/domain/model_source.dart';
+import 'package:flutter_edge_ai/core/model.dart';
+import 'package:flutter_edge_ai/core/model_management/constants/preferences_keys.dart';
+import 'package:flutter_edge_ai/core/utils/file_name_utils.dart';
 
 part 'types/model_spec.dart';
 part 'types/inference_model_spec.dart';

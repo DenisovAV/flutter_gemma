@@ -1,7 +1,7 @@
 import 'dart:convert';
-import 'package:flutter_gemma/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
 
-import 'package:flutter_gemma/core/model_response.dart';
+import 'package:flutter_edge_ai/core/model_response.dart';
 
 import 'function_call_format.dart';
 import 'json_function_call_format.dart';

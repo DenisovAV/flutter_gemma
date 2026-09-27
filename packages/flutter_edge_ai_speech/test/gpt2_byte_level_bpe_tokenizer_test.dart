@@ -1,4 +1,4 @@
-import 'package:flutter_gemma_speech/src/tokenizer/gpt2_byte_level_bpe_tokenizer.dart';
+import 'package:flutter_edge_ai_speech/src/tokenizer/gpt2_byte_level_bpe_tokenizer.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

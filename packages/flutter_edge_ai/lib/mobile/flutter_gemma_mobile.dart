@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter_gemma/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
 
 import 'dart:io';
 
@@ -13,7 +13,7 @@ import 'package:background_downloader/background_downloader.dart';
 
 import 'smart_downloader.dart'; // SmartDownloader.downloadGroup — single source of truth for the task group
 
-import '../flutter_gemma.dart';
+import '../flutter_edge_ai.dart';
 import '../core/di/service_registry.dart';
 import '../core/services/model_repository.dart' as repo;
 import '../core/model_management/constants/preferences_keys.dart';
@@ -27,8 +27,8 @@ import '../core/registry/stt_backend_provider.dart';
 import '../core/registry/tts_registry.dart';
 import '../core/registry/runtime_config.dart';
 import '../core/model_management/model_specs.dart';
-import 'package:flutter_gemma/core/embedding/embedder_backend_notice.dart';
-import 'package:flutter_gemma/core/embedding/embedder_cache.dart';
+import 'package:flutter_edge_ai/core/embedding/embedder_backend_notice.dart';
+import 'package:flutter_edge_ai/core/embedding/embedder_cache.dart';
 // Re-export the spec value types so existing importers of this library (tests,
 // example, and any external code that imported the mobile lib directly) keep
 // seeing InferenceModelSpec/EmbeddingModelSpec/etc. — they used to be `part`s

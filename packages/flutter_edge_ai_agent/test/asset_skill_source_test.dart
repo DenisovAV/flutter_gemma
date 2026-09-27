@@ -3,7 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show FlutterError;
 import 'package:flutter/services.dart' show AssetBundle, ByteData;
-import 'package:flutter_gemma_agent/flutter_gemma_agent.dart';
+import 'package:flutter_edge_ai_agent/flutter_edge_ai_agent.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// A fake [AssetBundle] that resolves the package's bundled-asset keys

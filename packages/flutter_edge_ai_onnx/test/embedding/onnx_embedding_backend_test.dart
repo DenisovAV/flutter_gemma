@@ -2,17 +2,17 @@
 // the `.onnx`/`.ort` extension-matrix `canHandle` (Phase 2 hardened plan
 // Task 3). No native session, no dlopen.
 
-import 'package:flutter_gemma/core/domain/model_source.dart';
-import 'package:flutter_gemma/core/model_management/model_specs.dart'
+import 'package:flutter_edge_ai/core/domain/model_source.dart';
+import 'package:flutter_edge_ai/core/model_management/model_specs.dart'
     show EmbeddingModelSpec;
-import 'package:flutter_gemma/core/registry/runtime_config.dart';
-import 'package:flutter_gemma_onnx/src/embedding/onnx_embedding_backend.dart';
-import 'package:flutter_gemma/core/domain/platform_types.dart';
-import 'package:flutter_gemma/core/embedding/forward_pass.dart';
-import 'package:flutter_gemma/core/embedding/tokenizer_adapter.dart';
-import 'package:flutter_gemma/core/registry/embedding_tokenizer_provider.dart';
-import 'package:flutter_gemma/core/registry/embedding_tokenizer_registry.dart';
-import 'package:flutter_gemma_onnx/src/embedding/onnx_embedding_backend.dart'
+import 'package:flutter_edge_ai/core/registry/runtime_config.dart';
+import 'package:flutter_edge_ai_onnx/src/embedding/onnx_embedding_backend.dart';
+import 'package:flutter_edge_ai/core/domain/platform_types.dart';
+import 'package:flutter_edge_ai/core/embedding/forward_pass.dart';
+import 'package:flutter_edge_ai/core/embedding/tokenizer_adapter.dart';
+import 'package:flutter_edge_ai/core/registry/embedding_tokenizer_provider.dart';
+import 'package:flutter_edge_ai/core/registry/embedding_tokenizer_registry.dart';
+import 'package:flutter_edge_ai_onnx/src/embedding/onnx_embedding_backend.dart'
     show onnxEmbeddingDescriptor;
 import 'package:flutter_test/flutter_test.dart';
 

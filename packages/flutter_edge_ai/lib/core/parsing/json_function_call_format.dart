@@ -1,8 +1,8 @@
-import 'package:flutter_gemma/core/model_response.dart';
+import 'package:flutter_edge_ai/core/model_response.dart';
 
 import 'function_call_format.dart';
 import 'json_parsing_utils.dart';
-import 'package:flutter_gemma/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
 
 /// JSON-based function call format (default).
 ///

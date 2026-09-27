@@ -1,10 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma_example/models/tts_model.dart';
-import 'package:flutter_gemma_example/utils/audio_converter.dart';
-import 'package:flutter_gemma_example/utils/platform_io_helper.dart';
-import 'package:flutter_gemma_speech/flutter_gemma_speech.dart'
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
+import 'package:flutter_edge_ai_example/models/tts_model.dart';
+import 'package:flutter_edge_ai_example/utils/audio_converter.dart';
+import 'package:flutter_edge_ai_example/utils/platform_io_helper.dart';
+import 'package:flutter_edge_ai_speech/flutter_edge_ai_speech.dart'
     show qwen3SupportedLanguages;
 import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';

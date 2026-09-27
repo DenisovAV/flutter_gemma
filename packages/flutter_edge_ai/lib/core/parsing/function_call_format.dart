@@ -1,4 +1,4 @@
-import 'package:flutter_gemma/core/model_response.dart';
+import 'package:flutter_edge_ai/core/model_response.dart';
 
 /// Strategy interface for model-specific function call parsing.
 ///

@@ -28,8 +28,8 @@ library;
 
 import 'dart:io';
 
-import 'package:flutter_gemma/core/utils/host_native_library.dart';
-import 'package:flutter_gemma_rag_sqlite/flutter_gemma_rag_sqlite.dart';
+import 'package:flutter_edge_ai/core/utils/host_native_library.dart';
+import 'package:flutter_edge_ai_sqlite/flutter_edge_ai_sqlite.dart';
 
 String get _libName => hostNativeLibraryFileName('vec0');
 

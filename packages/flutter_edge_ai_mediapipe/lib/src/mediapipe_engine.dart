@@ -1,12 +1,12 @@
-import 'package:flutter_gemma/core/model.dart' show ModelFileType;
-import 'package:flutter_gemma/core/registry/inference_engine_provider.dart';
-import 'package:flutter_gemma/core/registry/runtime_config.dart';
-import 'package:flutter_gemma/flutter_gemma_interface.dart'
+import 'package:flutter_edge_ai/core/model.dart' show ModelFileType;
+import 'package:flutter_edge_ai/core/registry/inference_engine_provider.dart';
+import 'package:flutter_edge_ai/core/registry/runtime_config.dart';
+import 'package:flutter_edge_ai/flutter_gemma_interface.dart'
     show InferenceModel, supportedLoraRanks;
-import 'package:flutter_gemma/core/model_management/model_specs.dart'
+import 'package:flutter_edge_ai/core/model_management/model_specs.dart'
     show InferenceModelSpec;
-import 'package:flutter_gemma/core/domain/platform_types.dart' as core_types;
-import 'package:flutter_gemma_mediapipe/pigeon.g.dart' as mp_pigeon;
+import 'package:flutter_edge_ai/core/domain/platform_types.dart' as core_types;
+import 'package:flutter_edge_ai_mediapipe/pigeon.g.dart' as mp_pigeon;
 
 import 'mobile/mobile_inference_model.dart';
 import 'mobile/mobile_inference_session.dart' show platformService;

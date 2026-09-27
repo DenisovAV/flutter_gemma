@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart' show rootBundle;
-import 'package:flutter_gemma/mobile/smart_downloader.dart';
-import 'package:flutter_gemma/core/api/flutter_gemma.dart';
-import 'package:flutter_gemma/flutter_gemma.dart' as legacy;
-import 'package:flutter_gemma/mobile/flutter_gemma_mobile.dart'
+import 'package:flutter_edge_ai/mobile/smart_downloader.dart';
+import 'package:flutter_edge_ai/core/api/flutter_gemma.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart' as legacy;
+import 'package:flutter_edge_ai/mobile/flutter_gemma_mobile.dart'
     as legacy_mobile;
 import 'package:path_provider/path_provider.dart';
 import 'package:background_downloader/background_downloader.dart';
-import 'package:flutter_gemma_example/utils/test_preferences.dart';
-import 'package:flutter_gemma_example/gemma_bootstrap.dart';
-import 'package:flutter_gemma_example/rag_demo_screen.dart';
+import 'package:flutter_edge_ai_example/utils/test_preferences.dart';
+import 'package:flutter_edge_ai_example/gemma_bootstrap.dart';
+import 'package:flutter_edge_ai_example/rag_demo_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
 import 'dart:async';

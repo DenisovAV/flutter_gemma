@@ -1,19 +1,19 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma_builtin_ai/flutter_gemma_builtin_ai.dart';
-import 'package:flutter_gemma_example/chat_screen.dart';
-import 'package:flutter_gemma_example/embedding_test_screen.dart';
-import 'package:flutter_gemma_example/models/base_model.dart';
-import 'package:flutter_gemma_example/models/model.dart';
-import 'package:flutter_gemma_example/models/embedding_model.dart'
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
+import 'package:flutter_edge_ai_builtin_ai/flutter_edge_ai_builtin_ai.dart';
+import 'package:flutter_edge_ai_example/chat_screen.dart';
+import 'package:flutter_edge_ai_example/embedding_test_screen.dart';
+import 'package:flutter_edge_ai_example/models/base_model.dart';
+import 'package:flutter_edge_ai_example/models/model.dart';
+import 'package:flutter_edge_ai_example/models/embedding_model.dart'
     as example_embedding_model;
-import 'package:flutter_gemma_example/models/translate_model.dart';
-import 'package:flutter_gemma_example/services/model_download_service.dart';
-import 'package:flutter_gemma_example/services/embedding_download_service.dart';
-import 'package:flutter_gemma_example/translate_screen.dart';
-import 'package:flutter_gemma_example/utils/gated_model_access_dialog.dart';
-import 'package:flutter_gemma_example/utils/storage_quota_dialog.dart';
+import 'package:flutter_edge_ai_example/models/translate_model.dart';
+import 'package:flutter_edge_ai_example/services/model_download_service.dart';
+import 'package:flutter_edge_ai_example/services/embedding_download_service.dart';
+import 'package:flutter_edge_ai_example/translate_screen.dart';
+import 'package:flutter_edge_ai_example/utils/gated_model_access_dialog.dart';
+import 'package:flutter_edge_ai_example/utils/storage_quota_dialog.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class UniversalDownloadScreen extends StatefulWidget {

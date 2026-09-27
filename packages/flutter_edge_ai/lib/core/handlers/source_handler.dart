@@ -1,6 +1,6 @@
-import 'package:flutter_gemma/core/domain/model_source.dart';
-import 'package:flutter_gemma/core/model_management/cancel_token.dart';
-import 'package:flutter_gemma/core/services/model_repository.dart';
+import 'package:flutter_edge_ai/core/domain/model_source.dart';
+import 'package:flutter_edge_ai/core/model_management/cancel_token.dart';
+import 'package:flutter_edge_ai/core/services/model_repository.dart';
 
 /// Base interface for handling different model source types
 /// Each source type (Network, Asset, Bundled, File) has its own handler implementation

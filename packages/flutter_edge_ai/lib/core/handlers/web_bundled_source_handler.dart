@@ -1,11 +1,11 @@
-import 'package:flutter_gemma/core/domain/model_source.dart';
-import 'package:flutter_gemma/core/handlers/source_handler.dart';
-import 'package:flutter_gemma/core/model_management/cancel_token.dart';
-import 'package:flutter_gemma/core/infrastructure/web_file_system_service.dart';
-import 'package:flutter_gemma/core/infrastructure/web_cache_service.dart';
-import 'package:flutter_gemma/core/infrastructure/web_js_interop.dart';
-import 'package:flutter_gemma/core/services/model_repository.dart';
-import 'package:flutter_gemma/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/domain/model_source.dart';
+import 'package:flutter_edge_ai/core/handlers/source_handler.dart';
+import 'package:flutter_edge_ai/core/model_management/cancel_token.dart';
+import 'package:flutter_edge_ai/core/infrastructure/web_file_system_service.dart';
+import 'package:flutter_edge_ai/core/infrastructure/web_cache_service.dart';
+import 'package:flutter_edge_ai/core/infrastructure/web_js_interop.dart';
+import 'package:flutter_edge_ai/core/services/model_repository.dart';
+import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
 
 /// Handles installation of models from native bundled resources (WEB PLATFORM)
 ///

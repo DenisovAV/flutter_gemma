@@ -14,14 +14,14 @@
 @TestOn('vm')
 library;
 
-import 'package:flutter_gemma/core/model_management/model_specs.dart'
+import 'package:flutter_edge_ai/core/model_management/model_specs.dart'
     show SttModelType;
-import 'package:flutter_gemma_speech/src/litert/stt_core.dart'
+import 'package:flutter_edge_ai_speech/src/litert/stt_core.dart'
     show promptForLanguage, resolveSttSpecialTokens;
-import 'package:flutter_gemma_speech/src/litert/litert_speech_recognizer.dart'
+import 'package:flutter_edge_ai_speech/src/litert/litert_speech_recognizer.dart'
     show validateSttLanguage;
-import 'package:flutter_gemma_speech/src/model/stt_model_profile.dart';
-import 'package:flutter_gemma_speech/src/tokenizer/stt_special_tokens.dart';
+import 'package:flutter_edge_ai_speech/src/model/stt_model_profile.dart';
+import 'package:flutter_edge_ai_speech/src/tokenizer/stt_special_tokens.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// A whisper-shaped `tokenizer.json` fragment: the four prompt specials, a few

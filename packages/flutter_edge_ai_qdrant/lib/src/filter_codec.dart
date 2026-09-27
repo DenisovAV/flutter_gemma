@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 
 /// Serializes [Filter] DSL into the JSON envelope consumed by
 /// `QdrantEdgeClient.search`'s `_filterFromJson` adapter, which rebuilds it

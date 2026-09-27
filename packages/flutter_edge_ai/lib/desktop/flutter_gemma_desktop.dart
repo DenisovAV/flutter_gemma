@@ -1,13 +1,13 @@
 import 'dart:async';
 
-import 'package:flutter_gemma/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
 
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as path;
 
-import 'package:flutter_gemma/core/services/vector_store_filter.dart';
+import 'package:flutter_edge_ai/core/services/vector_store_filter.dart';
 
 import '../flutter_gemma_interface.dart';
 import '../model_file_manager_interface.dart';
@@ -36,8 +36,8 @@ import '../core/model_management/model_specs.dart'
 import '../mobile/flutter_gemma_mobile.dart' show MobileModelManager;
 
 import '../core/model_management/constants/preferences_keys.dart';
-import 'package:flutter_gemma/core/embedding/embedder_backend_notice.dart';
-import 'package:flutter_gemma/core/embedding/embedder_cache.dart';
+import 'package:flutter_edge_ai/core/embedding/embedder_backend_notice.dart';
+import 'package:flutter_edge_ai/core/embedding/embedder_cache.dart';
 
 /// Normalizes a `createTtsModel`/`getActiveTts` `language` argument for the
 /// same-model reuse guard's store/compare — defaults `null` to `'english'`

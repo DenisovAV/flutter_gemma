@@ -16,11 +16,11 @@ library;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_gemma/core/di/service_registry.dart';
-import 'package:flutter_gemma/core/domain/model_source.dart';
-import 'package:flutter_gemma/core/model_management/managers/web_model_manager.dart';
-import 'package:flutter_gemma/core/model_management/model_specs.dart';
-import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_edge_ai/core/di/service_registry.dart';
+import 'package:flutter_edge_ai/core/domain/model_source.dart';
+import 'package:flutter_edge_ai/core/model_management/managers/web_model_manager.dart';
+import 'package:flutter_edge_ai/core/model_management/model_specs.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 
 void main() {
   setUp(() {

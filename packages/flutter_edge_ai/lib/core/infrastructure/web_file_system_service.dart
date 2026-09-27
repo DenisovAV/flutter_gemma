@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter_gemma/core/services/file_system_service.dart';
-import 'package:flutter_gemma/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/services/file_system_service.dart';
+import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
 
 /// Web implementation of FileSystemService using URL-based storage
 ///

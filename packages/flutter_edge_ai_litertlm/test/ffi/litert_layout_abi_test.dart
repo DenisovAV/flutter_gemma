@@ -1,7 +1,7 @@
 import 'dart:ffi';
 
 import 'package:ffi/ffi.dart';
-import 'package:flutter_gemma_litertlm/litert_bindings.dart';
+import 'package:flutter_edge_ai_litertlm/litert_bindings.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 // Mirrors the static_asserts upstream added to litert/c/litert_layout.h in

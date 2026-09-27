@@ -6,7 +6,7 @@
 /// Gemma SentencePiece one in `embedding_tokenizer.dart`).
 ///
 /// Prefer this over
-/// `package:flutter_gemma_embeddings/src/wordpiece_embedding_tokenizer.dart`
+/// `package:flutter_edge_ai_embeddings/src/wordpiece_embedding_tokenizer.dart`
 /// in native-only files — same pattern as `embedding_tokenizer.dart` at this
 /// package's root and `flutter_gemma_litertlm/lib/litert_bindings.dart`.
 ///

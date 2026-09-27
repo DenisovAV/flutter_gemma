@@ -1,4 +1,4 @@
-import 'package:flutter_gemma/genai.dart';
+import 'package:flutter_edge_ai/genai.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

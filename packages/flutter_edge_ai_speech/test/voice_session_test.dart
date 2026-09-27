@@ -2,11 +2,11 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:fake_async/fake_async.dart';
-import 'package:flutter_gemma/flutter_gemma.dart'
+import 'package:flutter_edge_ai/flutter_edge_ai.dart'
     show SpeechRecognizer, SpeechSynthesizer;
-import 'package:flutter_gemma_speech/src/voice/voice_event.dart';
-import 'package:flutter_gemma_speech/src/voice/voice_responder.dart';
-import 'package:flutter_gemma_speech/src/voice/voice_session.dart';
+import 'package:flutter_edge_ai_speech/src/voice/voice_event.dart';
+import 'package:flutter_edge_ai_speech/src/voice/voice_responder.dart';
+import 'package:flutter_edge_ai_speech/src/voice/voice_session.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 // ---- Fakes ----

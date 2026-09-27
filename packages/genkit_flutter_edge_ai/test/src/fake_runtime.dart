@@ -1,5 +1,5 @@
-import 'package:flutter_gemma/flutter_gemma.dart' as gemma;
-import 'package:genkit_flutter_gemma/src/flutter_gemma_runtime.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart' as gemma;
+import 'package:genkit_flutter_edge_ai/src/flutter_gemma_runtime.dart';
 
 /// Test double for [FlutterGemmaRuntime].
 ///

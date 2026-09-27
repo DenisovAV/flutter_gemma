@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter_gemma/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
 
 import 'dart:convert';
 import 'dart:ffi';
@@ -12,8 +12,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:mutex/mutex.dart';
 
-import 'package:flutter_gemma/flutter_gemma_interface.dart';
-import 'package:flutter_gemma/core/parsing/sdk_text_extractor.dart';
+import 'package:flutter_edge_ai/flutter_gemma_interface.dart';
+import 'package:flutter_edge_ai/core/parsing/sdk_text_extractor.dart';
 
 import 'litert_default_scope.dart';
 import 'litert_lm_bindings.dart';

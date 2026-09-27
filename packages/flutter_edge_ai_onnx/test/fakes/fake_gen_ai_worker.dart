@@ -32,8 +32,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:isolate';
 
-import 'package:flutter_gemma_onnx/src/ffi/gen_ai_client.dart' show GenAiTurn;
-import 'package:flutter_gemma_onnx/src/ffi/gen_ai_protocol.dart';
+import 'package:flutter_edge_ai_onnx/src/ffi/gen_ai_client.dart' show GenAiTurn;
+import 'package:flutter_edge_ai_onnx/src/ffi/gen_ai_protocol.dart';
 
 Future<void> fakeGenAiWorkerEntry(WorkerInit init) async {
   final commandPort = ReceivePort();

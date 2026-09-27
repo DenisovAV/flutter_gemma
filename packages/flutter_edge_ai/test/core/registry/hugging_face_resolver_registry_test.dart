@@ -1,15 +1,15 @@
-import 'package:flutter_gemma/core/api/flutter_gemma.dart';
-import 'package:flutter_gemma/core/registry/hugging_face_resolver.dart';
-import 'package:flutter_gemma/core/registry/hugging_face_resolver_source.dart';
-import 'package:flutter_gemma/core/domain/platform_types.dart'
+import 'package:flutter_edge_ai/core/api/flutter_gemma.dart';
+import 'package:flutter_edge_ai/core/registry/hugging_face_resolver.dart';
+import 'package:flutter_edge_ai/core/registry/hugging_face_resolver_source.dart';
+import 'package:flutter_edge_ai/core/domain/platform_types.dart'
     show PreferredBackend;
-import 'package:flutter_gemma/core/model.dart' show ModelFileType, ModelType;
-import 'package:flutter_gemma/core/model_management/model_specs.dart'
+import 'package:flutter_edge_ai/core/model.dart' show ModelFileType, ModelType;
+import 'package:flutter_edge_ai/core/model_management/model_specs.dart'
     show InferenceModelSpec;
-import 'package:flutter_gemma/core/registry/hugging_face_resolver_registry.dart';
-import 'package:flutter_gemma/core/registry/inference_engine_provider.dart';
-import 'package:flutter_gemma/core/registry/runtime_config.dart';
-import 'package:flutter_gemma/flutter_gemma_interface.dart' show InferenceModel;
+import 'package:flutter_edge_ai/core/registry/hugging_face_resolver_registry.dart';
+import 'package:flutter_edge_ai/core/registry/inference_engine_provider.dart';
+import 'package:flutter_edge_ai/core/registry/runtime_config.dart';
+import 'package:flutter_edge_ai/flutter_gemma_interface.dart' show InferenceModel;
 import 'package:flutter_test/flutter_test.dart';
 
 /// Minimal fake resolver — probe-chain selection is what these tests exercise,

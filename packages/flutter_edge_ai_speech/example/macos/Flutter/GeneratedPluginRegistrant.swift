@@ -6,7 +6,7 @@ import FlutterMacOS
 import Foundation
 
 import audio_session
-import flutter_gemma
+import flutter_edge_ai
 import flutter_inappwebview_macos
 import flutter_local_notifications
 import just_audio

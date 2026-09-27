@@ -1,4 +1,4 @@
-import 'package:flutter_gemma/flutter_gemma.dart' show SttModelType;
+import 'package:flutter_edge_ai/flutter_edge_ai.dart' show SttModelType;
 
 /// Catalog of on-device speech-to-text models the example can install.
 ///

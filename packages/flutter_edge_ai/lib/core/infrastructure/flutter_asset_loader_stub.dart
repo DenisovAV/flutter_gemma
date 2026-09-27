@@ -3,7 +3,7 @@
 library;
 
 import 'dart:typed_data';
-import 'package:flutter_gemma/core/services/asset_loader.dart';
+import 'package:flutter_edge_ai/core/services/asset_loader.dart';
 
 /// Stub class - should never be instantiated on web platform
 class FlutterAssetLoader implements AssetLoader {

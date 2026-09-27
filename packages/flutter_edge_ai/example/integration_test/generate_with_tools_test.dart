@@ -4,7 +4,7 @@
 // Run: flutter test integration_test/generate_with_tools_test.dart -d <device> \
 //   --dart-define=HUGGINGFACE_TOKEN=$HF_TOKEN
 import 'package:flutter/foundation.dart' show debugPrint;
-import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'inference_test_helpers.dart' show registerTestEngines;

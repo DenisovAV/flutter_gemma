@@ -5,8 +5,8 @@
 /// `FlutterGemma.initialize(vectorStore: ...)`:
 ///
 /// ```dart
-/// import 'package:flutter_gemma/flutter_gemma.dart';
-/// import 'package:flutter_gemma_rag_sqlite/flutter_gemma_rag_sqlite.dart';
+/// import 'package:flutter_edge_ai/flutter_edge_ai.dart';
+/// import 'package:flutter_edge_ai_sqlite/flutter_edge_ai_sqlite.dart';
 ///
 /// await FlutterGemma.initialize(
 ///   vectorStore: kIsWeb ? WebSqliteVectorStore() : SqliteVectorStore(),

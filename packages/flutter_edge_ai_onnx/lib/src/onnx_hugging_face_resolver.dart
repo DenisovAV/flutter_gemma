@@ -1,11 +1,11 @@
 import 'dart:convert';
 
-import 'package:flutter_gemma/core/domain/platform_types.dart'
+import 'package:flutter_edge_ai/core/domain/platform_types.dart'
     show PreferredBackend;
-import 'package:flutter_gemma/core/model.dart' show ModelFileType;
-import 'package:flutter_gemma/core/registry/hugging_face_resolver.dart'
+import 'package:flutter_edge_ai/core/model.dart' show ModelFileType;
+import 'package:flutter_edge_ai/core/registry/hugging_face_resolver.dart'
     show HuggingFaceResolver, ResolvedHfFile, ResolvedHfModel;
-import 'package:flutter_gemma/core/utils/file_name_utils.dart'
+import 'package:flutter_edge_ai/core/utils/file_name_utils.dart'
     show FileNameUtils;
 
 import 'hf/hf_fetch_types.dart';

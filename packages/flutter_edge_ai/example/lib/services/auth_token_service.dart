@@ -1,5 +1,5 @@
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_gemma_example/constants/app_keys.dart';
+import 'package:flutter_edge_ai_example/constants/app_keys.dart';
 
 /// Centralized authentication token management service.
 ///

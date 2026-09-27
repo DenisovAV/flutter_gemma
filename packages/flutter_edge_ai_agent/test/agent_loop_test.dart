@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
-import 'package:flutter_gemma/flutter_gemma.dart'
+import 'package:flutter_edge_ai/flutter_edge_ai.dart'
     show
         FunctionCallResponse,
         InferenceChat,
@@ -11,7 +11,7 @@ import 'package:flutter_gemma/flutter_gemma.dart'
         ParallelFunctionCallResponse,
         TextResponse,
         ThinkingResponse;
-import 'package:flutter_gemma_agent/flutter_gemma_agent.dart';
+import 'package:flutter_edge_ai_agent/flutter_edge_ai_agent.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// A scriptable fake [InferenceChat]: yields the next queued turn's token/call

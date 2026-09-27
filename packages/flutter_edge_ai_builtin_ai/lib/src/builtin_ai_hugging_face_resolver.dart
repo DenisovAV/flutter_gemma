@@ -1,7 +1,7 @@
-import 'package:flutter_gemma/core/domain/platform_types.dart'
+import 'package:flutter_edge_ai/core/domain/platform_types.dart'
     show PreferredBackend;
-import 'package:flutter_gemma/core/model.dart' show ModelFileType;
-import 'package:flutter_gemma/core/registry/hugging_face_resolver.dart'
+import 'package:flutter_edge_ai/core/model.dart' show ModelFileType;
+import 'package:flutter_edge_ai/core/registry/hugging_face_resolver.dart'
     show HuggingFaceResolver, ResolvedHfModel;
 
 /// [HuggingFaceResolver] for built-in OS models (Gemini Nano / Apple

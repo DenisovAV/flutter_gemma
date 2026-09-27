@@ -8,8 +8,8 @@ library;
 
 import 'dart:async';
 import 'dart:js_interop';
-import 'package:flutter_gemma/core/infrastructure/web_opfs_interop.dart';
-import 'package:flutter_gemma/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/infrastructure/web_opfs_interop.dart';
+import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
 
 /// Service for OPFS file management
 ///

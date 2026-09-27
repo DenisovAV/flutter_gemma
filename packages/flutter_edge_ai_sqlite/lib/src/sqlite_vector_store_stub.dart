@@ -1,4 +1,4 @@
-import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 
 /// Stub for SqliteVectorStore on web/WASM platforms.
 /// Web uses WebSqliteVectorStore (package:sqlite3/wasm + vec0) instead.

@@ -19,13 +19,13 @@
 import 'dart:io';
 
 import 'package:flutter/services.dart' show rootBundle;
-import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:path_provider/path_provider.dart';
 
-import 'package:flutter_gemma_example/translation/translate_gemma_xml_strategy.dart';
-import 'package:flutter_gemma_example/translation/translate_runner.dart';
+import 'package:flutter_edge_ai_example/translation/translate_gemma_xml_strategy.dart';
+import 'package:flutter_edge_ai_example/translation/translate_runner.dart';
 import 'inference_test_helpers.dart' show registerTestEngines;
 
 const _modelName = 'translategemma-4b-it-int4-generic.litertlm';

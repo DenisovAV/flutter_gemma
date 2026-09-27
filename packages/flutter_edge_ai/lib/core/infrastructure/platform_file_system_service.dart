@@ -1,10 +1,10 @@
 import 'dart:io';
-import 'package:flutter_gemma/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
-import 'package:flutter_gemma/core/services/file_system_service.dart';
+import 'package:flutter_edge_ai/core/services/file_system_service.dart';
 
 /// Platform-specific file system implementation using dart:io
 ///

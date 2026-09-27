@@ -16,7 +16,7 @@
 // `litert_embedding_worker.dart`'s pattern) `await` it inside the worker.
 
 import 'tokenizer_adapter.dart';
-import 'package:flutter_gemma/core/domain/platform_types.dart'
+import 'package:flutter_edge_ai/core/domain/platform_types.dart'
     show PreferredBackend;
 
 /// One engine's forward-pass implementation.

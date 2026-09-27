@@ -1,37 +1,37 @@
 import 'package:flutter/foundation.dart'
     show kIsWeb, defaultTargetPlatform, TargetPlatform, visibleForTesting;
-import 'package:flutter_gemma/core/api/inference_installation_builder.dart';
-import 'package:flutter_gemma/core/api/embedding_installation_builder.dart';
-import 'package:flutter_gemma/core/api/stt_installation_builder.dart';
-import 'package:flutter_gemma/core/api/tts_installation_builder.dart';
-import 'package:flutter_gemma/core/di/service_registry.dart';
-import 'package:flutter_gemma/core/services/file_system_service.dart';
-import 'package:flutter_gemma/core/domain/model_source.dart';
-import 'package:flutter_gemma/core/domain/web_storage_mode.dart';
-import 'package:flutter_gemma/core/infrastructure/web_download_service_stub.dart'
-    if (dart.library.js_interop) 'package:flutter_gemma/core/infrastructure/web_download_service.dart';
-import 'package:flutter_gemma/core/model.dart';
-import 'package:flutter_gemma/core/registry/engine_registry.dart';
-import 'package:flutter_gemma/core/registry/embedding_registry.dart';
-import 'package:flutter_gemma/core/registry/stt_registry.dart';
-import 'package:flutter_gemma/core/registry/tts_registry.dart';
-import 'package:flutter_gemma/core/registry/skill_executor_registry.dart';
-import 'package:flutter_gemma/core/registry/hugging_face_resolver.dart';
-import 'package:flutter_gemma/core/registry/hugging_face_resolver_registry.dart';
-import 'package:flutter_gemma/core/registry/hugging_face_resolver_source.dart';
-import 'package:flutter_gemma/core/registry/inference_engine_provider.dart';
-import 'package:flutter_gemma/core/registry/embedding_backend_provider.dart';
-import 'package:flutter_gemma/core/registry/embedding_tokenizer_provider.dart';
-import 'package:flutter_gemma/core/registry/embedding_tokenizer_registry.dart';
-import 'package:flutter_gemma/core/registry/stt_backend_provider.dart';
-import 'package:flutter_gemma/core/registry/tts_backend_provider.dart';
-import 'package:flutter_gemma/core/registry/skill_executor_provider.dart';
-import 'package:flutter_gemma/core/services/vector_store_repository.dart';
-import 'package:flutter_gemma/core/services/vector_store_filter.dart';
-import 'package:flutter_gemma/core/utils/gemma_log.dart';
-import 'package:flutter_gemma/flutter_gemma_interface.dart';
-import 'package:flutter_gemma/core/model_management/model_specs.dart';
-import 'package:flutter_gemma/core/domain/platform_types.dart';
+import 'package:flutter_edge_ai/core/api/inference_installation_builder.dart';
+import 'package:flutter_edge_ai/core/api/embedding_installation_builder.dart';
+import 'package:flutter_edge_ai/core/api/stt_installation_builder.dart';
+import 'package:flutter_edge_ai/core/api/tts_installation_builder.dart';
+import 'package:flutter_edge_ai/core/di/service_registry.dart';
+import 'package:flutter_edge_ai/core/services/file_system_service.dart';
+import 'package:flutter_edge_ai/core/domain/model_source.dart';
+import 'package:flutter_edge_ai/core/domain/web_storage_mode.dart';
+import 'package:flutter_edge_ai/core/infrastructure/web_download_service_stub.dart'
+    if (dart.library.js_interop) 'package:flutter_edge_ai/core/infrastructure/web_download_service.dart';
+import 'package:flutter_edge_ai/core/model.dart';
+import 'package:flutter_edge_ai/core/registry/engine_registry.dart';
+import 'package:flutter_edge_ai/core/registry/embedding_registry.dart';
+import 'package:flutter_edge_ai/core/registry/stt_registry.dart';
+import 'package:flutter_edge_ai/core/registry/tts_registry.dart';
+import 'package:flutter_edge_ai/core/registry/skill_executor_registry.dart';
+import 'package:flutter_edge_ai/core/registry/hugging_face_resolver.dart';
+import 'package:flutter_edge_ai/core/registry/hugging_face_resolver_registry.dart';
+import 'package:flutter_edge_ai/core/registry/hugging_face_resolver_source.dart';
+import 'package:flutter_edge_ai/core/registry/inference_engine_provider.dart';
+import 'package:flutter_edge_ai/core/registry/embedding_backend_provider.dart';
+import 'package:flutter_edge_ai/core/registry/embedding_tokenizer_provider.dart';
+import 'package:flutter_edge_ai/core/registry/embedding_tokenizer_registry.dart';
+import 'package:flutter_edge_ai/core/registry/stt_backend_provider.dart';
+import 'package:flutter_edge_ai/core/registry/tts_backend_provider.dart';
+import 'package:flutter_edge_ai/core/registry/skill_executor_provider.dart';
+import 'package:flutter_edge_ai/core/services/vector_store_repository.dart';
+import 'package:flutter_edge_ai/core/services/vector_store_filter.dart';
+import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/flutter_gemma_interface.dart';
+import 'package:flutter_edge_ai/core/model_management/model_specs.dart';
+import 'package:flutter_edge_ai/core/domain/platform_types.dart';
 
 /// Modern API facade for Flutter Gemma
 ///

@@ -8,8 +8,8 @@
 // which was always, so its 23 tests had never run.
 import 'dart:io';
 
-import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma_rag_sqlite/flutter_gemma_rag_sqlite.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
+import 'package:flutter_edge_ai_sqlite/flutter_edge_ai_sqlite.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqlite3/sqlite3.dart';
 

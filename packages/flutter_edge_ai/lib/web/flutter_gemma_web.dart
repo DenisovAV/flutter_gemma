@@ -1,22 +1,22 @@
 import 'dart:async';
 
-import 'package:flutter_gemma/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma/core/registry/engine_registry.dart';
-import 'package:flutter_gemma/core/registry/embedding_registry.dart';
-import 'package:flutter_gemma/core/registry/embedding_backend_provider.dart';
-import 'package:flutter_gemma/core/registry/stt_registry.dart';
-import 'package:flutter_gemma/core/registry/stt_backend_provider.dart';
-import 'package:flutter_gemma/core/registry/runtime_config.dart';
-import 'package:flutter_gemma/core/model_management/constants/preferences_keys.dart';
-import 'package:flutter_gemma/core/di/service_registry.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
+import 'package:flutter_edge_ai/core/registry/engine_registry.dart';
+import 'package:flutter_edge_ai/core/registry/embedding_registry.dart';
+import 'package:flutter_edge_ai/core/registry/embedding_backend_provider.dart';
+import 'package:flutter_edge_ai/core/registry/stt_registry.dart';
+import 'package:flutter_edge_ai/core/registry/stt_backend_provider.dart';
+import 'package:flutter_edge_ai/core/registry/runtime_config.dart';
+import 'package:flutter_edge_ai/core/model_management/constants/preferences_keys.dart';
+import 'package:flutter_edge_ai/core/di/service_registry.dart';
 import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 
-import 'package:flutter_gemma/core/model_management/managers/web_model_manager.dart';
-import 'package:flutter_gemma/core/embedding/embedder_backend_notice.dart';
-import 'package:flutter_gemma/core/embedding/embedder_cache.dart';
+import 'package:flutter_edge_ai/core/model_management/managers/web_model_manager.dart';
+import 'package:flutter_edge_ai/core/embedding/embedder_backend_notice.dart';
+import 'package:flutter_edge_ai/core/embedding/embedder_cache.dart';
 
 class FlutterGemmaWeb extends FlutterGemmaPlugin {
   FlutterGemmaWeb();

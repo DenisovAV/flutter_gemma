@@ -17,7 +17,7 @@
 
 import 'dart:convert';
 
-import 'package:flutter_gemma_embeddings/src/wordpiece_embedding_tokenizer.dart';
+import 'package:flutter_edge_ai_embeddings/src/wordpiece_embedding_tokenizer.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const Map<String, int> _vocab = {

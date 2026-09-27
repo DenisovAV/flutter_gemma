@@ -3,8 +3,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' show kDebugMode;
 
-import 'package:flutter_gemma/core/utils/gemma_log.dart';
-import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 
 /// Translates a [Filter] into a SQL `WHERE` fragment over vec0's declared
 /// typed metadata columns, plus the ordered bind list.

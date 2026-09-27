@@ -9,7 +9,7 @@
 
 import 'dart:typed_data';
 
-import 'package:flutter_gemma_speech/src/litert/litert_graph.dart'
+import 'package:flutter_edge_ai_speech/src/litert/litert_graph.dart'
     show F32Input, GraphInput, I32Input;
 import 'package:flutter_test/flutter_test.dart';
 

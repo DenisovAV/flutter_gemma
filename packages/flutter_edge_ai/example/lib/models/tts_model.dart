@@ -1,4 +1,4 @@
-import 'package:flutter_gemma/flutter_gemma.dart' show TtsModelType;
+import 'package:flutter_edge_ai/flutter_edge_ai.dart' show TtsModelType;
 
 /// Catalog of on-device TTS models. SELECTABLE like STT — each entry carries
 /// the [TtsModelType] that tells the generic `LiteRtTtsBackend` which

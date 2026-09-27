@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_gemma/core/services/model_repository.dart';
+import 'package:flutter_edge_ai/core/services/model_repository.dart';
 
 /// Model repository using SharedPreferences for persistence
 ///

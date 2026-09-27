@@ -3,8 +3,8 @@
 
 import 'dart:convert';
 
-import 'package:flutter_gemma_embeddings/wordpiece_embedding_tokenizer.dart';
-import 'package:flutter_gemma_embeddings/src/wordpiece_tokenizer_json.dart';
+import 'package:flutter_edge_ai_embeddings/wordpiece_embedding_tokenizer.dart';
+import 'package:flutter_edge_ai_embeddings/src/wordpiece_tokenizer_json.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 String _wordPieceJson() {

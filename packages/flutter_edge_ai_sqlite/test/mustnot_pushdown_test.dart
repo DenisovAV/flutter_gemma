@@ -8,8 +8,8 @@
 //
 // So this file asserts on ROWS, from a real vec0 table. Asserting on generated
 // SQL cannot distinguish a filter that runs from one that is thrown away.
-import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma_rag_sqlite/src/filter_to_vec0.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
+import 'package:flutter_edge_ai_sqlite/src/filter_to_vec0.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'dart:ffi';
 

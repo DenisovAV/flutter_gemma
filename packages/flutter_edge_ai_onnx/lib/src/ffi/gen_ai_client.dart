@@ -35,7 +35,7 @@ import 'dart:isolate';
 
 import 'package:ffi/ffi.dart' as pkg_ffi;
 import 'package:flutter/foundation.dart' show visibleForTesting;
-import 'package:flutter_gemma/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
 import 'package:mutex/mutex.dart';
 
 import 'gen_ai_protocol.dart';

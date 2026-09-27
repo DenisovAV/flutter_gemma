@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 import 'package:flutter/services.dart' show rootBundle;
-import 'package:flutter_gemma/core/services/asset_loader.dart';
+import 'package:flutter_edge_ai/core/services/asset_loader.dart';
 import 'package:large_file_handler/large_file_handler.dart';
 
 /// Flutter asset loader using LargeFileHandler plugin

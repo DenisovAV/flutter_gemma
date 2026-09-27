@@ -25,7 +25,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:dart_sentencepiece_tokenizer/dart_sentencepiece_tokenizer.dart';
-import 'package:flutter_gemma_embeddings/src/embedding_tokenizer.dart';
+import 'package:flutter_edge_ai_embeddings/src/embedding_tokenizer.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// A miniature file carrying the blocks the real SigLIP 2 tokenizer declares —

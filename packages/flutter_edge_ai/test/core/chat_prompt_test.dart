@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_gemma/core/chat.dart';
-import 'package:flutter_gemma/core/model.dart';
-import 'package:flutter_gemma/core/tool.dart';
+import 'package:flutter_edge_ai/core/chat.dart';
+import 'package:flutter_edge_ai/core/model.dart';
+import 'package:flutter_edge_ai/core/tool.dart';
 
 void main() {
   group('FunctionGemma Tools Prompt - Enum Support', () {

@@ -4,8 +4,8 @@
 // filtering, no model download / FFI / device.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_gemma_example/model_selection_screen.dart';
-import 'package:flutter_gemma_example/voice_setup_screen.dart';
+import 'package:flutter_edge_ai_example/model_selection_screen.dart';
+import 'package:flutter_edge_ai_example/voice_setup_screen.dart';
 
 void main() {
   testWidgets('VoiceSetupScreen renders the default STT / LLM / TTS trio', (

@@ -1,4 +1,4 @@
-import 'package:flutter_gemma/flutter_gemma.dart' as gemma;
+import 'package:flutter_edge_ai/flutter_edge_ai.dart' as gemma;
 import 'package:genkit/genkit.dart';
 
 /// Parse a 'cpu'/'gpu'/'npu' string to [gemma.PreferredBackend]; null → null.

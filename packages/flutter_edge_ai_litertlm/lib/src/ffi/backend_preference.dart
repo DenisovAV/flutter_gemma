@@ -4,7 +4,7 @@ import 'dart:ffi';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart' show visibleForTesting;
-import 'package:flutter_gemma/core/domain/platform_types.dart';
+import 'package:flutter_edge_ai/core/domain/platform_types.dart';
 
 /// Whether this host ships an NPU dispatch stack at all.
 ///
@@ -284,7 +284,7 @@ Future<({T client, PreferredBackend activeBackend})> initializeFfiRuntime<T>({
       // build's logcat — for the same reason as the npu notice above.
       developer.log(
         '$logTag ${ffiBackendWireName(backend)} backend failed: $error',
-        name: 'flutter_gemma',
+        name: 'flutter_edge_ai',
         level: 900,
         error: error,
         stackTrace: stackTrace,

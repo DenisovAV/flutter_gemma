@@ -1,4 +1,4 @@
-import 'package:flutter_gemma/core/registry/hugging_face_resolver.dart'
+import 'package:flutter_edge_ai/core/registry/hugging_face_resolver.dart'
     show HuggingFaceResolver;
 
 /// Opt-in capability interface: an `InferenceEngineProvider` that also ships a

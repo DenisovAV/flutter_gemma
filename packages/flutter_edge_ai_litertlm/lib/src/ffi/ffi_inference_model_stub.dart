@@ -7,11 +7,11 @@
 
 import 'package:flutter/foundation.dart';
 
-import 'package:flutter_gemma/flutter_gemma_interface.dart';
-import 'package:flutter_gemma/core/domain/platform_types.dart';
-import 'package:flutter_gemma/core/model.dart';
-import 'package:flutter_gemma/core/tool.dart';
-import 'package:flutter_gemma/core/lifecycle/close_notifier.dart';
+import 'package:flutter_edge_ai/flutter_gemma_interface.dart';
+import 'package:flutter_edge_ai/core/domain/platform_types.dart';
+import 'package:flutter_edge_ai/core/model.dart';
+import 'package:flutter_edge_ai/core/tool.dart';
+import 'package:flutter_edge_ai/core/lifecycle/close_notifier.dart';
 import 'litert_lm_client_stub.dart';
 
 class FfiInferenceModel extends InferenceModel with CloseNotifier {

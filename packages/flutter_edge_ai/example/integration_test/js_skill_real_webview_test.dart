@@ -24,7 +24,7 @@
 //   flutter drive --driver=test_driver/integration_test.dart \
 //     --target=integration_test/js_skill_real_webview_test.dart -d chrome
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:flutter_gemma_agent/flutter_gemma_agent.dart';
+import 'package:flutter_edge_ai_agent/flutter_edge_ai_agent.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 

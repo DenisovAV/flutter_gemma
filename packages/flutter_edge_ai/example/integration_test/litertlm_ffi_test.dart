@@ -14,10 +14,10 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 import 'inference_test_helpers.dart' show registerTestEngines;
-import 'package:flutter_gemma/core/di/service_registry.dart';
-import 'package:flutter_gemma/core/model.dart';
+import 'package:flutter_edge_ai/core/di/service_registry.dart';
+import 'package:flutter_edge_ai/core/model.dart';
 
 // ── Model URLs (for iOS download, macOS/Android use local files) ──
 const _gemma4Url =

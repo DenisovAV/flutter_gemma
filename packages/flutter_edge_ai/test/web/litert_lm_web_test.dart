@@ -15,7 +15,7 @@
 @TestOn('chrome')
 library;
 
-import 'package:flutter_gemma/web/flutter_gemma_web.dart';
+import 'package:flutter_edge_ai/web/flutter_gemma_web.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

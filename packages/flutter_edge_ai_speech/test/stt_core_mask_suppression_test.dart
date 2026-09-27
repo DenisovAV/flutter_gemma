@@ -1,10 +1,10 @@
 import 'dart:typed_data';
 
-import 'package:flutter_gemma_speech/src/litert/stt_core.dart'
+import 'package:flutter_edge_ai_speech/src/litert/stt_core.dart'
     show applySuppression, writeDecoderMask;
-import 'package:flutter_gemma_speech/src/model/stt_model_profile.dart'
+import 'package:flutter_edge_ai_speech/src/model/stt_model_profile.dart'
     show SttDecoderMaskConvention;
-import 'package:flutter_gemma_speech/src/tokenizer/stt_special_tokens.dart'
+import 'package:flutter_edge_ai_speech/src/tokenizer/stt_special_tokens.dart'
     show ResolvedSuppression;
 import 'package:flutter_test/flutter_test.dart';
 

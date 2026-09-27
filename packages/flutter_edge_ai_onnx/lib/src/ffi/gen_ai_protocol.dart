@@ -15,7 +15,7 @@
 // `onnx_generation_host_smoke_test.dart` for that).
 import 'dart:isolate';
 
-import 'package:flutter_gemma/core/utils/gemma_log.dart' show GemmaLogLevel;
+import 'package:flutter_edge_ai/core/utils/gemma_log.dart' show GemmaLogLevel;
 
 import 'gen_ai_client.dart' show GenAiTurn;
 

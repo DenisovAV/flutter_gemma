@@ -1,5 +1,5 @@
 import 'package:background_downloader/background_downloader.dart';
-import 'package:flutter_gemma/mobile/smart_downloader.dart';
+import 'package:flutter_edge_ai/mobile/smart_downloader.dart';
 
 /// Wires a host-provided download hub into [SmartDownloader] (mobile only).
 void configureDownloadUpdatesStream(Stream<Object>? stream) {

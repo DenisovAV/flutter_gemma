@@ -5,9 +5,9 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma_embeddings/wordpiece_embedding_tokenizer.dart';
-import 'package:flutter_gemma_embeddings/src/tokenizer_router.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
+import 'package:flutter_edge_ai_embeddings/wordpiece_embedding_tokenizer.dart';
+import 'package:flutter_edge_ai_embeddings/src/tokenizer_router.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _wordPieceVocab = {

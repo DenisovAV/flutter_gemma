@@ -1,4 +1,4 @@
-import 'package:flutter_gemma/core/model_response.dart';
+import 'package:flutter_edge_ai/core/model_response.dart';
 
 /// Base class for all chat events
 abstract class ChatEvent {}

@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
-import 'package:flutter_gemma/flutter_gemma.dart'
+import 'package:flutter_edge_ai/flutter_edge_ai.dart'
     show
         FunctionCallResponse,
         InferenceChat,
@@ -11,7 +11,7 @@ import 'package:flutter_gemma/flutter_gemma.dart'
         SpeechSynthesizer,
         TextResponse,
         GemmaLogLevel;
-import 'package:flutter_gemma/core/utils/gemma_log.dart' show gemmaLog;
+import 'package:flutter_edge_ai/core/utils/gemma_log.dart' show gemmaLog;
 import 'package:meta/meta.dart' show visibleForTesting;
 
 import 'clause_splitter.dart';

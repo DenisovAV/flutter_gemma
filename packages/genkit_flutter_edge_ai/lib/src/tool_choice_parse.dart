@@ -1,4 +1,4 @@
-import 'package:flutter_gemma/flutter_gemma.dart' as gemma;
+import 'package:flutter_edge_ai/flutter_edge_ai.dart' as gemma;
 import 'package:genkit/plugin.dart';
 
 /// Maps a Genkit toolChoice string to flutter_gemma's [gemma.ToolChoice].

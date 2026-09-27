@@ -4,8 +4,8 @@
 /// instance to `FlutterGemma.initialize(vectorStore: ...)`:
 ///
 /// ```dart
-/// import 'package:flutter_gemma/flutter_gemma.dart';
-/// import 'package:flutter_gemma_rag_qdrant/flutter_gemma_rag_qdrant.dart';
+/// import 'package:flutter_edge_ai/flutter_edge_ai.dart';
+/// import 'package:flutter_edge_ai_qdrant/flutter_edge_ai_qdrant.dart';
 ///
 /// await FlutterGemma.initialize(vectorStore: QdrantVectorStore());
 /// ```

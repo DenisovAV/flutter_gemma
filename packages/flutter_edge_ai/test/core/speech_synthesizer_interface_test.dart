@@ -1,5 +1,5 @@
 import 'dart:typed_data';
-import 'package:flutter_gemma/flutter_gemma_interface.dart';
+import 'package:flutter_edge_ai/flutter_gemma_interface.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class _FakeSynth implements SpeechSynthesizer {

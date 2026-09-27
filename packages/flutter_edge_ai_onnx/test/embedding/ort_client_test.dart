@@ -1,7 +1,7 @@
 // Pure-function tests for `pickOnnxOutputIndex` — zero dlopen, zero fakes
 // (design D-T4's "zero dlopen" bar for host-verifiable unit tests).
 
-import 'package:flutter_gemma_onnx/src/embedding/ort_client.dart';
+import 'package:flutter_edge_ai_onnx/src/embedding/ort_client.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_gemma_example/integration_test_screen.dart';
+import 'package:flutter_edge_ai_example/integration_test_screen.dart';
 
 /// Separate entry point for Integration Tests
 ///

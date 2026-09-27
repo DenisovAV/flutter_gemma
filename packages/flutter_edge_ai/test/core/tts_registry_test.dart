@@ -1,9 +1,9 @@
-import 'package:flutter_gemma/core/registry/tts_registry.dart';
-import 'package:flutter_gemma/core/registry/tts_backend_provider.dart';
-import 'package:flutter_gemma/core/registry/runtime_config.dart';
-import 'package:flutter_gemma/core/model_management/model_specs.dart';
-import 'package:flutter_gemma/core/domain/model_source.dart';
-import 'package:flutter_gemma/flutter_gemma_interface.dart';
+import 'package:flutter_edge_ai/core/registry/tts_registry.dart';
+import 'package:flutter_edge_ai/core/registry/tts_backend_provider.dart';
+import 'package:flutter_edge_ai/core/registry/runtime_config.dart';
+import 'package:flutter_edge_ai/core/model_management/model_specs.dart';
+import 'package:flutter_edge_ai/core/domain/model_source.dart';
+import 'package:flutter_edge_ai/flutter_gemma_interface.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class _P implements TtsBackendProvider {

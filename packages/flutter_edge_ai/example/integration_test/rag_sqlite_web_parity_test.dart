@@ -38,11 +38,11 @@
 @TestOn('chrome')
 library;
 
-import 'package:flutter_gemma_rag_sqlite/flutter_gemma_rag_sqlite.dart';
+import 'package:flutter_edge_ai_sqlite/flutter_edge_ai_sqlite.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 
-import 'package:flutter_gemma_rag_sqlite/src/testing/parity_cases.dart';
+import 'package:flutter_edge_ai_sqlite/src/testing/parity_cases.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();

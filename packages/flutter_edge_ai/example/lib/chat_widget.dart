@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma_example/chat_input_field.dart';
-import 'package:flutter_gemma_example/chat_message.dart';
-import 'package:flutter_gemma_example/gemma_input_field.dart';
-import 'package:flutter_gemma_example/thinking_widget.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
+import 'package:flutter_edge_ai_example/chat_input_field.dart';
+import 'package:flutter_edge_ai_example/chat_message.dart';
+import 'package:flutter_edge_ai_example/gemma_input_field.dart';
+import 'package:flutter_edge_ai_example/thinking_widget.dart';
 
 class ChatListWidget extends StatefulWidget {
   const ChatListWidget({

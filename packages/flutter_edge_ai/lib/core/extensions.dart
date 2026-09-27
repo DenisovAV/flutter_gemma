@@ -1,13 +1,13 @@
 import 'dart:convert';
 
-import 'package:flutter_gemma/core/message.dart';
-import 'package:flutter_gemma/core/model.dart';
-import 'package:flutter_gemma/core/model_response.dart';
-import 'package:flutter_gemma/core/parsing/function_gemma_wire.dart';
-import 'package:flutter_gemma/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/message.dart';
+import 'package:flutter_edge_ai/core/model.dart';
+import 'package:flutter_edge_ai/core/model_response.dart';
+import 'package:flutter_edge_ai/core/parsing/function_gemma_wire.dart';
+import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
 
 // The FunctionGemma tokens live with the wire format they belong to.
-export 'package:flutter_gemma/core/parsing/function_gemma_wire.dart';
+export 'package:flutter_edge_ai/core/parsing/function_gemma_wire.dart';
 
 const userPrefix = "user";
 const modelPrefix = "model";

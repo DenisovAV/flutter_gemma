@@ -14,12 +14,12 @@
 
 import 'dart:io';
 
-import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma_rag_qdrant/flutter_gemma_rag_qdrant.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
+import 'package:flutter_edge_ai_qdrant/flutter_edge_ai_qdrant.dart';
 // Internal (src/) import, valid within the same package: needed to pin the
 // QdrantException → VectorStoreException wrapping contract directly against
 // QdrantEdgeClient (see 'exception wrapping' group below).
-import 'package:flutter_gemma_rag_qdrant/src/qdrant_edge_client.dart';
+import 'package:flutter_edge_ai_qdrant/src/qdrant_edge_client.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 

@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_gemma/core/services/protected_files_registry.dart';
+import 'package:flutter_edge_ai/core/services/protected_files_registry.dart';
 
 /// Protected files registry using SharedPreferences
 ///

@@ -7,13 +7,13 @@
 // "suppress the core default" one-shot flag anymore — both engines are
 // explicitly registered, and findFor just probes by fileType.
 
-import 'package:flutter_gemma/core/model.dart' show ModelFileType, ModelType;
-import 'package:flutter_gemma/core/registry/engine_registry.dart';
-import 'package:flutter_gemma/core/registry/inference_engine_provider.dart';
-import 'package:flutter_gemma/core/registry/runtime_config.dart';
-import 'package:flutter_gemma/flutter_gemma_interface.dart' show InferenceModel;
-import 'package:flutter_gemma/core/domain/model_source.dart';
-import 'package:flutter_gemma/mobile/flutter_gemma_mobile.dart'
+import 'package:flutter_edge_ai/core/model.dart' show ModelFileType, ModelType;
+import 'package:flutter_edge_ai/core/registry/engine_registry.dart';
+import 'package:flutter_edge_ai/core/registry/inference_engine_provider.dart';
+import 'package:flutter_edge_ai/core/registry/runtime_config.dart';
+import 'package:flutter_edge_ai/flutter_gemma_interface.dart' show InferenceModel;
+import 'package:flutter_edge_ai/core/domain/model_source.dart';
+import 'package:flutter_edge_ai/mobile/flutter_gemma_mobile.dart'
     show InferenceModelSpec;
 import 'package:flutter_test/flutter_test.dart';
 

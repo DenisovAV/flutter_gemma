@@ -15,14 +15,14 @@ import 'package:path/path.dart' as path;
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_gemma/core/di/service_registry.dart';
-import 'package:flutter_gemma/core/lifecycle/close_notifier.dart';
-import 'package:flutter_gemma/core/registry/embedding_backend_provider.dart';
-import 'package:flutter_gemma/core/registry/embedding_registry.dart';
-import 'package:flutter_gemma/core/registry/runtime_config.dart';
-import 'package:flutter_gemma/core/registry/stt_backend_provider.dart';
-import 'package:flutter_gemma/core/registry/stt_registry.dart';
-import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_edge_ai/core/di/service_registry.dart';
+import 'package:flutter_edge_ai/core/lifecycle/close_notifier.dart';
+import 'package:flutter_edge_ai/core/registry/embedding_backend_provider.dart';
+import 'package:flutter_edge_ai/core/registry/embedding_registry.dart';
+import 'package:flutter_edge_ai/core/registry/runtime_config.dart';
+import 'package:flutter_edge_ai/core/registry/stt_backend_provider.dart';
+import 'package:flutter_edge_ai/core/registry/stt_registry.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 
 final _fakeModelBytes = Uint8List(1024 * 1024 + 16);
 final _fakeTokenizerBytes = Uint8List(2048);

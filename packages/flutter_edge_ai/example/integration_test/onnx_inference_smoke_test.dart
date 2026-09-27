@@ -42,7 +42,7 @@
 // build + gcloud invocation.
 import 'dart:io';
 
-import 'package:flutter_gemma_onnx/src/ffi/gen_ai_client.dart';
+import 'package:flutter_edge_ai_onnx/src/ffi/gen_ai_client.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:path_provider/path_provider.dart';

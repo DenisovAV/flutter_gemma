@@ -1,13 +1,13 @@
 import 'dart:async';
-import 'package:flutter_gemma/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter_gemma/core/lifecycle/close_notifier.dart';
-import 'package:flutter_gemma/flutter_gemma_interface.dart';
+import 'package:flutter_edge_ai/core/lifecycle/close_notifier.dart';
+import 'package:flutter_edge_ai/flutter_gemma_interface.dart';
 
 import 'web_runtime.dart';
 import 'litert_web_embeddings.dart';
-import 'package:flutter_gemma/core/domain/platform_types.dart'
+import 'package:flutter_edge_ai/core/domain/platform_types.dart'
     show PreferredBackend;
 
 class WebEmbeddingModel extends EmbeddingModel with CloseNotifier {

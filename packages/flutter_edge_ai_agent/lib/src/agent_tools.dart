@@ -1,4 +1,4 @@
-import 'package:flutter_gemma/flutter_gemma.dart' show Tool;
+import 'package:flutter_edge_ai/flutter_edge_ai.dart' show Tool;
 
 /// The four built-in [Tool]s the agent gives the model. Their names + parameter
 /// schemas mirror Gallery's `AgentTools.kt` (`load_skill` / `runJs` / `runIntent`

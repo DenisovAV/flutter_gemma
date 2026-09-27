@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart' show kDebugMode;
-import 'package:flutter_gemma/core/utils/gemma_log.dart';
-import 'package:flutter_gemma/core/registry/skill_executor_provider.dart';
+import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/registry/skill_executor_provider.dart';
 
 /// Holds skill executors registered via `FlutterGemma.initialize`
 /// (`skillExecutors:`). Same probe-chain selection as `EngineRegistry` /

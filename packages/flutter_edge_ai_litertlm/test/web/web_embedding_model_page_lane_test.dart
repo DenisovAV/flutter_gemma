@@ -13,7 +13,7 @@ import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 import 'dart:typed_data';
 
-import 'package:flutter_gemma_litertlm/src/embedding/web/web_embedding_model.dart';
+import 'package:flutter_edge_ai_litertlm/src/embedding/web/web_embedding_model.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// The page-global state the real bundle keeps, reduced to the one flag the

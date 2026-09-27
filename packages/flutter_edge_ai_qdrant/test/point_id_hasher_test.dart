@@ -1,4 +1,4 @@
-import 'package:flutter_gemma_rag_qdrant/src/point_id_hasher.dart';
+import 'package:flutter_edge_ai_qdrant/src/point_id_hasher.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

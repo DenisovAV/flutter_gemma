@@ -1,6 +1,6 @@
-import 'package:flutter_gemma/flutter_gemma.dart'
+import 'package:flutter_edge_ai/flutter_edge_ai.dart'
     show InferenceChat, SkillExecutorProvider, SkillExecutorRegistry;
-import 'package:flutter_gemma_agent/flutter_gemma_agent.dart';
+import 'package:flutter_edge_ai_agent/flutter_edge_ai_agent.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Minimal [InferenceChat] so an [AgentSession] can be constructed without a

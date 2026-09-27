@@ -3,17 +3,17 @@
 // inference model (extracted into `flutter_gemma_litertlm`). Both import this
 // directly so neither has to be a `part of flutter_gemma_web.dart`.
 import 'dart:js_interop';
-import 'package:flutter_gemma/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter_gemma/core/di/service_registry.dart';
-import 'package:flutter_gemma/core/infrastructure/web_download_service.dart';
+import 'package:flutter_edge_ai/core/di/service_registry.dart';
+import 'package:flutter_edge_ai/core/infrastructure/web_download_service.dart';
 // Conditional import: same pattern WebDownloadService uses so the opfsService
 // field type matches statically (both sides of the resolver agree on the type).
-import 'package:flutter_gemma/core/infrastructure/web_opfs_interop_stub.dart'
-    if (dart.library.js_interop) 'package:flutter_gemma/core/infrastructure/web_opfs_service.dart';
-import 'package:flutter_gemma/core/model_management/constants/preferences_keys.dart';
-import 'package:flutter_gemma/core/model_management/managers/web_model_manager.dart';
+import 'package:flutter_edge_ai/core/infrastructure/web_opfs_interop_stub.dart'
+    if (dart.library.js_interop) 'package:flutter_edge_ai/core/infrastructure/web_opfs_service.dart';
+import 'package:flutter_edge_ai/core/model_management/constants/preferences_keys.dart';
+import 'package:flutter_edge_ai/core/model_management/managers/web_model_manager.dart';
 
 /// Result of resolving an active web model into a form an engine
 /// (MediaPipe `LlmInference` OR `@litert-lm/core` `Engine`) can consume.

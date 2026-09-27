@@ -4,25 +4,25 @@
 // `web_image_format.dart`) plus the sibling MediaPipe JS interop
 // (`llm_inference_web.dart`).
 import 'dart:async';
-import 'package:flutter_gemma/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
 import 'dart:convert';
 import 'dart:js_interop';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter_gemma/core/extensions.dart';
-import 'package:flutter_gemma/core/lifecycle/close_notifier.dart';
-import 'package:flutter_gemma/core/message.dart';
-import 'package:flutter_gemma/core/model.dart';
-import 'package:flutter_gemma/core/tool.dart';
-import 'package:flutter_gemma/flutter_gemma_interface.dart'
+import 'package:flutter_edge_ai/core/extensions.dart';
+import 'package:flutter_edge_ai/core/lifecycle/close_notifier.dart';
+import 'package:flutter_edge_ai/core/message.dart';
+import 'package:flutter_edge_ai/core/model.dart';
+import 'package:flutter_edge_ai/core/tool.dart';
+import 'package:flutter_edge_ai/flutter_gemma_interface.dart'
     show InferenceModel, InferenceModelSession, SessionMetrics;
 // WebInferenceModel.activeBackend overrides the [InferenceModel] contract, whose
 // type is core's PreferredBackend (from core's platform_types.dart).
-import 'package:flutter_gemma/core/domain/platform_types.dart'
+import 'package:flutter_edge_ai/core/domain/platform_types.dart'
     show PreferredBackend;
-import 'package:flutter_gemma/web/web_image_format.dart';
-import 'package:flutter_gemma/web/web_model_source.dart';
+import 'package:flutter_edge_ai/web/web_image_format.dart';
+import 'package:flutter_edge_ai/web/web_model_source.dart';
 
 import 'llm_inference_web.dart';
 

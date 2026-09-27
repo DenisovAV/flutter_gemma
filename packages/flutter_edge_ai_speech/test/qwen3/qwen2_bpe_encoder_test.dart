@@ -13,7 +13,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter_gemma_speech/src/qwen3/qwen2_bpe_encoder.dart';
+import 'package:flutter_edge_ai_speech/src/qwen3/qwen2_bpe_encoder.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Qwen2BpeEncoder _loadGoldenEncoder() {

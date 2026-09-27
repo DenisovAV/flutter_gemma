@@ -4,9 +4,9 @@
 // build their own `EmbeddingModel` and never reach it at runtime; it exists
 // only to keep the web compile honest.
 
-import 'package:flutter_gemma/flutter_gemma_interface.dart'
+import 'package:flutter_edge_ai/flutter_gemma_interface.dart'
     show EmbeddingModel, TaskType;
-import 'package:flutter_gemma/core/lifecycle/close_notifier.dart';
+import 'package:flutter_edge_ai/core/lifecycle/close_notifier.dart';
 
 import 'forward_pass.dart';
 

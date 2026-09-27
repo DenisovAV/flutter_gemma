@@ -1,9 +1,9 @@
 import 'dart:async';
 
-import 'package:flutter_gemma/core/registry/runtime_config.dart'
+import 'package:flutter_edge_ai/core/registry/runtime_config.dart'
     show ActiveEmbedderParams;
-import 'package:flutter_gemma/core/utils/gemma_log.dart';
-import 'package:flutter_gemma/flutter_gemma_interface.dart' show EmbeddingModel;
+import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/flutter_gemma_interface.dart' show EmbeddingModel;
 
 /// The cached embedder, the rule for reusing it, and the serialisation that
 /// makes the rule mean anything.

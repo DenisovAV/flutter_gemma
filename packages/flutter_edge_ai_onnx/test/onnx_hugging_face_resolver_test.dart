@@ -6,10 +6,10 @@
 
 import 'dart:convert';
 
-import 'package:flutter_gemma/core/domain/platform_types.dart'
+import 'package:flutter_edge_ai/core/domain/platform_types.dart'
     show PreferredBackend;
-import 'package:flutter_gemma/core/model.dart' show ModelFileType;
-import 'package:flutter_gemma_onnx/flutter_gemma_onnx.dart'
+import 'package:flutter_edge_ai/core/model.dart' show ModelFileType;
+import 'package:flutter_edge_ai_onnx/flutter_edge_ai_onnx.dart'
     show OnnxHuggingFaceResolver;
 import 'package:flutter_test/flutter_test.dart';
 

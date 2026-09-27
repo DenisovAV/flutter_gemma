@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_gemma/core/function_call_parser.dart';
-import 'package:flutter_gemma/core/model.dart';
-import 'package:flutter_gemma/core/model_response.dart';
+import 'package:flutter_edge_ai/core/function_call_parser.dart';
+import 'package:flutter_edge_ai/core/model.dart';
+import 'package:flutter_edge_ai/core/model_response.dart';
 
 void main() {
   group('FunctionGemma Parser', () {

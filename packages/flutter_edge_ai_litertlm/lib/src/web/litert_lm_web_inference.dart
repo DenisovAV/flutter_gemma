@@ -3,7 +3,7 @@
 // the shared web infra (web_model_source, web_image_format) and core parsing
 // directly so it no longer needs to be a `part of flutter_gemma_web.dart`.
 import 'dart:async';
-import 'package:flutter_gemma/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
 import 'dart:convert';
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
@@ -11,18 +11,18 @@ import 'dart:js_interop_unsafe';
 import 'package:flutter/foundation.dart';
 import 'package:mutex/mutex.dart';
 
-import 'package:flutter_gemma/flutter_gemma_interface.dart';
-import 'package:flutter_gemma/core/domain/platform_types.dart';
-import 'package:flutter_gemma/core/lifecycle/close_notifier.dart';
-import 'package:flutter_gemma/core/message.dart';
-import 'package:flutter_gemma/core/model.dart';
-import 'package:flutter_gemma/core/tool.dart';
-import 'package:flutter_gemma/core/extensions.dart';
-import 'package:flutter_gemma/core/function_call_parser.dart';
-import 'package:flutter_gemma/core/parsing/sdk_response_parser.dart';
-import 'package:flutter_gemma/core/parsing/sdk_text_extractor.dart';
-import 'package:flutter_gemma/web/web_model_source.dart';
-import 'package:flutter_gemma/web/web_image_format.dart';
+import 'package:flutter_edge_ai/flutter_gemma_interface.dart';
+import 'package:flutter_edge_ai/core/domain/platform_types.dart';
+import 'package:flutter_edge_ai/core/lifecycle/close_notifier.dart';
+import 'package:flutter_edge_ai/core/message.dart';
+import 'package:flutter_edge_ai/core/model.dart';
+import 'package:flutter_edge_ai/core/tool.dart';
+import 'package:flutter_edge_ai/core/extensions.dart';
+import 'package:flutter_edge_ai/core/function_call_parser.dart';
+import 'package:flutter_edge_ai/core/parsing/sdk_response_parser.dart';
+import 'package:flutter_edge_ai/core/parsing/sdk_text_extractor.dart';
+import 'package:flutter_edge_ai/web/web_model_source.dart';
+import 'package:flutter_edge_ai/web/web_image_format.dart';
 
 import 'litert_lm_web.dart';
 

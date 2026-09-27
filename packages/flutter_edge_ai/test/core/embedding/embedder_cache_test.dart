@@ -1,9 +1,9 @@
 import 'dart:async';
 
-import 'package:flutter_gemma/core/embedding/embedder_cache.dart';
-import 'package:flutter_gemma/core/lifecycle/close_notifier.dart';
-import 'package:flutter_gemma/core/registry/runtime_config.dart';
-import 'package:flutter_gemma/flutter_gemma_interface.dart';
+import 'package:flutter_edge_ai/core/embedding/embedder_cache.dart';
+import 'package:flutter_edge_ai/core/lifecycle/close_notifier.dart';
+import 'package:flutter_edge_ai/core/registry/runtime_config.dart';
+import 'package:flutter_edge_ai/flutter_gemma_interface.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// The state machine the three shells used to each own a copy of. Every case

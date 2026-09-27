@@ -1,4 +1,4 @@
-import 'package:flutter_gemma/core/domain/model_source.dart';
+import 'package:flutter_edge_ai/core/domain/model_source.dart';
 
 /// Abstraction for model metadata persistence
 /// Stores information about installed models (NOT the model files themselves)

@@ -1,11 +1,11 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:flutter_gemma/core/di/service_registry.dart';
-import 'package:flutter_gemma/core/domain/model_source.dart';
-import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma_example/models/embedding_model.dart'
+import 'package:flutter_edge_ai/core/di/service_registry.dart';
+import 'package:flutter_edge_ai/core/domain/model_source.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
+import 'package:flutter_edge_ai_example/models/embedding_model.dart'
     as example_embedding;
-import 'package:flutter_gemma_example/models/model.dart';
-import 'package:flutter_gemma_example/models/translate_model.dart';
+import 'package:flutter_edge_ai_example/models/model.dart';
+import 'package:flutter_edge_ai_example/models/translate_model.dart';
 
 /// Resolves the on-disk path (or web URL) for an installed model file.
 Future<String> resolveInstalledModelPath(String installedId) async {

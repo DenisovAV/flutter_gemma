@@ -1,9 +1,9 @@
-import 'package:flutter_gemma/core/chat.dart';
-import 'package:flutter_gemma/core/message.dart';
-import 'package:flutter_gemma/core/model.dart';
-import 'package:flutter_gemma/core/model_response.dart';
-import 'package:flutter_gemma/core/tool.dart';
-import 'package:flutter_gemma/flutter_gemma_interface.dart';
+import 'package:flutter_edge_ai/core/chat.dart';
+import 'package:flutter_edge_ai/core/message.dart';
+import 'package:flutter_edge_ai/core/model.dart';
+import 'package:flutter_edge_ai/core/model_response.dart';
+import 'package:flutter_edge_ai/core/tool.dart';
+import 'package:flutter_edge_ai/flutter_gemma_interface.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// The LiteRT-LM C++ runtime streams a Gemma 4 tool-call turn as the raw

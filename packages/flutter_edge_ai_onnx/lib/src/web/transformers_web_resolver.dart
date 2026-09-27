@@ -3,9 +3,9 @@
 // `dart:js_interop` — but see this file's class doc for why it is still
 // NOT VM-testable in isolation (transitively depends on `WebModelManager`,
 // which is web-only).
-import 'package:flutter_gemma/core/domain/model_source.dart';
-import 'package:flutter_gemma/core/model_management/managers/web_model_manager.dart';
-import 'package:flutter_gemma/core/model_management/model_specs.dart'
+import 'package:flutter_edge_ai/core/domain/model_source.dart';
+import 'package:flutter_edge_ai/core/model_management/managers/web_model_manager.dart';
+import 'package:flutter_edge_ai/core/model_management/model_specs.dart'
     show InferenceModelSpec;
 
 import 'transformers_repo_id.dart';

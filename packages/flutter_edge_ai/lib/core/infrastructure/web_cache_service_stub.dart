@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:typed_data';
-import 'package:flutter_gemma/core/infrastructure/web_cache_interop_stub.dart';
+import 'package:flutter_edge_ai/core/infrastructure/web_cache_interop_stub.dart';
 
 /// Stub implementation for non-web platforms
 class WebCacheService {

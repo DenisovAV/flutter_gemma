@@ -1,13 +1,13 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma_example/models/base_model.dart';
-import 'package:flutter_gemma_example/models/embedding_model.dart'
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
+import 'package:flutter_edge_ai_example/models/base_model.dart';
+import 'package:flutter_edge_ai_example/models/embedding_model.dart'
     as example_embedding_model;
-import 'package:flutter_gemma_example/services/auth_token_service.dart';
-import 'package:flutter_gemma_example/cosine_similarity_screen.dart';
-import 'package:flutter_gemma_example/rag_demo_screen.dart';
+import 'package:flutter_edge_ai_example/services/auth_token_service.dart';
+import 'package:flutter_edge_ai_example/cosine_similarity_screen.dart';
+import 'package:flutter_edge_ai_example/rag_demo_screen.dart';
 
 class EmbeddingTestScreen extends StatefulWidget {
   final example_embedding_model.EmbeddingModel model;

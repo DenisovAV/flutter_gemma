@@ -15,8 +15,8 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_gemma/core/infrastructure/platform_file_system_service.dart';
-import 'package:flutter_gemma/core/di/service_registry.dart';
+import 'package:flutter_edge_ai/core/infrastructure/platform_file_system_service.dart';
+import 'package:flutter_edge_ai/core/di/service_registry.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

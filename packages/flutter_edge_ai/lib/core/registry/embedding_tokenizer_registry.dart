@@ -1,10 +1,10 @@
 import 'package:flutter/foundation.dart' show kDebugMode;
-import 'package:flutter_gemma/core/embedding/tokenizer_adapter.dart'
+import 'package:flutter_edge_ai/core/embedding/tokenizer_adapter.dart'
     show EmbeddingTokenizerFactory;
-import 'package:flutter_gemma/core/model_management/model_specs.dart'
+import 'package:flutter_edge_ai/core/model_management/model_specs.dart'
     show EmbeddingModelSpec;
-import 'package:flutter_gemma/core/registry/embedding_tokenizer_provider.dart';
-import 'package:flutter_gemma/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/core/registry/embedding_tokenizer_provider.dart';
+import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
 
 /// Holds embedding tokenizer providers registered via `FlutterGemma.initialize`.
 /// Same probe-chain selection as [EmbeddingRegistry] and [EngineRegistry].

@@ -17,8 +17,8 @@
 // Run with: flutter test integration_test/onnx_genai_bundle_test.dart -d macos
 import 'dart:io';
 
-import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma_onnx/flutter_gemma_onnx.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
+import 'package:flutter_edge_ai_onnx/flutter_edge_ai_onnx.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 

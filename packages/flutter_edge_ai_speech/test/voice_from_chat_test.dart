@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
-import 'package:flutter_gemma/flutter_gemma.dart'
+import 'package:flutter_edge_ai/flutter_edge_ai.dart'
     show
         InferenceChat,
         Message,
@@ -12,9 +12,9 @@ import 'package:flutter_gemma/flutter_gemma.dart'
         ThinkingResponse,
         FunctionCallResponse,
         Tool;
-import 'package:flutter_gemma_speech/src/voice/voice_event.dart'
+import 'package:flutter_edge_ai_speech/src/voice/voice_event.dart'
     show VoiceReplyTextEvent;
-import 'package:flutter_gemma_speech/src/voice/voice_session.dart';
+import 'package:flutter_edge_ai_speech/src/voice/voice_session.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class _NoopRecognizer implements SpeechRecognizer {

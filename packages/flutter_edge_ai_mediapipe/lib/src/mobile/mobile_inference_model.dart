@@ -3,12 +3,12 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:mutex/mutex.dart';
 
-import 'package:flutter_gemma/core/chat.dart';
-import 'package:flutter_gemma/core/lifecycle/close_notifier.dart';
-import 'package:flutter_gemma/core/model.dart';
-import 'package:flutter_gemma/core/tool.dart';
-import 'package:flutter_gemma/core/utils/gemma_log.dart';
-import 'package:flutter_gemma/flutter_gemma_interface.dart'
+import 'package:flutter_edge_ai/core/chat.dart';
+import 'package:flutter_edge_ai/core/lifecycle/close_notifier.dart';
+import 'package:flutter_edge_ai/core/model.dart';
+import 'package:flutter_edge_ai/core/tool.dart';
+import 'package:flutter_edge_ai/core/utils/gemma_log.dart';
+import 'package:flutter_edge_ai/flutter_gemma_interface.dart'
     show InferenceModel, InferenceModelSession;
 
 // MobileInferenceModel exposes `activeBackend` as part of the [InferenceModel]
@@ -16,7 +16,7 @@ import 'package:flutter_gemma/flutter_gemma_interface.dart'
 // The MediaPipe→core enum bridge lives in the engine; this model stores core's
 // value type directly so the override is valid and core's type never tangles
 // with the package's own pigeon enum.
-import 'package:flutter_gemma/core/domain/platform_types.dart'
+import 'package:flutter_edge_ai/core/domain/platform_types.dart'
     show PreferredBackend;
 
 import 'mobile_inference_session.dart';

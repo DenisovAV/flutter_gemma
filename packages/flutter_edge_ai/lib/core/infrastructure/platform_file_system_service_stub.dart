@@ -7,7 +7,7 @@
 // FileSystemService interface without re-declaring all members; the constructor
 // throws because it must never be reached on web.)
 
-import 'package:flutter_gemma/core/services/file_system_service.dart';
+import 'package:flutter_edge_ai/core/services/file_system_service.dart';
 
 class PlatformFileSystemService implements FileSystemService {
   PlatformFileSystemService() {

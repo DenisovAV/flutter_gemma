@@ -239,8 +239,10 @@ done
 #       - DenisovAV/flutter_gemma#270
 #       - google-ai-edge/LiteRT-LM#2211
 if ! command -v patchelf >/dev/null 2>&1; then
-  echo "WARN: patchelf not installed — skipping DT_NEEDED fix for samplers"
-  echo "      Install with: brew install patchelf"
+  echo "ERROR: patchelf not installed — the DT_NEEDED fixes below cannot run," >&2
+  echo "       and a bundle without them crashes on device (#270, #545)." >&2
+  echo "       Install with: brew install patchelf" >&2
+  exit 1
 else
   echo ""
   echo "=== Patching sampler DT_NEEDED (#270) ==="
@@ -257,7 +259,6 @@ else
   done
 fi
 
-
 # 8c. Patch GPU accelerator libs with DT_NEEDED libandroid.so. At the pinned
 #     PREBUILT_REF, upstream's libLiteRtOpenClAccelerator.so and
 #     libLiteRtGpuAccelerator.so reference AHardwareBuffer_allocate/_release
@@ -273,24 +274,26 @@ fi
 #     prebuilts already carry libandroid.so, so this becomes a no-op once
 #     PREBUILT_REF moves past that change. libandroid.so pulls in
 #     libnativewindow.so. Verified on Galaxy A34 (Mali-G68 MC4).
-if ! command -v patchelf >/dev/null 2>&1; then
-  echo "WARN: patchelf not installed — skipping DT_NEEDED fix for GPU accelerators"
-  echo "      Install with: brew install patchelf"
-else
-  echo ""
-  echo "=== Patching GPU accelerator DT_NEEDED (Mali AHardwareBuffer) ==="
-  for lib in libLiteRtOpenClAccelerator.so libLiteRtGpuAccelerator.so; do
-    if [ -f "$PREBUILT_DIR/$lib" ]; then
-      # Idempotent: only add if not already present.
-      if ! patchelf --print-needed "$PREBUILT_DIR/$lib" | grep -q '^libandroid\.so$'; then
-        patchelf --add-needed libandroid.so "$PREBUILT_DIR/$lib"
-        echo "  $lib: added libandroid.so to NEEDED"
-      else
-        echo "  $lib: libandroid.so already in NEEDED, skipping"
-      fi
+#     patchelf is guaranteed here: step 8b exits without it.
+echo ""
+echo "=== Patching GPU accelerator DT_NEEDED (Mali AHardwareBuffer) ==="
+for lib in libLiteRtOpenClAccelerator.so libLiteRtGpuAccelerator.so; do
+  if [ -f "$PREBUILT_DIR/$lib" ]; then
+    # Idempotent: only add if not already present.
+    if ! patchelf --print-needed "$PREBUILT_DIR/$lib" | grep -q '^libandroid\.so$'; then
+      patchelf --add-needed libandroid.so "$PREBUILT_DIR/$lib"
+      echo "  $lib: added libandroid.so to NEEDED"
+    else
+      echo "  $lib: libandroid.so already in NEEDED, skipping"
     fi
-  done
-fi
+  fi
+done
+
+# 8d. Every import must be reachable through the library's own NEEDED (#545).
+#     8b and 8c fix the cases we know about; this catches the next one.
+echo ""
+echo "=== DT_NEEDED closure ==="
+python3 "$SCRIPT_DIR/check_android_needed.py" "$PREBUILT_DIR" || exit 1
 
 # 9. Verify
 echo ""

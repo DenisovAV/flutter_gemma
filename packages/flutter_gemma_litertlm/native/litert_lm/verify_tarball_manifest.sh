@@ -295,6 +295,20 @@ if [[ $align_fail -eq 1 ]]; then
   exit 1
 fi
 
+# The alignment scan above extracted every tarball into $align_tmp; check the
+# Android one's imports there, on the bytes that will actually ship.
+echo
+echo "==> Checking every Android import is reachable through its own NEEDED"
+for d in "$align_tmp"/litertlm-android_*; do
+  [[ -d "$d" ]] || continue
+  if ! python3 "$(dirname "$0")/check_android_needed.py" "$d"; then
+    echo
+    echo "❌ NEEDED CHECK FAILED — a library imports a symbol its NEEDED chain"
+    echo "   cannot reach. A WEAK one binds to NULL and crashes on first call (#545)."
+    exit 1
+  fi
+done
+
 echo
 echo "==> Checking the Windows C++ runtime against what the docs promise"
 # The docs tell Windows end-users what they must install. That sentence is a

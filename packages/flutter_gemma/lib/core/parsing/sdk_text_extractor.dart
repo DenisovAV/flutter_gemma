@@ -36,8 +36,13 @@ class SdkTextExtractor {
       }
     }
 
-    final content = json['content'] as List<dynamic>?;
-    if (content == null) return jsonStr;
+    // The web SDK can represent a text message as a plain string, while the
+    // native SDK normally uses the multimodal content-item array. Preserve
+    // that text instead of throwing when a valid web chunk takes the former
+    // shape.
+    final content = json['content'];
+    if (content is String) return content;
+    if (content is! List<dynamic>) return jsonStr;
     final buffer = StringBuffer();
     for (final item in content) {
       if (item is Map<String, dynamic> && item['type'] == 'text') {

@@ -29,42 +29,57 @@ Future<List<String>> _printedWithGemmaLogMuted(
 }
 
 void main() {
-  group('litertlmBackendForModel', () {
-    test('forces Mobile Actions to CPU for a Unix path', () {
+  group('litertlmActivationDataTypeForModel', () {
+    test('uses FP32 for Mobile Actions on a Unix GPU request', () {
       expect(
-        litertlmBackendForModel(
+        litertlmActivationDataTypeForModel(
           modelPath: '/models/mobile_actions_q8_ekv1024.litertlm',
           preferredBackend: PreferredBackend.gpu,
+          activationDataType: null,
         ),
-        PreferredBackend.cpu,
+        ActivationDataType.float32,
       );
     });
 
-    test(
-      'forces Mobile Actions to CPU for a Windows path and no preference',
-      () {
-        expect(
-          litertlmBackendForModel(
-            modelPath: r'C:\models\mobile_actions_q8_ekv1024.litertlm',
-            preferredBackend: null,
-          ),
-          PreferredBackend.cpu,
-        );
-      },
-    );
+    test('uses FP32 for Mobile Actions with the default backend order', () {
+      expect(
+        litertlmActivationDataTypeForModel(
+          modelPath: r'C:\models\mobile_actions_q8_ekv1024.litertlm',
+          preferredBackend: null,
+          activationDataType: null,
+        ),
+        ActivationDataType.float32,
+      );
+    });
+
+    test('does not change an explicit activation type', () {
+      expect(
+        litertlmActivationDataTypeForModel(
+          modelPath: '/models/mobile_actions_q8_ekv1024.litertlm',
+          preferredBackend: PreferredBackend.gpu,
+          activationDataType: ActivationDataType.float16,
+        ),
+        ActivationDataType.float16,
+      );
+    });
+
+    test('does not force FP32 on an explicit CPU request', () {
+      expect(
+        litertlmActivationDataTypeForModel(
+          modelPath: '/models/mobile_actions_q8_ekv1024.litertlm',
+          preferredBackend: PreferredBackend.cpu,
+          activationDataType: null,
+        ),
+        isNull,
+      );
+    });
 
     test('does not change unknown artifacts', () {
       expect(
-        litertlmBackendForModel(
+        litertlmActivationDataTypeForModel(
           modelPath: '/models/functiongemma-270m.litertlm',
           preferredBackend: PreferredBackend.gpu,
-        ),
-        PreferredBackend.gpu,
-      );
-      expect(
-        litertlmBackendForModel(
-          modelPath: '/models/functiongemma-270m.litertlm',
-          preferredBackend: null,
+          activationDataType: null,
         ),
         isNull,
       );

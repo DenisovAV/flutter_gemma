@@ -117,28 +117,37 @@ String npuUnavailableReason(String operatingSystem, {String? fastRpcError}) =>
 /// [npuDispatchAvailable] overrides [hostShipsNpuDispatch] — tests need both
 /// answers, and a platform-dependent default cannot give them one.
 
-const _cpuOnlyLitertlmArtifacts = <String>{
+/// Older Mobile Actions bundles omit `prefer_activation_type=fp32`. LiteRT-LM
+/// therefore chooses FP16 for their GPU graph, which can initialize cleanly
+/// and then emit only token 0 (`<pad>`) on Gemma 3 270M. The same bundle runs
+/// correctly on GPU when the decoder is compiled for FP32 activations.
+const _gpuFp32LitertlmArtifacts = <String>{
   'mobile_actions_q8_ekv1024.litertlm',
 };
 
-/// Returns the backend preference that is safe for a known `.litertlm` file.
+String _litertlmFileName(String modelPath) {
+  final normalizedPath = modelPath.replaceAll('\\', '/');
+  return normalizedPath.substring(normalizedPath.lastIndexOf('/') + 1);
+}
+
+/// Returns the activation type to use for a known `.litertlm` file.
 ///
-/// Mobile Actions is published as a CPU-only FunctionGemma artifact. On GPU,
-/// Gemma 3 270M bundles can initialize successfully and then emit no tokens,
-/// so native initialization fallback cannot detect the failure. Keep this
-/// compatibility table exact: unknown files retain the caller's preference.
-PreferredBackend? litertlmBackendForModel({
+/// An explicit caller choice always wins. For the old Mobile Actions bundle,
+/// use FP32 only on a non-CPU request so the model stays on the GPU; if that
+/// GPU attempt cannot be created, the normal backend fallback still reaches
+/// CPU. Unknown artifacts retain the model file's own setting.
+ActivationDataType? litertlmActivationDataTypeForModel({
   required String modelPath,
   required PreferredBackend? preferredBackend,
+  required ActivationDataType? activationDataType,
 }) {
-  final normalizedPath = modelPath.replaceAll('\\', '/');
-  final fileName = normalizedPath.substring(
-    normalizedPath.lastIndexOf('/') + 1,
-  );
-  if (_cpuOnlyLitertlmArtifacts.contains(fileName)) {
-    return PreferredBackend.cpu;
+  if (activationDataType != null || preferredBackend == PreferredBackend.cpu) {
+    return activationDataType;
   }
-  return preferredBackend;
+  if (_gpuFp32LitertlmArtifacts.contains(_litertlmFileName(modelPath))) {
+    return ActivationDataType.float32;
+  }
+  return null;
 }
 
 List<PreferredBackend> ffiBackendFallbackOrder(

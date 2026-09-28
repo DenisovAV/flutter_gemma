@@ -1,6 +1,6 @@
 name: flutter_gemma_builtin_ai
 description: "Renamed to flutter_edge_ai_builtin_ai. This final release re-exports flutter_edge_ai_builtin_ai, so existing imports keep compiling with a deprecation warning."
-version: 0.3.0
+version: 0.4.0
 homepage: https://flutteredge.ai
 repository: https://github.com/DenisovAV/flutter_gemma/tree/main/shims/flutter_gemma_builtin_ai
 issue_tracker: https://github.com/DenisovAV/flutter_gemma/issues
@@ -14,4 +14,4 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_edge_ai_builtin_ai: ^0.3.0
+  flutter_edge_ai_builtin_ai: ^0.4.0

@@ -55,7 +55,7 @@ Every row is a property of the running device, OS and build — not of the packa
 |----------|----------------|-------------|------------------------|
 | Android | Gemini Nano | ML Kit GenAI / AICore (`genai-prompt` 1.0.0-beta4) | Pixel 9+, Galaxy S25+. **`minSdk 26`** and **Kotlin 2.3.21** in your app (see [Android setup](#android-setup)). |
 | iOS / macOS | Apple Foundation Models | FoundationModels framework | iPhone 15 Pro+, Apple Silicon Macs, Apple Intelligence enabled in **Settings → Apple Intelligence & Siri**. Inference needs **OS 26+** at runtime — below that the plugin reports `unavailableOsTooOld`, so you can still ship a fallback. The plugin itself builds from **iOS 13.0 / macOS 12.0**, so it links and runs on older OSes. |
-| Windows | Phi Silica | Windows AI Foundry (Windows App SDK 2.0+) | Copilot+ class hardware, **and** the host app must supply the App SDK projections and runtime bootstrap. Opt-in — the default build reports `unavailableDeviceUnsupported`. See [Windows setup](#windows-setup). |
+| Windows | Phi Silica | Windows AI Foundry (Windows App SDK 2.0+) | Windows 11 25H2+ on Copilot+ class hardware (or a supported GPU), in a packaged app. The build resolves the App SDK projection itself; a build that could not reports `unavailableDeviceUnsupported`. See [Windows setup](#windows-setup). |
 | Web | Gemini Nano | Chrome **Prompt API** (`self.LanguageModel`) | Desktop Chrome / Chromium-Edge only — **not** Chrome-Android/iOS, **not** Firefox/Safari. ~22 GB free disk + a GPU with >4 GB VRAM (or a 16 GB-RAM CPU-only path). See [Web setup](#web-setup). |
 | Linux | — | — | No OS built-in model. `availability()` reports an `unavailable*` status; fall back to a downloaded model. |
 
@@ -202,19 +202,17 @@ itself, so `android.builtInKotlin=true` is not usable in an app that depends on 
 
 ## Windows setup
 
-Windows is opt-in and needs work in the **host app**, not in this package: deploy/bootstrap Windows
-App SDK 2.0+, supply its C++/WinRT projections, and declare the applicable package capabilities.
-Configure this **before** Flutter adds the plugin:
+Nothing to configure to *build*: `flutter build windows` resolves the Windows App SDK's C++/WinRT
+projection itself — from the local NuGet cache, or downloaded from nuget.org into the build tree —
+through `flutter_local_ai`. When it cannot (no network and no cache) the build prints a
+`flutter_local_ai:` warning and the app reports `unavailableDeviceUnsupported`, so it still compiles
+and your fallback runs. The environment variables `FLUTTER_LOCAL_AI_WINDOWS_AI` (`AUTO` by default,
+`ON`, `OFF`) and `FLUTTER_LOCAL_AI_NUGET_DOWNLOAD=OFF` steer it; see
+[`flutter_local_ai`'s Windows setup](https://pub.dev/packages/flutter_local_ai).
 
-```cmake
-set(FLUTTER_LOCAL_AI_WINDOWS_AI ON CACHE BOOL "" FORCE)
-set(FLUTTER_LOCAL_AI_WINRT_INCLUDE_DIR "C:/path/to/generated" CACHE PATH "" FORCE)
-```
-
-The default build reports `unavailableDeviceUnsupported` rather than claiming usable inference. See
-[`flutter_local_ai`'s platform support](https://pub.dev/packages/flutter_local_ai) and
-[Microsoft's setup guide](https://learn.microsoft.com/en-us/windows/ai/apis/get-started) for current
-hardware, OS, manifest and SDK requirements. This path still needs Windows device validation.
+Running needs Windows 11 25H2+ on a Copilot+ PC (or a supported GPU) and a packaged app — see
+[Microsoft's setup guide](https://learn.microsoft.com/en-us/windows/ai/apis/get-started). This path
+still needs Windows device validation.
 
 ## Web setup
 

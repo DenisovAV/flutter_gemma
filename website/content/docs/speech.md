@@ -294,8 +294,9 @@ On Android, STT (like everything backed by `libLiteRtLm`) is **arm64-only** and
 requires **minSdk 30** — see
 [Installation → Android architecture](/docs/installation#android-architecture-support).
 
-On Windows, speech needs `flutter_gemma_litertlm` 1.7.0 or newer (0.5.1 requires
-it) — earlier versions fail with `CreateTensorBufferFromHostMemory` status 3. See
+On Windows, speech needs the litertlm fix from `flutter_gemma_litertlm` 1.7.0, which
+every `flutter_edge_ai_litertlm` release has — earlier versions fail with
+`CreateTensorBufferFromHostMemory` status 3. See
 [Troubleshooting](/docs/troubleshooting#windows-embeddings-and-speech-fail-with-status-3).
 
 ## Model support

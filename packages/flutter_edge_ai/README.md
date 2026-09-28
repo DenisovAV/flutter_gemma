@@ -303,7 +303,7 @@ For development, prefer an Apple Silicon Mac — the Android emulator runs `arm6
   `flutter_edge_ai_litertlm` and embeddings build from 15.0. (Requires
   `flutter_gemma` 1.6.4 or newer; earlier versions declared 16.0.)
 
-* **`flutter_edge_ai_builtin_ai` 0.3.0+ sets no Apple floor of its own** — its
+* **`flutter_edge_ai_builtin_ai` sets no Apple floor of its own** — its
   native layer is `flutter_local_ai`, which builds from **iOS 13.0 / macOS
   12.0**. iOS is unaffected (core's 15.0 still wins); on **macOS the floor rises
   from 10.15 to 12.0**, and a lower deployment target fails resolution with a

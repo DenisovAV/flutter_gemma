@@ -1,6 +1,6 @@
 ---
 title: Built-in AI
-description: Run the device's own OS/browser AI as an engine — Gemini Nano (Android + Chrome), Phi-4-mini (Edge) and Apple Foundation Models (iOS/macOS) — with no model to download, plus the availability-probe → open-model fallback pattern.
+description: Run the device's own OS/browser AI as an engine — Gemini Nano (Android + Chrome), Phi-4-mini (Edge), Apple Foundation Models (iOS/macOS) and Phi Silica (Windows) — with no model to download, plus the availability-probe → open-model fallback pattern.
 image: https://fluttergemma.dev/images/og-image.png
 ---
 
@@ -17,16 +17,17 @@ want, and the platform owns the weights.
 |----------|----------------|---------|-----------------|
 | Android | **Gemini Nano** | ML Kit GenAI / AICore | Pixel 9+, Galaxy S25+ (`minSdk 26`) |
 | iOS / macOS | **Apple Foundation Models** (Apple Intelligence) | FoundationModels framework | iOS 26+ / macOS 26+ on iPhone 15 Pro+, Apple Silicon Macs — Apple Intelligence enabled |
+| Windows | **Phi Silica** | Windows AI Foundry (Windows App SDK) | Windows 11 25H2+ on a Copilot+ PC (or a supported GPU), in a packaged app |
 | Web | **Gemini Nano** in Chrome, **Phi-4-mini** in Edge | **Prompt API** (`self.LanguageModel`) | Desktop Chrome; Microsoft Edge with a flag (see [Web setup](#web-setup)) |
 
 > **Note:** in Chrome the Prompt API *is* Gemini Nano — the browser runs the same
 > on-device model, exposed through a JS API. Edge implements the same API with
-> Microsoft's own model, Phi-4-mini: the same calls, a different model. **Windows and Linux have no OS
-> built-in model** (no ML Kit, no Apple Foundation Models, no browser Prompt API
-> in a Flutter desktop app) — there `availability()` reports
-> `unavailableDeviceUnsupported` (0.2.2+; earlier versions throw a
-> `PlatformException`), and you fall back to a downloaded model
-> (see [the fallback pattern](#the-fallback-pattern)).
+> Microsoft's own model, Phi-4-mini: the same calls, a different model. **Linux
+> has no OS built-in model** — there `availability()` reports
+> `unavailableDeviceUnsupported` and you fall back to a downloaded model
+> (see [the fallback pattern](#the-fallback-pattern)). Windows runs Phi Silica
+> since 0.3.0; a Windows build that could not resolve the Windows App SDK
+> reports `unavailableDeviceUnsupported` too.
 
 Availability is a runtime property of the device/OS/browser — never assume it at
 build time; always probe with `BuiltInAi.availability()` /
@@ -52,9 +53,19 @@ await FlutterGemma.initialize(
 );
 ```
 
-> **Android:** `flutter_gemma_builtin_ai` declares `minSdk 26` (the ML Kit GenAI
-> / AICore floor). Raise your app's `android/app/build.gradle(.kts)` `minSdk` to
-> 26 or the manifest merger fails.
+> **Android:** the package's native layer, `flutter_local_ai`, declares
+> `minSdk 26` (the ML Kit GenAI / AICore floor) — raise your app's
+> `android/app/build.gradle(.kts)` `minSdk` to 26 or the manifest merger fails.
+> It also applies the Kotlin Gradle Plugin itself and needs Kotlin 2.3.21, so
+> `android.builtInKotlin=true` is not usable in an app that depends on it.
+>
+> **Apple:** since 0.3.0 this package is no longer a Flutter plugin; its native
+> layer is `flutter_local_ai`, which builds from iOS 13.0 / macOS 12.0. A macOS
+> app below 12.0 fails at `pod install`, and CI that runs a frozen
+> `pod install --deployment` has to re-lock `Podfile.lock` once.
+>
+> **Windows:** nothing to configure to build — see the package README's
+> Windows setup for the environment switches and runtime requirements.
 
 ## Install a built-in model
 
@@ -69,10 +80,11 @@ await FlutterGemma.installModel(
 ).fromBundled(BuiltInAiModels.geminiNano.name).install();
 ```
 
-`BuiltInAiModels.geminiNano` (Android + Web) and
-`BuiltInAiModels.appleFoundationModels` (iOS/macOS) are plain
-`InferenceModelSpec`s you can also reference directly when building your own
-model list.
+`BuiltInAiModels` carries `geminiNano` (Android), `appleFoundationModels`
+(iOS/macOS), `windowsAiFoundry` (Windows) and `chromePromptApi` (web), plus
+`all` and `forCurrentPlatform` — the spec for the running platform, or `null` on
+Linux. They are plain `InferenceModelSpec`s you can also reference directly when
+building your own model list.
 
 ## Probe availability (and download, if needed)
 
@@ -117,8 +129,9 @@ await FlutterGemma.initialize(
   ],
 );
 
-// Does this device have a usable built-in model?
-final builtInReady =
+// Does this device have a usable built-in model? (null spec: Linux)
+final spec = BuiltInAiModels.forCurrentPlatform;
+final builtInReady = spec != null &&
     await BuiltInAi.availability() == BuiltInAiAvailability.available;
 
 if (builtInReady) {
@@ -126,7 +139,7 @@ if (builtInReady) {
   await FlutterGemma.installModel(
     modelType: ModelType.general,
     fileType: ModelFileType.builtIn,
-  ).fromBundled(BuiltInAiModels.geminiNano.name).install();
+  ).fromBundled(spec.name).install();
 } else {
   // Fallback: install an open model (Gemma / Qwen / Phi …).
   await FlutterGemma.installModel(
@@ -144,17 +157,20 @@ final response = await session.getResponse();
 
 ## Capabilities & limits
 
-| Feature | Android (Gemini Nano) | iOS / macOS (Apple FM) | Web (Chrome Prompt API) |
-|---------|------------------------|-------------------------|--------------------------|
-| Streaming | ✅ | ✅ | ✅ |
-| Function calling | ✅ prompt-based | ✅ prompt-based | ✅ prompt-based |
-| Vision (image input) | ✅ | ❌ — image input needs the OS 27 SDK; this build targets OS 26 | ❌ (v1, tracked) |
-| Audio · Thinking · LoRA | ❌ | ❌ | ❌ |
-| `sizeInTokens` | ✅ native count | ✅ on OS 26.4+, built with Xcode 26.4+ (estimate otherwise) | ✅ `measureContextUsage` |
+| Feature | Android (Gemini Nano) | iOS / macOS (Apple FM) | Windows (Phi Silica) | Web (Chrome Prompt API) |
+|---------|------------------------|-------------------------|----------------------|--------------------------|
+| Streaming | ✅ | ✅ | ⚠️ one final chunk | ✅ |
+| Function calling | ✅ prompt-based | ✅ prompt-based | ✅ prompt-based | ✅ prompt-based |
+| Vision (image input) | ✅ | ⚠️ OS 27 + an OS 27 SDK only (not device-verified); text-only on OS 26 | ❌ | ❌ |
+| Audio · Thinking · LoRA | ❌ | ❌ | ❌ | ❌ |
+| `sizeInTokens` | ✅ native count | ✅ on OS 26.4+, built with Xcode 26.4+ (estimate otherwise) | ❌ estimate | ✅ `measureContextUsage` |
+| `maxOutputTokens` | ✅ | ✅ | ❌ ignored | ❌ ignored (warns once) |
 
 - **Function calling is prompt-based** — tool definitions are woven into the
-  prompt by core `InferenceChat`; the OS models don't expose a usable native
-  tool-calling API. On Web, Chrome's native Prompt-API tool use is experimental
+  prompt by core `InferenceChat`, on every platform. Apple's native tool calling
+  and schema-constrained output are reachable only through the `@experimental`
+  `BuiltInAiModel.localAiModel` / `BuiltInAiSession.localAiSession`, which may
+  change with `flutter_local_ai`'s next major release. On Web, Chrome's native Prompt-API tool use is experimental
   and not production-usable (Chrome 151), so it too goes through the prompt-based
   path. Gemini Nano handles single-turn calls; multi-turn agent chaining is not
   supported on Web (see [Agent Skills](/docs/agent)).
@@ -164,7 +180,8 @@ final response = await session.getResponse();
   cannot reference it, and a build on 26.4+ still falls back when running on an
   older OS. Either way the count comes from core's `text.length / 4` estimate.
 
-- **Web is text-only in this release** (image/audio dropped with a one-time log).
+- **Windows and web are text-only.** `supportImage: true` there fails when the
+  model is created, not when the first image is sent.
 - **Edge:** measured on Edge 151 (macOS) with Phi-4-mini — streaming, stopping
   and `measureContextUsage` work through the same calls, and the context window
   is 9216 tokens. Function calling on Phi-4-mini has not been tested.

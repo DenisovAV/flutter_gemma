@@ -51,6 +51,10 @@ void main() {
   });
 }
 
-/// The iOS simulator runs the app as a macOS process and sets this variable.
+/// The executable path is the reliable tell: on iOS 26.5 the app process sees
+/// no `SIMULATOR_*` environment variables at all. On the simulator the path is
+/// `…/CoreSimulator/Devices/<udid>/…/Runner.app/Runner`; on a device it is
+/// under `/private/var/containers/`.
 bool get _isIosSimulator =>
-    Platform.isIOS && Platform.environment.containsKey('SIMULATOR_DEVICE_NAME');
+    Platform.isIOS &&
+    Platform.resolvedExecutable.contains('/CoreSimulator/Devices/');

@@ -5,7 +5,8 @@
 /// your imports.
 @Deprecated(
   'flutter_gemma_speech was renamed to flutter_edge_ai_speech: depend on flutter_edge_ai_speech and import '
-  'package:flutter_edge_ai_speech/flutter_edge_ai_speech.dart.',
+  'package:flutter_edge_ai_speech/flutter_edge_ai_speech.dart '
+  '(dart fix --apply does both).',
 )
 library;
 

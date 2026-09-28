@@ -1,5 +1,5 @@
 ## 2.0.0
-- Renamed to `flutter_edge_ai_qdrant`; this release only re-exports it.
+- Renamed to `flutter_edge_ai_qdrant`; this release only re-exports it, and `dart fix --apply` migrates.
 
 ## 1.3.2
 - README: how to install the agent skills that cover this package.

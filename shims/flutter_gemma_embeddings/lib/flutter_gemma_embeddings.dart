@@ -5,7 +5,8 @@
 /// your imports.
 @Deprecated(
   'flutter_gemma_embeddings was renamed to flutter_edge_ai_embeddings: depend on flutter_edge_ai_embeddings and import '
-  'package:flutter_edge_ai_embeddings/flutter_edge_ai_embeddings.dart.',
+  'package:flutter_edge_ai_embeddings/flutter_edge_ai_embeddings.dart '
+  '(dart fix --apply does both).',
 )
 library;
 

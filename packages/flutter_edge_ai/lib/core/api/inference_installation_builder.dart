@@ -622,7 +622,9 @@ class InferenceInstallationBuilder {
       final file = files[i];
       _cancelToken?.throwIfCancelled();
       if (await repository.isInstalled(file.filename)) {
-        edgeAiLog('ℹ️  Already installed: ${file.filename} (skipping download)');
+        edgeAiLog(
+          'ℹ️  Already installed: ${file.filename} (skipping download)',
+        );
       } else {
         final handler = handlerRegistry.getHandler(file.source);
         if (handler == null) {

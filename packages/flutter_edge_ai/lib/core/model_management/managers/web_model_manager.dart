@@ -330,7 +330,9 @@ class WebModelManager extends ModelFileManager {
     final repository = ServiceRegistry.instance.modelRepository;
     if (!await repository.isInstalled(modelFilename) ||
         !await repository.isInstalled(effectiveTokenizerFilename)) {
-      edgeAiLog('[WebModelManager] active STT restore: file missing — skipping');
+      edgeAiLog(
+        '[WebModelManager] active STT restore: file missing — skipping',
+      );
       return;
     }
 

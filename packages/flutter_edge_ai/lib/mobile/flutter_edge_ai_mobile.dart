@@ -682,7 +682,9 @@ class FlutterEdgeAiMobile extends FlutterEdgeAiPlugin {
       modelPath = activeModelPath;
       tokenizerPath = activeTokenizerPath;
 
-      edgeAiLog('Using active STT model: $modelPath, tokenizer: $tokenizerPath');
+      edgeAiLog(
+        'Using active STT model: $modelPath, tokenizer: $tokenizerPath',
+      );
     } else {
       // Legacy API with explicit paths - check if singleton exists
       if (_initSttCompleter case Completer<SpeechRecognizer> completer) {

@@ -1,5 +1,5 @@
 ## 1.12.0
-- Renamed from `flutter_gemma`; the old Dart names remain as deprecated aliases.
+- Renamed from `flutter_gemma`; `dart fix --apply` migrates, old names deprecated until 2.0.0.
 
 ## 1.11.0
 - New `EmbeddingModel.activeBackend`: `getActiveEmbedder(preferredBackend:)` no longer goes unremarked.

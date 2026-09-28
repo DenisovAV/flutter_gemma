@@ -5,7 +5,8 @@
 /// your imports.
 @Deprecated(
   'flutter_gemma_rag_sqlite was renamed to flutter_edge_ai_sqlite: depend on flutter_edge_ai_sqlite and import '
-  'package:flutter_edge_ai_sqlite/flutter_edge_ai_sqlite.dart.',
+  'package:flutter_edge_ai_sqlite/flutter_edge_ai_sqlite.dart '
+  '(dart fix --apply does both).',
 )
 library;
 

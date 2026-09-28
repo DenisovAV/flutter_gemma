@@ -1,0 +1,10 @@
+# Data-driven fixes for `dart fix` (https://dart.dev/go/data-driven-fixes):
+# `dart fix --apply` moves imports of this renamed package to its successor.
+version: 1
+transforms:
+  - title: "Migrate from flutter_gemma_builtin_ai to flutter_edge_ai_builtin_ai"
+    date: 2026-09-28
+    library: 'package:flutter_gemma_builtin_ai/flutter_gemma_builtin_ai.dart'
+    changes:
+      - kind: 'replacedBy'
+        newLibrary: 'package:flutter_edge_ai_builtin_ai/flutter_edge_ai_builtin_ai.dart'

@@ -1,0 +1,10 @@
+# Data-driven fixes for `dart fix` (https://dart.dev/go/data-driven-fixes):
+# `dart fix --apply` moves imports of this renamed package to its successor.
+version: 1
+transforms:
+  - title: "Migrate from flutter_gemma_onnx to flutter_edge_ai_onnx"
+    date: 2026-09-28
+    library: 'package:flutter_gemma_onnx/flutter_gemma_onnx.dart'
+    changes:
+      - kind: 'replacedBy'
+        newLibrary: 'package:flutter_edge_ai_onnx/flutter_edge_ai_onnx.dart'

@@ -73,7 +73,9 @@ class ResumeChecker {
       edgeAiLog('ResumeChecker: File exists: $fileExists for $filename');
 
       if (!fileExists) {
-        edgeAiLog('ResumeChecker: File not found: $filename at path: $filePath');
+        edgeAiLog(
+          'ResumeChecker: File not found: $filename at path: $filePath',
+        );
         return ResumeStatus.fileNotFound;
       }
 
@@ -131,7 +133,9 @@ class ResumeChecker {
         return ResumeStatus.cannotResume;
       }
     } catch (e) {
-      edgeAiLog('ResumeChecker: Error checking resume status for $filename: $e');
+      edgeAiLog(
+        'ResumeChecker: Error checking resume status for $filename: $e',
+      );
       return ResumeStatus.error;
     }
   }

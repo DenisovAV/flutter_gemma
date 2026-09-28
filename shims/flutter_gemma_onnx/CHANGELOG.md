@@ -1,5 +1,5 @@
 ## 0.6.0
-- Renamed to `flutter_edge_ai_onnx`; this release only re-exports it.
+- Renamed to `flutter_edge_ai_onnx`; this release only re-exports it, and `dart fix --apply` migrates.
 
 ## 0.5.0
 - Native inference `activeBackend` reports null instead of echoing the requested backend.

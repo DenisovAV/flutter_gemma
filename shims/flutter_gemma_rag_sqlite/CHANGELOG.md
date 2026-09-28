@@ -1,5 +1,5 @@
 ## 2.0.0
-- Renamed to `flutter_edge_ai_sqlite`; this release only re-exports it.
+- Renamed to `flutter_edge_ai_sqlite`; this release only re-exports it, and `dart fix --apply` migrates.
 
 ## 1.4.0
 - Require sqlite3 3.6.0 (needs Flutter 3.47): web `flush()` awaits in-flight writes.

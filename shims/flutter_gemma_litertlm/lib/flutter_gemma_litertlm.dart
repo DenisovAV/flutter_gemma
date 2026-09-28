@@ -5,7 +5,8 @@
 /// your imports.
 @Deprecated(
   'flutter_gemma_litertlm was renamed to flutter_edge_ai_litertlm: depend on flutter_edge_ai_litertlm and import '
-  'package:flutter_edge_ai_litertlm/flutter_edge_ai_litertlm.dart.',
+  'package:flutter_edge_ai_litertlm/flutter_edge_ai_litertlm.dart '
+  '(dart fix --apply does both).',
 )
 library;
 

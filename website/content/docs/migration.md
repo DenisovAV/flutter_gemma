@@ -23,12 +23,21 @@ code, the platforms and the on-device data are the same.
 | `flutter_gemma_onnx` | `flutter_edge_ai_onnx` 0.6.0 |
 | `genkit_flutter_gemma` | `genkit_flutter_edge_ai` 0.7.0 |
 
-1. Swap each dependency in `pubspec.yaml` for its new name.
-2. Replace `package:flutter_gemma` with `package:flutter_edge_ai` in your
-   imports — the same for every other package in the table.
-3. Rename `FlutterGemma` to `FlutterEdgeAi` when convenient. The old names
-   (`FlutterGemma`, `FlutterGemmaPlugin`, `FlutterGemmaDesktop`, `GemmaLogLevel`) still compile as
-   deprecated aliases.
+The quickest way is `dart fix`:
+
+1. Bump every `flutter_gemma*` dependency to its last release (the versions are
+   listed below). Those releases only re-export the new packages.
+2. Run `dart fix --apply`. It switches every import to the new package, adds
+   the new packages to `pubspec.yaml`, and renames `FlutterGemma` and the other
+   old names.
+3. Delete the old `flutter_gemma*` entries from `pubspec.yaml`, and give the new
+   ones a version constraint (`dart fix` adds them as `any`).
+
+By hand, it is the same three changes: the dependencies, `package:flutter_gemma`
+→ `package:flutter_edge_ai` in imports (the same for every other package in the
+table), and `FlutterGemma` → `FlutterEdgeAi`. The old names (`FlutterGemma`,
+`FlutterGemmaPlugin`, `FlutterGemmaDesktop`, `GemmaLogLevel`) still compile as
+deprecated aliases until `flutter_edge_ai` 2.0.0.
 
 What does not change:
 
@@ -52,9 +61,10 @@ the build fails. An old satellite you did not bump (say `flutter_gemma_speech`
 `flutter_edge_ai_sqlite` needs Flutter 3.47. An app on Flutter 3.44 that uses
 the SQLite store upgrades Flutter first.
 
-If you cannot switch right away, the last release under each old name
-re-exports its successor. Bump **every** `flutter_gemma*` dependency to it in
-the same edit — a mix of old and new versions does not resolve:
+The last release under each old name re-exports its successor, so an app that
+bumps **every** `flutter_gemma*` dependency to it in the same edit keeps
+compiling before `dart fix` runs — a mix of old and new versions does not
+resolve:
 `flutter_gemma`, `flutter_gemma_litertlm`, `flutter_gemma_mediapipe`,
 `flutter_gemma_rag_sqlite` and `flutter_gemma_rag_qdrant` to `^2.0.0`,
 `flutter_gemma_embeddings` to `^3.0.0`, `flutter_gemma_speech` and

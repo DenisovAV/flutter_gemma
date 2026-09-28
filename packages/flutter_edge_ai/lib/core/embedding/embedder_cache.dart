@@ -3,7 +3,8 @@ import 'dart:async';
 import 'package:flutter_edge_ai/core/registry/runtime_config.dart'
     show ActiveEmbedderParams;
 import 'package:flutter_edge_ai/core/utils/edge_ai_log.dart';
-import 'package:flutter_edge_ai/flutter_edge_ai_interface.dart' show EmbeddingModel;
+import 'package:flutter_edge_ai/flutter_edge_ai_interface.dart'
+    show EmbeddingModel;
 
 /// The cached embedder, the rule for reusing it, and the serialisation that
 /// makes the rule mean anything.

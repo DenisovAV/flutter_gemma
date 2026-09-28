@@ -954,6 +954,7 @@ bool get isDesktop {
 }
 
 @Deprecated(
-  'Use FlutterEdgeAiDesktop: flutter_gemma was renamed to flutter_edge_ai.',
+  'Use FlutterEdgeAiDesktop: flutter_gemma was renamed to flutter_edge_ai '
+  '(dart fix --apply migrates). Removed in flutter_edge_ai 2.0.0.',
 )
 typedef FlutterGemmaDesktop = FlutterEdgeAiDesktop;

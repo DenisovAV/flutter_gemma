@@ -1,0 +1,10 @@
+# Data-driven fixes for `dart fix` (https://dart.dev/go/data-driven-fixes):
+# `dart fix --apply` moves imports of this renamed package to its successor.
+version: 1
+transforms:
+  - title: "Migrate from flutter_gemma_embeddings to flutter_edge_ai_embeddings"
+    date: 2026-09-28
+    library: 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart'
+    changes:
+      - kind: 'replacedBy'
+        newLibrary: 'package:flutter_edge_ai_embeddings/flutter_edge_ai_embeddings.dart'

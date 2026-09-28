@@ -1,5 +1,5 @@
 ## 0.6.0
-- Renamed to `flutter_edge_ai_speech`; this release only re-exports it.
+- Renamed to `flutter_edge_ai_speech`; this release only re-exports it, and `dart fix --apply` migrates.
 
 ## 0.5.2
 - Inflect TTS: speech was garbled — the encoder now gets the blank tokens it was trained with.

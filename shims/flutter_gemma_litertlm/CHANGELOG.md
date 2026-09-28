@@ -1,5 +1,5 @@
 ## 2.0.0
-- Renamed to `flutter_edge_ai_litertlm`; this release only re-exports it.
+- Renamed to `flutter_edge_ai_litertlm`; this release only re-exports it, and `dart fix --apply` migrates.
 
 ## 1.8.4
 - Web reports the accelerator embeddings ran on, and whether it was fully accelerated.

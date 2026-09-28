@@ -5,7 +5,8 @@
 /// your imports.
 @Deprecated(
   'flutter_gemma_mediapipe was renamed to flutter_edge_ai_mediapipe: depend on flutter_edge_ai_mediapipe and import '
-  'package:flutter_edge_ai_mediapipe/flutter_edge_ai_mediapipe.dart.',
+  'package:flutter_edge_ai_mediapipe/flutter_edge_ai_mediapipe.dart '
+  '(dart fix --apply does both).',
 )
 library;
 

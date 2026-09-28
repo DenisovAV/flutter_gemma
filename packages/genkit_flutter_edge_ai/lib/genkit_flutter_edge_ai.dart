@@ -95,29 +95,56 @@ const flutterEdgeAi = FlutterEdgeAiPluginHandle();
 // are aliased: model and embedder ids are now `flutter-edge-ai/<name>`, so a
 // hard-coded `'flutter-gemma/<name>'` string has to change.
 
-@Deprecated('Use flutterEdgeAi: genkit_flutter_gemma was renamed.')
+@Deprecated(
+  'Use flutterEdgeAi: genkit_flutter_gemma was renamed (dart fix --apply '
+  'migrates). Removed in genkit_flutter_edge_ai 0.8.0.',
+)
 const flutterGemma = flutterEdgeAi;
 
-@Deprecated('Use FlutterEdgeAiPluginHandle: genkit_flutter_gemma was renamed.')
+@Deprecated(
+  'Use FlutterEdgeAiPluginHandle: genkit_flutter_gemma was renamed (dart fix --apply '
+  'migrates). Removed in genkit_flutter_edge_ai 0.8.0.',
+)
 typedef FlutterGemmaPluginHandle = FlutterEdgeAiPluginHandle;
 
-@Deprecated('Use GenkitFlutterEdgeAiPlugin: genkit_flutter_gemma was renamed.')
+@Deprecated(
+  'Use GenkitFlutterEdgeAiPlugin: genkit_flutter_gemma was renamed (dart fix --apply '
+  'migrates). Removed in genkit_flutter_edge_ai 0.8.0.',
+)
 typedef GenkitFlutterGemmaPlugin = GenkitFlutterEdgeAiPlugin;
 
-@Deprecated('Use FlutterEdgeAiModelConfig: genkit_flutter_gemma was renamed.')
+@Deprecated(
+  'Use FlutterEdgeAiModelConfig: genkit_flutter_gemma was renamed (dart fix --apply '
+  'migrates). Removed in genkit_flutter_edge_ai 0.8.0.',
+)
 typedef FlutterGemmaModelConfig = FlutterEdgeAiModelConfig;
 
-@Deprecated('Use FlutterEdgeAiEmbedderConfig: genkit_flutter_gemma was renamed.')
+@Deprecated(
+  'Use FlutterEdgeAiEmbedderConfig: genkit_flutter_gemma was renamed (dart fix --apply '
+  'migrates). Removed in genkit_flutter_edge_ai 0.8.0.',
+)
 typedef FlutterGemmaEmbedderConfig = FlutterEdgeAiEmbedderConfig;
 
-@Deprecated('Use FlutterEdgeAiModelOptions: genkit_flutter_gemma was renamed.')
+@Deprecated(
+  'Use FlutterEdgeAiModelOptions: genkit_flutter_gemma was renamed (dart fix --apply '
+  'migrates). Removed in genkit_flutter_edge_ai 0.8.0.',
+)
 typedef FlutterGemmaModelOptions = FlutterEdgeAiModelOptions;
 
-@Deprecated('Use FlutterEdgeAiEmbedConfig: genkit_flutter_gemma was renamed.')
+@Deprecated(
+  'Use FlutterEdgeAiEmbedConfig: genkit_flutter_gemma was renamed (dart fix --apply '
+  'migrates). Removed in genkit_flutter_edge_ai 0.8.0.',
+)
 typedef FlutterGemmaEmbedConfig = FlutterEdgeAiEmbedConfig;
 
-@Deprecated('Use FlutterEdgeAiRuntime: genkit_flutter_gemma was renamed.')
+@Deprecated(
+  'Use FlutterEdgeAiRuntime: genkit_flutter_gemma was renamed (dart fix --apply '
+  'migrates). Removed in genkit_flutter_edge_ai 0.8.0.',
+)
 typedef FlutterGemmaRuntime = FlutterEdgeAiRuntime;
 
-@Deprecated('Use DefaultFlutterEdgeAiRuntime: genkit_flutter_gemma was renamed.')
+@Deprecated(
+  'Use DefaultFlutterEdgeAiRuntime: genkit_flutter_gemma was renamed (dart fix --apply '
+  'migrates). Removed in genkit_flutter_edge_ai 0.8.0.',
+)
 typedef DefaultFlutterGemmaRuntime = DefaultFlutterEdgeAiRuntime;

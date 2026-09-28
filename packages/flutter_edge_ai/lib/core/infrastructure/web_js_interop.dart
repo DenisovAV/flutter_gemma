@@ -260,7 +260,9 @@ class WebJsInterop {
     final chunks = <Uint8List>[];
     int bytesReceived = 0;
 
-    edgeAiLog('🌊 Starting stream: contentLength=${contentLength ?? "unknown"}');
+    edgeAiLog(
+      '🌊 Starting stream: contentLength=${contentLength ?? "unknown"}',
+    );
 
     // Warn about large files
     if (contentLength != null && contentLength > 2 * 1024 * 1024 * 1024) {

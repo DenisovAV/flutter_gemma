@@ -139,7 +139,9 @@ class ImageTokenizer {
     prompt.write('<start_of_turn>model\n');
 
     final result = prompt.toString();
-    edgeAiLog('ImageTokenizer: Created general prompt (${result.length} chars)');
+    edgeAiLog(
+      'ImageTokenizer: Created general prompt (${result.length} chars)',
+    );
     return result;
   }
 
@@ -174,7 +176,9 @@ class ImageTokenizer {
         imageTokenCount += base64Matches.length;
       }
 
-      edgeAiLog('ImageTokenizer: Found $imageTokenCount image tokens in prompt');
+      edgeAiLog(
+        'ImageTokenizer: Found $imageTokenCount image tokens in prompt',
+      );
 
       return imageTokenCount >= expectedImageCount;
     } catch (e) {

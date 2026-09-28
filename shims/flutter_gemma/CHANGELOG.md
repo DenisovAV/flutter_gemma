@@ -1,5 +1,5 @@
 ## 2.0.0
-- Renamed to `flutter_edge_ai`; this release only re-exports it.
+- Renamed to `flutter_edge_ai`; this release only re-exports it, and `dart fix --apply` migrates.
 
 ## 1.11.0
 - New `EmbeddingModel.activeBackend`: `getActiveEmbedder(preferredBackend:)` no longer goes unremarked.

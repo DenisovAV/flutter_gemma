@@ -773,7 +773,9 @@ class InferenceChat {
       rethrow;
     }
 
-    edgeAiLog('InferenceChat: generateChatResponseAsync completed successfully');
+    edgeAiLog(
+      'InferenceChat: generateChatResponseAsync completed successfully',
+    );
   }
 
   /// Drive flutter_edge_ai's function-calling loop to completion. Stream this

@@ -92,7 +92,9 @@ class WebDownloadService implements DownloadService {
     // STREAMING MODE: Use OPFS for large models
     if (webStorageMode == WebStorageMode.streaming) {
       if (opfsService == null) {
-        edgeAiLog('[WARNING] OPFS not available, falling back to cacheApi mode');
+        edgeAiLog(
+          '[WARNING] OPFS not available, falling back to cacheApi mode',
+        );
         edgeAiLog(
           '[WARNING] Large models (>2GB) may fail with ArrayBuffer limit',
         );

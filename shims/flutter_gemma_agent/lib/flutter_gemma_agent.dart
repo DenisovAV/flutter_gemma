@@ -5,7 +5,8 @@
 /// your imports.
 @Deprecated(
   'flutter_gemma_agent was renamed to flutter_edge_ai_agent: depend on flutter_edge_ai_agent and import '
-  'package:flutter_edge_ai_agent/flutter_edge_ai_agent.dart.',
+  'package:flutter_edge_ai_agent/flutter_edge_ai_agent.dart '
+  '(dart fix --apply does both).',
 )
 library;
 

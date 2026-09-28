@@ -34,12 +34,11 @@ external TransformersNamespace get transformers;
 /// `window.transformers` namespace surface used by the web text-generation
 /// arm.
 extension type TransformersNamespace._(JSObject _) implements JSObject {
-  /// `pipeline(task, model, options)` — returns a Promise of a CALLABLE
-  /// pipeline object (`typeof pipe === 'function'`, with bonus properties
-  /// such as `pipe.tokenizer`/`pipe.model`). `task` is always
-  /// `'text-generation'` here; `model` is the Hugging Face repo id (see
-  /// `TransformersWebResolver`).
-  external JSPromise<JSFunction> pipeline(
+  /// `pipeline(task, model, options)` — returns a Promise of a callable
+  /// pipeline object, typed as [TransformersPipeline] (see there for why it
+  /// is not a [JSFunction]). `task` is always `'text-generation'` here;
+  /// `model` is the Hugging Face repo id (see `TransformersWebResolver`).
+  external JSPromise<TransformersPipeline> pipeline(
     JSString task,
     JSString model,
     JSObject? options,
@@ -54,7 +53,10 @@ extension type TransformersNamespace._(JSObject _) implements JSObject {
 /// A Transformers.js `PreTrainedTokenizer` — the pipeline's own
 /// `pipe.tokenizer`. It is callable (`tokenizer(text) -> {input_ids: Tensor,
 /// attention_mask: Tensor}`), but the caller only needs [encode] and to hand
-/// the object to [TextStreamer].
+/// the object to [TextStreamer]. Like the pipeline it is a `Callable` with a
+/// swapped prototype, so if it ever has to be CALLED, go through
+/// `Reflect.apply` as [TransformersPipeline.generate] does — never
+/// `callAsFunction`.
 extension type TransformersTokenizer._(JSObject _) implements JSObject {
   /// `tokenizer.encode(text)` -> a plain `number[]` of token ids, whose
   /// `.length` is the exact token count. NB: calling the tokenizer as a
@@ -68,8 +70,8 @@ extension type TransformersTokenizer._(JSObject _) implements JSObject {
 /// `options.callback_function` synchronously for every newly decoded chunk
 /// of text (`{ skip_prompt: true, skip_special_tokens: true,
 /// callback_function: (text) => ... }`). `tokenizer` is the pipeline's own
-/// `pipe.tokenizer` (a callable [JSFunction], passed here as its [JSObject]
-/// supertype).
+/// `pipe.tokenizer` (a [TransformersTokenizer], passed here as its
+/// [JSObject] supertype).
 @JS('transformers.TextStreamer')
 extension type TextStreamer._(JSObject _) implements JSObject {
   external factory TextStreamer(JSObject tokenizer, JSObject options);
@@ -87,3 +89,31 @@ extension type InterruptableStoppingCriteria._(JSObject _) implements JSObject {
   external void interrupt();
   external void reset();
 }
+
+/// A Transformers.js text-generation pipeline — the value `pipeline()`
+/// resolves to.
+///
+/// At runtime it is a function object, but typed as a [JSObject] on purpose:
+/// Transformers.js builds it through its `Callable` base, a closure whose
+/// prototype is swapped to `Pipeline.prototype`, so it has no
+/// `Function.prototype.call`. `callAsFunction` compiles to `target.call(...)`
+/// and throws "tried to call a non-function" — which broke every web
+/// generation until 0.5.1. Not implementing [JSFunction] keeps that call from
+/// compiling; [generate] goes through `Reflect.apply`, which needs only the
+/// object's internal `[[Call]]`.
+extension type TransformersPipeline._(JSObject _) implements JSObject {
+  /// `pipe.tokenizer`.
+  external TransformersTokenizer get tokenizer;
+
+  /// `pipe(messages, options)` — resolves once generation finishes; chunks
+  /// arrive earlier through the `streamer` in [options].
+  JSPromise<JSAny?> generate(JSAny? messages, JSObject options) =>
+      _reflectApply(this, null, [messages, options].toJS) as JSPromise<JSAny?>;
+}
+
+@JS('Reflect.apply')
+external JSAny? _reflectApply(
+  JSObject target,
+  JSAny? thisArg,
+  JSArray<JSAny?> args,
+);

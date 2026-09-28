@@ -40,7 +40,7 @@
 
   <!-- MediaPipe GenAI for inference (.task models) -->
   <script type="module">
-  import { FilesetResolver, LlmInference } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.27';
+  import { FilesetResolver, LlmInference } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.29';
   window.FilesetResolver = FilesetResolver;
   window.LlmInference = LlmInference;
   </script>
@@ -51,7 +51,7 @@
        promise is what it awaits. -->
   <script type="module">
   window.litertLmReady = (async () => {
-    const m = await import('https://cdn.jsdelivr.net/npm/@litert-lm/core@0.17.0/+esm');
+    const m = await import('https://cdn.jsdelivr.net/npm/@litert-lm/core@0.17.1/+esm');
     window.Engine = m.Engine;
     return m.Engine;
   })();

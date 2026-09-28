@@ -241,7 +241,7 @@ packages:
       path: ".."
       relative: true
     source: path
-    version: "1.11.1"
+    version: "1.11.2"
   flutter_gemma_agent:
     dependency: "direct main"
     description:
@@ -269,21 +269,21 @@ packages:
       path: "../../flutter_gemma_litertlm"
       relative: true
     source: path
-    version: "1.8.4"
+    version: "1.8.5"
   flutter_gemma_mediapipe:
     dependency: "direct main"
     description:
       path: "../../flutter_gemma_mediapipe"
       relative: true
     source: path
-    version: "1.0.7"
+    version: "1.0.8"
   flutter_gemma_onnx:
     dependency: "direct main"
     description:
       path: "../../flutter_gemma_onnx"
       relative: true
     source: path
-    version: "0.5.0"
+    version: "0.5.1"
   flutter_gemma_rag_qdrant:
     dependency: "direct main"
     description:

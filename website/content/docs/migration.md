@@ -29,9 +29,9 @@ dependencies:
 
 ```
 dependencies:
-  flutter_gemma: ^1.11.1                 # core — always required
-  flutter_gemma_litertlm: ^1.8.4        # add if you run .litertlm models (also provides LiteRtEmbeddingBackend)
-  flutter_gemma_mediapipe: ^1.0.7       # add if you run .task / .bin models
+  flutter_gemma: ^1.11.2                 # core — always required
+  flutter_gemma_litertlm: ^1.8.5        # add if you run .litertlm models (also provides LiteRtEmbeddingBackend)
+  flutter_gemma_mediapipe: ^1.0.8       # add if you run .task / .bin models
   flutter_gemma_embeddings: ^2.2.1      # add if you compute embeddings (needs a backend, see above)
   flutter_gemma_rag_qdrant: ^1.3.2      # add for native on-device RAG (qdrant)
   flutter_gemma_rag_sqlite: ^1.4.0      # add for on-device RAG (sqlite-vec; all platforms incl. web) — needs Flutter 3.47
@@ -89,7 +89,7 @@ import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 ```
 dependencies:
   flutter_gemma_embeddings: ^2.2.1   # runtime-agnostic pipeline (still required)
-  flutter_gemma_litertlm: ^1.8.4     # now provides LiteRtEmbeddingBackend
+  flutter_gemma_litertlm: ^1.8.5     # now provides LiteRtEmbeddingBackend
 ```
 
 `LiteRtEmbeddingBackend()` itself is unchanged — only where the class is

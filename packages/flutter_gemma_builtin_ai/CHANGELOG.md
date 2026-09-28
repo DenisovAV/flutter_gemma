@@ -1,20 +1,10 @@
 ## 0.3.0
-- **Breaking:** now a thin adapter over `flutter_local_ai`, which supplies every OS backend.
-- Require `flutter_local_ai` 0.2.1 for session-scoped token counting,
-  immediate web user-activation errors, non-throwing availability reasons,
-  complete native tool schemas, the published `FakeLocalAiHost` (#19),
-  retryable `close()` and one busy-session error type on every platform (#26).
-- A failed session `close()` leaves the session open and can be retried.
-- **Breaking:** require Flutter 3.44 / Dart 3.12, matching the upstream package.
-- **Breaking:** no longer a Flutter plugin — registrants and `Podfile.lock` regenerate; re-lock frozen CI.
-- **Breaking:** macOS deployment floor raised from 10.15 to 12.0.
-- **Breaking:** `lib/pigeon.g.dart` removed along with the native channel it wrapped.
-- Windows support (Windows AI Foundry), through `flutter_local_ai`.
-- Unsupported vision is refused at model creation, not silently dropped mid-turn.
-- Every `BuiltInAi*` name and signature is unchanged; no code migration.
-- `BuiltInAiAvailability` / `BuiltInAiUnavailableException` are now `LocalAi*` aliases; `toString()` prints the new name.
-- Apps reaching flutter_local_ai's own API must depend on it directly; this package does not re-export it.
-- `localAiModel` / `localAiSession` escape hatches are `@experimental`.
+- **Breaking:** a pure-Dart adapter over `flutter_local_ai` ^0.2.1; the `BuiltInAi*` API is unchanged.
+- **Breaking:** no longer a plugin; re-lock `Podfile.lock`, and macOS apps need a 12.0 target.
+- **Breaking:** requires Flutter 3.44 / Dart 3.12; `pigeon.g.dart` is gone.
+- Windows support through Windows AI Foundry (Phi Silica).
+- `supportImage: true` where there is no vision fails at model creation.
+- `localAiModel` / `localAiSession` expose native tools and structured output (`@experimental`).
 
 ## 0.2.2
 - Windows/Linux: `availability()` reports `unavailableDeviceUnsupported` instead of throwing.

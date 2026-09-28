@@ -24,7 +24,7 @@ dependencies:
 **After (1.0):**
 ```yaml
 dependencies:
-  flutter_gemma: ^1.11.0                 # core — always required
+  flutter_gemma: ^1.11.1                 # core — always required
   flutter_gemma_litertlm: ^1.8.4        # add if you run .litertlm models (also provides LiteRtEmbeddingBackend)
   flutter_gemma_mediapipe: ^1.0.7       # add if you run .task / .bin models
   flutter_gemma_embeddings: ^2.2.1      # add if you compute embeddings (needs a backend, see above)

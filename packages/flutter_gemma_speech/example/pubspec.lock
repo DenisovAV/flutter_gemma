@@ -180,7 +180,7 @@ packages:
       path: "../../flutter_gemma"
       relative: true
     source: path
-    version: "1.11.0"
+    version: "1.11.1"
   flutter_gemma_agent:
     dependency: "direct main"
     description:
@@ -194,7 +194,7 @@ packages:
       path: "../../flutter_gemma_embeddings"
       relative: true
     source: path
-    version: "2.2.0"
+    version: "2.2.1"
   flutter_gemma_litertlm:
     dependency: "direct main"
     description:

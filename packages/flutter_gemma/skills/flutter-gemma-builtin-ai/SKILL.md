@@ -1,6 +1,6 @@
 ---
 name: flutter-gemma-builtin-ai
-description: Use when running the device's own model with flutter_gemma_builtin_ai — Gemini Nano on Android or in desktop Chrome, Phi-4-mini in Microsoft Edge, Apple Foundation Models on iPhone, iPad and Mac — with nothing to download or bundle, or when falling back to a downloaded model where it is missing. Also use when BuiltInAiUnavailableException or a TimeoutException is thrown, availability reports "downloadable", web throws NotAllowedError about a user gesture, the Android build fails the manifest merge on minSdk, or the model is missing in Chrome. For models the app downloads itself, use flutter-gemma-inference.
+description: Use when running the device's own model with flutter_gemma_builtin_ai — Gemini Nano on Android or in desktop Chrome, Phi-4-mini in Microsoft Edge, Apple Foundation Models on iPhone, iPad and Mac, Phi Silica on Windows — with nothing to download or bundle, or when falling back to a downloaded model where it is missing. Also use when BuiltInAiUnavailableException or a TimeoutException is thrown, availability reports "downloadable", web throws NotAllowedError about a user gesture, the Android build fails the manifest merge on minSdk, or the model is missing in Chrome. For models the app downloads itself, use flutter-gemma-inference.
 ---
 
 # The built-in OS model
@@ -11,8 +11,8 @@ description: Use when running the device's own model with flutter_gemma_builtin_
 2. Call `BuiltInAi.ensureReady()` before `getActiveModel()`, from a user action: the first call downloads the model and can take minutes, and on web the browser refuses to start that download without a user gesture. Call it straight from the tap handler, with no slow `await` in front of it. It throws `TimeoutException` after `timeout` — 10 minutes by default.
 3. On web a missing gesture is **not** distinguishable by type: `ensureReady` rewraps it as `BuiltInAiUnavailableException` with `unavailableOther`, and only `.message` carries the browser's "NotAllowedError: Requires a user gesture". Read the message before concluding the device cannot do it — otherwise the fallback below downloads gigabytes for nothing.
 4. Catch `BuiltInAiUnavailableException` and fall back to a downloadable model.
-5. Android apps need `minSdk 26`, or the manifest merge fails.
-6. There is no Windows or Linux support — and `BuiltInAi.availability()` does not report that, it throws a Flutter PlatformException (from package:flutter/services.dart) there. Guard by platform before calling it, as the setup below does.
+5. Android apps need `minSdk 26`, or the manifest merge fails, and Kotlin 2.3.21. The native layer, flutter_local_ai, applies the Kotlin Gradle Plugin itself, so `android.builtInKotlin=true` does not work in the app.
+6. Linux has no built-in model: `BuiltInAiModels.forCurrentPlatform` is null there and `BuiltInAi.availability()` reports `BuiltInAiAvailability.unavailableDeviceUnsupported`. Windows runs Phi Silica through Windows AI Foundry on Copilot+ hardware, in a packaged app; a Windows build that could not resolve the Windows App SDK reports the same unavailable state, so the fallback below covers it.
 
 ## Setup with a fallback
 
@@ -23,7 +23,6 @@ flutter pub add flutter_gemma flutter_gemma_builtin_ai flutter_gemma_litertlm
 ```dart
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_builtin_ai/flutter_gemma_builtin_ai.dart';
 import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
@@ -32,12 +31,7 @@ await FlutterGemma.initialize(
   inferenceEngines: [BuiltInAiEngine(), LiteRtLmEngine()],
 );
 
-final spec = kIsWeb || defaultTargetPlatform == TargetPlatform.android
-    ? BuiltInAiModels.geminiNano
-    : defaultTargetPlatform == TargetPlatform.iOS ||
-            defaultTargetPlatform == TargetPlatform.macOS
-        ? BuiltInAiModels.appleFoundationModels
-        : null; // Windows and Linux have no built-in model
+final spec = BuiltInAiModels.forCurrentPlatform; // null on Linux
 
 Future<InferenceModel> downloadGemma() async {
   await FlutterGemma.installModel(
@@ -96,11 +90,12 @@ final usable = availability == BuiltInAiAvailability.available ||
 | Platform | Model | Needs |
 | --- | --- | --- |
 | Android | Gemini Nano (AICore) | Pixel 9+, Galaxy S25+; `minSdk 26` |
-| iOS, macOS | Apple Foundation Models | iOS 26+ / macOS 26+ on an iPhone 15 Pro or newer, or an Apple Silicon Mac, with Apple Intelligence on. The package itself builds from iOS 15 / macOS 10.15, so no deployment-target bump |
+| iOS, macOS | Apple Foundation Models | iOS 26+ / macOS 26+ on an iPhone 15 Pro or newer, or an Apple Silicon Mac, with Apple Intelligence on. It builds from iOS 13 / macOS 12, so a macOS app needs a 12.0 deployment target; below OS 26 it reports `unavailableOsTooOld` |
+| Windows | Phi Silica (Windows AI Foundry) | Windows 11 25H2+ on a Copilot+ PC or a supported GPU, in a packaged app. Streams one final chunk and ignores `maxOutputTokens` |
 | Web | Gemini Nano (Chrome Prompt API) | desktop Chrome — not mobile browsers, Firefox or Safari |
 | Web | Phi-4-mini (Edge Prompt API) | Microsoft Edge with the Prompt API flag on; Edge Dev 154–155 exposes the API but cannot run the model |
 
-Images work on Android only, one per message, and only when asked for: `getActiveModel(maxTokens: 4096, supportImage: true)` **and** `createChat(supportImage: true)`. With the default `supportImage: false` the image is dropped with no warning. On Apple every image fails on every OS version — a Flutter PlatformException with code "IMAGE_UNSUPPORTED_OS" — the package builds against the OS 26 SDK, which has no attachment API — so do not build an image path there. The web model is text-only.
+Images work on Android, one per message, and only when asked for: `getActiveModel(maxTokens: 4096, supportImage: true)` **and** `createChat(supportImage: true)`. With the default `supportImage: false` the image is dropped with no warning. Windows and web are text-only, and Apple is text-only on OS 26: `supportImage: true` there fails when `getActiveModel` creates the model, not mid-conversation — so do not build an image path there.
 
 ## Web
 
@@ -113,8 +108,10 @@ There is no script to add: the Prompt API is part of the browser. It has to be e
 ```
 
 - Local development — enable `chrome://flags/#prompt-api-for-gemini-nano` and restart Chrome.
-- Microsoft Edge — enable `edge://flags` → "Prompt API for on-device language model" and restart. Both browsers use `BuiltInAiModels.geminiNano`: the spec names the API, and the browser picks the model.
+- Microsoft Edge — enable `edge://flags` → "Prompt API for on-device language model" and restart. Both browsers use `BuiltInAiModels.chromePromptApi`, which is what `forCurrentPlatform` returns on web: the spec names the API, and the browser picks the model.
 
 ## Trade-offs
 
 No choice of weights, no LoRA, and capabilities that vary by OS version. The right pick when zero download and zero disk matter more than choosing the model.
+
+Tool calls go through the prompt on every platform. Apple's native tool calling and schema-constrained output are reachable only through `BuiltInAiModel.localAiModel` / `BuiltInAiSession.localAiSession` — `@experimental`, and they change with flutter_local_ai's next major release.

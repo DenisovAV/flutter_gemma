@@ -1,3 +1,7 @@
+## 0.5.1
+- Fix web text generation failing with `NoSuchMethodError` on every call.
+- Web setup pins `onnxruntime-web` 1.30.0 and Transformers.js 4.3.0.
+
 ## 0.5.0
 - Native inference `activeBackend` reports null instead of echoing the requested backend.
 

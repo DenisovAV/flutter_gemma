@@ -391,7 +391,7 @@ class OnnxWebSession extends InferenceModelSession {
 
       try {
         final result =
-            pipeline.callAsFunction(null, messagesJs, generateOptions)
+            reflectApply(pipeline, null, [messagesJs, generateOptions].toJS)
                 as JSPromise<JSAny?>;
         // Await the WHOLE pipeline Promise — a cancel/interrupt stops decoding
         // at the next token boundary, but the Promise only settles a moment

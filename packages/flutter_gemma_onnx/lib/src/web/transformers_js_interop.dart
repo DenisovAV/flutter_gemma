@@ -87,3 +87,12 @@ extension type InterruptableStoppingCriteria._(JSObject _) implements JSObject {
   external void interrupt();
   external void reset();
 }
+
+/// `Reflect.apply(target, thisArg, args)` — the way to invoke a Transformers.js
+/// pipeline. `pipeline()` returns a closure whose prototype is swapped to
+/// `Pipeline.prototype` (its `Callable` base), so it has no
+/// `Function.prototype.call`, and `callAsFunction` — which compiles to
+/// `target.call(...)` — throws "tried to call a non-function". `Reflect.apply`
+/// needs only the object's internal `[[Call]]`, which the closure keeps.
+@JS('Reflect.apply')
+external JSAny? reflectApply(JSFunction target, JSAny? thisArg, JSArray args);

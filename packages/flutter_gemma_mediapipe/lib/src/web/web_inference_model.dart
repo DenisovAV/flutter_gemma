@@ -152,7 +152,7 @@ class WebInferenceModel extends InferenceModel with CloseNotifier {
       final resolved = await sourceResolver.resolveActiveInferenceModel();
 
       final fileset = await FilesetResolver.forGenAiTasks(
-        'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.27/wasm'.toJS,
+        'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.29/wasm'.toJS,
       ).toDart;
 
       // LoRA path comes from the resolver alongside the model source.

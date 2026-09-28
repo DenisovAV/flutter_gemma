@@ -1,3 +1,6 @@
+## 1.0.8
+- Web loads the GenAI WASM from `@mediapipe/tasks-genai` 0.10.29.
+
 ## 1.0.7
 - README: the Android dependency is `com.google.mediapipe:tasks-genai`.
 

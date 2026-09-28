@@ -19,9 +19,8 @@
 # (META-INF/com.android.tools/r8/coroutines.pro), which R8 applies on its own:
 # the volatile fields updated through AtomicFieldUpdater, SafeContinuation, and
 # the Job GC anchors in ReadonlySharedFlow/ReadonlyStateFlow. That is the
-# complete set upstream declares necessary. flutter_edge_ai_mediapipe and
-# flutter_edge_ai_builtin_ai DO use coroutines heavily and keep none of them
-# either, for the same reason.
+# complete set upstream declares necessary. flutter_edge_ai_mediapipe DOES use
+# coroutines heavily and keeps none of them either, for the same reason.
 #
 # The -dontwarn stays: it costs nothing at shrink time and only silences
 # references, never preserves classes.

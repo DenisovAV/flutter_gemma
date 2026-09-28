@@ -49,7 +49,7 @@ From the diff, detect which package(s)/area(s) are affected:
 - `flutter_edge_ai_qdrant/` — native RAG over the official `qdrant_edge`
   UniFFI SDK. Since 2.0.0 the package owns NO native code and NO hook: the
   engine and its Native Assets hook live in the SDK. `lib/src/` only.
-- `flutter_edge_ai_sqlite/` — sqlite-vec `vec0` KNN on all six platforms; native via `package:sqlite3` FFI, web via `package:sqlite3/wasm.dart` (wa-sqlite was dropped in 1.1.0)
+- `flutter_edge_ai_sqlite/` — sqlite-vec `vec0` KNN on all six platforms; native via `package:sqlite3` FFI, web via `package:sqlite3/wasm.dart` (wa-sqlite was dropped in flutter_gemma_rag_sqlite 1.1.0)
 - `flutter_edge_ai_speech/` — opt-in STT (moonshine / Whisper / Parakeet) + TTS (Matcha / Qwen3 / Inflect) over the LiteRT C API; shares the litertlm bundle
 - `flutter_edge_ai_agent/` — opt-in SKILL.md agent skills over the function-calling loop (no Web)
 - `flutter_edge_ai_builtin_ai/` — OS models: Gemini Nano (Android), Apple Foundation Models (iOS/macOS), Windows AI Foundry, Chrome Prompt API (Web). Pure Dart since 0.3.0: no native sources and no pigeon of its own — it adapts the `flutter_local_ai` plugin, which owns every backend.

@@ -23,9 +23,10 @@ The quickest way is `dart fix`:
 
 1. Bump every `flutter_gemma*` dependency to its last release (the versions are
    listed below). Those releases only re-export the new packages.
-2. Run `dart fix --apply`. It switches every import to the new package, adds
-   the new packages to `pubspec.yaml`, and renames `FlutterGemma` and the other
-   old names.
+2. Run `dart fix --apply`. It renames `FlutterGemma` and the other old names.
+   On Flutter 3.47 or newer it also switches every import to the new package
+   and adds the new packages to `pubspec.yaml`; on Flutter 3.44 change the
+   imports and dependencies by hand (see below).
 3. Delete the old `flutter_gemma*` entries from `pubspec.yaml`, and give the new
    ones a version constraint (`dart fix` adds them as `any`).
 
@@ -34,6 +35,10 @@ By hand, it is the same three changes: the dependencies, `package:flutter_gemma`
 table), and `FlutterGemma` → `FlutterEdgeAi`. The old names (`FlutterGemma`,
 `FlutterGemmaPlugin`, `FlutterGemmaDesktop`, `GemmaLogLevel`) still compile as
 deprecated aliases until `flutter_edge_ai` 2.0.0.
+
+If you installed the agent skills, run `dart run skills@ get --all` again
+and delete the old `flutter-gemma-*` skill directories: they still teach the
+old names.
 
 What does not change:
 
@@ -47,11 +52,12 @@ Genkit: model and embedder ids are now `flutter-edge-ai/<name>`, and the
 context-window middleware is registered as `flutter-edge-ai-context-window`.
 Code that uses `flutterEdgeAi.model(...)` and `trimContext()` picks this up; a
 hard-coded `'flutter-gemma/<name>'` string has to change. The old Dart names are
-deprecated aliases here too.
+deprecated aliases here too, until `genkit_flutter_edge_ai` 0.8.0.
 
-Depend on one name per package: an app that pulls in both `flutter_gemma_X` and
-`flutter_edge_ai_X` gets the same native libraries and Android classes twice, and
-the build fails. An old satellite you did not bump (say `flutter_gemma_speech`
+Depend on one name per package: an app that pulls in a pre-rename 1.x
+`flutter_gemma_X` next to `flutter_edge_ai_X` gets the same native libraries and
+Android classes twice, and the build fails. (The last `flutter_gemma_X` releases
+listed below carry no native code, so they are safe alongside.) An old satellite you did not bump (say `flutter_gemma_speech`
 0.5.x) pulls the old engine back in the same way.
 
 `flutter_edge_ai_sqlite` needs Flutter 3.47. An app on Flutter 3.44 that uses
@@ -220,11 +226,11 @@ apply when you ship an inference engine. See the
 ## Embedder decoupling (litertlm 1.5.0)
 
 If you were on an earlier 1.x and imported `LiteRtEmbeddingBackend` from
-`flutter_edge_ai_embeddings`, that class moved:
+`flutter_gemma_embeddings`, that class moved:
 
 **Before:**
 ```dart
-import 'package:flutter_edge_ai_embeddings/flutter_edge_ai_embeddings.dart';
+import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
 ```
 
 **After:**
@@ -241,7 +247,7 @@ An embedding backend no longer names a tokenizer. Which family a model needs
 is a property of the MODEL, not of the engine that runs it — EmbeddingGemma is
 SentencePiece whether LiteRT or ONNX Runtime executes its weights — so the app
 supplies it, and the engine packages stopped depending on
-`flutter_edge_ai_embeddings` because of it.
+`flutter_gemma_embeddings` because of it.
 
 **Add the dependency** (it no longer arrives through the engine):
 ```yaml
@@ -268,7 +274,7 @@ An app that never embeds anything passes neither list and can drop
 If your app used embeddings **without** also using `.litertlm` inference, add
 `flutter_edge_ai_litertlm` to your `pubspec.yaml` — this also delivers the
 shared native bundle (`libLiteRtLm`) your app was previously getting
-transitively through `flutter_edge_ai_embeddings`'s old dependency on it.
+transitively through `flutter_gemma_embeddings`'s old dependency on it.
 
 ## Troubleshooting
 

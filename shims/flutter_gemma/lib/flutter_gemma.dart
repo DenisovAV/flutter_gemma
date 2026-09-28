@@ -6,7 +6,7 @@
 @Deprecated(
   'flutter_gemma was renamed to flutter_edge_ai: depend on flutter_edge_ai and import '
   'package:flutter_edge_ai/flutter_edge_ai.dart '
-  '(dart fix --apply does both).',
+  '(dart fix --apply does both on Flutter 3.47+).',
 )
 library;
 

@@ -247,11 +247,11 @@ Shared-code hotspots to sweep, per fix type:
   `flutter_edge_ai_sqlite` the sqlite-vec one): the `_litertlmBundle` `version:` and `checksums:`
   fields, `_cacheBaseDir()` cache-busting, `stage()` Apple-only guard.
 - **Apple manifests** — `find packages -name '*.podspec' -not -path '*/example/*'`
-  finds all FOUR (core ios, core macos, mediapipe ios, builtin_ai darwin); the
-  `packages/*/ios/*.podspec` glob silently misses `macos/` and `darwin/`. Sweep
-  `s.version`, min-iOS/osx, dep pins, `vtool` minos on any bundled dylib — and the
-  three `Package.swift` (core ios, core macos, builtin_ai darwin), whose platform
-  floors must match their podspec.
+  finds all THREE (core ios, core macos, mediapipe ios — builtin_ai has none
+  since it moved onto flutter_local_ai); the `packages/*/ios/*.podspec` glob
+  silently misses `macos/`. Sweep `s.version`, min-iOS/osx, dep pins, `vtool`
+  minos on any bundled dylib — and the two `Package.swift` (core ios, core
+  macos), whose platform floors must match their podspec.
 - **macOS `post_install` snippet** — the SAME block lives in every
   `packages/*/example/macos/Podfile` and every codelab step app's, plus the core
   `README.md` (the pub.dev page users copy from), `website/content/docs/desktop.md`
@@ -332,7 +332,7 @@ Always:
 | File | Field | Note |
 |------|-------|------|
 | `pubspec.yaml` | `version:` | the plugin version (e.g. `0.14.1`) |
-| podspecs — **all four**, they drift independently | `s.version` | match the owning package's version. `packages/flutter_edge_ai/ios/flutter_edge_ai.podspec`, `packages/flutter_edge_ai/macos/flutter_edge_ai.podspec`, `packages/flutter_edge_ai_mediapipe/ios/flutter_edge_ai_mediapipe.podspec`, `packages/flutter_edge_ai_builtin_ai/darwin/flutter_edge_ai_builtin_ai.podspec`. Verify with the loop below rather than by eye — core's iOS and macOS podspecs were four and five releases behind when this was last checked. |
+| podspecs — **all three**, they drift independently | `s.version` | match the owning package's version. `packages/flutter_edge_ai/ios/flutter_edge_ai.podspec`, `packages/flutter_edge_ai/macos/flutter_edge_ai.podspec`, `packages/flutter_edge_ai_mediapipe/ios/flutter_edge_ai_mediapipe.podspec`. Verify with the loop below rather than by eye — core's iOS and macOS podspecs were four and five releases behind when this was last checked. |
 
 ```bash
 for ps in packages/*/{ios,macos,darwin}/*.podspec; do

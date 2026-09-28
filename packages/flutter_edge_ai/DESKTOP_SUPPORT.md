@@ -451,7 +451,7 @@ or `.fromFile(absolutePath)` if you already have it locally.
 ### Pre-cached engine + new code = stale cache
 
 LiteRT-LM caches compiled GPU shaders in the app's support directory (what
-`getApplicationSupportDirectory()` returns — not the `flutter_edge_ai/` folder the
+`getApplicationSupportDirectory()` returns — not the `flutter_gemma/` folder the
 model sits in), as `<model>.litertlm_<mtime>_<size>_mldrift_program_cache.bin`.
 The name is keyed on the model file's timestamp and size, so a new model build
 gets a fresh cache by itself (the old file stays behind). After upgrading the

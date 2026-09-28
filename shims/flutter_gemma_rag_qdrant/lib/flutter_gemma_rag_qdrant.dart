@@ -6,7 +6,7 @@
 @Deprecated(
   'flutter_gemma_rag_qdrant was renamed to flutter_edge_ai_qdrant: depend on flutter_edge_ai_qdrant and import '
   'package:flutter_edge_ai_qdrant/flutter_edge_ai_qdrant.dart '
-  '(dart fix --apply does both).',
+  '(dart fix --apply does both on Flutter 3.47+).',
 )
 library;
 

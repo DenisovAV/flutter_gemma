@@ -6,7 +6,7 @@
 @Deprecated(
   'flutter_gemma_onnx was renamed to flutter_edge_ai_onnx: depend on flutter_edge_ai_onnx and import '
   'package:flutter_edge_ai_onnx/flutter_edge_ai_onnx.dart '
-  '(dart fix --apply does both).',
+  '(dart fix --apply does both on Flutter 3.47+).',
 )
 library;
 

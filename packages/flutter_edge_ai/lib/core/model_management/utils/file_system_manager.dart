@@ -90,7 +90,7 @@ class ModelFileSystemManager {
   ///
   /// Delegates to [FileSystemService.getTargetPath] so that the correct
   /// storage directory is used on every platform (Android/iOS: Documents;
-  /// desktop: Application Support/flutter_edge_ai/; legacy Desktop: Documents
+  /// desktop: Application Support/flutter_gemma/; legacy Desktop: Documents
   /// fallback with a debug-print nudge to re-install).
   static Future<String> getModelFilePath(String filename) async {
     return ServiceRegistry.instance.fileSystemService.getTargetPath(filename);

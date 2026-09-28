@@ -76,8 +76,8 @@ void main() {
 
   // FileSourceHandler references external files in place (no copy). To
   // exercise the real managed-storage deletion path, seed the fixtures INSIDE
-  // the managed model directory (Application Support/flutter_edge_ai on the
-  // desktop test host) so the "external" path IS the managed path — then
+  // the managed model directory (Application Support/flutter_gemma on the
+  // desktop test host; the name is kept across the rename) so the "external" path IS the managed path — then
   // getModelPath resolves to them and uninstall deletes them.
   Future<EmbeddingModelSpec> installEmbedder() async {
     final managedDir = Directory(

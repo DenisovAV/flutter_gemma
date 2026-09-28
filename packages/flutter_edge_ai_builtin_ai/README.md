@@ -29,8 +29,8 @@ contracts.
 
 **Your Dart code does not change.** `BuiltInAi`, `BuiltInAiEngine`, `BuiltInAiModels`,
 `BuiltInAiAvailability`, `BuiltInAiUnavailableException` and `BuiltInAiHuggingFaceResolver` keep
-their names, members and signatures, and the import stays
-`package:flutter_edge_ai_builtin_ai/flutter_edge_ai_builtin_ai.dart`. What changes is build-level:
+their names, members and signatures; only the import moves with the rename, from
+`package:flutter_gemma_builtin_ai/…` to `package:flutter_edge_ai_builtin_ai/…`. The rest is build-level:
 
 - **`pub get` regenerates the plugin registrants and the `Podfile.lock`** — this package leaves
   them, `flutter_local_ai` enters. CI that runs a frozen `pod install --deployment` fails until the
@@ -40,7 +40,7 @@ their names, members and signatures, and the import stays
   the pod, not this package — raise the Runner's deployment target to 12.0.
 - **iOS no longer floors at 15.0 because of this package** (`flutter_local_ai` builds from 13.0),
   but core `flutter_edge_ai` still requires 15.0, so an app's effective floor is unchanged.
-- **`package:flutter_edge_ai_builtin_ai/pigeon.g.dart` is gone** along with the channel it wrapped.
+- **`package:flutter_gemma_builtin_ai/pigeon.g.dart` is gone** along with the channel it wrapped.
   It was generated plumbing; nothing in the documented API referenced it.
 - **Windows is newly supported**, through `flutter_local_ai`'s Windows AI Foundry backend, and
   `BuiltInAiModels` gains `windowsAiFoundry`, `chromePromptApi`, `all` and `forCurrentPlatform`

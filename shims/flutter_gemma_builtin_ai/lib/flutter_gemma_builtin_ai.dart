@@ -6,7 +6,7 @@
 @Deprecated(
   'flutter_gemma_builtin_ai was renamed to flutter_edge_ai_builtin_ai: depend on flutter_edge_ai_builtin_ai and import '
   'package:flutter_edge_ai_builtin_ai/flutter_edge_ai_builtin_ai.dart '
-  '(dart fix --apply does both).',
+  '(dart fix --apply does both on Flutter 3.47+).',
 )
 library;
 

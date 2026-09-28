@@ -103,8 +103,9 @@ android {
 // anywhere: setting JVM_17 here against VERSION_11 above makes compileDebugKotlin
 // report JVM_17 — the block is read, not ignored.
 //
-// Keep this block byte-identical in flutter_edge_ai, flutter_edge_ai_mediapipe and
-// flutter_edge_ai_builtin_ai. #360 is what a half-fix looks like: the .kt stops
+// Keep this block byte-identical in flutter_edge_ai and flutter_edge_ai_mediapipe
+// (builtin_ai has no Android code since it moved onto flutter_local_ai). #360
+// is what a half-fix looks like: the .kt stops
 // compiling, the plugin class is never emitted, the build stays GREEN, and the app
 // fails at runtime in GeneratedPluginRegistrant.
 kotlin {

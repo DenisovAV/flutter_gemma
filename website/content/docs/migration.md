@@ -27,9 +27,10 @@ The quickest way is `dart fix`:
 
 1. Bump every `flutter_gemma*` dependency to its last release (the versions are
    listed below). Those releases only re-export the new packages.
-2. Run `dart fix --apply`. It switches every import to the new package, adds
-   the new packages to `pubspec.yaml`, and renames `FlutterGemma` and the other
-   old names.
+2. Run `dart fix --apply`. It renames `FlutterGemma` and the other old names.
+   On Flutter 3.47 or newer it also switches every import to the new package
+   and adds the new packages to `pubspec.yaml`; on Flutter 3.44 change the
+   imports and dependencies by hand (see below).
 3. Delete the old `flutter_gemma*` entries from `pubspec.yaml`, and give the new
    ones a version constraint (`dart fix` adds them as `any`).
 
@@ -38,6 +39,10 @@ By hand, it is the same three changes: the dependencies, `package:flutter_gemma`
 table), and `FlutterGemma` → `FlutterEdgeAi`. The old names (`FlutterGemma`,
 `FlutterGemmaPlugin`, `FlutterGemmaDesktop`, `GemmaLogLevel`) still compile as
 deprecated aliases until `flutter_edge_ai` 2.0.0.
+
+If you installed the agent skills, run `dart run skills@ get --all` again
+and delete the old `flutter-gemma-*` skill directories: they still teach the
+old names.
 
 What does not change:
 
@@ -51,11 +56,12 @@ Genkit: model and embedder ids are now `flutter-edge-ai/<name>`, and the
 context-window middleware is registered as `flutter-edge-ai-context-window`.
 Code that uses `flutterEdgeAi.model(...)` and `trimContext()` picks this up; a
 hard-coded `'flutter-gemma/<name>'` string has to change. The old Dart names are
-deprecated aliases here too.
+deprecated aliases here too, until `genkit_flutter_edge_ai` 0.8.0.
 
-Depend on one name per package: an app that pulls in both `flutter_gemma_X` and
-`flutter_edge_ai_X` gets the same native libraries and Android classes twice, and
-the build fails. An old satellite you did not bump (say `flutter_gemma_speech`
+Depend on one name per package: an app that pulls in a pre-rename 1.x
+`flutter_gemma_X` next to `flutter_edge_ai_X` gets the same native libraries and
+Android classes twice, and the build fails. (The last `flutter_gemma_X` releases
+listed below carry no native code, so they are safe alongside.) An old satellite you did not bump (say `flutter_gemma_speech`
 0.5.x) pulls the old engine back in the same way.
 
 `flutter_edge_ai_sqlite` needs Flutter 3.47. An app on Flutter 3.44 that uses
@@ -180,10 +186,10 @@ drop-in alternative — see [Packages](/docs/packages#onnx-runtime-engine).
 `flutter_edge_ai_builtin_ai` **0.3.0** is no longer a Flutter plugin. It ships no
 Kotlin/Swift/C++ and no pigeon; every OS backend now comes from
 [`flutter_local_ai`](https://pub.dev/packages/flutter_local_ai), which it depends
-on. **No Dart code changes** — `BuiltInAi`, `BuiltInAiEngine`, `BuiltInAiModels`,
-`BuiltInAiAvailability`, `BuiltInAiUnavailableException` and
-`BuiltInAiHuggingFaceResolver` keep their names, signatures and import — but
-three build-level things move.
+on. **No Dart code changes beyond the rename** — `BuiltInAi`, `BuiltInAiEngine`,
+`BuiltInAiModels`, `BuiltInAiAvailability`, `BuiltInAiUnavailableException` and
+`BuiltInAiHuggingFaceResolver` keep their names and signatures — but three
+build-level things move.
 </Warning>
 
 1. **`pub get` regenerates the plugin registrants and `Podfile.lock`**: this
@@ -193,7 +199,7 @@ three build-level things move.
    fails resolution with a message naming the `flutter_local_ai` pod, not the
    package you added. iOS is unaffected — `flutter_local_ai` builds from 13.0 and
    core `flutter_edge_ai` still requires 15.0.
-3. **`package:flutter_edge_ai_builtin_ai/pigeon.g.dart` is gone** with the channel
+3. **`package:flutter_gemma_builtin_ai/pigeon.g.dart` is gone** with the channel
    it wrapped. It was generated plumbing that the documented API never used.
 
 In exchange, **Windows joins the supported platforms** (AI Foundry / Phi Silica),

@@ -12,7 +12,7 @@
 - **Breaking:** `lib/pigeon.g.dart` removed along with the native channel it wrapped.
 - Windows support (Windows AI Foundry), through `flutter_local_ai`.
 - Unsupported vision is refused at model creation, not silently dropped mid-turn.
-- Every `BuiltInAi*` name and signature is unchanged; no code migration.
+- Every `BuiltInAi*` name and signature is unchanged; only the import follows the rename.
 - `BuiltInAiAvailability` / `BuiltInAiUnavailableException` are now `LocalAi*` aliases; `toString()` prints the new name.
 - Apps reaching flutter_local_ai's own API must depend on it directly; this package does not re-export it.
 - `localAiModel` / `localAiSession` escape hatches are `@experimental`.

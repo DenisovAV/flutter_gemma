@@ -431,7 +431,7 @@ class QdrantVectorStore implements VectorStoreRepository {
         return;
       case _AtPath.legacyStore:
         throw QdrantLegacyStoreException(
-          'Found a store written by flutter_edge_ai_qdrant 1.x at '
+          'Found a store written by flutter_gemma_rag_qdrant 1.x at '
           '$databasePath. Its on-disk format is not readable by 2.0, and this '
           'release never deletes files it cannot read: remove '
           '"${_legacyEntries.join('", "')}" from that directory yourself, then '

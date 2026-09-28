@@ -1,6 +1,9 @@
 ## 1.12.0
 - Renamed from `flutter_gemma`; `dart fix --apply` migrates, old names deprecated until 2.0.0.
 
+## 1.11.2
+- Web setup pins `@mediapipe/tasks-genai` 0.10.29, `@litert-lm/core` 0.17.1, ORT-web 1.30.0, Transformers.js 4.3.0.
+
 ## 1.11.1
 - The built-in AI skill describes `flutter_gemma_builtin_ai` 0.3.0: Windows, Linux and setup.
 

@@ -84,7 +84,7 @@ class OnnxWebInferenceModel extends InferenceModel with CloseNotifier {
 
   final VoidCallback onClose;
 
-  JSFunction? _pipeline;
+  TransformersPipeline? _pipeline;
   TransformersTokenizer? _tokenizer;
   Completer<void>? _pipelineCompleter;
   OnnxWebSession? _session;
@@ -124,7 +124,7 @@ class OnnxWebInferenceModel extends InferenceModel with CloseNotifier {
     await transformersReady.toDart;
 
     final sw = Stopwatch()..start();
-    JSFunction pipe;
+    TransformersPipeline pipe;
     PreferredBackend backend;
     if (preferredBackend == PreferredBackend.cpu) {
       // Explicit CPU request — go straight to WASM, no WebGPU attempt.
@@ -156,11 +156,14 @@ class OnnxWebInferenceModel extends InferenceModel with CloseNotifier {
       );
     }
     _pipeline = pipe;
-    _tokenizer = pipe.getProperty<TransformersTokenizer>('tokenizer'.toJS);
+    _tokenizer = pipe.tokenizer;
     _activeBackend = backend;
   }
 
-  Future<JSFunction> _loadPipeline(String repoId, {required String device}) {
+  Future<TransformersPipeline> _loadPipeline(
+    String repoId, {
+    required String device,
+  }) {
     final options =
         <String, Object?>{'dtype': 'q4', 'device': device}.jsify() as JSObject;
     return transformers
@@ -289,7 +292,7 @@ class OnnxWebSession extends InferenceModelSession {
     }
   }
 
-  final JSFunction pipeline;
+  final TransformersPipeline pipeline;
   final TransformersTokenizer tokenizer;
   final String? systemInstruction;
   final int? maxOutputTokens;
@@ -390,9 +393,7 @@ class OnnxWebSession extends InferenceModelSession {
         ..setProperty('stopping_criteria'.toJS, stoppingCriteria);
 
       try {
-        final result =
-            pipeline.callAsFunction(null, messagesJs, generateOptions)
-                as JSPromise<JSAny?>;
+        final result = pipeline.generate(messagesJs, generateOptions);
         // Await the WHOLE pipeline Promise — a cancel/interrupt stops decoding
         // at the next token boundary, but the Promise only settles a moment
         // later, and the generation mutex MUST stay held until then so a next

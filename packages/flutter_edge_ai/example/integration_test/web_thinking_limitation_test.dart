@@ -4,7 +4,8 @@
 /// `litert_lm_web_inference.dart` and the web feature matrices need updating.
 ///
 /// Establishes two facts about the `.litertlm` web path on `@litert-lm/core`
-/// 0.17.0 that the docs and the code currently disagree about:
+/// 0.17.0 (still true on 0.17.1) that the docs and the code currently
+/// disagree about:
 ///
 /// Split out of web_probe_test.dart: there, this ran second, on a model whose
 /// singleton session had already been used by a function-calling chat that was
@@ -64,7 +65,7 @@ Future<void> _disposeModel() async {
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  group('web thinking limitation (@litert-lm/core 0.17.0)', () {
+  group('web thinking limitation (@litert-lm/core 0.17.1)', () {
     tearDownAll(_disposeModel);
 
     testWidgets('thinking mode does NOT reach the model on web (pins upstream gap)', (
@@ -90,6 +91,7 @@ void main() {
       }
 
       // Measured on @litert-lm/core 0.17.0: 36 events, every one a TextResponse.
+      // Still no ThinkingResponse on 0.17.1 (2026-09-28).
       // We do send `extra_context: {thinking: true}` and
       // `filterChannelContentFromKvCache`, the same wiring native FFI uses, but
       // upstream types `extra_context` as an opaque Record and never references

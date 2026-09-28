@@ -110,8 +110,8 @@ file decides. It applies to the text decoder of `.litertlm` models on Android,
 iOS and desktop — not on web, and not to the vision or audio encoders, which
 keep what the model file asks for. `float32` also needs more GPU memory, and a
 GPU engine that cannot be created falls back to CPU silently, so read
-`model.activeBackend` afterwards. It needs `flutter_gemma_litertlm` 1.8.3 or
-later; older versions ignore it. See [Troubleshooting → Wrong numbers on
+`model.activeBackend` afterwards. Every `flutter_edge_ai_litertlm` release
+applies it (it arrived in `flutter_gemma_litertlm` 1.8.3; older versions ignore it). See [Troubleshooting → Wrong numbers on
 GPU](/docs/troubleshooting#wrong-numbers-on-gpu).
 
 Windows NPU ships the Intel dispatch stack — `LiteRtDispatch.dll` + the OpenVino
@@ -177,7 +177,7 @@ awaits `window.litertLmReady` (which resolves to the `Engine` constructor):
 ```
 <script type="module">
 window.litertLmReady = (async () => {
-  const m = await import('https://cdn.jsdelivr.net/npm/@litert-lm/core@0.17.0/+esm');
+  const m = await import('https://cdn.jsdelivr.net/npm/@litert-lm/core@0.17.1/+esm');
   window.Engine = m.Engine;
   return m.Engine;
 })();

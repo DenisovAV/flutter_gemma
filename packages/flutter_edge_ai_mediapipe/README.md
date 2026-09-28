@@ -29,7 +29,7 @@ On Web, the MediaPipe runtime is loaded from a CDN. Add this to your app's `web/
 
 ```html
 <script type="module">
-import { FilesetResolver, LlmInference } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.27';
+import { FilesetResolver, LlmInference } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.29';
 window.FilesetResolver = FilesetResolver;
 window.LlmInference = LlmInference;
 </script>

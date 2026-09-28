@@ -200,7 +200,7 @@ All script tags go in `web/index.html` `<head>`, before Flutter boots.
 ```html
 <script type="module">
 window.litertLmReady = (async () => {
-  const m = await import('https://cdn.jsdelivr.net/npm/@litert-lm/core@0.17.0/+esm');
+  const m = await import('https://cdn.jsdelivr.net/npm/@litert-lm/core@0.17.1/+esm');
   window.Engine = m.Engine;
   return m.Engine;
 })();

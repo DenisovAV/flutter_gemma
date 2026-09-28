@@ -1,6 +1,12 @@
 ## 2.0.0
 - Renamed to `flutter_edge_ai`; this release only re-exports it, and `dart fix --apply` migrates.
 
+## 1.11.2
+- Web setup pins `@mediapipe/tasks-genai` 0.10.29, `@litert-lm/core` 0.17.1, ORT-web 1.30.0, Transformers.js 4.3.0.
+
+## 1.11.1
+- The built-in AI skill describes `flutter_gemma_builtin_ai` 0.3.0: Windows, Linux and setup.
+
 ## 1.11.0
 - New `EmbeddingModel.activeBackend`: `getActiveEmbedder(preferredBackend:)` no longer goes unremarked.
 - **Breaking for `implements EmbeddingModel`:** add `activeBackend` and `isClosed`; `extends` inherits defaults.

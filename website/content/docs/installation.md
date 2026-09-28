@@ -357,7 +357,7 @@ Then add the CDN script(s) for the **engine package(s) you use**.
 
 ```
 <script type="module">
-import { FilesetResolver, LlmInference } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.27';
+import { FilesetResolver, LlmInference } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.29';
 window.FilesetResolver = FilesetResolver;
 window.LlmInference = LlmInference;
 </script>
@@ -370,7 +370,7 @@ deferred, so Dart must await `window.litertLmReady` before any static interop:
 ```
 <script type="module">
 window.litertLmReady = (async () => {
-  const m = await import('https://cdn.jsdelivr.net/npm/@litert-lm/core@0.17.0/+esm');
+  const m = await import('https://cdn.jsdelivr.net/npm/@litert-lm/core@0.17.1/+esm');
   window.Engine = m.Engine;
   return m.Engine;
 })();
@@ -385,7 +385,7 @@ on onnxruntime-web. Both are readiness-handshake shims, same shape as the
 ```
 <script type="module">
 window.transformersReady = (async () => {
-  const m = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0');
+  const m = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.0');
   window.transformers = m;
   return m;
 })();
@@ -393,8 +393,8 @@ window.transformersReady = (async () => {
 
 <script type="module">
 window.ortReady = (async () => {
-  const m = await import('https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/ort.bundle.min.mjs');
-  m.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/';
+  const m = await import('https://cdn.jsdelivr.net/npm/onnxruntime-web@1.30.0/dist/ort.bundle.min.mjs');
+  m.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.30.0/dist/';
   window.ort = m;
   return m;
 })();

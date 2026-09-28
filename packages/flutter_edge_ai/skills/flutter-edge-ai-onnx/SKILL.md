@@ -70,15 +70,15 @@ Add to `web/index.html` `<head>`, before Flutter boots — the first script for 
 ```html
 <script type="module">
 window.transformersReady = (async () => {
-  const m = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0');
+  const m = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.0');
   window.transformers = m;
   return m;
 })();
 </script>
 <script type="module">
 window.ortReady = (async () => {
-  const m = await import('https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/ort.bundle.min.mjs');
-  m.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/';
+  const m = await import('https://cdn.jsdelivr.net/npm/onnxruntime-web@1.30.0/dist/ort.bundle.min.mjs');
+  m.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.30.0/dist/';
   window.ort = m;
   return m;
 })();

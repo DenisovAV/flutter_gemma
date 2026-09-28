@@ -1,6 +1,9 @@
 ## 1.9.0
 - Renamed from `flutter_gemma_litertlm`.
 
+## 1.8.5
+- Web setup pins `@litert-lm/core` 0.17.1.
+
 ## 1.8.4
 - Web reports the accelerator embeddings ran on, and whether it was fully accelerated.
 - `activeBackend` no longer claims NPU on macOS, Linux, iOS or non-Qualcomm Android.

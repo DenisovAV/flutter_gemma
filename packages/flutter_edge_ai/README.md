@@ -434,7 +434,7 @@ Then add the CDN script(s) for the **engine package(s) you use**.
 * **`flutter_edge_ai_mediapipe`** (`.task` / `-web.task` models) — add:
 ```html
   <script type="module">
-  import { FilesetResolver, LlmInference } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.27';
+  import { FilesetResolver, LlmInference } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.29';
   window.FilesetResolver = FilesetResolver;
   window.LlmInference = LlmInference;
   </script>
@@ -447,7 +447,7 @@ Then add the CDN script(s) for the **engine package(s) you use**.
 ```html
   <script type="module">
   window.litertLmReady = (async () => {
-    const m = await import('https://cdn.jsdelivr.net/npm/@litert-lm/core@0.17.0/+esm');
+    const m = await import('https://cdn.jsdelivr.net/npm/@litert-lm/core@0.17.1/+esm');
     window.Engine = m.Engine;
     return m.Engine;
   })();
@@ -460,7 +460,7 @@ Then add the CDN script(s) for the **engine package(s) you use**.
 ```html
   <script type="module">
   window.transformersReady = (async () => {
-    const m = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0');
+    const m = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.0');
     window.transformers = m;
     return m;
   })();
@@ -468,8 +468,8 @@ Then add the CDN script(s) for the **engine package(s) you use**.
 
   <script type="module">
   window.ortReady = (async () => {
-    const m = await import('https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/ort.bundle.min.mjs');
-    m.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/';
+    const m = await import('https://cdn.jsdelivr.net/npm/onnxruntime-web@1.30.0/dist/ort.bundle.min.mjs');
+    m.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.30.0/dist/';
     window.ort = m;
     return m;
   })();
@@ -2070,7 +2070,7 @@ The full and complete example you can find in `example` folder
 - Native `.litertlm` only — **not on web**. The web engine ignores the value, and so do MediaPipe, ONNX and built-in AI. It reaches the text decoder; the vision and audio encoders keep what the model file asks for
 - `float32` activations need more GPU memory, and when the GPU engine cannot be created the model falls back to CPU without an error. Read `model.activeBackend == PreferredBackend.gpu` after loading instead of assuming the GPU ran
 - On Android the GPU shares system memory, so on a 4–6 GB phone running out of it at `float32` can end the app rather than fall back to CPU. Both precisions share one compiled GPU program cache per model, so switching recompiles the GPU programs (about 600 MB for Gemma 4 E2B): pick one precision per install rather than per request.
-- Needs `flutter_gemma_litertlm` 1.8.3 or later; older versions ignore it
+- Every `flutter_edge_ai_litertlm` release applies it (it arrived in `flutter_gemma_litertlm` 1.8.3; older versions ignore it)
 
 **Memory Issues:**
 - **iOS**: Ensure `Runner.entitlements` contains memory entitlements (see iOS setup)

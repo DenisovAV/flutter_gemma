@@ -26,7 +26,7 @@ want, and the platform owns the weights.
 > has no OS built-in model** — there `availability()` reports
 > `unavailableDeviceUnsupported` and you fall back to a downloaded model
 > (see [the fallback pattern](#the-fallback-pattern)). Windows runs Phi Silica
-> since 0.3.0; a Windows build that could not resolve the Windows App SDK
+> since `flutter_gemma_builtin_ai` 0.3.0; a Windows build that could not resolve the Windows App SDK
 > reports `unavailableDeviceUnsupported` too.
 
 Availability is a runtime property of the device/OS/browser — never assume it at
@@ -59,7 +59,7 @@ await FlutterEdgeAi.initialize(
 > It also applies the Kotlin Gradle Plugin itself and needs Kotlin 2.3.21, so
 > `android.builtInKotlin=true` is not usable in an app that depends on it.
 >
-> **Apple:** since 0.3.0 this package is no longer a Flutter plugin; its native
+> **Apple:** since `flutter_gemma_builtin_ai` 0.3.0 this package is no longer a Flutter plugin; its native
 > layer is `flutter_local_ai`, which builds from iOS 13.0 / macOS 12.0. A macOS
 > app below 12.0 fails at `pod install`, and CI that runs a frozen
 > `pod install --deployment` has to re-lock `Podfile.lock` once.

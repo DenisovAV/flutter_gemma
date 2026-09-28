@@ -545,7 +545,7 @@ void main(List<String> args) async {
     // Both Android AARs (onnxruntime-android + onnxruntime-genai-android)
     // declare minSdkVersion=24 in their own AndroidManifest.xml. There is no
     // Gradle module here to force a manifest-merger floor (unlike
-    // flutter_edge_ai_builtin_ai's minSdk-26 module), so an app with a lower
+    // flutter_local_ai's minSdk-26 module under builtin_ai), so an app with a lower
     // minSdk builds cleanly and only fails at runtime `dlopen` — and only on
     // API 21-23 devices, the hardest kind of bug to catch pre-release. So
     // fail the build here — and actually fail it. This used to write the

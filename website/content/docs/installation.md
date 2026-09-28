@@ -171,7 +171,7 @@ and/or `flutter_edge_ai_builtin_ai`.
 and embeddings build from 15.0. (`flutter_gemma` before 1.6.4 declared
 16.0.)
 
-`flutter_edge_ai_builtin_ai` no longer sets an Apple floor of its own — since 0.3.0
+`flutter_edge_ai_builtin_ai` no longer sets an Apple floor of its own — since `flutter_gemma_builtin_ai` 0.3.0
 its native layer is `flutter_local_ai`, which builds from **iOS 13.0 / macOS
 12.0**. On iOS that changes nothing (core's 15.0 still wins); on **macOS it
 raises the floor from 10.15 to 12.0**, and a lower deployment target fails

@@ -57,8 +57,9 @@ deprecated aliases here too, until `genkit_flutter_edge_ai` 0.8.0.
 Depend on one name per package: an app that pulls in a pre-rename 1.x
 `flutter_gemma_X` next to `flutter_edge_ai_X` gets the same native libraries and
 Android classes twice, and the build fails. (The last `flutter_gemma_X` releases
-listed below carry no native code, so they are safe alongside.) An old satellite you did not bump (say `flutter_gemma_speech`
-0.5.x) pulls the old engine back in the same way.
+listed below carry no native code, so they are safe alongside.) An old satellite
+you did not bump (say `flutter_gemma_speech` 0.5.x) pulls the old engine back in
+the same way.
 
 `flutter_edge_ai_sqlite` needs Flutter 3.47. An app on Flutter 3.44 that uses
 the SQLite store upgrades Flutter first.

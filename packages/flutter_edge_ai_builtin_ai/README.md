@@ -19,9 +19,9 @@ dart run skills@ get --all
 
 Installs the agent skills `flutter_edge_ai` bundles — this package depends on it, so they come with it. One of them, `flutter-edge-ai-builtin-ai`, covers availability, the user gesture the web arm needs, and falling back to a downloaded model.
 
-## 0.3.0: the native layer moved out
+## `flutter_gemma_builtin_ai` 0.3.0: the native layer moved out
 
-Since **0.3.0** this package is a **thin adapter, not a Flutter plugin**. It declares no
+Since **`flutter_gemma_builtin_ai` 0.3.0** this package is a **thin adapter, not a Flutter plugin**. It declares no
 `flutter: plugin:` block, ships no Kotlin/Swift/C++ and no pigeon — the OS backends now come from
 [**`flutter_local_ai`**](https://pub.dev/packages/flutter_local_ai), which this package depends on
 and maps onto flutter_edge_ai's `InferenceEngineProvider` / `InferenceModel` / `InferenceModelSession`

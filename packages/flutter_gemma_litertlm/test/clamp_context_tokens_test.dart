@@ -51,7 +51,8 @@ void main() {
         expect(
           clampLitertlmContextTokens(512, preferredBackend: backend),
           1024,
-          reason: 'the #318 floor is a CPU/GPU fact and still applies to $backend',
+          reason:
+              'the #318 floor is a CPU/GPU fact and still applies to $backend',
         );
       }
     });
@@ -89,22 +90,31 @@ void main() {
     // those are the CPU/GPU engines the #318 floor exists for. Resolving the
     // clamp once from the REQUESTED backend (rather than per attempt) is
     // exactly the regression, and it is invisible on a device that has an NPU.
-    test('a fallback from NPU re-applies the floor to the backends after it', () {
-      const requested = 896; // the measured Gemma 3 Qualcomm cache_length
-      final perAttempt = {
-        for (final backend in ffiBackendFallbackOrder(PreferredBackend.npu))
-          backend: clampLitertlmContextTokens(
-            requested,
-            preferredBackend: backend,
-          ),
-      };
+    test(
+      'a fallback from NPU re-applies the floor to the backends after it',
+      () {
+        const requested = 896; // the measured Gemma 3 Qualcomm cache_length
+        final perAttempt = {
+          // npu pinned on: this case is about the floor being skipped for npu
+          // and applied to whatever follows it, which needs a three-backend
+          // chain regardless of whether the test host ships an NPU dispatch.
+          for (final backend in ffiBackendFallbackOrder(
+            PreferredBackend.npu,
+            npuDispatchAvailable: true,
+          ))
+            backend: clampLitertlmContextTokens(
+              requested,
+              preferredBackend: backend,
+            ),
+        };
 
-      expect(perAttempt, {
-        PreferredBackend.npu: 896,
-        PreferredBackend.gpu: 1024,
-        PreferredBackend.cpu: 1024,
-      });
-    });
+        expect(perAttempt, {
+          PreferredBackend.npu: 896,
+          PreferredBackend.gpu: 1024,
+          PreferredBackend.cpu: 1024,
+        });
+      },
+    );
 
     test('values at or above the floor are unchanged on NPU too', () {
       expect(

@@ -34,10 +34,10 @@ enum TtsModel {
     baseUrl:
         'https://huggingface.co/sasha-denisov/inflect-nano-v2-litert/resolve/main/',
     displayName: 'Inflect-Nano-v2 (fast)',
-    size: '~8MB',
+    size: '~36MB',
     ttsModelType: TtsModelType.inflect,
     isSupported: true,
-    notes: 'Tiny + very fast (RTF≈0.01 — ~90× real-time on CPU). English only.',
+    notes: 'Tiny + very fast. English only.',
   ),
   kokoro(
     baseUrl: 'https://huggingface.co/litert-community/Kokoro-82M/resolve/main/',

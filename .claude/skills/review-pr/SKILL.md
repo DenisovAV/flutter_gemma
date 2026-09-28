@@ -52,7 +52,7 @@ From the diff, detect which package(s)/area(s) are affected:
 - `flutter_gemma_rag_sqlite/` — sqlite-vec `vec0` KNN on all six platforms; native via `package:sqlite3` FFI, web via `package:sqlite3/wasm.dart` (wa-sqlite was dropped in 1.1.0)
 - `flutter_gemma_speech/` — opt-in STT (moonshine / Whisper / Parakeet) + TTS (Matcha / Qwen3 / Inflect) over the LiteRT C API; shares the litertlm bundle
 - `flutter_gemma_agent/` — opt-in SKILL.md agent skills over the function-calling loop (no Web)
-- `flutter_gemma_builtin_ai/` — OS models: Gemini Nano via ML Kit GenAI (Android, `minSdk 26`), Apple Foundation Models (iOS/macOS, `sharedDarwinSource`). Owns its own pigeon.
+- `flutter_gemma_builtin_ai/` — OS models: Gemini Nano (Android), Apple Foundation Models (iOS/macOS), Windows AI Foundry, Chrome Prompt API (Web). Pure Dart since 0.3.0: no native sources and no pigeon of its own — it adapts the `flutter_local_ai` plugin, which owns every backend.
 - `genkit_flutter_gemma/`, `genkit_hybrid/` — Genkit integration packages (Dart; no native)
 - `flutter_gemma/example/` — example app + `integration_test/` E2E
 
@@ -178,8 +178,8 @@ Kotlin exists in exactly three packages; confirm with
   engines/mediapipe/. EngineFactory handles `.task`/`.bin`/`.tflite` ONLY — it
   throws on `.litertlm` with a message pointing at the Dart FFI client. That
   throw is correct behaviour, not a bug.
-- packages/flutter_gemma_builtin_ai/android/ — ML Kit GenAI / AICore. Declares
-  `minSdkVersion 26`; an app on a lower floor fails the manifest merger.
+  (`flutter_gemma_builtin_ai` has no android/ since 0.3.0. The `minSdk 26` floor
+  still reaches an app that depends on it, but through `flutter_local_ai`.)
 
 CHECKLIST
 1. NO KGP IN THE PLUGINS: since #440 none of the THREE android/build.gradle
@@ -221,19 +221,20 @@ rather than assuming a single convention:
   SwiftPM layout (NOT ios/Classes/). Slim plugin: bundled channel only.
 - packages/flutter_gemma_mediapipe/ios/Classes/ — classic layout, real engine:
   FlutterGemmaMediaPipePlugin, PlatformServiceImpl, InferenceModel, pigeon .g.swift
-- packages/flutter_gemma_builtin_ai/darwin/ — one source tree for iOS + macOS via
-  `sharedDarwinSource: true`. Apple Foundation Models.
+  (`flutter_gemma_builtin_ai` has no darwin/ since 0.3.0. Apple Foundation Models
+  reach it through `flutter_local_ai`, whose floor is iOS 13.0 / macOS 12.0.)
 
 CHECKLIST
 1. Swift 6 concurrency: Sendable conformance, actor isolation, and no
    captured-mutable-state across the pigeon boundary.
-2. Podspec versions: four first-party podspecs exist and drift independently —
-   core ios, core macos, mediapipe ios, builtin_ai darwin. Each must match its
-   OWN package version.
-3. iOS floor since #441: core and builtin_ai declare 15.0; only
-   flutter_gemma_mediapipe declares 16.0. A litertlm-only app is NOT held to 16 —
-   that was the bug. Both the podspec and the Package.swift must carry the same
-   number for a package that has both (mediapipe has no Package.swift).
+2. Podspec versions: three first-party podspecs exist and drift independently —
+   core ios, core macos, mediapipe ios. Each must match its OWN package version.
+3. iOS floor since #441: core declares 15.0; only flutter_gemma_mediapipe
+   declares 16.0. A litertlm-only app is NOT held to 16 — that was the bug. Both
+   the podspec and the Package.swift must carry the same number for a package
+   that has both (mediapipe has no Package.swift). An app using
+   flutter_gemma_builtin_ai is additionally held to flutter_local_ai's
+   iOS 13.0 / macOS 12.0.
 4. Entitlements: iOS needs extended-virtual-addressing and increased-memory-limit
    for large models. macOS must carry NO `com.apple.developer.kernel.*` key — they
    are iOS-only: without a signing team the build fails ("has entitlements that

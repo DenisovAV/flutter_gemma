@@ -24,11 +24,11 @@ dependencies:
 **After (1.0):**
 ```yaml
 dependencies:
-  flutter_gemma: ^1.9.0                 # core — always required
-  flutter_gemma_litertlm: ^1.8.0        # add if you run .litertlm models (also provides LiteRtEmbeddingBackend)
-  flutter_gemma_mediapipe: ^1.0.6       # add if you run .task / .bin models
-  flutter_gemma_embeddings: ^2.2.0      # add if you compute embeddings (needs a backend, see above)
-  flutter_gemma_rag_qdrant: ^1.3.1      # add for native on-device RAG (qdrant)
+  flutter_gemma: ^1.11.1                 # core — always required
+  flutter_gemma_litertlm: ^1.8.4        # add if you run .litertlm models (also provides LiteRtEmbeddingBackend)
+  flutter_gemma_mediapipe: ^1.0.7       # add if you run .task / .bin models
+  flutter_gemma_embeddings: ^2.2.1      # add if you compute embeddings (needs a backend, see above)
+  flutter_gemma_rag_qdrant: ^1.3.2      # add for native on-device RAG (qdrant)
   flutter_gemma_rag_sqlite: ^1.4.0      # add for on-device RAG (sqlite-vec; all platforms incl. web) — needs Flutter 3.47
 ```
 
@@ -50,7 +50,9 @@ Pick by what you actually used in 0.16.x:
 > **New opt-in packages since 1.2/1.3** (not migration targets from the 0.16.x
 > monolith — they add new capabilities): `flutter_gemma_agent` (on-device agent
 > skills — SKILL.md + tool-calling loop) and `flutter_gemma_builtin_ai` (OS
-> system models — Gemini Nano on Android, Apple Foundation Models on iOS/macOS).
+> system models — Gemini Nano on Android and Web, Apple Foundation Models on
+> iOS/macOS, Windows AI Foundry on Windows; a thin adapter over
+> `flutter_local_ai`, which owns the native layer).
 > Add either only if you want that feature — see the README **Features** list.
 
 ## 2. main.dart — the one new call
@@ -172,7 +174,7 @@ supplies it, and the engine packages stopped depending on
 **Add the dependency** (it no longer arrives through the engine):
 ```yaml
 dependencies:
-  flutter_gemma_embeddings: ^2.2.0
+  flutter_gemma_embeddings: ^2.2.1
 ```
 
 **Add one line to `initialize`:**

@@ -107,6 +107,14 @@ On web it runs via LiteRT.js instead; see
 [Embeddings on web](#embeddings-on-web) below for the four files and the
 `<script>` tag your app needs.
 
+`EmbeddingModel.activeBackend` is `cpu` on native, the only backend this
+package's embedder uses, so `preferredBackend` is not applied. On web it is
+`null` and LiteRT.js picks: `window.getLiteRtEmbeddingAccelerator()` names where
+the output buffer lived after the first embedding, and
+`window.getLiteRtEmbeddingFullyAccelerated()` says whether the graph landed
+entirely on the requested accelerator — `false` also when LiteRT silently
+recompiled a WebGPU request for WASM.
+
 ## Embeddings on web
 
 On web, `flutter_gemma_litertlm`'s embedding backend runs via LiteRT.js. Copy
@@ -222,10 +230,31 @@ Native platforms need no web setup.
 > versions use `PreferredBackend.cpu` or `.npu`. macOS/Linux GPU and Windows
 > CPU/NPU were never affected.
 
+`PreferredBackend.npu` is attempted only on Windows and on Android devices with
+Qualcomm FastRPC (`libcdsprpc.so`); elsewhere it falls back to GPU, then CPU,
+and prints why. On Windows the check is per OS, so a PC without an Intel NPU can
+report `activeBackend == npu` while the model runs elsewhere.
+
 The native library is fetched at build time by `hook/build.dart` (Native Assets)
 from a SHA256-verified GitHub release — no manual setup on native platforms.
 
 ## Troubleshooting
+
+### A stopped chat answers every later message with nothing (fixed in 1.8.1)
+
+Symptom: after `stopGeneration()` in the middle of a reply — or after
+abandoning the response stream — every later message on that chat or session
+comes back empty, on Android, iOS and desktop. A new chat on the same model
+answers normally. (The web engine is a separate path and is not covered by this
+entry.)
+
+Cause: a conversation whose generation is cancelled mid-reply stays unusable
+in the native runtime.
+
+Fix: upgrade to 1.8.1. The first turn after a stop now runs on a fresh
+conversation that replays the chat's history, including whatever the stopped
+reply had produced. That history is replayed as text: images and audio sent in
+earlier turns are not, so after a stop the model can no longer see them.
 
 ### Google Play rejects the app over 16 KB page sizes (fixed in 1.8.0)
 
@@ -241,6 +270,20 @@ image is loaded by the DSP rather than mapped by the kernel.
 
 Fix: upgrade to 1.8.0. Check your own build with Google's
 `check_elf_alignment.sh` against the APK, not against this package.
+
+### Android GPU crashes at engine_create on Mali (fixed in 1.8.2)
+
+Symptom: in 1.7.0–1.8.1, `PreferredBackend.gpu` on an Android phone with a Mali
+GPU (Samsung A-series, MediaTek, Google Tensor) kills the process while the
+model loads — `SIGSEGV` at `pc 0` inside `libLiteRtOpenClAccelerator.so`. The
+CPU backend and Adreno GPUs are unaffected.
+
+Cause: the OpenCL and GPU accelerators from LiteRT-LM v0.17.0 call
+`AHardwareBuffer_allocate` without declaring `libandroid.so` as a dependency, so
+Android binds the call to address 0. Only Mali takes that path.
+
+Fix: upgrade to 1.8.2 (`native-v0.17.1-a`). No app change is needed. See
+[#545](https://github.com/DenisovAV/flutter_gemma/issues/545).
 
 ### Any tool call kills the app (fixed in 1.7.1)
 

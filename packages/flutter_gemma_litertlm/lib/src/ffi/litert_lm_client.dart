@@ -1,5 +1,7 @@
 import 'dart:async';
+
 import 'package:flutter_gemma/core/utils/gemma_log.dart';
+
 import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
@@ -12,32 +14,30 @@ import 'package:mutex/mutex.dart';
 
 import 'package:flutter_gemma/flutter_gemma_interface.dart';
 import 'package:flutter_gemma/core/parsing/sdk_text_extractor.dart';
+
 import 'litert_default_scope.dart';
 import 'litert_lm_bindings.dart';
 
 /// Callback typedef with Uint8 for bool (C _Bool = 1 byte)
-typedef _StreamCallbackNative =
-    Void Function(
-      Pointer<Void> callbackData,
-      Pointer<Char> chunk,
-      Uint8 isFinal,
-      Pointer<Char> errorMsg,
-    );
+typedef _StreamCallbackNative = Void Function(
+  Pointer<Void> callbackData,
+  Pointer<Char> chunk,
+  Uint8 isFinal,
+  Pointer<Char> errorMsg,
+);
 
 /// stream_proxy_create: creates a proxy that strdup's strings before
 /// forwarding to the Dart callback (prevents use-after-free).
-typedef _ProxyCreateNative =
-    Pointer<Void> Function(
-      Pointer<NativeFunction<_StreamCallbackNative>> dartCallback,
-      Pointer<Void> dartData,
-      Pointer<Pointer<NativeFunction<_StreamCallbackNative>>> outProxyFn,
-    );
-typedef _ProxyCreateDart =
-    Pointer<Void> Function(
-      Pointer<NativeFunction<_StreamCallbackNative>> dartCallback,
-      Pointer<Void> dartData,
-      Pointer<Pointer<NativeFunction<_StreamCallbackNative>>> outProxyFn,
-    );
+typedef _ProxyCreateNative = Pointer<Void> Function(
+  Pointer<NativeFunction<_StreamCallbackNative>> dartCallback,
+  Pointer<Void> dartData,
+  Pointer<Pointer<NativeFunction<_StreamCallbackNative>>> outProxyFn,
+);
+typedef _ProxyCreateDart = Pointer<Void> Function(
+  Pointer<NativeFunction<_StreamCallbackNative>> dartCallback,
+  Pointer<Void> dartData,
+  Pointer<Pointer<NativeFunction<_StreamCallbackNative>>> outProxyFn,
+);
 
 /// Free a strdup'd string from the proxy callback.
 typedef _ProxyFreeStringNative = Void Function(Pointer<Char> str);
@@ -479,9 +479,8 @@ class LiteRtLmFfiClient {
     try {
       final f = File(p);
       if (!f.existsSync()) return null;
-      final match = RegExp(
-        r'section_backend_constraint:\s*(\w+)',
-      ).firstMatch(f.readAsStringSync());
+      final match = RegExp(r'section_backend_constraint:\s*(\w+)')
+          .firstMatch(f.readAsStringSync());
       return match?.group(1);
     } catch (_) {
       return null;
@@ -682,6 +681,9 @@ class LiteRtLmFfiClient {
   }
 
   /// Initialize the engine with model path and settings.
+  ///
+  /// [activationDataType] is the C API's number (see
+  /// `activationDataTypeWireValue`); null leaves the engine's own choice.
   Future<void> initialize({
     required String modelPath,
     String backend = 'gpu',
@@ -693,6 +695,7 @@ class LiteRtLmFfiClient {
     bool enableAudio = false,
     String audioBackend = 'cpu',
     bool? enableSpeculativeDecoding,
+    int? activationDataType,
   }) async {
     final initSw = Stopwatch()..start();
     _ensureBindings();
@@ -766,6 +769,24 @@ class LiteRtLmFfiClient {
         b.litert_lm_engine_settings_set_enable_speculative_decoding(
           settings,
           enableSpeculativeDecoding,
+        );
+      }
+
+      // Activation type (0 F32, 1 F16, 2 I16, 3 I8). Skip when null: the engine
+      // then takes the model file's `prefer_activation_type`, else F16 on GPU.
+      // F16 on some GPUs copies digits wrongly from long prompts (Adreno
+      // LiteRT-LM#3012, Metal #2814), and F32 fixes it at a slower prefill.
+      // The setter is upstream C API, so every platform's libLiteRtLm has it
+      // (and patch_c_api.sh's Windows .def exports it).
+      if (activationDataType != null) {
+        b.litert_lm_engine_settings_set_activation_data_type(
+          settings,
+          activationDataType,
+        );
+        gemmaLog(
+          '[LiteRtLmFfi] activation_data_type=$activationDataType '
+          '(${_activationName(activationDataType)}, backend=$backend; only the '
+          'GPU executor reads it)',
         );
       }
 
@@ -907,8 +928,13 @@ class LiteRtLmFfiClient {
             '(or omit preferredBackend to try GPU first).',
           );
         }
+        // Only the GPU executor reads the activation type, so only a float32
+        // GPU attempt can have failed because of it.
+        final float32OnGpu = activationDataType == 0 && backend == 'gpu';
         throw Exception(
-          'Failed to create engine. Model may be invalid: $modelPath',
+          'Failed to create engine. Model may be invalid: $modelPath'
+          '${float32OnGpu ? ' (float32 activations need more GPU memory than '
+                    'the default — try without activationDataType)' : ''}',
         );
       }
 
@@ -1371,6 +1397,11 @@ class LiteRtLmFfiClient {
   /// live stream (use-after-free).
   bool _virtualTurnInFlight = false;
 
+  /// Set when a virtual turn is cancelled mid-generation. A cancelled
+  /// conversation answers every later message with nothing, so the next turn
+  /// must rebuild it even when it belongs to the same session.
+  bool _virtualConvStopped = false;
+
   /// Token of a session that asked to release the live conversation while a
   /// turn was in flight. The teardown is deferred to the turn's cleanup.
   Object? _pendingReleaseToken;
@@ -1428,9 +1459,13 @@ class LiteRtLmFfiClient {
         await _nativeMutex.acquire();
         mutexHeld = true;
         _virtualTurnInFlight = true;
-        if (_virtualActiveToken != conversationToken || _virtualConv == null) {
-          // Switching sessions (or first turn): drop the old live conversation
-          // and rebuild one replaying this session's history as a preface.
+        if (_virtualActiveToken != conversationToken ||
+            _virtualConv == null ||
+            _virtualConvStopped) {
+          // Switching sessions (or first turn, or the turn after a stop): drop
+          // the old live conversation and rebuild one replaying this session's
+          // history as a preface.
+          _virtualConvStopped = false;
           final old = _virtualConv;
           if (old != null) {
             _deleteConversation(old);
@@ -1533,7 +1568,10 @@ class LiteRtLmFfiClient {
   void cancelVirtualTurn(Object conversationToken) {
     if (_virtualActiveToken != conversationToken) return;
     final conv = _virtualConv;
-    if (conv != null) _cancelOn(conv);
+    if (conv == null) return;
+    // Only a cancel that lands inside a turn damages the conversation.
+    if (_virtualTurnInFlight) _virtualConvStopped = true;
+    _cancelOn(conv);
   }
 
   /// Tear down the live virtual conversation if it belongs to
@@ -2022,3 +2060,12 @@ class LiteRtLmFfiClient {
     }
   }
 }
+
+/// Name of a LiteRT-LM activation wire value, for logs and errors.
+String _activationName(int value) => switch (value) {
+  0 => 'float32',
+  1 => 'float16',
+  2 => 'int16',
+  3 => 'int8',
+  _ => 'type $value',
+};

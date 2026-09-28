@@ -207,7 +207,7 @@ model formats and features you need.
       # Inference engines — add at least one:
       flutter_gemma_litertlm: latest_version     # .litertlm models (FFI; mobile + desktop + web)
       flutter_gemma_mediapipe: latest_version    # .task / .bin models (MediaPipe; mobile + web)
-      flutter_gemma_builtin_ai: latest_version   # OS system models — Gemini Nano (Android) / Apple FM (iOS 26+/macOS)
+      flutter_gemma_builtin_ai: latest_version   # OS system models — Gemini Nano (Android) / Apple FM (iOS 26+/macOS) / Windows AI Foundry / Chrome Prompt API (Web)
       flutter_gemma_onnx: latest_version         # ONNX Runtime — ORT-GenAI text gen + ORT embeddings (FFI, native) / Transformers.js + onnxruntime-web (Web)
 
       # Optional — text embeddings (EmbeddingGemma / Gecko via flutter_gemma_litertlm's
@@ -294,8 +294,14 @@ For development, prefer an Apple Silicon Mac — the Android emulator runs `arm6
 
 * **Set the minimum iOS version to 15.0** — or **16.0** if your app depends on
   `flutter_gemma_mediapipe`, which needs MediaPipe GenAI. Core,
-  `flutter_gemma_litertlm`, built-in AI and embeddings build from 15.0. (Requires
+  `flutter_gemma_litertlm` and embeddings build from 15.0. (Requires
   `flutter_gemma` 1.6.4 or newer; earlier versions declared 16.0.)
+
+* **`flutter_gemma_builtin_ai` 0.3.0+ sets no Apple floor of its own** — its
+  native layer is `flutter_local_ai`, which builds from **iOS 13.0 / macOS
+  12.0**. iOS is unaffected (core's 15.0 still wins); on **macOS the floor rises
+  from 10.15 to 12.0**, and a lower deployment target fails resolution with a
+  message naming the `flutter_local_ai` pod rather than the package you added.
 
   **Where you set it depends on the dependency manager.** Swift Package Manager is the
   default since Flutter 3.44 (opt-in before that), and an SPM-only app has no `Podfile` at all — set
@@ -968,7 +974,7 @@ void main() async {
     inferenceEngines: const [
       LiteRtLmEngine(),     // flutter_gemma_litertlm  — .litertlm models
       MediaPipeEngine(),    // flutter_gemma_mediapipe — .task / .bin models
-      BuiltInAiEngine(),    // flutter_gemma_builtin_ai — Gemini Nano / Apple FM
+      BuiltInAiEngine(),    // flutter_gemma_builtin_ai — Gemini Nano / Apple FM / Windows AI Foundry
     ],
     // Optional — embeddings (needed for RAG / generateEmbedding):
     embeddingBackends: const [
@@ -1001,7 +1007,7 @@ void main() async {
 |---|---|---|
 | `inferenceEngines: [LiteRtLmEngine()]` | `flutter_gemma_litertlm` | `.litertlm` (mobile + desktop + web) |
 | `inferenceEngines: [MediaPipeEngine()]` | `flutter_gemma_mediapipe` | `.task` / `.bin` (mobile + web) |
-| `inferenceEngines: [BuiltInAiEngine()]` | `flutter_gemma_builtin_ai` | OS system models — Gemini Nano (Android) / Apple FM (iOS 26+/macOS) |
+| `inferenceEngines: [BuiltInAiEngine()]` | `flutter_gemma_builtin_ai` | OS system models — Gemini Nano (Android + Web) / Apple FM (iOS 26+/macOS) / Windows AI Foundry. A thin adapter over `flutter_local_ai`, which owns the native layer |
 | `inferenceEngines: [OnnxEngine()]` | `flutter_gemma_onnx` | ONNX models — ORT-GenAI (FFI; macOS/Linux/Windows/Android/iOS arm64) or Transformers.js (Web) |
 | `embeddingBackends: [LiteRtEmbeddingBackend()]` | `flutter_gemma_litertlm` | text embeddings |
 | `embeddingBackends: [OnnxEmbeddingBackend()]` | `flutter_gemma_onnx` | text embeddings from ONNX/ORT models (FFI native; onnxruntime-web on Web) |
@@ -1821,6 +1827,8 @@ final results = await FlutterGemmaPlugin.instance.searchSimilar(
 await FlutterGemmaPlugin.instance.flushVectorStore(); // or FlutterGemma.rag.flush()
 ```
 
+**Which backend embeddings run on.** `getActiveEmbedder(preferredBackend:)` is accepted and not applied: native embeddings run on CPU — LiteRT's GPU delegate returns all-zero vectors for EmbeddingGemma's int4 weights, and the ONNX client appends no execution provider. Read `EmbeddingModel.activeBackend` for the answer; it survives a release build. It is `cpu` on native and `null` on web, where the runtime picks WebGPU or WASM (see `flutter_gemma_litertlm`'s README for the web getters). Since 1.11.0 a class that `implements EmbeddingModel` must add `activeBackend` and `isClosed`; `extends` inherits defaults.
+
 **Call `flush()` after indexing.** `flutter_gemma_rag_qdrant` keeps new documents in memory until the store is flushed or closed, so an index built without either is lost when the process ends — an Android app killed in the background is the ordinary case ([#492](https://github.com/DenisovAV/flutter_gemma/issues/492)). On native `flutter_gemma_rag_sqlite` it is a no-op; on web it drains the IndexedDB storage. A store that cannot persist at all throws `VectorStoreException` instead of returning. Custom `VectorStoreRepository` implementations must declare `flush()`.
 
 A field name is checked by the store, in `configure()`. `SqliteVectorStore` is
@@ -1878,7 +1886,7 @@ Function calling is currently supported by the following models:
 | **Thinking Mode** | ✅ Full | ✅ Full | ❌ Not supported | ✅ Full | Gemma 4 / DeepSeek / Qwen3 / SmolLM3 / Phi-4 Mini Reasoning; not available on Web yet (MediaPipe `.task` web has no `extraContext`; `.litertlm` web is not verified) |
 | **Stop Generation** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Cancel mid-process |
 | **GPU Acceleration** | ✅ Full | ✅ Full | ✅ Full | ✅ Full ² | Metal/WebGPU/Vulkan/DX12 |
-| **NPU Acceleration** | ✅ Full | ❌ Not supported | ❌ Not supported | ✅ Windows | Android (.litertlm) + Windows Intel LunarLake/PantherLake |
+| **NPU Acceleration** | ✅ Full | ❌ Not supported | ❌ Not supported | ✅ Windows ³ | Android Qualcomm only (.litertlm) + Windows Intel LunarLake/PantherLake |
 | **CPU Backend** | ✅ Full | ✅ Full | ❌ Not supported | ✅ Full | MediaPipe limitation |
 | **Streaming Responses** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Real-time generation |
 | **LoRA Support** | ✅ Full | ✅ Full | ✅ Full | ❌ Not supported | LiteRT-LM limitation |
@@ -1900,6 +1908,9 @@ Function calling is currently supported by the following models:
 > in litertlm 1.2.0–1.3.1. Fixed in 1.4.0; on the affected versions use
 > `PreferredBackend.cpu` or `.npu`. macOS/Linux GPU and Windows CPU/NPU were
 > never affected.
+>
+> ³ **NPU on Windows:** `npu` is offered per OS, so a PC without an Intel NPU
+> can report `activeBackend == npu` while the model runs elsewhere.
 
 ### Web Platform Specifics
 
@@ -2046,6 +2057,14 @@ The full and complete example you can find in `example` folder
 **Performance:**
 - Use GPU backend for better performance with multimodal models
 - Consider using CPU backend for text-only models on lower-end devices
+
+**Wrong numbers on GPU (`.litertlm`):**
+- Gemma 4 on some GPUs copies digits wrongly from long prompts — `2026/06/23` becomes `20226/12/17`, the same way on every run (LiteRT-LM [#3012](https://github.com/google-ai-edge/LiteRT-LM/issues/3012) on Adreno, [#2814](https://github.com/google-ai-edge/LiteRT-LM/issues/2814) on Metal)
+- Pass `activationDataType: ActivationDataType.float32` to `getActiveModel`. Prefill is slower (about 3× on a Snapdragon 8 Elite and an iPhone 11, under 1.5× on an Apple M3 Max); decode speed barely changes
+- Native `.litertlm` only — **not on web**. The web engine ignores the value, and so do MediaPipe, ONNX and built-in AI. It reaches the text decoder; the vision and audio encoders keep what the model file asks for
+- `float32` activations need more GPU memory, and when the GPU engine cannot be created the model falls back to CPU without an error. Read `model.activeBackend == PreferredBackend.gpu` after loading instead of assuming the GPU ran
+- On Android the GPU shares system memory, so on a 4–6 GB phone running out of it at `float32` can end the app rather than fall back to CPU. Both precisions share one compiled GPU program cache per model, so switching recompiles the GPU programs (about 600 MB for Gemma 4 E2B): pick one precision per install rather than per request.
+- Needs `flutter_gemma_litertlm` 1.8.3 or later; older versions ignore it
 
 **Memory Issues:**
 - **iOS**: Ensure `Runner.entitlements` contains memory entitlements (see iOS setup)

@@ -69,7 +69,7 @@ Future<List<int>> _turnLoop(PreferredBackend backend, int turns) async {
   );
 
   // The FFI runtime falls back silently: `gpu` resolves to [gpu, cpu], and a
-  // failed OpenCL init is only a developer.log line (backend_preference.dart).
+  // failed OpenCL init is only a printed warning (backend_preference.dart).
   // On a device where the vendor ICD does not load (#324) the "GPU" leg would
   // run on CPU, show flat RSS, and report #2699 as fixed on a build where the
   // suspect path never executed. Assert what actually initialised.
@@ -83,12 +83,13 @@ Future<List<int>> _turnLoop(PreferredBackend backend, int turns) async {
   );
 
   final rss = <int>[_rssKb()];
-  // close() must run even if a turn throws. getActiveModel() dedupes on the
-  // model's NAME only — preferredBackend is not part of the comparison
-  // (flutter_gemma_mobile.dart, `currentSpec.name != requestedSpec.name`). So a
-  // model left open by a failed CPU run is handed straight back to the GPU run,
-  // which then measures CPU, sees no growth, and PASSES — hiding the very leak
-  // this file exists to catch.
+  // close() must run even if a turn throws. It was written when getActiveModel()
+  // deduped on the model's NAME only, so a model left open by a failed CPU run
+  // was handed straight back to the GPU run, which then measured CPU, saw no
+  // growth, and PASSED — hiding the very leak this file exists to catch.
+  // `ActiveModelParams` now compares preferredBackend too, so that particular
+  // hand-back no longer happens; the close still keeps one run's model and its
+  // native memory from leaking into the next measurement.
   try {
     for (var i = 0; i < turns; i++) {
       final chat = await model.openChat(
@@ -171,43 +172,35 @@ void main() {
   });
 
   group('#2699 OpenCL per-turn leak', () {
-    testWidgets(
-      'CPU control — RSS must stay flat',
-      (_) async {
-        final rss = await _turnLoop(PreferredBackend.cpu, _turns);
-        _report('cpu', rss);
-        expect(
-          _steadyGrowthMb(rss),
-          lessThan(50),
-          reason:
-              'CPU was flat in every report; growth here means the repro '
-              'itself is wrong, not that the GPU bug moved',
-        );
-      },
-      timeout: const Timeout(Duration(minutes: 20)),
-    );
+    testWidgets('CPU control — RSS must stay flat', (_) async {
+      final rss = await _turnLoop(PreferredBackend.cpu, _turns);
+      _report('cpu', rss);
+      expect(
+        _steadyGrowthMb(rss),
+        lessThan(50),
+        reason:
+            'CPU was flat in every report; growth here means the repro '
+            'itself is wrong, not that the GPU bug moved',
+      );
+    }, timeout: const Timeout(Duration(minutes: 20)));
 
-    testWidgets(
-      'GPU (OpenCL) — the suspect path',
-      (_) async {
-        final rss = await _turnLoop(PreferredBackend.gpu, _turns);
-        _report('gpu', rss);
-        final growthMb = _steadyGrowthMb(rss);
-        // #348 measured 150-300 MB/turn, #402 ~65 MB/turn => >450 MB across
-        // turns 2-8 at the low end. 50 MB sits an order of magnitude below
-        // that and well above allocator noise, so neither verdict rests on a
-        // borderline number.
-        expect(
-          growthMb,
-          lessThan(50),
-          reason:
-              'FAIL here = #2699 still reproduces '
-              '(steady-state growth ${growthMb.toStringAsFixed(1)}MB across '
-              'turns 2-$_turns)',
-        );
-      },
-      timeout: const Timeout(Duration(minutes: 25)),
-    );
+    testWidgets('GPU (OpenCL) — the suspect path', (_) async {
+      final rss = await _turnLoop(PreferredBackend.gpu, _turns);
+      _report('gpu', rss);
+      final growthMb = _steadyGrowthMb(rss);
+      // #348 measured 150-300 MB/turn, #402 ~65 MB/turn => >450 MB across
+      // turns 2-8 at the low end. 50 MB sits an order of magnitude below
+      // that and well above allocator noise, so neither verdict rests on a
+      // borderline number.
+      expect(
+        growthMb,
+        lessThan(50),
+        reason:
+            'FAIL here = #2699 still reproduces '
+            '(steady-state growth ${growthMb.toStringAsFixed(1)}MB across '
+            'turns 2-$_turns)',
+      );
+    }, timeout: const Timeout(Duration(minutes: 25)));
 
     testWidgets(
       'GPU — engine teardown does not reclaim either (#402 refinement)',

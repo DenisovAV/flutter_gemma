@@ -58,8 +58,7 @@ to make, and each step here is built around one of them:
 * A free Hugging Face account with the Gemma licence accepted. Both models sit
   behind the same gate, so one `--dart-define=HF_TOKEN=hf_...` covers both
 
-Negative
-: This codelab continues [Getting Started with On-Device LLMs](/codelabs/getting-started-flutter-gemma). Its finished app **is** this one's starter, byte for byte — a CI check enforces it. If you have not done that codelab, `step_01_starter` still runs on its own; you will just be meeting the download-and-chat code for the first time.
+**Watch out:** This codelab continues [Getting Started with On-Device LLMs](/codelabs/getting-started-flutter-gemma). Its finished app **is** this one's starter, byte for byte — a CI check enforces it. If you have not done that codelab, `step_01_starter` still runs on its own; you will just be meeting the download-and-chat code for the first time.
 
 ### Get the code
 
@@ -129,8 +128,7 @@ The three fields after `text` are not decoration. Step 4 turns them into
 filters, and between them they cover every condition the API has: a **string**,
 a **number** and a **bool**.
 
-Positive
-: Only `text` is embedded. The vector is built from that string and nothing else, so anything you want the search to match on has to be *in* it — a title that lives only in a field beside it is invisible to retrieval.
+**Good to know:** Only `text` is embedded. The vector is built from that string and nothing else, so anything you want the search to match on has to be *in* it — a title that lives only in a field beside it is invisible to retrieval.
 
 ### Add the packages
 
@@ -164,8 +162,7 @@ ONNX Runtime executes it, and a BERT-family model wants WordPiece under either.
 So since `flutter_gemma` 1.9.0 the backend no longer carries one, and the app
 says which families it has.
 
-Negative
-: Leave `embeddingTokenizers` out and the first embedding throws a `StateError` naming the package to add. That is the design working: the alternative — falling back to one family and tokenizing with the wrong convention — returns vectors that are quietly the wrong point in the embedding space, and no test downstream can tell them from good ones.
+**Watch out:** Leave `embeddingTokenizers` out and the first embedding throws a `StateError` naming the package to add. That is the design working: the alternative — falling back to one family and tokenizing with the wrong convention — returns vectors that are quietly the wrong point in the embedding space, and no test downstream can tell them from good ones.
 
 ### Pick an embedding model
 
@@ -183,8 +180,7 @@ Two files, and both are required: the `.tflite` holds the weights,
 tokenizer baked into the graph — hand over only the first and the install
 fails.
 
-Positive
-: `seq256` is the **sequence length in tokens**, not the embedding dimension. The vectors are 768 long either way; 256 is how much text fits into one forward pass before it is truncated. Every recipe here is comfortably shorter.
+**Good to know:** `seq256` is the **sequence length in tokens**, not the embedding dimension. The vectors are 768 long either way; 256 is how much text fits into one forward pass before it is truncated. Every recipe here is comfortably shorter.
 
 ### Install it and embed
 
@@ -224,8 +220,7 @@ Index your corpus with the query prefix and nothing errors. The vectors simply
 land slightly off, every search afterwards is a little worse, and no exception
 will ever point at it.
 
-Negative
-: This is the one place in the codelab you have to get right by hand. From Step 3 on, `searchSimilar(query:)` embeds the query for you and uses `retrievalQuery` by default — so the two halves stay matched as long as you index with `retrievalDocument`.
+**Watch out:** This is the one place in the codelab you have to get right by hand. From Step 3 on, `searchSimilar(query:)` embeds the query for you and uses `retrievalQuery` by default — so the two halves stay matched as long as you index with `retrievalDocument`.
 
 ### Wire it into the app
 
@@ -337,8 +332,7 @@ against `VectorStoreRepository`, so swapping is one line either way.
 | Schema timing | at table creation — a new filter field means re-creating and re-indexing | at write time — declare and re-index |
 | Field names | `^[A-Za-z][A-Za-z0-9_]*$` | free-form UTF-8, no `.` |
 
-Positive
-: The precision row surprises people. qdrant's `fullScanThreshold` defaults to 10 000 points — below that it does a full scan and is exactly as precise as sqlite-vec. For a corpus that fits on a phone you are usually not choosing between exact and approximate at all; you are choosing between "runs in Chrome" and "grows better".
+**Good to know:** The precision row surprises people. qdrant's `fullScanThreshold` defaults to 10 000 points — below that it does a full scan and is exactly as precise as sqlite-vec. For a corpus that fits on a phone you are usually not choosing between exact and approximate at all; you are choosing between "runs in Chrome" and "grows better".
 
 The last row is the one that quietly decides the others: the portable set is
 sqlite's. If you might ever switch backends, stay inside it — which is why this
@@ -411,8 +405,7 @@ await FlutterGemma.rag.addDocumentWithEmbedding(
 );
 ```
 
-Positive
-: There is also `addDocument(content:)`, which embeds for you — one document per call. Fine for one, wasteful for twelve, because each call sets the embedding worker up again. `id` is what a search result hands back, so it has to stay stable across re-indexes.
+**Good to know:** There is also `addDocument(content:)`, which embeds for you — one document per call. Fine for one, wasteful for twelve, because each call sets the embedding worker up again. `id` is what a search result hands back, so it has to stay stable across re-indexes.
 
 And searching takes text, not a vector:
 
@@ -427,8 +420,7 @@ FlutterGemma.rag.searchSimilar(
 The query is embedded for you, with `retrievalQuery` — the other half of Step
 2's asymmetry, handled.
 
-Negative
-: `threshold` is not optional in spirit. Cosine similarity runs 0.0 to 1.0, and without a threshold a search always returns `topK` rows however bad they are — which reads as "found something" to every caller downstream, including the model in Step 5.
+**Watch out:** `threshold` is not optional in spirit. Cosine similarity runs 0.0 to 1.0, and without a threshold a search always returns `topK` rows however bad they are — which reads as "found something" to every caller downstream, including the model in Step 5.
 
 ### The page
 
@@ -488,8 +480,7 @@ timing is the whole point on sqlite-vec: each declared field becomes a real
 typed `vec0` column, and vec0 has no `ALTER`. Adding a filter field later means
 re-creating the table and re-indexing the corpus.
 
-Negative
-: A `Filter` over a field that was never declared is **silently dropped**. The search comes back unfiltered — no error, no log in a release build, just more results than you asked for. Declare what you might filter on, not only what you filter on today.
+**Watch out:** A `Filter` over a field that was never declared is **silently dropped**. The search comes back unfiltered — no error, no log in a release build, just more results than you asked for. Declare what you might filter on, not only what you filter on today.
 
 ### Build a filter
 
@@ -532,8 +523,7 @@ FlutterGemma.rag.searchSimilar(
 );
 ```
 
-Positive
-: The filter is applied **inside** the store, as part of the same query that ranks by distance. That is what makes it different from filtering the results afterwards: `topK` still means three, and all three cleared the predicates.
+**Good to know:** The filter is applied **inside** the store, as part of the same query that ranks by distance. That is what makes it different from filtering the results afterwards: `topK` still means three, and all three cleared the predicates.
 
 ### The controls
 
@@ -587,8 +577,7 @@ await chat.addQueryChunk(Message.text(text: prompt, isUser: true));
 The model never sees the vector store. It sees text — the retrieved recipes,
 and the question, in one turn.
 
-Positive
-: A search that returns nothing is not an error and not a reason to stop. The model still answers, from its own weights; the UI says so by showing no sources under the reply. Refusing to answer at all would be a worse app than one that is occasionally ungrounded and visibly says which.
+**Good to know:** A search that returns nothing is not an error and not a reason to stop. The model still answers, from its own weights; the UI says so by showing no sources under the reply. Refusing to answer at all would be a worse app than one that is occasionally ungrounded and visibly says which.
 
 ### Show the sources
 
@@ -645,8 +634,7 @@ Which is why `RagStore.index()` calls it unconditionally rather than behind
 `if (kIsWeb)`: it costs nothing where it is a no-op, and it is the difference
 between a saved index and a lost one everywhere else.
 
-Negative
-: `close()` persists too, but it reports differently: on qdrant-edge a failed save is only logged, while `flush()` throws it. If you want to know that the index was saved, flush.
+**Watch out:** `close()` persists too, but it reports differently: on qdrant-edge a failed save is only logged, while `flush()` throws it. If you want to know that the index was saved, flush.
 
 ### Run it offline
 

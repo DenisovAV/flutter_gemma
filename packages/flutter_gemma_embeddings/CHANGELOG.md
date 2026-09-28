@@ -1,3 +1,6 @@
+## 2.2.1
+- README: engine authors pass `activeBackend:` to `ForwardPassDescriptor`.
+
 ## 2.2.0
 - Register `GemmaEmbeddingTokenizers()` via `initialize(embeddingTokenizers:)` — engines no longer name a tokenizer.
 - The web bundle moved to `flutter_gemma_litertlm`; re-copy the four JS files from there.

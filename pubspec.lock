@@ -390,6 +390,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "6.0.0"
+  flutter_local_ai:
+    dependency: transitive
+    description:
+      name: flutter_local_ai
+      sha256: "842f769db0a56744f8642917555381ea7c00907c72dd908a7e79af0a9e551117"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.1"
   flutter_local_notifications:
     dependency: transitive
     description:

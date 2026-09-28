@@ -16,6 +16,7 @@ RuntimeConfig _config({
   PreferredBackend? preferredVisionBackend,
   PreferredBackend? preferredAudioBackend,
   int? maxNumImages,
+  ActivationDataType? activationDataType,
 }) => RuntimeConfig(
   maxTokens: 1024,
   modelPath: '/tmp/model.litertlm',
@@ -24,6 +25,7 @@ RuntimeConfig _config({
   preferredVisionBackend: preferredVisionBackend,
   preferredAudioBackend: preferredAudioBackend,
   maxNumImages: maxNumImages,
+  activationDataType: activationDataType,
 );
 
 void main() {
@@ -80,6 +82,31 @@ void main() {
           PreferredBackend.cpu,
         ).maxNumImages,
         4,
+      );
+    });
+
+    test('activationDataType is null unless the caller sets one', () {
+      // Null must reach the client as null, not as a default: the client then
+      // skips the setter and the model file's prefer_activation_type applies.
+      expect(
+        encoderInitArgs(_config(), PreferredBackend.gpu).activationDataType,
+        isNull,
+      );
+      expect(
+        encoderInitArgs(
+          _config(activationDataType: ActivationDataType.float32),
+          PreferredBackend.gpu,
+        ).activationDataType,
+        0,
+      );
+      // Sent as asked whichever backend the attempt uses, like LiteRT-LM's
+      // own EngineConfig.activationDataType.
+      expect(
+        encoderInitArgs(
+          _config(activationDataType: ActivationDataType.float16),
+          PreferredBackend.cpu,
+        ).activationDataType,
+        1,
       );
     });
   });

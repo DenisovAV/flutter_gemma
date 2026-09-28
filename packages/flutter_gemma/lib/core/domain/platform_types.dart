@@ -16,16 +16,58 @@ import 'package:meta/meta.dart' show immutable;
 /// - [cpu]: All platforms
 /// - [gpu]: All platforms (Metal on macOS, DirectX on Windows, Vulkan on Linux,
 ///   OpenCL on Android)
-/// - [npu]: With LiteRT-LM (.litertlm models) — Android (Qualcomm, MediaTek,
-///   Google Tensor) and Windows (Intel LunarLake/PantherLake)
+/// - [npu]: With LiteRT-LM (.litertlm models) — Android (Qualcomm Snapdragon
+///   only: the Android archive ships the Qualcomm QNN dispatch stack and
+///   nothing for MediaTek or Google Tensor) and Windows (Intel
+///   LunarLake/PantherLake). Asking for it elsewhere falls back rather than
+///   throwing; read `InferenceModel.activeBackend` for what actually ran.
+///   On Windows the check is per OS, not per device: a PC without an Intel
+///   NPU is still offered npu, and has been measured reporting
+///   `activeBackend == npu` while running elsewhere. There, npu is a request,
+///   not a proof.
 ///
-/// If the selected backend is unavailable, the engine falls back to GPU, then
-/// CPU.
+/// [gpu] and [npu] fall back if unavailable — GPU, then CPU. [cpu] does not
+/// fall back: it is the last resort already.
 enum PreferredBackend {
   cpu,
   gpu,
-  npu, // Android (Qualcomm/MediaTek/Tensor) + Windows (Intel LunarLake/PantherLake)
+  npu, // Android (Qualcomm only) + Windows (Intel LunarLake/PantherLake)
 }
+
+/// Numeric type of the model's activations, for native `.litertlm` models
+/// (Android, iOS, desktop).
+///
+/// Mirrors LiteRT-LM's `ActivationDataType` (Kotlin `EngineConfig`). Left
+/// unset, LiteRT-LM takes the model file's `prefer_activation_type`, else
+/// [float16] on GPU and [float32] on CPU.
+///
+/// [float32] is the fix when a GPU copies numbers wrongly from a long prompt —
+/// `2026/06/23` coming back as `20226/12/17`, the same way on every run. Gemma 4
+/// does this on Adreno (LiteRT-LM#3012) and Metal (LiteRT-LM#2814), and its
+/// published `.litertlm` files ask for fp16. [float32] makes prefill slower and
+/// takes more GPU memory; decode speed stays about the same. When the GPU
+/// engine cannot be created the model falls back to CPU without an error, so
+/// read `activeBackend` after loading rather than assuming the GPU ran.
+///
+/// LiteRT-LM's own enum also has I16 and I8, which this one leaves out. At the
+/// pinned LiteRT-LM they are not a third and fourth precision: the GPU delegate
+/// compiles at fp16 for any of them, but `use_fp16_precision` is set for
+/// FLOAT16 alone, so the attention mask keeps the fp32 fill value and the
+/// logits buffer stays fp32 — and an activation type the engine does not
+/// support fails engine init, which here is a quiet fall back to CPU rather
+/// than an error. They belong here once someone has run them on a device.
+///
+/// The CPU and NPU executors do not read the setting, and it reaches the text
+/// decoder only — the vision and audio encoders keep the model's own. MediaPipe,
+/// ONNX, built-in AI and the web engines ignore it, and so does any
+/// `flutter_gemma_litertlm` before 1.8.3.
+///
+/// On Android the GPU shares system memory, so on a 4–6 GB phone running out
+/// of it at [float32] can end the app rather than fall back to CPU. Both
+/// precisions share one compiled GPU program cache per model, so switching
+/// recompiles the GPU programs (about 600 MB for Gemma 4 E2B): pick one
+/// precision per install rather than per request.
+enum ActivationDataType { float32, float16 }
 
 /// A single retrieval hit from a vector store query.
 @immutable

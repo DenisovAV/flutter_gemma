@@ -1,3 +1,11 @@
+## 0.3.0
+- **Breaking:** a pure-Dart adapter over `flutter_local_ai` ^0.2.1; the `BuiltInAi*` API is unchanged.
+- **Breaking:** no longer a plugin; re-lock `Podfile.lock`, and macOS apps need a 12.0 target.
+- **Breaking:** requires Flutter 3.44 / Dart 3.12; `pigeon.g.dart` is gone.
+- Windows support through Windows AI Foundry (Phi Silica).
+- `supportImage: true` where there is no vision fails at model creation.
+- `localAiModel` / `localAiSession` expose native tools and structured output (`@experimental`).
+
 ## 0.2.2
 - Windows/Linux: `availability()` reports `unavailableDeviceUnsupported` instead of throwing.
 

@@ -5,6 +5,7 @@ import 'package:flutter_gemma/core/model.dart';
 import 'package:flutter_gemma/core/model_management/model_specs.dart'
     show InferenceModelSpec;
 import 'package:flutter_gemma/core/registry/runtime_config.dart';
+import 'package:flutter_gemma/core/domain/platform_types.dart';
 import 'package:flutter_gemma_onnx/src/onnx_engine.dart';
 import 'package:flutter_gemma_onnx/src/onnx_inference_model.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -139,6 +140,38 @@ void main() {
       expect(model, isA<OnnxInferenceModel>());
       expect(model.fileType, ModelFileType.onnx);
       expect(model.maxTokens, 1024);
+    });
+
+    test('activeBackend is null even when a backend was requested', () async {
+      final client = FakeGenAiClient();
+      final engine = OnnxEngine(clientFactory: () => client);
+      File(
+        '${tempDir.path}/genai_config.json',
+      ).writeAsStringSync('{"model": {}}');
+      final modelFile = File('${tempDir.path}/model.onnx')
+        ..writeAsStringSync('not a real model');
+
+      final model = await engine.createModel(
+        _spec(ModelFileType.onnx),
+        RuntimeConfig(
+          maxTokens: 1024,
+          modelPath: modelFile.path,
+          // The discriminating input: echoing the request would answer `gpu`.
+          preferredBackend: PreferredBackend.gpu,
+        ),
+      );
+
+      expect(
+        model.activeBackend,
+        isNull,
+        reason:
+            'activeBackend must "reflect any fallback the plugin performed", '
+            'and neither ONNX client appends an execution provider — so GPU '
+            'came back as GPU while the session ran on ORT default CPU. Null '
+            'is the contract\'s answer for a runtime that exposes no final '
+            'backend; CPU would be a second guess, since ORT-GenAI picks the '
+            'provider from genai_config.json, which we never read.',
+      );
     });
   });
 }

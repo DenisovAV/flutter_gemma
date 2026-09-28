@@ -174,7 +174,7 @@ class _NativeBundle {
 /// Android: `-Wl,-z,max-page-size=16384` (Google Play 16KB).
 const _litertlmBundle = _NativeBundle(
   namespace: 'litertlm',
-  version: '0.17.1',
+  version: '0.17.1-a',
   releaseTagPrefix: 'native-v',
   archivePrefix: 'litertlm',
   mainLibName: 'LiteRtLm',
@@ -202,6 +202,13 @@ const _litertlmBundle = _NativeBundle(
   // them in every consumer APK, and Google Play rejects the app for it (#529).
   // build_qualcomm_dispatch.sh does the bump; verify_tarball_manifest.sh
   // refuses to publish an Android archive that still has one below 16 KB.
+  //
+  // 0.17.1-a changes two Android files and nothing else: upstream's OpenCL and
+  // GPU accelerators import AHardwareBuffer_* weakly without libandroid.so in
+  // DT_NEEDED, bionic binds them to NULL, and Mali GPUs crash at engine_create
+  // (#545). build_android.sh step 8c adds the NEEDED entry and step 8d refuses a
+  // library whose imports its own NEEDED chain cannot reach. The other six
+  // archives are byte-identical to native-v0.17.1.
   // These sums must equal both the bytes GitHub
   // serves and the `checksums_litertlm.txt` published on the release — a stale
   // txt sent a user down the wrong path while debugging a mismatch (#316).
@@ -219,7 +226,7 @@ const _litertlmBundle = _NativeBundle(
     'litertlm-ios_sim_arm64.tar.gz':
         'a95766deae012c8441ef1e1d2e2501d3db3bbbde6b014cceccc5cde98bb94836',
     'litertlm-android_arm64.tar.gz':
-        '13fb9fa4ffca63cc60d09d204053ed86468b049b858c9bc9cd34a4c1e0bd382b',
+        '745b89b606eb712a78f06aed41daca1370eae79b00e0a36054c8e775c0251768',
   },
   companions: [
     'GemmaModelConstraintProvider',

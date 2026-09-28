@@ -1,3 +1,16 @@
+## 1.8.4
+- Web reports the accelerator embeddings ran on, and whether it was fully accelerated.
+- `activeBackend` no longer claims NPU on macOS, Linux, iOS or non-Qualcomm Android.
+
+## 1.8.3
+- Apply `activationDataType` to the engine; `float32` fixes wrong digits on some GPUs.
+
+## 1.8.2
+- The Android GPU backend no longer crashes on Mali GPUs (#545).
+
+## 1.8.1
+- A chat stopped mid-reply answered every later message with nothing (#325).
+
 ## 1.8.0
 - Google Play no longer rejects apps over 16 KB page sizes (#529).
 - Native runtime LiteRT-LM v0.17.1: integer tool-call arguments stay integers.

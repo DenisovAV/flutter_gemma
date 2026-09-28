@@ -10,7 +10,7 @@ no engine by default — you opt in by registering `LiteRtLmEngine()`.) It runs
 JVM, no gRPC — and it is the **primary desktop engine** (macOS, Windows, Linux);
 [ONNX Runtime](/docs/onnx) also runs on desktop, and macOS can additionally use
 [Built-in AI](/docs/builtin-ai). The native library is fetched at build time via
-**Native Assets** (SHA256-verified, from the `native-v0.17.1` GitHub release), so
+**Native Assets** (SHA256-verified, from the `native-v0.17.1-a` GitHub release), so
 there's no manual native setup.
 
 The same package also ships **`LiteRtEmbeddingBackend`**, the LiteRT C API
@@ -102,6 +102,18 @@ decode runs *below* it, 21.8 against 27.8 tok/s
 That is one device and one bundle, not a rule — but if your app is dominated by
 long replies rather than long prompts, measure both before assuming.
 
+The GPU runs the model at half precision unless you ask otherwise, and the
+published Gemma 4 files ask for it. From about 2,000 prompt tokens, Gemma 4 then
+copies digits wrongly on some GPUs (seen on Adreno and Metal). `activationDataType: ActivationDataType.float32` on
+`getActiveModel` fixes it at the cost of a slower prefill; left unset, the model
+file decides. It applies to the text decoder of `.litertlm` models on Android,
+iOS and desktop — not on web, and not to the vision or audio encoders, which
+keep what the model file asks for. `float32` also needs more GPU memory, and a
+GPU engine that cannot be created falls back to CPU silently, so read
+`model.activeBackend` afterwards. It needs `flutter_gemma_litertlm` 1.8.3 or
+later; older versions ignore it. See [Troubleshooting → Wrong numbers on
+GPU](/docs/troubleshooting#wrong-numbers-on-gpu).
+
 Windows NPU ships the Intel dispatch stack — `LiteRtDispatch.dll` + the OpenVino
 runtime + TBB — inside the Windows native archive. Android bundles the Qualcomm
 QNN dispatch stack. No extra downloads for either NPU path.
@@ -130,7 +142,13 @@ so pass the `cache_length` the bundle was compiled for. Note that requesting
 `PreferredBackend.npu` does not guarantee the NPU runs: if it fails to
 initialize, the engine falls back to GPU and then CPU, and the floor applies
 again to those attempts — so a value chosen for an NPU bundle is raised to 1024
-on the fallback rather than crashing it.
+on the fallback rather than crashing it. The NPU candidate is attempted only on
+Windows and on Android phones with Qualcomm FastRPC; on other Android phones,
+macOS, Linux and iOS it is skipped, because nothing there can run it — and on
+macOS the native runtime was measured accepting `npu` anyway, which made
+`activeBackend` report an NPU that does not exist on the machine. On Windows
+the check is per OS, so a PC without an Intel NPU still attempts it, and
+`activeBackend` can then report `npu` while the model runs elsewhere.
 </Warning>
 
 ## `maxTokens` is the CONTEXT window, not the reply length

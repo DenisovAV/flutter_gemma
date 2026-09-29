@@ -30,10 +30,13 @@ To move:
 2. Replace `package:flutter_gemma` with `package:flutter_edge_ai` in your
    imports — the same for every other package in the table. A project-wide
    search and replace does it.
-3. Run `dart fix --apply`. It renames `FlutterGemma`, `FlutterGemmaPlugin`,
-   `FlutterGemmaDesktop`, `GemmaLogLevel`, `FlutterGemmaDiagnostics` and the
-   genkit names to their new spellings. Until you run it they still compile as
-   deprecated aliases, up to `flutter_edge_ai` 2.0.0.
+3. Run `dart fix --apply` (Flutter 3.44 or newer). It renames `FlutterGemma`,
+   `FlutterGemmaPlugin`, `FlutterGemmaDesktop`, `GemmaLogLevel`,
+   `FlutterGemmaDiagnostics` and the genkit names to their new spellings. Until
+   you run it they still compile as deprecated aliases — the core ones up to
+   `flutter_edge_ai` 2.0.0, `FlutterGemmaDiagnostics` up to
+   `flutter_edge_ai_diagnostics` 0.2.0, the genkit ones up to
+   `genkit_flutter_edge_ai` 0.7.0.
 
 If you installed the agent skills, run `dart run skills@ get --all` again
 and delete the old `flutter-gemma-*` skill directories: they still teach the

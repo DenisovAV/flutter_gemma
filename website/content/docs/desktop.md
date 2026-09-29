@@ -14,7 +14,7 @@ only one. **`flutter_edge_ai_onnx`** ([ONNX Runtime](/docs/onnx) — ORT-GenAI
 generation + ORT embeddings) also runs on all three desktop OSes
 (macOS/Windows/Linux), and the OS built-in model is available through
 **`flutter_edge_ai_builtin_ai`** ([Built-in AI](/docs/builtin-ai)) on **macOS**
-(Apple Foundation Models) and, since `flutter_gemma_builtin_ai` 0.3.0, on **Windows** (AI Foundry / Phi
+(Apple Foundation Models) and, since 0.3.0, on **Windows** (AI Foundry / Phi
 Silica — opt-in: the host app supplies the Windows App SDK 2.0+ projections and
 runtime bootstrap, and the default build reports the backend as unavailable).
 Linux has no OS built-in model. What holds across all of desktop is the narrower

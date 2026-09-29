@@ -859,7 +859,7 @@ core. That is why they are all there rather than in the packages they describe.
 
 ### 12c. Deploy — it's automatic on merge to main
 
-**You do NOT run a manual deploy.** `.github/workflows/firebase-hosting-merge.yml` auto-deploys to Firebase Hosting (`aichat-c0c27`, target `fluttergemma`, https://flutteredge.ai → live channel) on every push to `main` that touches `website/**` or `packages/flutter_edge_ai/example/**`. So:
+**You do NOT run a manual deploy.** `.github/workflows/firebase-hosting-merge.yml` auto-deploys to Firebase Hosting (`aichat-c0c27`, target `flutteredgeai` → site `flutteredge-ai`, https://flutteredge.ai → live channel) on every push to `main` that touches `website/**` or `packages/flutter_edge_ai/example/**`. So:
 
 0. **PRE-MERGE (do this on the branch, before merging):** build the Jaspr SSG
    locally to catch a build-time crash BEFORE it takes down the live deploy. The

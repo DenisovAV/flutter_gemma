@@ -6,6 +6,11 @@ Genkit Dart plugin for [flutter_edge_ai](https://pub.dev/packages/flutter_edge_a
   <img src="https://raw.githubusercontent.com/DenisovAV/flutter_gemma/main/packages/genkit_flutter_edge_ai/assets/cover.jpeg" alt="genkit_flutter_edge_ai_cover">
 </p>
 
+> **Renamed from `genkit_flutter_gemma`.** Model and embedder ids are now
+> `flutter-edge-ai/<name>` (they were `flutter-gemma/<name>`); `flutterEdgeAi.model(...)`
+> builds them for you. The old Dart names still compile as deprecated aliases, and
+> `dart fix --apply` renames them.
+
 ## Features
 
 - Wraps `flutter_edge_ai` as a Genkit model provider

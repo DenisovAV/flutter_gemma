@@ -71,4 +71,4 @@ fi
 echo "==> Deploying to Firebase Hosting ($TARGET)…"
 firebase deploy --only "hosting:$TARGET" --project "$PROJECT"
 
-echo "==> Done. https://fluttergemma.web.app  (demo at /try, codelabs at /codelabs)"
+echo "==> Done. https://flutteredge.ai (https://flutteredge-ai.web.app)  (demo at /try, codelabs at /codelabs)"

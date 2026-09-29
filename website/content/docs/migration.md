@@ -34,10 +34,13 @@ To move:
 2. Replace `package:flutter_gemma` with `package:flutter_edge_ai` in your
    imports — the same for every other package in the table. A project-wide
    search and replace does it.
-3. Run `dart fix --apply`. It renames `FlutterGemma`, `FlutterGemmaPlugin`,
-   `FlutterGemmaDesktop`, `GemmaLogLevel`, `FlutterGemmaDiagnostics` and the
-   genkit names to their new spellings. Until you run it they still compile as
-   deprecated aliases, up to `flutter_edge_ai` 2.0.0.
+3. Run `dart fix --apply` (Flutter 3.44 or newer). It renames `FlutterGemma`,
+   `FlutterGemmaPlugin`, `FlutterGemmaDesktop`, `GemmaLogLevel`,
+   `FlutterGemmaDiagnostics` and the genkit names to their new spellings. Until
+   you run it they still compile as deprecated aliases — the core ones up to
+   `flutter_edge_ai` 2.0.0, `FlutterGemmaDiagnostics` up to
+   `flutter_edge_ai_diagnostics` 0.2.0, the genkit ones up to
+   `genkit_flutter_edge_ai` 0.7.0.
 
 If you installed the agent skills, run `dart run skills@ get --all` again
 and delete the old `flutter-gemma-*` skill directories: they still teach the
@@ -165,10 +168,11 @@ longer import a backend class from it. If you'd rather run embeddings over an
 ONNX/ORT model instead, `flutter_edge_ai_onnx`'s `OnnxEmbeddingBackend` is a
 drop-in alternative — see [Packages](/docs/packages#onnx-runtime-engine).
 
-## Breaking: flutter_gemma_builtin_ai 0.3.0 — the native layer moved to `flutter_local_ai`
+## Breaking: builtin_ai 0.3.0 — the native layer moved to `flutter_local_ai`
 
 <Warning>
-`flutter_gemma_builtin_ai` **0.3.0** is no longer a Flutter plugin. It ships no
+`flutter_edge_ai_builtin_ai` **0.3.0** (and `flutter_gemma_builtin_ai` 0.3.0 before
+it) is no longer a Flutter plugin. It ships no
 Kotlin/Swift/C++ and no pigeon; every OS backend now comes from
 [`flutter_local_ai`](https://pub.dev/packages/flutter_local_ai), which it depends
 on. **No Dart code changes** — `BuiltInAi`, `BuiltInAiEngine`,

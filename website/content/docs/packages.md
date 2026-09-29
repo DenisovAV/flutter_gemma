@@ -25,6 +25,7 @@ it, and your app wires the two together in `FlutterGemma.initialize(...)`.
 | **`flutter_gemma_rag_sqlite`** | On-device RAG vector store — in-SQLite KNN via the `sqlite-vec` (`vec0`) extension. Exact + portable. | All (incl. Web) |
 | **`flutter_gemma_agent`** | On-device [agent skills](/docs/agent) — SKILL.md catalog + tool-calling loop (text / JS / native-intent / MCP). | Native, no Web (JS skills: no Linux) |
 | **`flutter_gemma_speech`** | On-device [speech](/docs/speech) — speech-to-text + text-to-speech + a `VoiceSession` voice loop (moonshine/Whisper/Parakeet STT + Matcha/Qwen3/Inflect TTS) via the LiteRT C API + `dart:ffi`. | Native (no Web) |
+| **`flutter_gemma_diagnostics`** | [Memory diagnostics](/docs/diagnostics) — the anonymous footprint (the memory the OS cannot reclaim) and the memory still available, read from the OS. No native code, no dependency on core. | Android + iOS |
 
 ## How it works
 
@@ -59,6 +60,7 @@ it, and your app wires the two together in `FlutterGemma.initialize(...)`.
 | On-device RAG on web, or a portable/exact store on any platform | `flutter_gemma_rag_sqlite` |
 | On-device agent skills the model runs itself (text / JS / native-intent / MCP) | `flutter_gemma_agent` |
 | Transcribe audio, synthesize speech, or run a voice loop on-device (STT + TTS + voice) | `flutter_gemma_speech` |
+| Measure what a model costs in memory the OS cannot reclaim (Android + iOS) | `flutter_gemma_diagnostics` |
 
 <Info>
 Desktop is served **primarily** by [`flutter_gemma_litertlm`](/docs/litertlm)

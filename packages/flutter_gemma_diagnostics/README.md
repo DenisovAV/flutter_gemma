@@ -2,13 +2,17 @@
 
 Opt-in memory diagnostics for [flutter_gemma](https://pub.dev/packages/flutter_gemma) apps, read from the OS on Android and iOS.
 
-## Why not RSS?
+## Why not the memory number your profiler shows?
 
-RSS mixes two kinds of memory that the OS treats very differently.
+The first "memory used" number people reach for is usually **RSS**, the *resident set size* — the `RES` column in `top`, `ps -o rss`: every page of the app that is sitting in physical RAM right now. For a model it answers the wrong question, because it adds together two kinds of memory that the OS treats in opposite ways. (Xcode's memory gauge is the exception: on iOS it already shows the footprint this package reports.)
 
-Weights read from an mmapped model file are clean file pages: the OS can drop them and read them back, so they cost the app little. The same weights copied into the heap are anonymous memory the OS cannot reclaim. Both look roughly the same in RSS. On iOS, only the second counts against the jetsam limit that kills the app.
+**File-backed pages the OS can take back.** LiteRT-LM maps a `.litertlm` file into memory (`mmap`) instead of reading it into a buffer. Pages of the weights the model has touched count in RSS, but they are still just a view of the file on disk: when memory gets tight the OS drops them and reads them again later. They cost the app little, and nothing is killed for holding them.
 
-So this package reports the anonymous footprint and the memory still available, separately.
+**Anonymous memory the OS cannot take back.** Everything the app built itself and that exists nowhere else: the heap, a copy of the weights in a buffer or on the GPU, the KV cache, activations. There is no file to reload it from, so the OS can only reclaim it by killing the app.
+
+In RSS the two look the same. A model mapped from its file can show a large RSS and be cheap; the same weights copied into memory show a similar RSS and are expensive. On iOS the difference decides the outcome: jetsam kills the app on its anonymous footprint, not on RSS.
+
+So this package does not report RSS. It reports `anonymousBytes`, the memory the OS cannot take back, and `availableBytes`, how much is still available before the OS acts. To know what a model costs, take `anonymousBytes` before and after loading it and subtract.
 
 ## Usage
 
@@ -46,7 +50,7 @@ The platforms enforce memory differently, and the numbers reflect it:
 ## Null versus an exception
 
 - **A null field** means the value does not exist on this platform or OS version:
-  - `anonymousBytes` on Android kernels older than 4.14, which have no `smaps_rollup`;
+  - `anonymousBytes` on an Android kernel without `/proc/self/smaps_rollup` (mainline Linux added it in 4.14);
   - `availableBytes` on iOS when the call returns 0. Apple returns 0 both when no limit applies (the simulator) and when the limit is already exceeded, and the two cannot be told apart.
 - **`MemoryReadException`** means the value should exist and the read failed: a kernel error, a permission or I/O error, or a file that lacks a field it always carries.
 - **`UnsupportedError`** is thrown by `memorySnapshot()` off Android and iOS, rather than returning empty values.
@@ -59,6 +63,14 @@ Verified by writing 256 MiB and checking that `anonymousBytes` moves by that amo
 
 - Android: vivo 1933 (Android 11), Pixel 8a (Android 15) and Galaxy A34 (Android 16);
 - iOS: iPhone 17 Pro simulator (iOS 26.5).
+
+## Teach your AI assistant this package
+
+```bash
+dart run skills@ get --all
+```
+
+Installs the agent skills `flutter_gemma` bundles — this package does not depend on `flutter_gemma`, so they come with it only when your app depends on `flutter_gemma` too. One of them, `flutter-gemma-diagnostics`, covers what each field means per platform, null versus `MemoryReadException`, and how to measure what a model costs.
 
 ## Roadmap
 

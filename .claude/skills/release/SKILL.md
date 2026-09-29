@@ -764,7 +764,7 @@ The site hardcodes `^X.Y.Z` in pubspec snippets across the docs — these MUST m
 cd website
 grep -rnE "flutter_gemma[a-z_]*: *\^?[0-9]+\.[0-9]+\.[0-9]+" content/
 ```
-Update each `^X.Y.Z` for EVERY package the site pins — `flutter_gemma`, `flutter_gemma_litertlm`, `flutter_gemma_mediapipe`, `flutter_gemma_embeddings`, `flutter_gemma_rag_qdrant`, `flutter_gemma_rag_sqlite`, `flutter_gemma_speech`, `flutter_gemma_agent`, `flutter_gemma_onnx`, `flutter_gemma_builtin_ai` — AND the Genkit integration packages (`genkit_flutter_gemma`, `genkit_hybrid`) to the just-published versions. Common spots: `installation.md`, `getting-started.md`, `migration.md`, `packages.md`, `genkit.md`. Cross-check against pub.dev so the site never lags the published packages.
+Update each `^X.Y.Z` for EVERY package the site pins — `flutter_gemma`, `flutter_gemma_litertlm`, `flutter_gemma_mediapipe`, `flutter_gemma_embeddings`, `flutter_gemma_rag_qdrant`, `flutter_gemma_rag_sqlite`, `flutter_gemma_speech`, `flutter_gemma_agent`, `flutter_gemma_onnx`, `flutter_gemma_builtin_ai`, `flutter_gemma_diagnostics` — AND the Genkit integration packages (`genkit_flutter_gemma`, `genkit_hybrid`) to the just-published versions. Common spots: `installation.md`, `getting-started.md`, `migration.md`, `packages.md`, `genkit.md`. Cross-check against pub.dev so the site never lags the published packages.
 
 ### 12b. Update docs for any behavior/API change
 - **New / changed public API** → the topic doc that covers it (e.g. a new `createSession` param → `getting-started.md`; multimodal → `multimodal.md`; models → `models.md`).

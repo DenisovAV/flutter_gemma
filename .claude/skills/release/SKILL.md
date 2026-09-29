@@ -764,7 +764,7 @@ The site hardcodes `^X.Y.Z` in pubspec snippets across the docs — these MUST m
 cd website
 grep -rnE "flutter_edge_ai[a-z_]*: *\^?[0-9]+\.[0-9]+\.[0-9]+" content/
 ```
-Update each `^X.Y.Z` for EVERY package the site pins — `flutter_edge_ai`, `flutter_edge_ai_litertlm`, `flutter_edge_ai_mediapipe`, `flutter_edge_ai_embeddings`, `flutter_edge_ai_qdrant`, `flutter_edge_ai_sqlite`, `flutter_edge_ai_speech`, `flutter_edge_ai_agent`, `flutter_edge_ai_onnx`, `flutter_edge_ai_builtin_ai` — AND the Genkit integration packages (`genkit_flutter_edge_ai`, `genkit_hybrid`) to the just-published versions. Common spots: `installation.md`, `getting-started.md`, `migration.md`, `packages.md`, `genkit.md`. Cross-check against pub.dev so the site never lags the published packages.
+Update each `^X.Y.Z` for EVERY package the site pins — `flutter_edge_ai`, `flutter_edge_ai_litertlm`, `flutter_edge_ai_mediapipe`, `flutter_edge_ai_embeddings`, `flutter_edge_ai_qdrant`, `flutter_edge_ai_sqlite`, `flutter_edge_ai_speech`, `flutter_edge_ai_agent`, `flutter_edge_ai_onnx`, `flutter_edge_ai_builtin_ai`, `flutter_edge_ai_diagnostics` — AND the Genkit integration packages (`genkit_flutter_edge_ai`, `genkit_hybrid`) to the just-published versions. Common spots: `installation.md`, `getting-started.md`, `migration.md`, `packages.md`, `genkit.md`. Cross-check against pub.dev so the site never lags the published packages.
 
 ### 12b. Update docs for any behavior/API change
 - **New / changed public API** → the topic doc that covers it (e.g. a new `createSession` param → `getting-started.md`; multimodal → `multimodal.md`; models → `models.md`).
@@ -794,6 +794,7 @@ Map the change to the skill that covers it:
 | the OS built-in model | `flutter-edge-ai-builtin-ai` |
 | STT, TTS, `VoiceSession` | `flutter-edge-ai-speech` |
 | embeddings, vector stores | `flutter-edge-ai-rag` |
+| `MemorySnapshot`, memory diagnostics | `flutter-edge-ai-diagnostics` |
 
 **Do not go looking by hand.** Ask the diff which skills it puts in doubt:
 

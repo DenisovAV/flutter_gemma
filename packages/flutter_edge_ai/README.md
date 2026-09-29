@@ -72,7 +72,7 @@ What they cover: registering an engine (core ships none), routing by the declare
 
 - **flutter_gemma is now flutter_edge_ai.** Every package has a new name; models, stores and platform setup carry over unchanged, and the old Dart names still compile as deprecated aliases. See [MIGRATION.md](MIGRATION.md#flutter_gemma--flutter_edge_ai-1120).
 
-Releases up to 1.11.2 shipped as `flutter_gemma`.
+Releases up to 1.11.3 shipped as `flutter_gemma`.
 
 ## What's new in 1.9.0
 
@@ -226,6 +226,9 @@ model formats and features you need.
 
       # Optional — on-device speech (STT + TTS + voice loop):
       flutter_edge_ai_speech: latest_version       # speech: STT + TTS + push-to-talk voice loop (native only)
+
+      # Optional — memory diagnostics (Android + iOS):
+      flutter_edge_ai_diagnostics: latest_version  # what a model costs in memory the OS cannot reclaim, read from the OS
     ```
 
     **Pick by need:**
@@ -241,6 +244,7 @@ model formats and features you need.
     | On-device RAG on any platform incl. web (portable `sqlite-vec`) | `flutter_edge_ai_sqlite` |
     | On-device agent skills (SKILL.md + tool-calling loop) | `flutter_edge_ai_agent` |
     | Transcribe audio, synthesize speech, or run a voice loop on-device (STT + TTS + voice) | `flutter_edge_ai_speech` |
+    | Measure what a model costs in memory the OS cannot reclaim (Android + iOS) | `flutter_edge_ai_diagnostics` |
 
     Core registers **no** engine by itself — you wire the packages you added in
     `await FlutterEdgeAi.initialize(...)` (see [Initialize Flutter Edge AI](#initialize-flutter-edge-ai)).

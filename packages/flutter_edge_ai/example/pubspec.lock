@@ -256,6 +256,13 @@ packages:
       relative: true
     source: path
     version: "0.4.0"
+  flutter_edge_ai_diagnostics:
+    dependency: "direct dev"
+    description:
+      path: "../../flutter_edge_ai_diagnostics"
+      relative: true
+    source: path
+    version: "0.2.0"
   flutter_edge_ai_embeddings:
     dependency: "direct main"
     description:

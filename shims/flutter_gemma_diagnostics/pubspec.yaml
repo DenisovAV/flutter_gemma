@@ -1,0 +1,21 @@
+name: flutter_gemma_diagnostics
+description: "Renamed to flutter_edge_ai_diagnostics. This final release re-exports flutter_edge_ai_diagnostics, so existing imports keep compiling with a deprecation warning."
+version: 0.2.0
+homepage: https://flutteredge.ai
+repository: https://github.com/DenisovAV/flutter_gemma/tree/main/shims/flutter_gemma_diagnostics
+issue_tracker: https://github.com/DenisovAV/flutter_gemma/issues
+
+platforms:
+  android:
+  ios:
+
+resolution: workspace
+
+environment:
+  sdk: '>=3.12.0 <4.0.0'
+  flutter: '>=3.44.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_edge_ai_diagnostics: ^0.2.0

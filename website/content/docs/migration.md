@@ -21,6 +21,7 @@ code, the platforms and the on-device data are the same.
 | `flutter_gemma_agent` | `flutter_edge_ai_agent` 0.3.0 |
 | `flutter_gemma_builtin_ai` | `flutter_edge_ai_builtin_ai` 0.4.0 |
 | `flutter_gemma_onnx` | `flutter_edge_ai_onnx` 0.6.0 |
+| `flutter_gemma_diagnostics` | `flutter_edge_ai_diagnostics` 0.2.0 |
 | `genkit_flutter_gemma` | `genkit_flutter_edge_ai` 0.7.0 |
 
 The quickest way is `dart fix`:
@@ -37,7 +38,8 @@ The quickest way is `dart fix`:
 By hand, it is the same three changes: the dependencies, `package:flutter_gemma`
 → `package:flutter_edge_ai` in imports (the same for every other package in the
 table), and `FlutterGemma` → `FlutterEdgeAi`. The old names (`FlutterGemma`,
-`FlutterGemmaPlugin`, `FlutterGemmaDesktop`, `GemmaLogLevel`) still compile as
+`FlutterGemmaPlugin`, `FlutterGemmaDesktop`, `GemmaLogLevel`,
+`FlutterGemmaDiagnostics`) still compile as
 deprecated aliases until `flutter_edge_ai` 2.0.0.
 
 If you installed the agent skills, run `dart run skills@ get --all` again
@@ -76,7 +78,8 @@ resolve:
 `flutter_gemma_rag_sqlite` and `flutter_gemma_rag_qdrant` to `^2.0.0`,
 `flutter_gemma_embeddings` to `^3.0.0`, `flutter_gemma_speech` and
 `flutter_gemma_onnx` to `^0.6.0`, `flutter_gemma_agent` to `^0.3.0`,
-`flutter_gemma_builtin_ai` to `^0.4.0`, `genkit_flutter_gemma` to `^0.7.0`.
+`flutter_gemma_builtin_ai` and `flutter_gemma_diagnostics` to `^0.4.0` and
+`^0.2.0`, `genkit_flutter_gemma` to `^0.7.0`.
 Only each package's main import keeps working that way
 (`package:flutter_gemma/flutter_gemma.dart`); an import of a file inside a
 package needs the new name.

@@ -81,6 +81,7 @@ on its own; there is no command to remember.
 | `flutter-edge-ai-mediapipe` | `.task` and `.bin` models on Android, iOS and web |
 | `flutter-edge-ai-onnx` | ORT-GenAI generation and ONNX embeddings, native and through Transformers.js |
 | `flutter-edge-ai-builtin-ai` | Gemini Nano on Android and in desktop Chrome, Phi-4-mini in Edge, Apple Foundation Models on iPhone, iPad and Mac; availability, falling back to a downloaded model |
+| `flutter-edge-ai-diagnostics` | measuring what a model costs in memory with `flutter_edge_ai_diagnostics`: what the OS kills on per platform, null versus `MemoryReadException` |
 
 ## What they prevent
 

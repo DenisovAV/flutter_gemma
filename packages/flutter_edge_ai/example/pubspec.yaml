@@ -108,6 +108,9 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   path: ^1.9.0
+  # Used only by integration_test/diagnostics_memory_test.dart.
+  flutter_edge_ai_diagnostics:
+    path: ../../flutter_edge_ai_diagnostics
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is

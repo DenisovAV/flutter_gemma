@@ -1,0 +1,10 @@
+# Data-driven fixes for `dart fix` (https://dart.dev/go/data-driven-fixes):
+# `dart fix --apply` moves imports of this renamed package to its successor.
+version: 1
+transforms:
+  - title: "Migrate from flutter_gemma_diagnostics to flutter_edge_ai_diagnostics"
+    date: 2026-09-29
+    library: 'package:flutter_gemma_diagnostics/flutter_gemma_diagnostics.dart'
+    changes:
+      - kind: 'replacedBy'
+        newLibrary: 'package:flutter_edge_ai_diagnostics/flutter_edge_ai_diagnostics.dart'

@@ -20,15 +20,17 @@ import 'package:flutter_gemma/core/domain/platform_types.dart';
 
 /// Whether the native SDK tool path must be rejected on this host.
 ///
-/// The Linux x86_64 `native-v0.17.x` bundle can abort in
+/// The Linux `native-v0.17.x` bundle can abort in
 /// `libGemmaModelConstraintProvider.so` as soon as constrained decoding starts
-/// (#551). Keep the platform check separate from the format check so the
-/// safety boundary can be unit-tested without loading native libraries.
+/// (#551). The x86_64 crash is confirmed and arm64 has the same unverified
+/// provider/runtime C++ ABI mismatch until the native workflow proves a
+/// matched build. Keep the platform check separate from the format check so
+/// the safety boundary can be unit-tested without loading native libraries.
 @visibleForTesting
-bool isLinuxX64NativeToolsBlocked({
-  required bool isLinuxX64,
+bool isLinuxNativeToolsBlocked({
+  required bool isLinux,
   required bool nativeTools,
-}) => isLinuxX64 && nativeTools;
+}) => isLinux && nativeTools;
 
 /// FFI implementation of InferenceModel using dart:ffi → LiteRT-LM C API.
 /// Shared between desktop and mobile (iOS) for .litertlm models.
@@ -79,17 +81,19 @@ class FfiInferenceModel extends InferenceModel with CloseNotifier {
     final nativeTools =
         tools.isNotEmpty &&
         FunctionCallParser.usesSdkPassthrough(modelType, fileType: fileType);
-    final isLinuxX64 = Platform.isLinux && Abi.current() == Abi.linuxX64;
-    if (isLinuxX64NativeToolsBlocked(
-      isLinuxX64: isLinuxX64,
+    final abi = Abi.current();
+    final isLinux =
+        Platform.isLinux && (abi == Abi.linuxX64 || abi == Abi.linuxArm64);
+    if (isLinuxNativeToolsBlocked(
+      isLinux: isLinux,
       nativeTools: nativeTools,
     )) {
       throw UnsupportedError(
-        'Native LiteRT-LM tool calling is unavailable on Linux x86_64 with '
-        'the current native bundle. The constrained-decoding companion can '
-        'abort the process before Dart receives an exception (#551). Use a '
-        'non-native tool-call format supported by the model, another supported '
-        'platform, or a native bundle rebuilt with matching C++ '
+        'Native LiteRT-LM tool calling is unavailable on Linux x86_64/arm64 '
+        'with the current native bundle. The constrained-decoding companion '
+        'can abort the process before Dart receives an exception (#551). Use '
+        'a non-native tool-call format supported by the model, another '
+        'supported platform, or a native bundle rebuilt with matching C++ '
         'runtime/constraint-provider ABIs.',
       );
     }

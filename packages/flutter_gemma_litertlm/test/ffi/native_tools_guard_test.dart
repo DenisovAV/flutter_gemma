@@ -2,24 +2,31 @@ import 'package:flutter_gemma_litertlm/src/ffi/ffi_inference_model.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  group('isLinuxX64NativeToolsBlocked', () {
+  group('isLinuxNativeToolsBlocked', () {
     test('blocks native tools on Linux x86_64', () {
       expect(
-        isLinuxX64NativeToolsBlocked(isLinuxX64: true, nativeTools: true),
+        isLinuxNativeToolsBlocked(isLinux: true, nativeTools: true),
         isTrue,
       );
     });
 
-    test('allows text-format tools on Linux x86_64', () {
+    test('blocks native tools on Linux arm64', () {
       expect(
-        isLinuxX64NativeToolsBlocked(isLinuxX64: true, nativeTools: false),
+        isLinuxNativeToolsBlocked(isLinux: true, nativeTools: true),
+        isTrue,
+      );
+    });
+
+    test('allows text-format tools on Linux', () {
+      expect(
+        isLinuxNativeToolsBlocked(isLinux: true, nativeTools: false),
         isFalse,
       );
     });
 
     test('allows native tools on other platforms', () {
       expect(
-        isLinuxX64NativeToolsBlocked(isLinuxX64: false, nativeTools: true),
+        isLinuxNativeToolsBlocked(isLinux: false, nativeTools: true),
         isFalse,
       );
     });

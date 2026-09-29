@@ -1,3 +1,7 @@
+## Unreleased
+- Linux arm64 native tool calls now fail closed until the runtime and constraint provider are verified against the same C++ ABI.
+- The native build workflow uses the matching hermetic arm64 toolchain and checks the shipped runtime/provider ABI.
+
 ## 1.8.5
 - Web setup pins `@litert-lm/core` 0.17.1.
 

@@ -285,20 +285,23 @@ Android binds the call to address 0. Only Mali takes that path.
 Fix: upgrade to 1.8.2 (`native-v0.17.1-a`). No app change is needed. See
 [#545](https://github.com/DenisovAV/flutter_gemma/issues/545).
 
-### Linux x86_64 native tool calling can abort the process
+### Linux native tool calling can abort the process
 
-With the current `native-v0.17.x` Linux x86_64 bundle, FunctionGemma or Gemma
-4 native tool calling can terminate the process in
+With the current `native-v0.17.x` Linux bundle, FunctionGemma or Gemma 4 native
+tool calling can terminate the process in
 `libGemmaModelConstraintProvider.so` before Dart receives an exception. Text
-generation without native tools is unaffected. See
+generation without native tools is unaffected. The x86_64 crash is confirmed;
+the arm64 runtime/provider pair has the same ABI mismatch risk until the native
+workflow verifies a matched build. See
 [#551](https://github.com/DenisovAV/flutter_gemma/issues/551).
 
 The FFI engine now rejects this combination with an `UnsupportedError` before
 creating a native conversation. Use a non-native tool-call format supported by
 the model, another supported platform, or a native bundle whose LiteRT-LM
-runtime and constraint provider were built with matching C++ ABIs. This guard
-is limited to Linux x86_64 and does not disable native tools on Android, Apple
-platforms, Windows, or Linux ARM64.
+runtime and constraint provider were built with matching C++ ABIs. Until a
+matched arm64 bundle is published, this guard covers both Linux x86_64 and
+Linux arm64; it does not disable native tools on Android, Apple platforms, or
+Windows.
 
 ### Any tool call kills the app (fixed in 1.7.1)
 

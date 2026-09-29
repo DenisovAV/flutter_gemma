@@ -104,6 +104,8 @@ jobs:
           # require both defines for GPU on every platform.
           bazelisk build -c opt --strip=always \
             --config=hermetic_linux \
+            --@rules_ml_toolchain//common:stdlib=libc++ \
+            --@rules_ml_toolchain//common:static_libcxx=true \
             --define=litert_runtime_link_mode=dynamic \
             --define=resolve_symbols_in_exec=false \
             '//c:libLiteRtLm.dylib'
@@ -264,6 +266,14 @@ jobs:
       - name: Build libLiteRtLm.so
         run: |
           cd /tmp/LiteRT-LM
+          # The arm64 constraint provider is also built with Google's libc++
+          # (std::__u). LiteRT-LM's hermetic_linux config is intentionally
+          # x86_64-only, so select the matching aarch64 rules_ml_toolchain
+          # explicitly instead of falling back to the runner's libstdc++.
+          grep -q 'rules_ml_toolchain' WORKSPACE || {
+            echo "::error::LiteRT-LM ref does not provide rules_ml_toolchain for the hermetic Linux arm64 build"
+            exit 1
+          }
           # Same correction as the Windows job: litert_link_capi_so no longer
           # exists upstream, so it was a no-op and the LiteRt runtime ended up
           # linked statically inside libLiteRtLm. Linux masked that with our
@@ -272,9 +282,59 @@ jobs:
           # engine_create trips 'wgpu::Instance already set'. Upstream docs
           # require both defines for GPU on every platform.
           bazelisk build -c opt --strip=always \
+            --@rules_ml_toolchain//common:enable_hermetic_cc=True \
+            --repo_env=USE_HERMETIC_CC_TOOLCHAIN=1 \
+            --extra_toolchains=@rules_ml_toolchain//cc:linux_aarch64_linux_aarch64 \
+            --host_crosstool_top=@rules_ml_toolchain//cc:linux_aarch64_linux_aarch64 \
+            --@rules_ml_toolchain//common:stdlib=libc++ \
+            --@rules_ml_toolchain//common:static_libcxx=true \
+            --cxxopt=-std=c++17 \
+            --host_cxxopt=-std=c++17 \
+            --repo_env=SYSROOT_DIST=linux_glibc_2_31 \
             --define=litert_runtime_link_mode=dynamic \
             --define=resolve_symbols_in_exec=false \
             '//c:libLiteRtLm.dylib'
+
+      - name: Verify Linux arm64 C++ ABI matches the constraint provider
+        run: |
+          set -euo pipefail
+          runtime=/tmp/LiteRT-LM/bazel-bin/c/libLiteRtLm.dylib
+          provider=/tmp/LiteRT-LM/prebuilt/linux_arm64/libGemmaModelConstraintProvider.so
+          [ -s "$runtime" ] || { echo "::error::runtime binary is missing"; exit 1; }
+          [ -s "$provider" ] || { echo "::error::constraint provider is missing"; exit 1; }
+
+          # The provider is a prebuilt C++ implementation behind an opaque C
+          # entry point, but LiteRT-LM reinterprets the returned object as its
+          # C++ Constraint interface. Matching only ComputeMask/LogitMask is
+          # insufficient: the inline libc++ ABI namespace must match too.
+          provider_abis="$({ nm -D -C "$provider" 2>/dev/null || true; strings "$provider" || true; } \
+            | grep -oE 'std::__[[:alnum:]_]+' | sort -u || true)"
+          provider_count="$(printf '%s\n' "$provider_abis" | sed '/^$/d' | wc -l | tr -d ' ')"
+          if [ "$provider_count" != 1 ]; then
+            echo "::error::could not identify exactly one provider C++ ABI namespace"
+            printf '%s\n' "$provider_abis"
+            exit 1
+          fi
+          provider_abi="$(printf '%s\n' "$provider_abis" | sed '/^$/d')"
+
+          runtime_abis="$({ nm -D -C "$runtime" 2>/dev/null || true; strings "$runtime" || true; } \
+            | grep -oE 'std::__[[:alnum:]_]+' | sort -u || true)"
+          if printf '%s\n' "$runtime_abis" | grep -q 'std::__cxx11'; then
+            echo "::error::runtime still references libstdc++ C++11 ABI symbols"
+            printf '%s\n' "$runtime_abis"
+            exit 1
+          fi
+          if ! printf '%s\n' "$runtime_abis" | grep -Fxq "$provider_abi"; then
+            echo "::error::runtime C++ ABI does not match provider ($provider_abi)"
+            echo "runtime ABI markers:"
+            printf '%s\n' "$runtime_abis"
+            exit 1
+          fi
+          if readelf -d "$runtime" | grep -q 'libstdc++'; then
+            echo "::error::runtime links libstdc++; the constraint provider requires the hermetic libc++ ABI"
+            exit 1
+          fi
+          echo "Linux arm64 C++ ABI matches: $provider_abi"
 
       - name: Build libStreamProxy.so
         run: |

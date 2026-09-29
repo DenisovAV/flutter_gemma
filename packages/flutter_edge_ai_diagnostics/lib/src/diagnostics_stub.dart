@@ -17,6 +17,6 @@ abstract final class FlutterEdgeAiDiagnostics {
 @Deprecated(
   'Use FlutterEdgeAiDiagnostics: flutter_gemma_diagnostics was renamed to '
   'flutter_edge_ai_diagnostics (dart fix --apply migrates). Removed in '
-  'flutter_edge_ai_diagnostics 0.3.0.',
+  'flutter_edge_ai_diagnostics 0.2.0.',
 )
 typedef FlutterGemmaDiagnostics = FlutterEdgeAiDiagnostics;

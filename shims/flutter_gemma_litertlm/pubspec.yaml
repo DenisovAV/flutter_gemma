@@ -14,4 +14,4 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_edge_ai_litertlm: ^1.9.0
+  flutter_edge_ai_litertlm: ^1.8.5

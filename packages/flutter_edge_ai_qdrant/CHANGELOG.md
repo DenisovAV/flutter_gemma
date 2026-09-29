@@ -1,7 +1,5 @@
-## 1.4.0
-- Renamed from `flutter_gemma_rag_qdrant`.
-
 ## 1.3.2
+- Renamed from `flutter_gemma_rag_qdrant`.
 - README: how to install the agent skills that cover this package.
 
 ## 1.3.1

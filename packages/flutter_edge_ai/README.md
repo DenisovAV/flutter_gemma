@@ -68,11 +68,11 @@ That scans your dependencies and installs every skill they bundle where your age
 
 What they cover: registering an engine (core ships none), routing by the declared `ModelFileType` rather than the filename, and the two defaults that fail quietly — `maxTokens` is the context window and not the reply length, and `Message.isUser` defaults to `false`.
 
-## What's new in 1.12.0
+## What's new: flutter_gemma is now flutter_edge_ai
 
-- **flutter_gemma is now flutter_edge_ai.** Every package has a new name; models, stores and platform setup carry over unchanged, and the old Dart names still compile as deprecated aliases. See [MIGRATION.md](MIGRATION.md#flutter_gemma--flutter_edge_ai-1120).
+- **flutter_gemma is now flutter_edge_ai.** Every package has a new name; models, stores and platform setup carry over unchanged, and the old Dart names still compile as deprecated aliases. See [MIGRATION.md](MIGRATION.md#flutter_gemma--flutter_edge_ai-1113).
 
-Releases up to 1.11.3 shipped as `flutter_gemma`.
+Up to 1.11.3 this package shipped as `flutter_gemma`; `flutter_edge_ai` continues at the same number.
 
 ## What's new in 1.9.0
 

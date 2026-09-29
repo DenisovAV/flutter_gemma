@@ -1,7 +1,5 @@
-## 1.12.0
-- Renamed from `flutter_gemma`; `dart fix --apply` migrates, old names deprecated until 2.0.0.
-
 ## 1.11.3
+- Renamed from `flutter_gemma`; `dart fix --apply` migrates, old names deprecated until 2.0.0.
 - New `flutter-gemma-diagnostics` agent skill for `flutter_gemma_diagnostics`.
 
 ## 1.11.2

@@ -14,4 +14,4 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_edge_ai_onnx: ^0.6.0
+  flutter_edge_ai_onnx: ^0.5.1

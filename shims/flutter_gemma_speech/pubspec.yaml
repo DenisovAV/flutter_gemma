@@ -14,4 +14,4 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_edge_ai_speech: ^0.6.0
+  flutter_edge_ai_speech: ^0.5.2

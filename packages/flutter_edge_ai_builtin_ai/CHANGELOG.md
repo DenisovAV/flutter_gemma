@@ -1,7 +1,5 @@
-## 0.4.0
-- Renamed from `flutter_gemma_builtin_ai`.
-
 ## 0.3.0
+- Renamed from `flutter_gemma_builtin_ai`.
 - **Breaking:** a pure-Dart adapter over `flutter_local_ai` ^0.2.1; the `BuiltInAi*` API is unchanged.
 - **Breaking:** no longer a plugin; re-lock `Podfile.lock`, and macOS apps need a 12.0 target.
 - **Breaking:** requires Flutter 3.44 / Dart 3.12; `pigeon.g.dart` is gone.

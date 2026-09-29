@@ -35,11 +35,11 @@ SmolLM and more — see [Models](/docs/models) for the full list.
 - **Text Embeddings & RAG:** Generate vector embeddings (EmbeddingGemma, Gecko) and run on-device RAG. See [Embeddings & RAG](/docs/embeddings-and-rag).
 - **Web Persistent Caching:** Models persist across browser restarts using the Cache API (Web only).
 
-## What's new in 1.12
+## What's new: Flutter Gemma is now Flutter Edge AI
 
 - **flutter_gemma is now Flutter Edge AI.** Every package has a new name — `flutter_edge_ai`, `flutter_edge_ai_litertlm`, … Installed models, vector stores and platform setup carry over, and the old Dart names still compile as deprecated aliases. See [Migration](/docs/migration).
 
-Releases up to 1.11 shipped under the `flutter_gemma*` names.
+Up to 1.11.3 the packages shipped under the `flutter_gemma*` names; the new names continue at the same numbers.
 
 ## What's new in 1.9
 

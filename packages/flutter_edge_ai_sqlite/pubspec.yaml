@@ -1,6 +1,6 @@
 name: flutter_edge_ai_sqlite
 description: "SQLite vector search (sqlite-vec) on-device RAG vector store for flutter_edge_ai. Opt-in package; implements flutter_edge_ai's VectorStoreRepository."
-version: 1.5.0
+version: 1.4.0
 homepage: https://flutteredge.ai
 repository: https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_edge_ai_sqlite
 topics: [rag, sqlite, vector-search, embeddings, web]
@@ -33,7 +33,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_edge_ai: ^1.12.0
+  flutter_edge_ai: ^1.11.3
   sqlite3: ^3.6.0
   # Native Assets hook deps — hook/build.dart fetches the per-platform
   # sqlite-vec (vec0) loadable extension from the native-sqlite-vec-v* GitHub

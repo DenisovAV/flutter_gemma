@@ -1,7 +1,5 @@
-## 0.3.0
-- Renamed from `flutter_gemma_agent`.
-
 ## 0.2.6
+- Renamed from `flutter_gemma_agent`.
 
 - README: web native-intent behaviour, Android release builds, and installing the agent skills.
 

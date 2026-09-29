@@ -18,4 +18,4 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_edge_ai_diagnostics: ^0.2.0
+  flutter_edge_ai_diagnostics: ^0.1.0

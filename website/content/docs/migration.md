@@ -4,25 +4,25 @@ description: Move from flutter_gemma to flutter_edge_ai, and from the 0.16.x mon
 image: https://flutteredge.ai/images/og-image.png
 ---
 
-## flutter_gemma → flutter_edge_ai (1.12.0)
+## flutter_gemma → flutter_edge_ai (1.11.3)
 
 The project is now **Flutter Edge AI**. Every package moved to a new name; the
 code, the platforms and the on-device data are the same.
 
 | Before | After |
 |--------|-------|
-| `flutter_gemma` | `flutter_edge_ai` 1.12.0 |
-| `flutter_gemma_litertlm` | `flutter_edge_ai_litertlm` 1.9.0 |
-| `flutter_gemma_mediapipe` | `flutter_edge_ai_mediapipe` 1.1.0 |
-| `flutter_gemma_embeddings` | `flutter_edge_ai_embeddings` 2.3.0 |
-| `flutter_gemma_rag_sqlite` | `flutter_edge_ai_sqlite` 1.5.0 |
-| `flutter_gemma_rag_qdrant` | `flutter_edge_ai_qdrant` 1.4.0 |
-| `flutter_gemma_speech` | `flutter_edge_ai_speech` 0.6.0 |
-| `flutter_gemma_agent` | `flutter_edge_ai_agent` 0.3.0 |
-| `flutter_gemma_builtin_ai` | `flutter_edge_ai_builtin_ai` 0.4.0 |
-| `flutter_gemma_onnx` | `flutter_edge_ai_onnx` 0.6.0 |
-| `flutter_gemma_diagnostics` | `flutter_edge_ai_diagnostics` 0.2.0 |
-| `genkit_flutter_gemma` | `genkit_flutter_edge_ai` 0.7.0 |
+| `flutter_gemma` | `flutter_edge_ai` 1.11.3 |
+| `flutter_gemma_litertlm` | `flutter_edge_ai_litertlm` 1.8.5 |
+| `flutter_gemma_mediapipe` | `flutter_edge_ai_mediapipe` 1.0.8 |
+| `flutter_gemma_embeddings` | `flutter_edge_ai_embeddings` 2.2.1 |
+| `flutter_gemma_rag_sqlite` | `flutter_edge_ai_sqlite` 1.4.0 |
+| `flutter_gemma_rag_qdrant` | `flutter_edge_ai_qdrant` 1.3.2 |
+| `flutter_gemma_speech` | `flutter_edge_ai_speech` 0.5.2 |
+| `flutter_gemma_agent` | `flutter_edge_ai_agent` 0.2.6 |
+| `flutter_gemma_builtin_ai` | `flutter_edge_ai_builtin_ai` 0.3.0 |
+| `flutter_gemma_onnx` | `flutter_edge_ai_onnx` 0.5.1 |
+| `flutter_gemma_diagnostics` | `flutter_edge_ai_diagnostics` 0.1.0 |
+| `genkit_flutter_gemma` | `genkit_flutter_edge_ai` 0.6.2 |
 
 The quickest way is `dart fix`:
 
@@ -58,7 +58,7 @@ Genkit: model and embedder ids are now `flutter-edge-ai/<name>`, and the
 context-window middleware is registered as `flutter-edge-ai-context-window`.
 Code that uses `flutterEdgeAi.model(...)` and `trimContext()` picks this up; a
 hard-coded `'flutter-gemma/<name>'` string has to change. The old Dart names are
-deprecated aliases here too, until `genkit_flutter_edge_ai` 0.8.0.
+deprecated aliases here too, until `genkit_flutter_edge_ai` 0.7.0.
 
 Depend on one name per package: an app that pulls in a pre-rename 1.x
 `flutter_gemma_X` next to `flutter_edge_ai_X` gets the same native libraries and
@@ -111,12 +111,12 @@ dependencies:
 
 ```
 dependencies:
-  flutter_edge_ai: ^1.12.0                 # core — always required
-  flutter_edge_ai_litertlm: ^1.9.0        # add if you run .litertlm models (also provides LiteRtEmbeddingBackend)
-  flutter_edge_ai_mediapipe: ^1.1.0       # add if you run .task / .bin models
-  flutter_edge_ai_embeddings: ^2.3.0      # add if you compute embeddings (needs a backend, see above)
-  flutter_edge_ai_qdrant: ^1.4.0      # add for native on-device RAG (qdrant)
-  flutter_edge_ai_sqlite: ^1.5.0      # add for on-device RAG (sqlite-vec; all platforms incl. web) — needs Flutter 3.47
+  flutter_edge_ai: ^1.11.3                 # core — always required
+  flutter_edge_ai_litertlm: ^1.8.5        # add if you run .litertlm models (also provides LiteRtEmbeddingBackend)
+  flutter_edge_ai_mediapipe: ^1.0.8       # add if you run .task / .bin models
+  flutter_edge_ai_embeddings: ^2.2.1      # add if you compute embeddings (needs a backend, see above)
+  flutter_edge_ai_qdrant: ^1.3.2      # add for native on-device RAG (qdrant)
+  flutter_edge_ai_sqlite: ^1.4.0      # add for on-device RAG (sqlite-vec; all platforms incl. web) — needs Flutter 3.47
 ```
 
 Pick by what you actually used in 0.16.x:
@@ -170,8 +170,8 @@ import 'package:flutter_edge_ai_litertlm/flutter_edge_ai_litertlm.dart';
 
 ```
 dependencies:
-  flutter_edge_ai_embeddings: ^2.3.0   # runtime-agnostic pipeline (still required)
-  flutter_edge_ai_litertlm: ^1.9.0     # now provides LiteRtEmbeddingBackend
+  flutter_edge_ai_embeddings: ^2.2.1   # runtime-agnostic pipeline (still required)
+  flutter_edge_ai_litertlm: ^1.8.5     # now provides LiteRtEmbeddingBackend
 ```
 
 `LiteRtEmbeddingBackend()` itself is unchanged — only where the class is

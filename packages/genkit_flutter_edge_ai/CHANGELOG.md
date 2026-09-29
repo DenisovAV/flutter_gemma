@@ -1,7 +1,5 @@
-## 0.7.0
-- Renamed from `genkit_flutter_gemma` (`dart fix --apply` migrates); ids are now `flutter-edge-ai/…`.
-
 ## 0.6.2
+- Renamed from `genkit_flutter_gemma` (`dart fix --apply` migrates); ids are now `flutter-edge-ai/…`.
 - README: register `embeddingTokenizers:`, and pins for the 1.9.0 release.
 
 ## 0.6.1

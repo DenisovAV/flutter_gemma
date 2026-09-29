@@ -14,4 +14,4 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_edge_ai_embeddings: ^2.3.0
+  flutter_edge_ai_embeddings: ^2.2.1

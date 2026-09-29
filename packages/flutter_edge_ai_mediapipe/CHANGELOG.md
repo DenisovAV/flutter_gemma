@@ -1,7 +1,5 @@
-## 1.1.0
-- Renamed from `flutter_gemma_mediapipe`.
-
 ## 1.0.8
+- Renamed from `flutter_gemma_mediapipe`.
 - Web loads the GenAI WASM from `@mediapipe/tasks-genai` 0.10.29.
 
 ## 1.0.7

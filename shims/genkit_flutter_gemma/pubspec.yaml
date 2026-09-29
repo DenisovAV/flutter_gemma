@@ -14,4 +14,4 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  genkit_flutter_edge_ai: ^0.7.0
+  genkit_flutter_edge_ai: ^0.6.2

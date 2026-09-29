@@ -48,11 +48,11 @@ register their providers in `await FlutterEdgeAi.initialize()`.
 ```yaml
 # pubspec.yaml (your app)
 dependencies:
-  genkit_flutter_edge_ai: ^0.7.0
-  flutter_edge_ai: ^1.12.0
-  flutter_edge_ai_litertlm: ^1.9.0   # only the engines/backends you actually use
-  flutter_edge_ai_embeddings: ^2.3.0  # the tokenizers an embedding backend needs
-  flutter_edge_ai_mediapipe: ^1.1.0
+  genkit_flutter_edge_ai: ^0.6.2
+  flutter_edge_ai: ^1.11.3
+  flutter_edge_ai_litertlm: ^1.8.5   # only the engines/backends you actually use
+  flutter_edge_ai_embeddings: ^2.2.1  # the tokenizers an embedding backend needs
+  flutter_edge_ai_mediapipe: ^1.0.8
 ```
 
 ```dart

@@ -13,8 +13,11 @@ abstract final class FlutterGemmaDiagnostics {
   ///
   /// Throws [UnsupportedError] off Android and iOS rather than returning a
   /// snapshot of nulls: the numbers only mean something where jetsam or lmkd
-  /// enforce them. Asynchronous so later fields that need a platform call can
-  /// be added without changing the signature.
+  /// enforce them. Throws `MemoryReadException` when the OS read itself
+  /// fails; a null field is reserved for a value that does not exist here.
+  ///
+  /// Asynchronous so later fields that need a platform call can be added
+  /// without changing the signature.
   static Future<MemorySnapshot> memorySnapshot() async {
     if (Platform.isAndroid) return readProcMemorySnapshot();
     if (Platform.isIOS) return readMachMemorySnapshot();

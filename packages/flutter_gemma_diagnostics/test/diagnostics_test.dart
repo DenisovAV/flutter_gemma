@@ -17,6 +17,19 @@ void main() {
     });
   });
 
+  group('MemoryReadException', () {
+    test('toString carries the message and the cause', () {
+      expect(
+        const MemoryReadException('could not read /proc/meminfo').toString(),
+        'MemoryReadException: could not read /proc/meminfo',
+      );
+      expect(
+        MemoryReadException('x', cause: StateError('io')).toString(),
+        allOf(contains('MemoryReadException: x'), contains('io')),
+      );
+    });
+  });
+
   group('MemorySnapshot', () {
     final at = DateTime.utc(2026, 9, 25);
 

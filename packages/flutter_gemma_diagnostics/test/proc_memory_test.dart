@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:flutter_gemma_diagnostics/flutter_gemma_diagnostics.dart'
+    show MemoryReadException;
 import 'package:flutter_gemma_diagnostics/src/android/proc_memory.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -97,14 +99,92 @@ void main() {
       expect(snapshot.availableBytes, 9126572 * 1024);
     });
 
-    test('a missing file is a null field, not an exception', () {
+    File meminfoFixture() =>
+        File('${dir.path}/meminfo')..writeAsStringSync(_meminfo);
+
+    test('an absent smaps_rollup (kernel < 4.14) is the documented null', () {
       final snapshot = readProcMemorySnapshot(
         smapsRollupPath: '${dir.path}/absent_rollup',
-        meminfoPath: '${dir.path}/absent_meminfo',
+        meminfoPath: meminfoFixture().path,
       );
 
       expect(snapshot.anonymousBytes, isNull);
-      expect(snapshot.availableBytes, isNull);
+      expect(snapshot.availableBytes, 9126572 * 1024);
+    });
+
+    test('an absent meminfo is a failed read, not a null', () {
+      expect(
+        () => readProcMemorySnapshot(
+          smapsRollupPath: '${dir.path}/absent_rollup',
+          meminfoPath: '${dir.path}/absent_meminfo',
+        ),
+        throwsA(isA<MemoryReadException>()),
+      );
+    });
+
+    test('smaps_rollup without its fields is a failed read', () {
+      final rollup = File('${dir.path}/smaps_rollup')
+        ..writeAsStringSync(
+          _smapsRollup.replaceAll(RegExp(r'SwapPss:.*\n'), ''),
+        );
+      expect(
+        () => readProcMemorySnapshot(
+          smapsRollupPath: rollup.path,
+          meminfoPath: meminfoFixture().path,
+        ),
+        throwsA(
+          isA<MemoryReadException>().having(
+            (e) => e.message,
+            'message',
+            contains('Private_Dirty and SwapPss'),
+          ),
+        ),
+      );
+    });
+
+    test('meminfo without MemAvailable is a failed read', () {
+      final meminfo = File('${dir.path}/meminfo')
+        ..writeAsStringSync(
+          _meminfo.replaceAll(RegExp(r'MemAvailable:.*\n'), ''),
+        );
+      expect(
+        () => readProcMemorySnapshot(
+          smapsRollupPath: '${dir.path}/absent_rollup',
+          meminfoPath: meminfo.path,
+        ),
+        throwsA(isA<MemoryReadException>()),
+      );
+    });
+
+    test('a permission error is a failed read, not a null', () {
+      if (Platform.isWindows) {
+        markTestSkipped('chmod has no effect on Windows');
+        return;
+      }
+      final rollup = File('${dir.path}/smaps_rollup')
+        ..writeAsStringSync(_smapsRollup);
+      Process.runSync('chmod', ['000', rollup.path]);
+      try {
+        rollup.readAsStringSync();
+        markTestSkipped('running as root: chmod 000 does not deny reads');
+        return;
+      } on FileSystemException {
+        // Denied, as intended.
+      }
+
+      expect(
+        () => readProcMemorySnapshot(
+          smapsRollupPath: rollup.path,
+          meminfoPath: meminfoFixture().path,
+        ),
+        throwsA(
+          isA<MemoryReadException>().having(
+            (e) => e.cause,
+            'cause',
+            isA<FileSystemException>(),
+          ),
+        ),
+      );
     });
   });
 
@@ -114,26 +194,30 @@ void main() {
   final hasProc =
       Platform.isLinux && File('/proc/self/smaps_rollup').existsSync();
 
-  group('real /proc on this Linux host', () {
-    test('both values are present and positive', () {
-      final snapshot = readProcMemorySnapshot();
-      expect(snapshot.anonymousBytes, isNotNull);
-      expect(snapshot.anonymousBytes, greaterThan(0));
-      expect(snapshot.availableBytes, isNotNull);
-      expect(snapshot.availableBytes, greaterThan(0));
-    });
+  group(
+    'real /proc on this Linux host',
+    () {
+      test('both values are present and positive', () {
+        final snapshot = readProcMemorySnapshot();
+        expect(snapshot.anonymousBytes, isNotNull);
+        expect(snapshot.anonymousBytes, greaterThan(0));
+        expect(snapshot.availableBytes, isNotNull);
+        expect(snapshot.availableBytes, greaterThan(0));
+      });
 
-    test('anonymousBytes rises by what the process actually allocates', () {
-      const size = 128 * 1024 * 1024;
-      final before = readProcMemorySnapshot().anonymousBytes!;
+      test('anonymousBytes rises by what the process actually allocates', () {
+        const size = 128 * 1024 * 1024;
+        final before = readProcMemorySnapshot().anonymousBytes!;
 
-      // Zeroed pages are not resident until written, so touch every one.
-      final block = Uint8List(size)..fillRange(0, size, 1);
-      final after = readProcMemorySnapshot().anonymousBytes!;
+        // Zeroed pages are not resident until written, so touch every one.
+        final block = Uint8List(size)..fillRange(0, size, 1);
+        final after = readProcMemorySnapshot().anonymousBytes!;
 
-      // Keep `block` reachable until after the second read.
-      expect(block[size - 1], 1);
-      expect(after - before, greaterThanOrEqualTo(size * 3 ~/ 4));
-    });
-  }, skip: hasProc ? false : 'needs a Linux /proc/self/smaps_rollup');
+        // Keep `block` reachable until after the second read.
+        expect(block[size - 1], 1);
+        expect(after - before, greaterThanOrEqualTo(size * 3 ~/ 4));
+      });
+    },
+    skip: hasProc ? false : 'needs a Linux /proc/self/smaps_rollup',
+  );
 }

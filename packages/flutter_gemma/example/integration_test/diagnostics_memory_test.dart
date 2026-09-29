@@ -15,9 +15,11 @@ import 'package:integration_test/integration_test.dart';
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('reports both values on a real device', (tester) async {
-    expect(FlutterGemmaDiagnostics.isSupported, isTrue);
+  // Off Android and iOS memorySnapshot() throws by design, so these skip there
+  // rather than fail.
+  final skip = !FlutterGemmaDiagnostics.isSupported;
 
+  testWidgets('reports both values on a real device', (tester) async {
     final snapshot = await FlutterGemmaDiagnostics.memorySnapshot();
     // ignore: avoid_print
     print('diagnostics snapshot on ${Platform.operatingSystem}: $snapshot');
@@ -30,7 +32,7 @@ void main() {
       expect(snapshot.availableBytes, isNotNull);
       expect(snapshot.availableBytes, greaterThan(0));
     }
-  });
+  }, skip: skip);
 
   testWidgets('anonymousBytes rises by what the app actually allocates', (
     tester,
@@ -48,7 +50,7 @@ void main() {
     print('anonymousBytes delta after writing 256 MiB: ${after - before}');
     expect(block[size - 1], 1); // keep `block` alive past the second read
     expect(after - before, greaterThanOrEqualTo(size * 3 ~/ 4));
-  });
+  }, skip: skip);
 }
 
 /// The executable path is the reliable tell: on iOS 26.5 the app process sees

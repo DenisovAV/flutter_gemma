@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import '../memory_read_exception.dart';
 import '../memory_snapshot.dart';
 
 /// `Key:   1234 kB`: the shape of every size line in `smaps_rollup` and
@@ -36,26 +37,46 @@ int? availableBytesFromMeminfo(String text) =>
 
 /// Reads both values from `/proc`.
 ///
-/// An unreadable file yields a null field rather than an error, because a
-/// missing file means an older kernel, which is a documented null. The paths
-/// are parameters only so tests can point at fixtures.
+/// The one documented null: `smaps_rollup` does not exist on kernels older
+/// than 4.14, so an absent file means the value is not available here.
+/// Anything else is a failed read and throws [MemoryReadException]: a
+/// permission or I/O error, a missing `meminfo`, or a file that exists but
+/// lacks the field it always carries. The paths are parameters only so tests
+/// can point at fixtures.
 MemorySnapshot readProcMemorySnapshot({
   String smapsRollupPath = '/proc/self/smaps_rollup',
   String meminfoPath = '/proc/meminfo',
 }) {
+  final rollup = _readProcFile(smapsRollupPath, absentMeansUnavailable: true);
+  final meminfo = _readProcFile(meminfoPath, absentMeansUnavailable: false)!;
   return MemorySnapshot(
-    anonymousBytes: _readOrNull(smapsRollupPath, anonymousBytesFromSmapsRollup),
-    availableBytes: _readOrNull(meminfoPath, availableBytesFromMeminfo),
+    anonymousBytes: rollup == null
+        ? null
+        : _require(
+            anonymousBytesFromSmapsRollup(rollup),
+            smapsRollupPath,
+            'Private_Dirty and SwapPss',
+          ),
+    availableBytes: _require(
+      availableBytesFromMeminfo(meminfo),
+      meminfoPath,
+      'MemAvailable',
+    ),
     takenAt: DateTime.now(),
   );
 }
 
-int? _readOrNull(String path, int? Function(String) parse) {
-  final String text;
+/// The file's text; null only when it is absent and that is a documented gap.
+String? _readProcFile(String path, {required bool absentMeansUnavailable}) {
   try {
-    text = File(path).readAsStringSync();
-  } on FileSystemException {
-    return null;
+    return File(path).readAsStringSync();
+  } on PathNotFoundException catch (e) {
+    if (absentMeansUnavailable) return null;
+    throw MemoryReadException('$path does not exist', cause: e);
+  } on FileSystemException catch (e) {
+    throw MemoryReadException('could not read $path', cause: e);
   }
-  return parse(text);
 }
+
+int _require(int? value, String path, String fields) =>
+    value ?? (throw MemoryReadException('$path exists but has no $fields'));

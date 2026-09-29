@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:ffi/ffi.dart';
 
+import '../memory_read_exception.dart';
 import '../memory_snapshot.dart';
 
 /// `TASK_VM_INFO`, the `task_info` flavor that returns `task_vm_info_data_t`
@@ -23,13 +24,37 @@ const int taskVmInfoRev1Count = 38;
 /// reports how much through the count, so a larger buffer is safe.
 const int _bufferCountNatural = 128;
 
-/// `phys_footprint` out of a filled `task_vm_info_data_t`.
+/// `phys_footprint` out of a `task_info(TASK_VM_INFO)` reply.
 ///
-/// [returnedCount] is the count the kernel wrote back, in `natural_t` units.
-/// Null when it is too short to include `phys_footprint`.
-int? physFootprintFromTaskVmInfo(ByteData info, int returnedCount) {
-  if (returnedCount < taskVmInfoRev1Count) return null;
-  if (info.lengthInBytes < physFootprintOffset + 8) return null;
+/// [kernReturn] is the call's `kern_return_t`; [returnedCount] is the count
+/// the kernel wrote back, in `natural_t` units.
+///
+/// Throws [MemoryReadException] when the call failed or the reply is too
+/// short to contain `phys_footprint`. Every iOS version flutter_gemma supports
+/// returns revision 1 or later, so a short reply is a failed read, not a
+/// missing feature.
+int physFootprintFromTaskInfoReply(
+  int kernReturn,
+  ByteData info,
+  int returnedCount,
+) {
+  if (kernReturn != 0) {
+    throw MemoryReadException(
+      'task_info(TASK_VM_INFO) failed with kern_return_t $kernReturn',
+    );
+  }
+  if (returnedCount < taskVmInfoRev1Count) {
+    throw MemoryReadException(
+      'task_info(TASK_VM_INFO) returned $returnedCount natural_t, fewer than '
+      'the $taskVmInfoRev1Count that contain phys_footprint',
+    );
+  }
+  if (info.lengthInBytes < physFootprintOffset + 8) {
+    throw MemoryReadException(
+      'task_vm_info buffer of ${info.lengthInBytes} bytes cannot hold '
+      'phys_footprint',
+    );
+  }
   return info.getUint64(physFootprintOffset, Endian.host);
 }
 
@@ -46,9 +71,9 @@ typedef _OsProcAvailableDart = int Function();
 
 /// Reads both values from the Mach kernel and libsystem.
 ///
-/// Not device-verified yet. The parsing above is covered by host tests; the
-/// FFI calls themselves only run on iOS, and are exercised by
+/// Only runs on iOS; the FFI calls are exercised by
 /// `flutter_gemma/example/integration_test/diagnostics_memory_test.dart`.
+/// Throws [MemoryReadException] when a symbol is missing or a call fails.
 MemorySnapshot readMachMemorySnapshot() {
   final process = DynamicLibrary.process();
   return MemorySnapshot(
@@ -58,10 +83,14 @@ MemorySnapshot readMachMemorySnapshot() {
   );
 }
 
-int? _readPhysFootprint(DynamicLibrary process) {
+int _readPhysFootprint(DynamicLibrary process) {
   // `mach_task_self()` is a macro over this global.
-  final taskSelf = process.lookup<Uint32>('mach_task_self_').value;
-  final taskInfo = process.lookupFunction<_TaskInfoNative, _TaskInfoDart>(
+  final taskSelf = _lookup(
+    () => process.lookup<Uint32>('mach_task_self_').value,
+    'mach_task_self_',
+  );
+  final taskInfo = _lookup(
+    () => process.lookupFunction<_TaskInfoNative, _TaskInfoDart>('task_info'),
     'task_info',
   );
 
@@ -69,9 +98,9 @@ int? _readPhysFootprint(DynamicLibrary process) {
   final count = calloc<Uint32>()..value = _bufferCountNatural;
   try {
     final kr = taskInfo(taskSelf, taskVmInfoFlavor, info, count);
-    if (kr != 0) return null; // KERN_SUCCESS
     final bytes = info.cast<Uint8>().asTypedList(_bufferCountNatural * 4);
-    return physFootprintFromTaskVmInfo(
+    return physFootprintFromTaskInfoReply(
+      kr,
       ByteData.sublistView(bytes),
       count.value,
     );
@@ -83,11 +112,21 @@ int? _readPhysFootprint(DynamicLibrary process) {
 }
 
 int? _readAvailable(DynamicLibrary process) {
-  // iOS 13+. Checked first so an older OS yields null instead of throwing.
-  if (!process.providesSymbol('os_proc_available_memory')) return null;
-  final available = process
-      .lookupFunction<_OsProcAvailableNative, _OsProcAvailableDart>(
-        'os_proc_available_memory',
-      );
+  // Present since iOS 13 and flutter_gemma's floor is iOS 15, so a missing
+  // symbol is a failed read, not a gap to report as null.
+  final available = _lookup(
+    () => process.lookupFunction<_OsProcAvailableNative, _OsProcAvailableDart>(
+      'os_proc_available_memory',
+    ),
+    'os_proc_available_memory',
+  );
   return availableBytesFromOsProc(available());
+}
+
+T _lookup<T>(T Function() lookup, String symbol) {
+  try {
+    return lookup();
+  } on ArgumentError catch (e) {
+    throw MemoryReadException('$symbol is missing from the process', cause: e);
+  }
 }

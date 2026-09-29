@@ -47,7 +47,7 @@ jobs:
       # site has been built once, which is exactly why it has to be scoped
       # here instead of relying on a dev checkout.
       - name: Analyze code
-        run: flutter analyze packages/ shims/ --no-fatal-infos
+        run: flutter analyze packages/ --no-fatal-infos
 
       # Every package that has tests, each run from its OWN directory. The loop
       # lives in tool/test_all.sh so CI and the local "before committing"

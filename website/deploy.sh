@@ -15,7 +15,7 @@ WEBSITE_DIR="$(cd "$(dirname "$0")" && pwd)"
 EXAMPLE_DIR="$WEBSITE_DIR/../packages/flutter_edge_ai/example"
 DOMAIN="https://flutteredge.ai"
 PROJECT="aichat-c0c27"
-TARGET="fluttergemma"
+TARGET="flutteredgeai"
 
 cd "$WEBSITE_DIR"
 

@@ -20,23 +20,20 @@ code, the platforms and the on-device data are the same.
 | `flutter_gemma_diagnostics` | `flutter_edge_ai_diagnostics` 0.1.0 |
 | `genkit_flutter_gemma` | `genkit_flutter_edge_ai` 0.6.2 |
 
-The quickest way is `dart fix`:
+The old `flutter_gemma*` packages stay on pub.dev as they are, so an app that
+has not moved yet keeps working.
 
-1. Bump every `flutter_gemma*` dependency to its last release (the versions are
-   listed below). Those releases only re-export the new packages.
-2. Run `dart fix --apply`. It renames `FlutterGemma` and the other old names.
-   On Flutter 3.47 or newer it also switches every import to the new package
-   and adds the new packages to `pubspec.yaml`; on Flutter 3.44 change the
-   imports and dependencies by hand (see below).
-3. Delete the old `flutter_gemma*` entries from `pubspec.yaml`, and give the new
-   ones a version constraint (`dart fix` adds them as `any`).
+To move:
 
-By hand, it is the same three changes: the dependencies, `package:flutter_gemma`
-→ `package:flutter_edge_ai` in imports (the same for every other package in the
-table), and `FlutterGemma` → `FlutterEdgeAi`. The old names (`FlutterGemma`,
-`FlutterGemmaPlugin`, `FlutterGemmaDesktop`, `GemmaLogLevel`,
-`FlutterGemmaDiagnostics`) still compile as
-deprecated aliases until `flutter_edge_ai` 2.0.0.
+1. Replace each `flutter_gemma*` dependency in `pubspec.yaml` with its new name
+   and the version from the table.
+2. Replace `package:flutter_gemma` with `package:flutter_edge_ai` in your
+   imports — the same for every other package in the table. A project-wide
+   search and replace does it.
+3. Run `dart fix --apply`. It renames `FlutterGemma`, `FlutterGemmaPlugin`,
+   `FlutterGemmaDesktop`, `GemmaLogLevel`, `FlutterGemmaDiagnostics` and the
+   genkit names to their new spellings. Until you run it they still compile as
+   deprecated aliases, up to `flutter_edge_ai` 2.0.0.
 
 If you installed the agent skills, run `dart run skills@ get --all` again
 and delete the old `flutter-gemma-*` skill directories: they still teach the
@@ -56,29 +53,13 @@ Code that uses `flutterEdgeAi.model(...)` and `trimContext()` picks this up; a
 hard-coded `'flutter-gemma/<name>'` string has to change. The old Dart names are
 deprecated aliases here too, until `genkit_flutter_edge_ai` 0.7.0.
 
-Depend on one name per package: an app that pulls in a pre-rename 1.x
-`flutter_gemma_X` next to `flutter_edge_ai_X` gets the same native libraries and
-Android classes twice, and the build fails. (The last `flutter_gemma_X` releases
-listed below carry no native code, so they are safe alongside.) An old satellite
-you did not bump (say `flutter_gemma_speech` 0.5.x) pulls the old engine back in
-the same way.
+Move every package at once: an app that keeps a `flutter_gemma_X` next to
+`flutter_edge_ai_X` gets the same native libraries and Android classes twice,
+and the build fails. An old satellite you did not move (say
+`flutter_gemma_speech`) pulls the old engine back in the same way.
 
 `flutter_edge_ai_sqlite` needs Flutter 3.47. An app on Flutter 3.44 that uses
 the SQLite store upgrades Flutter first.
-
-The last release under each old name re-exports its successor, so an app that
-bumps **every** `flutter_gemma*` dependency to it in the same edit keeps
-compiling before `dart fix` runs — a mix of old and new versions does not
-resolve:
-`flutter_gemma`, `flutter_gemma_litertlm`, `flutter_gemma_mediapipe`,
-`flutter_gemma_rag_sqlite` and `flutter_gemma_rag_qdrant` to `^2.0.0`,
-`flutter_gemma_embeddings` to `^3.0.0`, `flutter_gemma_speech` and
-`flutter_gemma_onnx` to `^0.6.0`, `flutter_gemma_agent` to `^0.3.0`,
-`flutter_gemma_builtin_ai` and `flutter_gemma_diagnostics` to `^0.4.0` and
-`^0.2.0`, `genkit_flutter_gemma` to `^0.7.0`.
-Only each package's main import keeps working that way
-(`package:flutter_gemma/flutter_gemma.dart`); an import of a file inside a
-package needs the new name.
 
 ## flutter_gemma 0.x → 1.0
 

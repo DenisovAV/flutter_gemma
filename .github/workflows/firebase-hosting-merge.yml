@@ -89,7 +89,7 @@ jobs:
           channelId: live
           projectId: aichat-c0c27
           entryPoint: website
-          target: fluttergemma
+          target: flutteredgeai
 
       - name: Smoke-test the deployed codelabs
         # Every other check in this pipeline reads files on the runner. None of

@@ -37,18 +37,27 @@ class SdkTextExtractor {
     }
 
     // The web SDK can represent a text message as a plain string, while the
-    // native SDK normally uses the multimodal content-item array. Preserve
-    // that text instead of throwing when a valid web chunk takes the former
-    // shape.
-    final content = json['content'];
-    if (content is String) return content;
-    if (content is! List<dynamic>) return jsonStr;
-    final buffer = StringBuffer();
-    for (final item in content) {
-      if (item is Map<String, dynamic> && item['type'] == 'text') {
-        buffer.write(item['text'] as String? ?? '');
-      }
+    // native SDK normally uses the multimodal content-item array. Keep the
+    // two supported shapes explicit: an unexpected shape signals a contract
+    // change with LiteRT-LM and must not be silently passed into the chat.
+    switch (json['content']) {
+      case final String text:
+        return text;
+      case null:
+        return jsonStr;
+      case final List<Object?> parts:
+        final buffer = StringBuffer();
+        for (final part in parts) {
+          if (part case {'type': 'text', 'text': final String text}) {
+            buffer.write(text);
+          }
+        }
+        return buffer.toString();
+      case final other:
+        throw StateError(
+          'LiteRT-LM response content is ${other.runtimeType}, '
+          'not a string or a list of parts: $jsonStr',
+        );
     }
-    return buffer.toString();
   }
 }

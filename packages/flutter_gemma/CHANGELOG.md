@@ -1,3 +1,6 @@
+## Unreleased
+- Web: fail the response stream when LiteRT-LM returns an unexpected content shape.
+
 ## 1.11.3
 - New `flutter-gemma-diagnostics` agent skill for `flutter_gemma_diagnostics`.
 
@@ -713,8 +716,6 @@
 - Added opportunity to setup a model before initiation
 ## 0.0.1
 - Initial release
-
-
 
 
 

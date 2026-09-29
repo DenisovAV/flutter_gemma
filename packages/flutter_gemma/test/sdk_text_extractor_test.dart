@@ -31,11 +31,15 @@ void main() {
       );
     });
 
-    test('passes through malformed or unsupported chunks', () {
+    test('passes through malformed or missing content chunks', () {
       expect(SdkTextExtractor.extractTextFromResponse('partial'), 'partial');
+      expect(SdkTextExtractor.extractTextFromResponse('{}'), '{}');
+    });
+
+    test('rejects an unexpected content shape', () {
       expect(
-        SdkTextExtractor.extractTextFromResponse('{"content":42}'),
-        '{"content":42}',
+        () => SdkTextExtractor.extractTextFromResponse('{"content":42}'),
+        throwsStateError,
       );
     });
   });

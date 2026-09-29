@@ -40,8 +40,9 @@ class OnnxEmbeddingBackend implements EmbeddingBackendProvider {
   /// LiteRT native load instead of here, with a confusing error. So the
   /// platform gate lives in [createModel] as a loud [StateError] instead —
   /// same `_isSupportedHost` shape as `OnnxEngine`, kept in lockstep with
-  /// `hook/build.dart`'s platform table (macOS/Linux/Windows/Android arm64 —
-  /// all device-verified; iOS arm64 wired + sim-build-verified, device
+  /// `hook/build.dart`'s platform table (macOS/Linux/Windows x64 + arm64/Android arm64 —
+  /// Windows arm64 archive-backed, hardware smoke test pending; the other
+  /// native targets are device-verified; iOS arm64 wired + sim-build-verified, device
   /// go/no-go pending; see `OnnxEngine._isSupportedHost`'s doc, including
   /// the `Abi.iosArm64`-covers-device-and-Apple-Silicon-sim note).
   static bool get _isSupportedHost {
@@ -52,7 +53,8 @@ class OnnxEmbeddingBackend implements EmbeddingBackendProvider {
     // wired + sim-build-verified (device on-hardware go/no-go pending).
     return (Platform.isMacOS && abi == Abi.macosArm64) ||
         (Platform.isLinux && abi == Abi.linuxX64) ||
-        (Platform.isWindows && abi == Abi.windowsX64) ||
+        (Platform.isWindows &&
+            (abi == Abi.windowsX64 || abi == Abi.windowsArm64)) ||
         (Platform.isAndroid && abi == Abi.androidArm64) ||
         (Platform.isIOS && abi == Abi.iosArm64);
   }
@@ -90,8 +92,8 @@ class OnnxEmbeddingBackend implements EmbeddingBackendProvider {
       throw StateError(
         'OnnxEmbeddingBackend.createModel called on unsupported host '
         '${Platform.operatingSystem}/${Abi.current()} — ONNX embedding '
-        'native archives are macOS-arm64/linux-x64/windows-x64/android-arm64/'
-        'ios-arm64-only in v1.',
+        'native archives are macOS-arm64/linux-x64/windows-x64/windows-arm64/'
+        'android-arm64/ios-arm64-only in v1.',
       );
     }
     final tokenizerPath = config.tokenizerPath;

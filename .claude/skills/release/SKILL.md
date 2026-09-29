@@ -794,6 +794,7 @@ Map the change to the skill that covers it:
 | the OS built-in model | `flutter-gemma-builtin-ai` |
 | STT, TTS, `VoiceSession` | `flutter-gemma-speech` |
 | embeddings, vector stores | `flutter-gemma-rag` |
+| `MemorySnapshot`, memory diagnostics | `flutter-gemma-diagnostics` |
 
 **Do not go looking by hand.** Ask the diff which skills it puts in doubt:
 

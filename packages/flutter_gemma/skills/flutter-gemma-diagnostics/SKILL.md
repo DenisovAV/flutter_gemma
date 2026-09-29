@@ -12,7 +12,7 @@ description: Use when measuring how much memory an on-device model costs with fl
 3. `null` and an exception mean different things. A null field is a value this platform does not have; `MemoryReadException` is a read that should have worked and failed. Do not catch the exception and carry on with zeros.
 4. The two fields answer different questions per platform. On iOS `anonymousBytes` is `phys_footprint`, the number jetsam kills on, and `availableBytes` is this app's headroom before that limit. On Android there is no per-app limit: `availableBytes` is MemAvailable for the whole device, an optimistic upper bound, and lmkd kills well before it reaches zero. Never use it as an Android kill threshold.
 5. On Android, GPU memory (KGSL, Mali, dmabuf) is mostly outside `anonymousBytes`. A model running on the GPU backend looks cheaper there than it is.
-6. Weights read from an mmapped model file are clean file pages and are not counted; the same weights copied into the heap are. That difference, not RSS, is what decides whether the app survives.
+6. Weights read from an mmapped model file are clean file pages and are not counted; the same weights copied into the heap are. On iOS that difference, not RSS, is what decides whether the app survives.
 7. A snapshot reads OS files or makes a kernel call on the calling isolate. Take one at a few points — before loading, after loading, during generation — not on every frame or token.
 8. A pubspec section strips nothing from a release build. Put the package under `dev_dependencies` only when nothing in `lib/` imports it.
 
@@ -85,11 +85,11 @@ Future<void> report() async {
 
 A field is null in exactly two cases:
 
-- `anonymousBytes` on Android kernels older than 4.14, which have no `/proc/self/smaps_rollup`;
+- `anonymousBytes` on an Android kernel without `/proc/self/smaps_rollup` (mainline Linux added it in 4.14);
 - `availableBytes` on iOS when `os_proc_available_memory()` returns 0. Apple returns 0 both on the simulator, where no limit applies, and when the limit is already exceeded; the two cannot be told apart.
 
 ## Choosing a model for the device
 
-On iOS, compare the growth you measured for a model with `availableBytes` before loading it: if the model needs more than the headroom, jetsam kills the app during load. Large models also need the **Extended Virtual Addressing** and **Increased Memory Limit** entitlements (see flutter-gemma-inference), which raise that headroom.
+On iOS, compare the growth you measured for a model with `availableBytes` before loading it: if the model needs more than the headroom, jetsam kills the app during load. Large models also need two entitlements (see flutter-gemma-inference): **Increased Memory Limit** raises the jetsam limit, so `availableBytes` grows; **Extended Virtual Addressing** gives the app more address space to map the model and does not add headroom.
 
 On Android there is no such number to compare against. Measure on the smallest device you support, and treat `availableBytes` as a best case.

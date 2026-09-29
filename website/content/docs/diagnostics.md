@@ -12,11 +12,12 @@ whichever engine runs in it.
 
 ## Why not the memory number your profiler shows?
 
-The number most tools show as "memory used" — `top`, Android Studio's profiler,
-Xcode's memory gauge — is usually **RSS**, the *resident set size*: every page
-of the app that is sitting in physical RAM right now. It is the obvious thing to
-look at when a model makes an app heavy, and for a model it answers the wrong
-question.
+The first "memory used" number people reach for is usually **RSS**, the
+*resident set size* — the `RES` column in `top`, `ps -o rss`: every page of the
+app that is sitting in physical RAM right now. It is the obvious thing to look
+at when a model makes an app heavy, and for a model it answers the wrong
+question. (Xcode's memory gauge is the exception: on iOS it already shows the
+footprint this package reports.)
 
 RSS adds together two kinds of memory that the OS treats in opposite ways.
 
@@ -96,6 +97,9 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_diagnostics/flutter_gemma_diagnostics.dart';
 
 Future<InferenceModel> loadAndMeasure() async {
+  if (!FlutterGemmaDiagnostics.isSupported) {
+    return FlutterGemma.getActiveModel(maxTokens: 1024);
+  }
   final before = await FlutterGemmaDiagnostics.memorySnapshot();
   final model = await FlutterGemma.getActiveModel(maxTokens: 1024);
   final loaded = await FlutterGemmaDiagnostics.memorySnapshot();
@@ -115,16 +119,18 @@ on every frame.
 
 On iOS, compare what a model needs with `availableBytes` before loading it: if
 it needs more than the headroom, jetsam kills the app during load. The
-**Extended Virtual Addressing** and **Increased Memory Limit** entitlements raise
-that headroom — see [Installation → iOS](/docs/installation#ios). On Android
+**Increased Memory Limit** entitlement raises that limit; **Extended Virtual
+Addressing** does not add headroom, it gives the app more address space to map
+a large model. Large models need both — see
+[Installation → iOS](/docs/installation#ios). On Android
 there is no per-app number to compare against: measure on the smallest device
 you support and treat `availableBytes` as a best case.
 
 ## Null versus an exception
 
 - **A null field** means the value does not exist on this platform or OS version:
-  - `anonymousBytes` on Android kernels older than 4.14, which have no
-    `smaps_rollup`;
+  - `anonymousBytes` on an Android kernel without `/proc/self/smaps_rollup`
+    (mainline Linux added it in 4.14);
   - `availableBytes` on iOS when the call returns 0. Apple returns 0 both when
     no limit applies (the simulator) and when the limit is already exceeded, and
     the two cannot be told apart.

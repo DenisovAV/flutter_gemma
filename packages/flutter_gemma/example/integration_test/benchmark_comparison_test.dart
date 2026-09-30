@@ -23,6 +23,10 @@ import 'inference_test_helpers.dart';
 
 const _deviceDir = '/data/local/tmp/flutter_gemma_test';
 
+/// The backend every phase asks for. Recorded in each result next to the one
+/// that actually ran, so the two cannot drift apart.
+const _requestedBackend = PreferredBackend.gpu;
+
 const _models = <_BenchmarkModelConfig>[
   _BenchmarkModelConfig(
     name: 'Gemma 4 E2B',
@@ -82,14 +86,29 @@ class BenchmarkResult {
     'duration_ms': durationMs,
     'first_token_ms': firstTokenMs,
     'timestamp': timestamp.toIso8601String(),
+    // What decides whether two records' numbers can be compared: available
+    // memory is device-wide MemAvailable on Android but per-app headroom on
+    // iOS, and anonymous memory understates a GPU model.
+    'platform': Platform.operatingSystem,
+    'backend': {
+      'requested': _requestedBackend.name,
+      'active': memory.activeBackend?.name,
+    },
     'memory': memory.toJson(),
   };
 }
 
 // --- Memory ---
 
-/// Anonymous bytes around one model load; null where unreadable.
-typedef LoadMemory = ({int? before, int? after});
+/// Anonymous bytes around one model load, the backend that ran, and any read
+/// errors (null bytes where unreadable). One per phase, shared by every record
+/// of that phase.
+typedef LoadMemory = ({
+  int? before,
+  int? after,
+  PreferredBackend? activeBackend,
+  List<String> errors,
+});
 
 /// What the OS charged this app around one prompt, from
 /// `flutter_gemma_diagnostics`.
@@ -99,11 +118,20 @@ typedef LoadMemory = ({int? before, int? after});
 /// anonymous-only peak to read instead.
 ///
 /// `anonymous_bytes` is memory the OS cannot reclaim by dropping file pages.
-/// It excludes weights read from an mmapped file, and on Android it excludes
-/// GPU memory (KGSL, Mali, dmabuf sit outside smaps), so with
-/// `PreferredBackend.gpu` the load delta understates what the model costs.
-/// `before_prompt` - `after_load` is everything since the load: creating the
-/// chat, plus any earlier prompts in the same phase.
+/// It excludes weights read from an mmapped file. On Android it largely
+/// excludes GPU-only memory (KGSL, Mali and dmabuf sit mostly outside smaps),
+/// so with `PreferredBackend.gpu` the load delta understates what the model
+/// costs; on Adreno, KGSL buffers mapped into the CPU (`/dev/kgsl-3d0`) can
+/// land in `Private_Dirty`, so it is not zero either. Compare numbers only
+/// between records with the same `platform` and `backend`.
+///
+/// `before_load` and `after_load` belong to the phase and repeat in every
+/// record of it: summing load deltas across records counts one load once per
+/// record. `before_prompt` - `after_load` is everything since the load:
+/// creating the chat, plus any earlier prompts in the same phase.
+///
+/// A null with no entry in `read_errors` means the platform has no such value.
+/// A null with an entry means the read failed.
 class BenchmarkMemory {
   const BenchmarkMemory({
     this.beforeLoad,
@@ -111,6 +139,8 @@ class BenchmarkMemory {
     this.beforePrompt,
     this.afterPrompt,
     this.availableAfterPrompt,
+    this.activeBackend,
+    this.readErrors = const [],
   });
 
   final int? beforeLoad;
@@ -122,6 +152,13 @@ class BenchmarkMemory {
   /// lmkd kills well before it reaches zero.
   final int? availableAfterPrompt;
 
+  /// The backend the model actually ran on, when the runtime says.
+  final PreferredBackend? activeBackend;
+
+  /// Failed reads, as `"<sample>: <error>"`. The load's own errors repeat in
+  /// every record of the phase, like `before_load` and `after_load`.
+  final List<String> readErrors;
+
   Map<String, dynamic> toJson() => {
     'anonymous_bytes': {
       'before_load': beforeLoad,
@@ -130,12 +167,14 @@ class BenchmarkMemory {
       'after_prompt': afterPrompt,
     },
     'available_bytes_after_prompt': availableAfterPrompt,
+    'read_errors': readErrors,
   };
 
   /// One line for the live log: `load +812.3 MiB, prompt +4.1 MiB`.
   String describe() =>
       'load ${_signedMiB(beforeLoad, afterLoad)}, '
-      'prompt ${_signedMiB(beforePrompt, afterPrompt)} (anonymous)';
+      'prompt ${_signedMiB(beforePrompt, afterPrompt)} (anonymous)'
+      '${readErrors.isEmpty ? '' : ', ${readErrors.length} read error(s)'}';
 }
 
 String _signedMiB(int? before, int? after) {
@@ -170,41 +209,56 @@ const _chatSteps = <String>[
 final _allResults = <BenchmarkResult>[];
 
 /// Reads this process's memory from the OS. Null where the package does not
-/// run, or where a read fails: the failure is logged and recorded as missing
-/// numbers rather than thrown, because it must not abort a 60-minute run. The
-/// package itself still throws; that a benchmark outlives a failed read is
-/// this consumer's call.
-Future<MemorySnapshot?> _sampleMemory() async {
+/// run, or where a read fails. A failure is logged and added to [errors] under
+/// [label], so the saved JSON keeps it instead of letting a null look like "no
+/// such value on this platform". It is not thrown: it must not abort a
+/// 60-minute run. The package itself still throws; that a benchmark outlives a
+/// failed read is this consumer's call.
+Future<MemorySnapshot?> _sampleMemory(String label, List<String> errors) async {
   if (!FlutterGemmaDiagnostics.isSupported) return null;
   try {
     return await FlutterGemmaDiagnostics.memorySnapshot();
   } on MemoryReadException catch (e) {
-    print('[Benchmark] memory read failed: $e');
+    errors.add('$label: $e');
+    print('[Benchmark] memory read failed ($label): $e');
     return null;
   }
 }
 
 /// Loads a model and reports the anonymous memory before and after: what
-/// holding it costs before any prompt runs.
+/// holding it costs before any prompt runs. Also returns the backend the
+/// runtime says it used, and the errors of the two reads.
 Future<(InferenceModel, LoadMemory)> _measuredLoad(
   Future<InferenceModel> Function() load,
 ) async {
-  final before = (await _sampleMemory())?.anonymousBytes;
+  final errors = <String>[];
+  final before = (await _sampleMemory('before_load', errors))?.anonymousBytes;
   final model = await load();
-  final after = (await _sampleMemory())?.anonymousBytes;
-  return (model, (before: before, after: after));
+  final after = (await _sampleMemory('after_load', errors))?.anonymousBytes;
+  return (
+    model,
+    (
+      before: before,
+      after: after,
+      activeBackend: model.activeBackend,
+      errors: errors,
+    ),
+  );
 }
 
 BenchmarkMemory _promptMemory(
   LoadMemory load,
   MemorySnapshot? before,
   MemorySnapshot? after,
+  List<String> promptErrors,
 ) => BenchmarkMemory(
   beforeLoad: load.before,
   afterLoad: load.after,
   beforePrompt: before?.anonymousBytes,
   afterPrompt: after?.anonymousBytes,
   availableAfterPrompt: after?.availableBytes,
+  activeBackend: load.activeBackend,
+  readErrors: [...load.errors, ...promptErrors],
 );
 
 Future<Uint8List> _loadTestImage() async {
@@ -235,7 +289,8 @@ Future<BenchmarkResult> _runTextBenchmark({
   required String question,
   required LoadMemory load,
 }) async {
-  final memoryBefore = await _sampleMemory();
+  final readErrors = <String>[];
+  final memoryBefore = await _sampleMemory('before_prompt', readErrors);
   final sw = Stopwatch()..start();
   int firstTokenMs = -1;
 
@@ -251,7 +306,7 @@ Future<BenchmarkResult> _runTextBenchmark({
     }
   }
   sw.stop();
-  final memoryAfter = await _sampleMemory();
+  final memoryAfter = await _sampleMemory('after_prompt', readErrors);
 
   final result = BenchmarkResult(
     modelName: modelName,
@@ -262,7 +317,7 @@ Future<BenchmarkResult> _runTextBenchmark({
     durationMs: sw.elapsedMilliseconds,
     firstTokenMs: firstTokenMs,
     timestamp: DateTime.now(),
-    memory: _promptMemory(load, memoryBefore, memoryAfter),
+    memory: _promptMemory(load, memoryBefore, memoryAfter, readErrors),
   );
 
   print('[Benchmark] $modelName / $category / $testName');
@@ -292,7 +347,8 @@ Future<BenchmarkResult> _runVisionBenchmark({
   );
 
   try {
-    final memoryBefore = await _sampleMemory();
+    final readErrors = <String>[];
+    final memoryBefore = await _sampleMemory('before_prompt', readErrors);
     final sw = Stopwatch()..start();
     int firstTokenMs = -1;
 
@@ -310,7 +366,7 @@ Future<BenchmarkResult> _runVisionBenchmark({
       }
     }
     sw.stop();
-    final memoryAfter = await _sampleMemory();
+    final memoryAfter = await _sampleMemory('after_prompt', readErrors);
 
     final result = BenchmarkResult(
       modelName: modelName,
@@ -321,7 +377,7 @@ Future<BenchmarkResult> _runVisionBenchmark({
       durationMs: sw.elapsedMilliseconds,
       firstTokenMs: firstTokenMs,
       timestamp: DateTime.now(),
-      memory: _promptMemory(load, memoryBefore, memoryAfter),
+      memory: _promptMemory(load, memoryBefore, memoryAfter, readErrors),
     );
 
     print('[Benchmark] $modelName / vision / $testName');
@@ -354,7 +410,8 @@ Future<BenchmarkResult> _runAudioBenchmark({
   );
 
   try {
-    final memoryBefore = await _sampleMemory();
+    final readErrors = <String>[];
+    final memoryBefore = await _sampleMemory('before_prompt', readErrors);
     final sw = Stopwatch()..start();
     int firstTokenMs = -1;
 
@@ -372,7 +429,7 @@ Future<BenchmarkResult> _runAudioBenchmark({
       }
     }
     sw.stop();
-    final memoryAfter = await _sampleMemory();
+    final memoryAfter = await _sampleMemory('after_prompt', readErrors);
 
     final result = BenchmarkResult(
       modelName: modelName,
@@ -383,7 +440,7 @@ Future<BenchmarkResult> _runAudioBenchmark({
       durationMs: sw.elapsedMilliseconds,
       firstTokenMs: firstTokenMs,
       timestamp: DateTime.now(),
-      memory: _promptMemory(load, memoryBefore, memoryAfter),
+      memory: _promptMemory(load, memoryBefore, memoryAfter, readErrors),
     );
 
     print('[Benchmark] $modelName / audio / $testName');
@@ -449,7 +506,7 @@ void main() {
           final (model, load) = await _measuredLoad(
             () => FlutterGemma.getActiveModel(
               maxTokens: 4096,
-              preferredBackend: PreferredBackend.gpu,
+              preferredBackend: _requestedBackend,
             ),
           );
           try {
@@ -475,7 +532,7 @@ void main() {
           final (model, load) = await _measuredLoad(
             () => FlutterGemma.getActiveModel(
               maxTokens: 4096,
-              preferredBackend: PreferredBackend.gpu,
+              preferredBackend: _requestedBackend,
             ),
           );
           try {
@@ -502,7 +559,7 @@ void main() {
           final (model, load) = await _measuredLoad(
             () => FlutterGemma.getActiveModel(
               maxTokens: 4096,
-              preferredBackend: PreferredBackend.gpu,
+              preferredBackend: _requestedBackend,
               supportImage: true,
               maxNumImages: 1,
             ),
@@ -537,7 +594,7 @@ void main() {
           final (model, load) = await _measuredLoad(
             () => FlutterGemma.getActiveModel(
               maxTokens: 4096,
-              preferredBackend: PreferredBackend.gpu,
+              preferredBackend: _requestedBackend,
               supportAudio: true,
             ),
           );

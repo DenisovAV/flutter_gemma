@@ -1,3 +1,6 @@
+## Unreleased
+- Web: fail the response stream when LiteRT-LM returns an unexpected content shape.
+
 ## 1.8.5
 - Web setup pins `@litert-lm/core` 0.17.1.
 

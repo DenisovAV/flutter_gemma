@@ -1,3 +1,6 @@
+## Unreleased
+- Web: fail the response stream when LiteRT-LM returns an unexpected content shape.
+
 ## 1.11.3
 - New `flutter-gemma-diagnostics` agent skill for `flutter_gemma_diagnostics`.
 
@@ -14,6 +17,7 @@
 
 ## 1.10.0
 - Add `activationDataType` to `getActiveModel`; `float32` fixes wrong digits on some GPUs.
+- Web: preserve plain-string text chunks from SDK responses.
 
 ## 1.9.0
 - New `initialize(embeddingTokenizers:)` — register one or embeddings throw; engines no longer bundle a tokenizer.
@@ -712,9 +716,6 @@
 - Added opportunity to setup a model before initiation
 ## 0.0.1
 - Initial release
-
-
-
 
 
 

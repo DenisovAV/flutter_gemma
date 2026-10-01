@@ -14,6 +14,7 @@ base class FlutterGemmaModelOptions {
 
   FlutterGemmaModelOptions({
     int? maxTokens,
+    int? maxOutputTokens,
     double? temperature,
     int? topK,
     double? topP,
@@ -31,6 +32,7 @@ base class FlutterGemmaModelOptions {
   }) {
     _json = {
       'maxTokens': ?maxTokens,
+      'maxOutputTokens': ?maxOutputTokens,
       'temperature': ?temperature,
       'topK': ?topK,
       'topP': ?topP,
@@ -62,6 +64,18 @@ base class FlutterGemmaModelOptions {
       _json.remove('maxTokens');
     } else {
       _json['maxTokens'] = value;
+    }
+  }
+
+  int? get maxOutputTokens {
+    return _json['maxOutputTokens'] as int?;
+  }
+
+  set maxOutputTokens(int? value) {
+    if (value == null) {
+      _json.remove('maxOutputTokens');
+    } else {
+      _json['maxOutputTokens'] = value;
     }
   }
 
@@ -259,6 +273,7 @@ base class _FlutterGemmaModelOptionsTypeFactory
         .object(
           properties: {
             'maxTokens': $Schema.integer(),
+            'maxOutputTokens': $Schema.integer(),
             'temperature': $Schema.number(),
             'topK': $Schema.integer(),
             'topP': $Schema.number(),

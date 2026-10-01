@@ -8,8 +8,16 @@ part 'flutter_gemma_options.g.dart';
 /// parameters.
 @Schema(description: 'Configuration options for flutter_gemma inference')
 abstract class $FlutterGemmaModelOptions {
-  /// Maximum number of tokens to generate. Defaults to 1024.
+  /// Context window (input + output), not reply length. Defaults to 1024.
+  ///
+  /// Passed directly to `getActiveModel(maxTokens:)`. Lowering this shrinks
+  /// the KV cache; it does not cap output tokens.
   int? get maxTokens;
+
+  /// Maximum number of tokens to generate.
+  ///
+  /// Only honoured by `.litertlm` models; MediaPipe `.task` models ignore it.
+  int? get maxOutputTokens;
 
   /// Sampling temperature. Higher values increase randomness. Defaults to 0.8.
   double? get temperature;

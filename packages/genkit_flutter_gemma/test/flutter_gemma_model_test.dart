@@ -238,6 +238,50 @@ void main() {
     });
 
     test(
+      'passes maxOutputTokens to createChat from FlutterGemmaModelOptions',
+      () async {
+        fakeChat.blockingResponse = const gemma.TextResponse('ok');
+        final model = buildModel();
+
+        await model(
+          ModelRequest(
+            messages: [
+              Message(
+                role: Role.user,
+                content: [TextPart(text: 'Hi')],
+              ),
+            ],
+            config: FlutterGemmaModelOptions(maxOutputTokens: 64).toJson(),
+          ),
+        );
+
+        expect(fakeModel.lastMaxOutputTokens, 64);
+      },
+    );
+
+    test(
+      'passes maxOutputTokens to createChat from common Genkit config',
+      () async {
+        fakeChat.blockingResponse = const gemma.TextResponse('ok');
+        final model = buildModel();
+
+        await model(
+          ModelRequest(
+            messages: [
+              Message(
+                role: Role.user,
+                content: [TextPart(text: 'Hi')],
+              ),
+            ],
+            config: {'maxOutputTokens': 128},
+          ),
+        );
+
+        expect(fakeModel.lastMaxOutputTokens, 128);
+      },
+    );
+
+    test(
       'advertises supports (toolChoice, constrained, json) in Model metadata',
       () {
         final supports =

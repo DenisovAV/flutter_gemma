@@ -159,6 +159,8 @@ Future<ModelResponse> _executeGeneration({
   }
 
   final maxTokens = config?.maxTokens ?? 1024;
+  final maxOutputTokens = config?.maxOutputTokens ??
+      (configMap?['maxOutputTokens'] as num?)?.toInt();
   final temperature = config?.temperature ?? 0.8;
   final topK = config?.topK ?? 1;
   final topP = config?.topP;
@@ -245,6 +247,7 @@ Future<ModelResponse> _executeGeneration({
     toolChoice: gemmaToolChoice,
     systemInstruction: systemInstruction,
     maxFunctionBufferLength: maxFunctionBufferLength,
+    maxOutputTokens: maxOutputTokens,
   );
 
   // Convert and add messages.

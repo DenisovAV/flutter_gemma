@@ -81,6 +81,7 @@ class FakeInferenceModel extends gemma.InferenceModel {
   gemma.ToolChoice? lastToolChoice;
   String? lastSystemInstruction;
   int? lastMaxFunctionBufferLength;
+  int? lastMaxOutputTokens;
 
   @override
   Future<gemma.InferenceChat> createChat({
@@ -105,6 +106,7 @@ class FakeInferenceModel extends gemma.InferenceModel {
     lastToolChoice = toolChoice;
     lastSystemInstruction = systemInstruction;
     lastMaxFunctionBufferLength = maxFunctionBufferLength;
+    lastMaxOutputTokens = maxOutputTokens;
     return chatToReturn ?? FakeInferenceChat();
   }
 

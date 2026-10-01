@@ -1,5 +1,6 @@
 ## Unreleased
 - Web: fail the response stream when LiteRT-LM returns an unexpected content shape.
+- Linux: native tool calls no longer abort on the first token (#551).
 
 ## 1.8.5
 - Web setup pins `@litert-lm/core` 0.17.1.

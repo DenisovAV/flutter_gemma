@@ -52,8 +52,8 @@ jobs:
             ls -la "$2"
           }
           get sasha-denisov/function-gemma-270M-it functiongemma-270M-it.litertlm
-          get litert-community/functiongemma-270m-ft-mobile-actions mobile_actions_q8_ekv1024.litertlm
-          get google/functiongemma-270m-it tiny_garden.litertlm
+          # Mobile Actions + Tiny Garden are gated and the repo has no HF_TOKEN
+          # secret; the four public-model cases are enough for an ABI check.
           get litert-community/gemma-4-E2B-it-litert-lm gemma-4-E2B-it.litertlm
           df -h "$HOME" | tail -1
 
@@ -124,7 +124,8 @@ jobs:
         working-directory: packages/flutter_gemma/example
         run: |
           flutter pub get > /dev/null
-          xvfb-run -a flutter test integration_test/litertlm_native_tools_test.dart -d linux 2>&1 | tee /tmp/tools.log | tail -60
+          xvfb-run -a flutter test integration_test/litertlm_native_tools_test.dart -d linux \
+            --name 'FunctionGemma:|Gemma 4:' 2>&1 | tee /tmp/tools.log | tail -60
           code=${PIPESTATUS[0]}
           ls build/linux/arm64/debug/bundle/lib | grep -E 'LiteRt|Gemma|dawn|Proxy' || true
           exit $code

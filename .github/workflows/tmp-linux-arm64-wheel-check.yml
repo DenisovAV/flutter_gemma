@@ -1,0 +1,137 @@
+# TEMPORARY (#551): does upstream's own Linux runtime fix native tool calls on
+# arm64, the way it does on x86_64? Not for merge — delete with the branch.
+#
+# wheel:    libLiteRtLm.so := liblitert-lm.so from the SHA-pinned PyPI wheel
+#           litert-lm-api 0.17.1 (provider compiled in), loaded alone.
+# baseline: the released native-v0.17.1-a bundle — expected to fail, which
+#           proves the test can see #551 on arm64 at all.
+name: tmp linux arm64 wheel check
+
+on:
+  push:
+    branches: [ci/linux-arm64-wheel-check]
+
+jobs:
+  tools:
+    name: arm64 ${{ matrix.variant }}
+    runs-on: ubuntu-22.04-arm
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [wheel, baseline]
+    env:
+      WHEEL: litert_lm_api-0.17.1-py3-none-manylinux_2_27_aarch64.whl
+      WHEEL_SHA256: 32d9655c74186c97a8b04bd0f06a5e1641ec2c0bdb583ce11ed58526ee08ca29
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: System packages
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq clang cmake ninja-build pkg-config \
+            libgtk-3-dev liblzma-dev libstdc++-12-dev xvfb xdg-user-dirs unzip
+          uname -m; ldd --version | head -1
+
+      - name: Flutter 3.47.2
+        run: |
+          git clone --depth 1 --branch 3.47.2 https://github.com/flutter/flutter.git "$HOME/flutter"
+          echo "$HOME/flutter/bin" >> "$GITHUB_PATH"
+          "$HOME/flutter/bin/flutter" --version
+
+      - name: Models into the XDG documents dir
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          mkdir -p "$HOME/Documents" "$HOME/.config"
+          echo 'XDG_DOCUMENTS_DIR="$HOME/Documents"' > "$HOME/.config/user-dirs.dirs"
+          cd "$HOME/Documents"
+          get() {
+            curl -fsSL -H "Authorization: Bearer $HF_TOKEN" -o "$2" \
+              "https://huggingface.co/$1/resolve/main/$2"
+            ls -la "$2"
+          }
+          get sasha-denisov/function-gemma-270M-it functiongemma-270M-it.litertlm
+          get litert-community/functiongemma-270m-ft-mobile-actions mobile_actions_q8_ekv1024.litertlm
+          get google/functiongemma-270m-it tiny_garden.litertlm
+          get litert-community/gemma-4-E2B-it-litert-lm gemma-4-E2B-it.litertlm
+          df -h "$HOME" | tail -1
+
+      - name: Wheel runtime (SHA-pinned) + Python tool call
+        if: matrix.variant == 'wheel'
+        run: |
+          pip download --no-deps --only-binary :all: --platform manylinux_2_27_aarch64 \
+            --python-version 3.10 -d /tmp/w litert-lm-api==0.17.1
+          echo "$WHEEL_SHA256  /tmp/w/$WHEEL" | sha256sum -c -
+          unzip -q -d /tmp/w/x "/tmp/w/$WHEEL"
+          so=/tmp/w/x/litert_lm/liblitert-lm.so
+          readelf -d "$so" | grep -E 'NEEDED|FLAGS'
+          cat > /tmp/tooltest.py <<'EOF'
+          import sys, json, litert_lm
+          from litert_lm import interfaces
+          def get_weather(city: str) -> str:
+              """Gets the current weather for a city.
+              Args:
+                city: The city name.
+              """
+              return "sunny"
+          eng = litert_lm.Engine(sys.argv[1], max_num_tokens=1024)
+          conv = eng.create_conversation(tools=[get_weather], automatic_tool_calling=False,
+                  constrained_decoding_config=interfaces.ConstrainedDecodingConfig(enable=True))
+          r = conv.send_message({"role": "user", "content": "What is the weather in Paris?"})
+          print("RESPONSE:", json.dumps(r, default=str)[:800])
+          assert "get_weather" in json.dumps(r, default=str), "no tool call"
+          EOF
+          for m in functiongemma-270M-it gemma-4-E2B-it; do
+            PYTHONPATH=/tmp/w/x python3 /tmp/tooltest.py "$HOME/Documents/$m.litertlm" 2>&1 \
+              | grep -E 'RESPONSE|Error|error' | head -5
+            test "${PIPESTATUS[0]}" = 0
+          done
+
+          # Local prebuilt override: the wheel lib + our stream proxy, nothing else.
+          P=packages/flutter_gemma_litertlm/native/litert_lm/prebuilt/linux_arm64
+          mkdir -p "$P"
+          cp "$so" "$P/libLiteRtLm.so"
+          curl -fsSL -o /tmp/rel.tgz \
+            https://github.com/DenisovAV/flutter_gemma/releases/download/native-v0.17.1-a/litertlm-linux_arm64.tar.gz
+          mkdir -p /tmp/rel && tar -xzf /tmp/rel.tgz -C /tmp/rel
+          cp "$(find /tmp/rel -name libStreamProxy.so | head -1)" "$P/"
+          ls -la "$P"
+
+          # One runtime on Linux, as on Android: LiteRt* come from libLiteRtLm.so.
+          python3 - <<'EOF'
+          import pathlib
+          base = pathlib.Path('packages/flutter_gemma_litertlm/lib/src/ffi')
+          c = base / 'litert_lm_client.dart'
+          s = c.read_text()
+          old = """        'libLiteRt.so',
+                  'libGemmaModelConstraintProvider.so',
+                  'libLiteRtWebGpuAccelerator.so',
+                  'libLiteRtLm.so',"""
+          old = "\n".join(l.strip() and "        " + l.strip() for l in old.splitlines())
+          assert s.count(old) == 1, 'preload list not found'
+          c.write_text(s.replace(old, "        'libLiteRtLm.so',"))
+          b = base / 'litert_bindings.dart'
+          s = b.read_text()
+          old = "if (Platform.isLinux) return DynamicLibrary.open('libLiteRt.so');"
+          assert s.count(old) == 1, 'bindings open not found'
+          b.write_text(s.replace(old, old.replace('libLiteRt.so', 'libLiteRtLm.so')))
+          print('dart patched')
+          EOF
+          git diff --stat
+
+      - name: litertlm_native_tools_test (${{ matrix.variant }})
+        working-directory: packages/flutter_gemma/example
+        run: |
+          flutter pub get > /dev/null
+          xvfb-run -a flutter test integration_test/litertlm_native_tools_test.dart -d linux 2>&1 | tee /tmp/tools.log | tail -60
+          code=${PIPESTATUS[0]}
+          ls build/linux/arm64/debug/bundle/lib | grep -E 'LiteRt|Gemma|dawn|Proxy' || true
+          exit $code
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tools-log-${{ matrix.variant }}
+          path: /tmp/tools.log
+          if-no-files-found: ignore

@@ -1,6 +1,6 @@
 ## 1.11.4
 - Renamed from `flutter_gemma`; `dart fix --apply` migrates, old names deprecated until 2.0.0.
-- Web: fail the response stream when LiteRT-LM returns an unexpected content shape.
+- Web: keep plain-string SDK responses; an unexpected content shape now fails the stream.
 
 ## 1.11.3
 - New `flutter-gemma-diagnostics` agent skill for `flutter_gemma_diagnostics`.

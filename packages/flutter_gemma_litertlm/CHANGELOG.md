@@ -1,4 +1,5 @@
 ## Unreleased
+- Explain when a target has no published LiteRT-LM native archive (#326).
 - Web: fail the response stream when LiteRT-LM returns an unexpected content shape.
 
 ## 1.8.5

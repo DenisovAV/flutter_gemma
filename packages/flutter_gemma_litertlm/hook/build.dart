@@ -691,8 +691,22 @@ Future<void> _processBundle({
   required String dirName,
 }) async {
   // Skip the bundle entirely if it has no checksum for this platform.
-  // Both bundles use this as the "is this target supported" gate.
-  if (!bundle.checksums.containsKey(bundle.archiveName(dirName))) return;
+  // Both bundles use this as the "is this target supported" gate. Keep the
+  // build non-fatal so an app that only uses another engine can still build,
+  // but explain why no CodeAsset will be produced. Without this warning a
+  // Windows ARM64 build appears successful and only fails later when an app
+  // first tries to load a `.litertlm` model (#326).
+  final archiveName = bundle.archiveName(dirName);
+  if (!bundle.checksums.containsKey(archiveName)) {
+    stderr.writeln(
+      'flutter_gemma_litertlm: no native archive is published for '
+      '$dirName ($archiveName). LiteRT-LM `.litertlm` inference is not '
+      'available on this target. Use a supported target or another engine '
+      'such as MediaPipe `.task` or ONNX; this build can continue for other '
+      'engines.',
+    );
+    return;
+  }
 
   // Cross-package version-skew guard (throws on a different owner declaring a
   // different version of this shared bundle). Match/absent/same-owner are no-ops

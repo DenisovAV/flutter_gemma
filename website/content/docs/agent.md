@@ -37,7 +37,7 @@ used below).
 
 ```
 dependencies:
-  flutter_gemma: ^1.11.2
+  flutter_gemma: ^1.11.3
   flutter_gemma_agent: ^0.2.6
   flutter_gemma_litertlm: ^1.8.5   # an inference engine (LiteRtLmEngine)
 ```

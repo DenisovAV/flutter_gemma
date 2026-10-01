@@ -16,10 +16,15 @@ jobs:
     name: arm64 ${{ matrix.variant }}
     runs-on: ubuntu-22.04-arm
     timeout-minutes: 90
+    permissions:
+      actions: read
+      contents: read
     strategy:
       fail-fast: false
       matrix:
-        variant: [wheel, baseline]
+        # wheel + baseline ran on a73cf753; this run checks the bridge build
+        # (fix/linux-constraint-abi-551, native build run 36862882860).
+        variant: [bridge]
     env:
       WHEEL: litert_lm_api-0.17.1-py3-none-manylinux_2_27_aarch64.whl
       WHEEL_SHA256: 32d9655c74186c97a8b04bd0f06a5e1641ec2c0bdb583ce11ed58526ee08ca29
@@ -120,6 +125,22 @@ jobs:
           EOF
           git diff --stat
 
+      - name: Bridge build from the native-build run
+        if: matrix.variant == 'bridge'
+        uses: actions/download-artifact@v4
+        with:
+          name: litertlm-linux_arm64
+          run-id: 36862882860
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: packages/flutter_gemma_litertlm/native/litert_lm/prebuilt/linux_arm64
+
+      - name: Show the bridge bundle
+        if: matrix.variant == 'bridge'
+        run: |
+          P=packages/flutter_gemma_litertlm/native/litert_lm/prebuilt/linux_arm64
+          ls -la "$P"
+          strings "$P/libLiteRtLm.so" | grep -c "Gemma constraint provider" || true
+
       - name: litertlm_native_tools_test (${{ matrix.variant }})
         working-directory: packages/flutter_gemma/example
         run: |
@@ -130,9 +151,21 @@ jobs:
           ls build/linux/arm64/debug/bundle/lib | grep -E 'LiteRt|Gemma|dawn|Proxy' || true
           exit $code
 
+      - name: litertlm_ffi_test CPU text (${{ matrix.variant }})
+        if: always()
+        working-directory: packages/flutter_gemma/example
+        run: |
+          mkdir -p "$HOME/models"
+          ln -sf "$HOME/Documents/gemma-4-E2B-it.litertlm" "$HOME/models/gemma-4-E2B-it.litertlm"
+          xvfb-run -a flutter test integration_test/litertlm_ffi_test.dart -d linux \
+            --plain-name 'CPU text' 2>&1 | tee /tmp/ffi.log | tail -40
+          exit ${PIPESTATUS[0]}
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: tools-log-${{ matrix.variant }}
-          path: /tmp/tools.log
+          path: |
+            /tmp/tools.log
+            /tmp/ffi.log
           if-no-files-found: ignore

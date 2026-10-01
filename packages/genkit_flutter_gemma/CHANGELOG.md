@@ -1,3 +1,7 @@
+## Unreleased
+
+- Populate `ModelResponse.usage` (`GenerationUsage`) on responses, preferring `getSessionMetrics()` when available and falling back to `sizeInTokens`.
+
 ## 0.6.2
 - README: register `embeddingTokenizers:`, and pins for the 1.9.0 release.
 

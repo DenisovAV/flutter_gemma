@@ -759,5 +759,73 @@ void main() {
         );
       },
     );
+
+    group('token usage reporting', () {
+      test('prefers getSessionMetrics counts when available (blocking)', () async {
+        fakeChat.blockingResponse = const gemma.TextResponse('World');
+        fakeChat.fakeSession.metricsToReturn = gemma.SessionMetrics(
+          inputTokens: 12,
+          outputTokens: 5,
+          totalTokens: 17,
+        );
+
+        final model = buildModel();
+        final response = await model(simpleRequest('Hello'));
+
+        expect(response.usage, isNotNull);
+        expect(response.usage!.inputTokens, 12.0);
+        expect(response.usage!.outputTokens, 5.0);
+        expect(response.usage!.totalTokens, 17.0);
+      });
+
+      test('prefers getSessionMetrics counts when available (streaming)', () async {
+        fakeChat.streamingResponses = [
+          const gemma.TextResponse('Hello '),
+          const gemma.TextResponse('World'),
+        ];
+        fakeChat.fakeSession.metricsToReturn = gemma.SessionMetrics(
+          inputTokens: 8,
+          outputTokens: 4,
+          totalTokens: 12,
+        );
+
+        final model = buildModel();
+        final response = await model(simpleRequest('Hi'), onChunk: (_) {});
+
+        expect(response.usage, isNotNull);
+        expect(response.usage!.inputTokens, 8.0);
+        expect(response.usage!.outputTokens, 4.0);
+        expect(response.usage!.totalTokens, 12.0);
+      });
+
+      test('falls back to sizeInTokens when getSessionMetrics is empty', () async {
+        fakeChat.blockingResponse = const gemma.TextResponse('World');
+        fakeChat.fakeSession.metricsToReturn = gemma.SessionMetrics();
+        fakeChat.fakeSession.tokenCounter = (text) => text.length;
+
+        final model = buildModel();
+        final response = await model(simpleRequest('Hello'));
+
+        expect(response.usage, isNotNull);
+        expect(response.usage!.inputTokens, 5.0);
+        expect(response.usage!.outputTokens, 5.0);
+        expect(response.usage!.totalTokens, 10.0);
+      });
+
+      test(
+        'returns response with null usage when token counting throws without failing generation',
+        () async {
+          fakeChat.blockingResponse = const gemma.TextResponse('World');
+          fakeChat.fakeSession.metricsToReturn = gemma.SessionMetrics();
+          fakeChat.fakeSession.shouldThrowOnSizeInTokens = true;
+
+          final model = buildModel();
+          final response = await model(simpleRequest('Hello'));
+
+          expect(response.message!.content.first.text, 'World');
+          expect(response.usage, isNull);
+        },
+      );
+    });
   });
 }

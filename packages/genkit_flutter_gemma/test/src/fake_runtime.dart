@@ -129,9 +129,51 @@ class FakeInferenceModel extends gemma.InferenceModel {
   Future<void> close() async {}
 }
 
+/// Fake session that returns configurable metrics and token counts.
+class FakeInferenceSession implements gemma.InferenceModelSession {
+  gemma.SessionMetrics metricsToReturn = gemma.SessionMetrics();
+  int Function(String text)? tokenCounter;
+  bool shouldThrowOnSizeInTokens = false;
+  bool shouldThrowOnMetrics = false;
+
+  @override
+  gemma.SessionMetrics getSessionMetrics() {
+    if (shouldThrowOnMetrics) throw StateError('Metrics failed');
+    return metricsToReturn;
+  }
+
+  @override
+  Future<int> sizeInTokens(String text) async {
+    if (shouldThrowOnSizeInTokens) throw StateError('Counting failed');
+    if (tokenCounter != null) return tokenCounter!(text);
+    return text.isEmpty ? 0 : text.split(RegExp(r'\s+')).length;
+  }
+
+  @override
+  Future<String> getResponse() async => '';
+
+  @override
+  Stream<String> getResponseAsync() async* {}
+
+  @override
+  Future<void> addQueryChunk(gemma.Message message) async {}
+
+  @override
+  Future<void> stopGeneration() async {}
+
+  @override
+  Future<void> close() async {}
+}
+
 /// Fake chat that returns preconfigured responses.
 class FakeInferenceChat extends gemma.InferenceChat {
-  FakeInferenceChat() : super(sessionCreator: null, maxTokens: 1024);
+  FakeInferenceChat({FakeInferenceSession? fakeSession})
+      : fakeSession = fakeSession ?? FakeInferenceSession(),
+        super(sessionCreator: null, maxTokens: 1024) {
+    session = this.fakeSession;
+  }
+
+  final FakeInferenceSession fakeSession;
 
   /// Response returned by [generateChatResponse].
   gemma.ModelResponse blockingResponse = const gemma.TextResponse(

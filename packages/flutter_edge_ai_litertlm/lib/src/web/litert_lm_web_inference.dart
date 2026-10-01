@@ -746,8 +746,17 @@ class LiteRtLmWebSession extends InferenceModelSession
               if (accumulateRaw) {
                 rawBuffer!.write(jsonStr);
               }
-              final text = SdkTextExtractor.extractTextFromResponse(jsonStr);
-              if (text.isNotEmpty) controller.add(text);
+              try {
+                final text = SdkTextExtractor.extractTextFromResponse(jsonStr);
+                if (text.isNotEmpty) controller.add(text);
+              } catch (e, st) {
+                releaseMutex();
+                if (!controller.isClosed) {
+                  controller.addError(e, st);
+                  controller.close();
+                }
+                return;
+              }
             }
             pump();
           },

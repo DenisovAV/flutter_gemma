@@ -30,7 +30,7 @@ inference.
 
 ```
 dependencies:
-  flutter_edge_ai: ^1.11.3
+  flutter_edge_ai: ^1.11.4
   flutter_edge_ai_speech: ^0.5.2
 ```
 

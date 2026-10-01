@@ -70,9 +70,9 @@ What they cover: registering an engine (core ships none), routing by the declare
 
 ## What's new: flutter_gemma is now flutter_edge_ai
 
-- **flutter_gemma is now flutter_edge_ai.** Every package has a new name; models, stores and platform setup carry over unchanged, and the old Dart names still compile as deprecated aliases. See [MIGRATION.md](MIGRATION.md#flutter_gemma--flutter_edge_ai-1113).
+- **flutter_gemma is now flutter_edge_ai.** Every package has a new name; models, stores and platform setup carry over unchanged, and the old Dart names still compile as deprecated aliases. See [MIGRATION.md](MIGRATION.md#flutter_gemma--flutter_edge_ai-1114).
 
-Through 1.11.3 this package shipped as `flutter_gemma`; `flutter_edge_ai` starts at that same 1.11.3.
+Through 1.11.3 this package shipped as `flutter_gemma`; `flutter_edge_ai` continues the numbering at 1.11.4.
 
 ## What's new in 1.9.0
 

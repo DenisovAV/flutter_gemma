@@ -1,14 +1,14 @@
 # Migration guide
 
-## flutter_gemma → flutter_edge_ai (1.11.3)
+## flutter_gemma → flutter_edge_ai (1.11.4)
 
 The project is now **Flutter Edge AI**. Every package moved to a new name; the
 code, the platforms and the on-device data are the same.
 
 | Before | After |
 |--------|-------|
-| `flutter_gemma` | `flutter_edge_ai` 1.11.3 |
-| `flutter_gemma_litertlm` | `flutter_edge_ai_litertlm` 1.8.5 |
+| `flutter_gemma` | `flutter_edge_ai` 1.11.4 |
+| `flutter_gemma_litertlm` | `flutter_edge_ai_litertlm` 1.8.6 |
 | `flutter_gemma_mediapipe` | `flutter_edge_ai_mediapipe` 1.0.8 |
 | `flutter_gemma_embeddings` | `flutter_edge_ai_embeddings` 2.2.1 |
 | `flutter_gemma_rag_sqlite` | `flutter_edge_ai_sqlite` 1.4.0 |
@@ -90,8 +90,8 @@ dependencies:
 **After (1.0):**
 ```yaml
 dependencies:
-  flutter_edge_ai: ^1.11.3                 # core — always required
-  flutter_edge_ai_litertlm: ^1.8.5        # add if you run .litertlm models (also provides LiteRtEmbeddingBackend)
+  flutter_edge_ai: ^1.11.4                 # core — always required
+  flutter_edge_ai_litertlm: ^1.8.6        # add if you run .litertlm models (also provides LiteRtEmbeddingBackend)
   flutter_edge_ai_mediapipe: ^1.0.8       # add if you run .task / .bin models
   flutter_edge_ai_embeddings: ^2.2.1      # add if you compute embeddings (needs a backend, see above)
   flutter_edge_ai_qdrant: ^1.3.2      # add for native on-device RAG (qdrant)

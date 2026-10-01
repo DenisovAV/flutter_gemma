@@ -1,6 +1,9 @@
-## 1.11.3
+## 1.11.4
 - Renamed from `flutter_gemma`; `dart fix --apply` migrates, old names deprecated until 2.0.0.
-- New `flutter-edge-ai-diagnostics` agent skill for `flutter_edge_ai_diagnostics`.
+- Web: fail the response stream when LiteRT-LM returns an unexpected content shape.
+
+## 1.11.3
+- New `flutter-gemma-diagnostics` agent skill for `flutter_gemma_diagnostics`.
 
 ## 1.11.2
 - Web setup pins `@mediapipe/tasks-genai` 0.10.29, `@litert-lm/core` 0.17.1, ORT-web 1.30.0, Transformers.js 4.3.0.
@@ -713,9 +716,6 @@
 - Added opportunity to setup a model before initiation
 ## 0.0.1
 - Initial release
-
-
-
 
 
 

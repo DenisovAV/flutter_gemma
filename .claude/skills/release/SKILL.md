@@ -664,7 +664,7 @@ dart pub publish --force      # only after user approval; --force is non-interac
 ## Step 10b: Run the Codelabs workflow — after the publish, not before
 
 The codelab step apps depend on **published** packages — a hosted constraint
-such as `flutter_edge_ai: ^1.11.3`, never a `path:` sibling — so their check
+such as `flutter_edge_ai: ^1.11.4`, never a `path:` sibling — so their check
 validates the world users install from rather than this repo's tree. (Floors
 differ per codelab: at 1.8.4 twenty step apps pinned `^1.8.3` and four `^1.8.4`,
 so "the codelabs" are never all on the version you just published.) Two things

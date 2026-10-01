@@ -39,7 +39,7 @@ SmolLM and more — see [Models](/docs/models) for the full list.
 
 - **flutter_gemma is now Flutter Edge AI.** Every package has a new name — `flutter_edge_ai`, `flutter_edge_ai_litertlm`, … Installed models, vector stores and platform setup carry over, and the old Dart names still compile as deprecated aliases. See [Migration](/docs/migration).
 
-Through 1.11.3 the packages shipped under the `flutter_gemma*` names; the new names start at those same numbers.
+Through 1.11.3 the packages shipped under the `flutter_gemma*` names; the new names continue the same numbering (the table is in [Migration](/docs/migration)).
 
 ## What's new in 1.9
 

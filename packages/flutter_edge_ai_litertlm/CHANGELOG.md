@@ -1,5 +1,8 @@
-## 1.8.5
+## 1.8.6
 - Renamed from `flutter_gemma_litertlm`.
+- Web: fail the response stream when LiteRT-LM returns an unexpected content shape.
+
+## 1.8.5
 - Web setup pins `@litert-lm/core` 0.17.1.
 
 ## 1.8.4

@@ -263,9 +263,14 @@ Future<ModelResponse> _executeGeneration({
   // Generate response.
   final stopwatch = Stopwatch()..start();
   if (context.streamingRequested) {
-    return _generateStreaming(chat, context.sendChunk, stopwatch);
+    return _generateStreaming(
+      chat,
+      context.sendChunk,
+      stopwatch,
+      gemmaMessages,
+    );
   } else {
-    return _generateBlocking(chat, stopwatch);
+    return _generateBlocking(chat, stopwatch, gemmaMessages);
   }
 }
 
@@ -273,32 +278,42 @@ Future<ModelResponse> _executeGeneration({
 Future<ModelResponse> _generateBlocking(
   gemma.InferenceChat chat,
   Stopwatch stopwatch,
+  List<gemma.Message> gemmaMessages,
 ) async {
   final response = await chat.generateChatResponse();
   final latencyMs = stopwatch.elapsedMilliseconds.toDouble();
 
+  String fullText = '';
+  String outputText = '';
+  List<gemma.FunctionCallResponse>? functionCalls;
+  String? reasoningText;
+
   switch (response) {
     case gemma.TextResponse(:final token):
-      return convertFinalResponse(token, latencyMs: latencyMs);
+      fullText = token;
+      outputText = token;
     case gemma.FunctionCallResponse(:final name, :final args):
-      return convertFinalResponse(
-        '',
-        functionCalls: [gemma.FunctionCallResponse(name: name, args: args)],
-        latencyMs: latencyMs,
-      );
+      functionCalls = [gemma.FunctionCallResponse(name: name, args: args)];
     case gemma.ParallelFunctionCallResponse(:final calls):
-      return convertFinalResponse(
-        '',
-        functionCalls: calls,
-        latencyMs: latencyMs,
-      );
+      functionCalls = calls;
     case gemma.ThinkingResponse(:final content):
-      return convertFinalResponse(
-        '',
-        reasoningText: content,
-        latencyMs: latencyMs,
-      );
+      reasoningText = content;
+      outputText = content;
   }
+
+  final usage = await _computeUsage(
+    chat: chat,
+    gemmaMessages: gemmaMessages,
+    outputText: outputText,
+  );
+
+  return convertFinalResponse(
+    fullText,
+    functionCalls: functionCalls,
+    reasoningText: reasoningText,
+    latencyMs: latencyMs,
+    usage: usage,
+  );
 }
 
 /// Generates a streaming response, sending chunks via [sendChunk].
@@ -306,6 +321,7 @@ Future<ModelResponse> _generateStreaming(
   gemma.InferenceChat chat,
   void Function(ModelResponseChunk) sendChunk,
   Stopwatch stopwatch,
+  List<gemma.Message> gemmaMessages,
 ) async {
   final fullText = StringBuffer();
   final reasoningText = StringBuffer();
@@ -326,10 +342,78 @@ Future<ModelResponse> _generateStreaming(
     }
   }
 
+  final responseText = fullText.isNotEmpty
+      ? fullText.toString()
+      : reasoningText.toString();
+  final usage = await _computeUsage(
+    chat: chat,
+    gemmaMessages: gemmaMessages,
+    outputText: responseText,
+  );
+
   return convertFinalResponse(
     fullText.toString(),
     functionCalls: functionCalls.isNotEmpty ? functionCalls : null,
     reasoningText: reasoningText.isNotEmpty ? reasoningText.toString() : null,
     latencyMs: stopwatch.elapsedMilliseconds.toDouble(),
+    usage: usage,
   );
+}
+
+/// Computes token usage for the completed turn.
+///
+/// Ordering:
+/// 1. Prefer [chat.session.getSessionMetrics] when it returns non-zero counts
+///    (LiteRT-LM FFI engine, which includes system instructions and tools).
+/// 2. Fall back to [chat.session.sizeInTokens] otherwise (MediaPipe engine where
+///    metrics are empty).
+///    NOTE: sizeInTokens covers only the converted message text and response text.
+///    The system instruction, the tools prompt that InferenceChat injects, and
+///    engine/prompt suffixes (e.g. /no_think) are not in it, so inputTokens
+///    under-counts those requests compared to LiteRT-LM FFI.
+/// 3. If token counting throws, return null so generation returns without usage
+///    rather than failing a response that already succeeded.
+Future<GenerationUsage?> _computeUsage({
+  required gemma.InferenceChat chat,
+  required List<gemma.Message> gemmaMessages,
+  required String outputText,
+}) async {
+  try {
+    final metrics = chat.session.getSessionMetrics();
+    if (metrics.inputTokens > 0 ||
+        metrics.outputTokens > 0 ||
+        metrics.totalTokens > 0) {
+      final input = metrics.inputTokens.toDouble();
+      final output = metrics.outputTokens.toDouble();
+      final total = (metrics.totalTokens > 0
+              ? metrics.totalTokens
+              : (metrics.inputTokens + metrics.outputTokens))
+          .toDouble();
+      return GenerationUsage(
+        inputTokens: input,
+        outputTokens: output,
+        totalTokens: total,
+      );
+    }
+
+    int inputTokens = 0;
+    for (final msg in gemmaMessages) {
+      if (msg.text.isNotEmpty) {
+        inputTokens += await chat.session.sizeInTokens(msg.text);
+      }
+    }
+
+    int outputTokens = 0;
+    if (outputText.isNotEmpty) {
+      outputTokens = await chat.session.sizeInTokens(outputText);
+    }
+
+    return GenerationUsage(
+      inputTokens: inputTokens.toDouble(),
+      outputTokens: outputTokens.toDouble(),
+      totalTokens: (inputTokens + outputTokens).toDouble(),
+    );
+  } catch (_) {
+    return null;
+  }
 }

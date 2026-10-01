@@ -97,6 +97,24 @@ void main() {
       expect(parts.first.isReasoning, isTrue);
       expect(parts.first.reasoning, 'thinking...');
     });
+
+    test('propagates usage when provided', () {
+      final usage = GenerationUsage(
+        inputTokens: 10.0,
+        outputTokens: 20.0,
+        totalTokens: 30.0,
+      );
+      final result = convertFinalResponse('text', usage: usage);
+      expect(result.usage, isNotNull);
+      expect(result.usage!.inputTokens, 10.0);
+      expect(result.usage!.outputTokens, 20.0);
+      expect(result.usage!.totalTokens, 30.0);
+    });
+
+    test('usage is null when not provided', () {
+      final result = convertFinalResponse('text');
+      expect(result.usage, isNull);
+    });
   });
 
   group('convertStreamChunk', () {

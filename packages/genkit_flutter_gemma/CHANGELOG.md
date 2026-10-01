@@ -1,3 +1,8 @@
+## Unreleased
+
+- Add `maxOutputTokens` to `FlutterGemmaModelOptions`, passed to `createChat` (honoured by `.litertlm` models) and mapped from Genkit's common `maxOutputTokens` config.
+- Fix `maxTokens` dartdoc to describe the context window (input + output) matching the README.
+
 ## 0.6.2
 - README: register `embeddingTokenizers:`, and pins for the 1.9.0 release.
 

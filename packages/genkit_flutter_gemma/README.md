@@ -131,6 +131,7 @@ final response = await ai.generate(
 | Option | Type | Default | Description |
 |---|---|---|---|
 | `maxTokens` | `int?` | 1024 | **Context window** (input + output), not reply length — it goes straight into `getActiveModel(maxTokens:)`. To shorten replies, trim the prompt or use the context-window middleware; lowering this shrinks the KV cache. |
+| `maxOutputTokens` | `int?` | null | Maximum number of tokens to generate. Only honoured by `.litertlm` models; MediaPipe `.task` models ignore it. |
 | `temperature` | `double?` | 0.8 | Sampling temperature |
 | `topK` | `int?` | 1 | Top-K sampling |
 | `topP` | `double?` | null | Top-P (nucleus) sampling |

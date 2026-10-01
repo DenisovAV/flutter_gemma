@@ -189,12 +189,30 @@ void main() {
       expect(without.toJson().containsKey('systemInstruction'), isFalse);
     });
 
+    test('fromJson and toJson handle maxOutputTokens', () {
+      final options = FlutterGemmaModelOptions.fromJson({
+        'maxOutputTokens': 256,
+      });
+
+      expect(options.maxOutputTokens, 256);
+
+      final json = FlutterGemmaModelOptions(maxOutputTokens: 256).toJson();
+      expect(json['maxOutputTokens'], 256);
+
+      final without = FlutterGemmaModelOptions();
+      expect(without.toJson().containsKey('maxOutputTokens'), isFalse);
+    });
+
     test('schema provides JSON Schema', () {
       final schema = FlutterGemmaModelOptions.$schema.jsonSchema();
 
       expect(schema['type'], 'object');
       expect(schema['properties'], isA<Map>());
       expect((schema['properties'] as Map).containsKey('maxTokens'), isTrue);
+      expect(
+        (schema['properties'] as Map).containsKey('maxOutputTokens'),
+        isTrue,
+      );
     });
   });
 }

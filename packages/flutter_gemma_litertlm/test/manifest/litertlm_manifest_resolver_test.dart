@@ -159,6 +159,10 @@ void main() {
       expect(r.runtime.supportImage, false);
       expect(r.runtime.supportAudio, false);
       expect(r.runtime.preferredBackend, PreferredBackend.gpu);
+      expect(r.runtime.verifiedBackends, [
+        PreferredBackend.cpu,
+        PreferredBackend.gpu,
+      ]);
       expect(r.fileType, ModelFileType.litertlm);
       expect(r.modelType, ModelType.qwen3);
       expect(r.file, 'model.litertlm');
@@ -299,6 +303,27 @@ void main() {
         'No variant of "org/name" is verified on the requested gpu backend; '
             'resolved without that hint (cpu).',
       ]);
+    });
+
+    test('exposes the selected variant backend capability list', () async {
+      final f = _Fetches();
+      final r = await f
+          .resolver(
+            manifest(
+              variants: [
+                {
+                  'file': 'model.litertlm',
+                  'sha256': 'a' * 64,
+                  'size_bytes': 1,
+                  'quantization': 'int8',
+                  'backends': ['cpu'],
+                  'default_backend': 'cpu',
+                },
+              ],
+            ),
+          )
+          .resolve('org/name');
+      expect(r.runtime.verifiedBackends, [PreferredBackend.cpu]);
     });
 
     test(

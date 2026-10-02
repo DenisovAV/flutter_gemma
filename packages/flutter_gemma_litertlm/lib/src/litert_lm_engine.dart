@@ -1,5 +1,5 @@
 import 'package:flutter_gemma/core/domain/platform_types.dart'
-    show PreferredBackend;
+    show ActivationDataType, PreferredBackend;
 import 'package:flutter_gemma/core/model.dart' show ModelFileType;
 import 'package:flutter_gemma/core/registry/hugging_face_resolver.dart'
     show HuggingFaceResolver;
@@ -87,14 +87,20 @@ int clampLitertlmContextTokens(
   String audioBackend,
   int? activationDataType,
 })
-encoderInitArgs(RuntimeConfig config, PreferredBackend activeBackend) => (
+encoderInitArgs(
+  RuntimeConfig config,
+  PreferredBackend activeBackend, {
+  ActivationDataType? activationDataType,
+}) => (
   backend: ffiBackendWireName(activeBackend),
   enableVision: config.supportImage,
   visionBackend: encoderBackendWireName(config.preferredVisionBackend),
   maxNumImages: config.supportImage ? (config.maxNumImages ?? 1) : 0,
   enableAudio: config.supportAudio,
   audioBackend: encoderBackendWireName(config.preferredAudioBackend),
-  activationDataType: activationDataTypeWireValue(config.activationDataType),
+  activationDataType: activationDataTypeWireValue(
+    activationDataType ?? config.activationDataType,
+  ),
 );
 
 /// LiteRT-LM (.litertlm) inference engine. Pure factory: builds and returns a
@@ -130,12 +136,27 @@ class LiteRtLmEngine
     RuntimeConfig config,
   ) async {
     final cacheDir = (await getApplicationSupportDirectory()).path;
+    final effectiveActivationDataType = litertlmActivationDataTypeForModel(
+      modelPath: config.modelPath,
+      preferredBackend: config.preferredBackend,
+      activationDataType: config.activationDataType,
+    );
+    if (effectiveActivationDataType != config.activationDataType) {
+      gemmaLog(
+        '[LiteRtLmEngine] Mobile Actions has no FP32 activation metadata; '
+        'requesting FP32 for the GPU decoder so the model stays on GPU.',
+      );
+    }
     final ffiRuntime = await initializeFfiRuntime<LiteRtLmFfiClient>(
       preferredBackend: config.preferredBackend,
       logTag: '[LiteRtLmEngine]',
       createClient: LiteRtLmFfiClient.new,
       initializeClient: (client, backend) async {
-        final args = encoderInitArgs(config, backend);
+        final args = encoderInitArgs(
+          config,
+          backend,
+          activationDataType: effectiveActivationDataType,
+        );
         // Per ATTEMPT, not per request: a requested NPU falls back npu -> gpu
         // -> cpu (`ffiBackendFallbackOrder`), and the floor this skips exists
         // for the two it falls back to. Computing it once from the REQUESTED
@@ -165,11 +186,11 @@ class LiteRtLmEngine
     // Only the GPU executor reads the activation type. A GPU attempt that
     // failed — float32 needs more GPU memory — falls back to CPU without an
     // error, so say that the setting did nothing here.
-    if (config.activationDataType != null &&
+    if (effectiveActivationDataType != null &&
         ffiRuntime.activeBackend != PreferredBackend.gpu) {
       gemmaLog(
         '[LiteRtLmEngine] activationDataType '
-        '(${config.activationDataType!.name}) has no effect: the model runs on '
+        '(${effectiveActivationDataType.name}) has no effect: the model runs on '
         '${ffiRuntime.activeBackend.name}, and only the GPU executor reads it.',
       );
     }

@@ -393,11 +393,11 @@ class FlutterGemma {
   ///   built-in AI and the web engines ignore it (optional)
   /// - [defaults]: overridable runtime defaults from a HF manifest (see
   ///   [resolveHuggingFace] / [ResolvedHfModel.runtime]). Each explicit argument
-  ///   above wins over the matching field here, which in turn wins over the SDK
-  ///   default — so `getActiveModel(defaults: r.runtime)` applies the manifest's
-  ///   guidance and `getActiveModel()` behaves exactly as before. NOTE: the two
-  ///   session-level fields (`isThinking`, `minOutputTokens`) are NOT applied
-  ///   here — forward them to `createSession` yourself.
+  ///   above wins over the matching field here, unless it requests a backend
+  ///   outside the manifest's verified capability list; that request is rejected
+  ///   before native model creation. NOTE: the two session-level fields
+  ///   (`isThinking`, `minOutputTokens`) are NOT applied here — forward them to
+  ///   `createSession` yourself.
   ///
   /// Throws:
   /// - [StateError] if no active inference model is set
@@ -464,7 +464,10 @@ class FlutterGemma {
       defaults?.maxTokens,
       1024,
     );
-    final effPreferredBackend = preferredBackend ?? defaults?.preferredBackend;
+    final effPreferredBackend = resolveRuntimeBackend(
+      explicit: preferredBackend,
+      defaults: defaults,
+    );
     final effSupportImage = mergeRuntimeDefault(
       supportImage,
       defaults?.supportImage,
@@ -535,6 +538,39 @@ class FlutterGemma {
   @visibleForTesting
   static T mergeRuntimeDefault<T>(T? explicit, T? manifest, T sdkDefault) =>
       explicit ?? manifest ?? sdkDefault;
+
+  /// Merges a caller's backend request with manifest metadata while rejecting
+  /// a request the selected variant was not verified to support.
+  ///
+  /// Backend initialization fallback only handles failures thrown by the
+  /// native runtime. Some model/backend combinations initialize successfully
+  /// and then emit an empty response, so capability metadata must be checked
+  /// before native creation. A null capability list preserves legacy behavior
+  /// for direct file installs and older resolvers that provide no metadata.
+  @visibleForTesting
+  static PreferredBackend? resolveRuntimeBackend({
+    required PreferredBackend? explicit,
+    required ModelRuntimeDefaults? defaults,
+  }) {
+    final verified = defaults?.verifiedBackends;
+    if (explicit != null && verified != null && !verified.contains(explicit)) {
+      final supported = verified.isEmpty
+          ? 'no SDK backend'
+          : verified.map((backend) => backend.name).join(', ');
+      throw UnsupportedError(
+        'The selected model variant is not verified on the requested '
+        '${explicit.name} backend. Verified backends: $supported.',
+      );
+    }
+
+    // A resolver normally sets preferredBackend from the selected variant.
+    // Keep the single-backend capability list safe even if a third-party
+    // resolver supplies only verifiedBackends and omits that recommendation.
+    final manifestBackend =
+        defaults?.preferredBackend ??
+        (verified != null && verified.length == 1 ? verified.single : null);
+    return explicit ?? manifestBackend;
+  }
 
   /// Resolves a Hugging Face repo id into a [ResolvedHfModel] by reading that
   /// repo's deployment metadata (e.g. `litertlm_manifest.json`), using a

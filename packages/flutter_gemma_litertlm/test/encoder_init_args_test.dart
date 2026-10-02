@@ -99,6 +99,14 @@ void main() {
         ).activationDataType,
         0,
       );
+      expect(
+        encoderInitArgs(
+          _config(),
+          PreferredBackend.gpu,
+          activationDataType: ActivationDataType.float32,
+        ).activationDataType,
+        0,
+      );
       // Sent as asked whichever backend the attempt uses, like LiteRT-LM's
       // own EngineConfig.activationDataType.
       expect(

@@ -221,6 +221,7 @@ class LitertlmManifestResolver implements HuggingFaceResolver {
       runtime: ModelRuntimeDefaults(
         maxTokens: resolution.contextLength,
         preferredBackend: _fromWireName(resolution.backend, repo),
+        verifiedBackends: _verifiedBackends(resolution.variant.backends, repo),
         supportImage: capabilitiesDeclared
             ? resolution.capabilities.vision
             : null,
@@ -283,6 +284,18 @@ class LitertlmManifestResolver implements HuggingFaceResolver {
         );
         return null;
     }
+  }
+
+  List<PreferredBackend>? _verifiedBackends(
+    List<String> backends,
+    String repo,
+  ) {
+    final mapped = <PreferredBackend>[];
+    for (final backend in backends) {
+      final value = _fromWireName(backend, repo);
+      if (value != null && !mapped.contains(value)) mapped.add(value);
+    }
+    return mapped.isEmpty ? null : List.unmodifiable(mapped);
   }
 
   /// `session_defaults.max_output_tokens_min`, tolerantly: the schema

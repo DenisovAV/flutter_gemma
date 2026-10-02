@@ -285,6 +285,30 @@ Android binds the call to address 0. Only Mali takes that path.
 Fix: upgrade to 1.8.2 (`native-v0.17.1-a`). No app change is needed. See
 [#545](https://github.com/DenisovAV/flutter_gemma/issues/545).
 
+### Mobile Actions produces an empty response on Android GPU
+
+The `mobile_actions_q8_ekv1024.litertlm` FunctionGemma fine-tune is an older
+artifact without the `prefer_activation_type=fp32` metadata. [Google AI Edge
+Gallery's model
+allowlist](https://github.com/google-ai-edge/gallery/blob/main/model_allowlists/1_0_14.json)
+declares `accelerators: "cpu"` for Mobile Actions, and the [model
+card](https://huggingface.co/litert-community/functiongemma-270m-ft-mobile-actions)
+only publishes a CPU benchmark. On Android, selecting
+`PreferredBackend.gpu` can still create the engine but generation may finish
+without any tokens or tool call. This has been reproduced on both Adreno and
+Mali devices; see
+[#552](https://github.com/DenisovAV/flutter_gemma/issues/552).
+
+The engine now recognizes this exact artifact filename and requests FP32
+activations for its GPU text decoder. That keeps the model on GPU when the
+full-precision graph can be created, while the normal GPU-to-CPU initialization
+fallback remains available for devices that cannot afford it. Other
+`.litertlm` files keep their existing backend and activation selection. This
+is a model/backend compatibility issue in the native runtime, not a Flutter
+tool-call parsing issue. LiteRT-LM is tracking the underlying Gemma 3 270M GPU
+correctness problem in
+[#3280](https://github.com/google-ai-edge/LiteRT-LM/issues/3280).
+
 ### Any tool call kills the app (fixed in 1.7.1)
 
 Symptom: in 1.7.0, a chat or session created with `tools` dies on the first

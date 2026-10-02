@@ -29,6 +29,63 @@ Future<List<String>> _printedWithGemmaLogMuted(
 }
 
 void main() {
+  group('litertlmActivationDataTypeForModel', () {
+    test('uses FP32 for Mobile Actions on a Unix GPU request', () {
+      expect(
+        litertlmActivationDataTypeForModel(
+          modelPath: '/models/mobile_actions_q8_ekv1024.litertlm',
+          preferredBackend: PreferredBackend.gpu,
+          activationDataType: null,
+        ),
+        ActivationDataType.float32,
+      );
+    });
+
+    test('uses FP32 for Mobile Actions with the default backend order', () {
+      expect(
+        litertlmActivationDataTypeForModel(
+          modelPath: r'C:\models\mobile_actions_q8_ekv1024.litertlm',
+          preferredBackend: null,
+          activationDataType: null,
+        ),
+        ActivationDataType.float32,
+      );
+    });
+
+    test('does not change an explicit activation type', () {
+      expect(
+        litertlmActivationDataTypeForModel(
+          modelPath: '/models/mobile_actions_q8_ekv1024.litertlm',
+          preferredBackend: PreferredBackend.gpu,
+          activationDataType: ActivationDataType.float16,
+        ),
+        ActivationDataType.float16,
+      );
+    });
+
+    test('does not force FP32 on an explicit CPU request', () {
+      expect(
+        litertlmActivationDataTypeForModel(
+          modelPath: '/models/mobile_actions_q8_ekv1024.litertlm',
+          preferredBackend: PreferredBackend.cpu,
+          activationDataType: null,
+        ),
+        isNull,
+      );
+    });
+
+    test('does not change unknown artifacts', () {
+      expect(
+        litertlmActivationDataTypeForModel(
+          modelPath: '/models/functiongemma-270m.litertlm',
+          preferredBackend: PreferredBackend.gpu,
+          activationDataType: null,
+        ),
+        isNull,
+      );
+    });
+  });
+
   group('ffiBackendFallbackOrder', () {
     test('tries NPU, then GPU, then CPU where an NPU dispatch stack ships', () {
       expect(

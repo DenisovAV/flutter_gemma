@@ -88,20 +88,13 @@ class _ChatPageState extends State<ChatPage> {
       // maxTokens 1024 is what this checkpoint is built for; the example app
       // uses the same, and it is the value this was measured at.
       //
-      // This checkpoint is asked to run on the CPU, and the reason is the
-      // FILE, not the platform and not the model. The published artifact was
-      // converted before litetune 0.1.4 began setting `prefer_activation_type=fp32`,
-      // and without that key the GPU path answers every prompt with `<pad>` to
-      // the token limit — measured on Android and on macOS Metal alike, with no
-      // exception and no warning, a chat that looks alive and returns filler.
-      //
-      // Re-converted with a current litetune — which Step 4 does — the same
-      // weights score identically on GPU and run about 1.5x faster. So this is
-      // a workaround for one downloadable file, not a property of FunctionGemma.
-      final inference = await FlutterGemma.getActiveModel(
-        maxTokens: 1024,
-        preferredBackend: PreferredBackend.cpu,
-      );
+      // The published artifact predates litetune's
+      // `prefer_activation_type=fp32` metadata and would otherwise emit only
+      // `<pad>` on the GPU FP16 path. flutter_gemma_litertlm recognizes this
+      // exact file and requests GPU FP32 automatically; if that graph cannot
+      // initialize, the normal backend fallback uses CPU. Re-converted bundles
+      // carry the metadata and do not need this compatibility rule.
+      final inference = await FlutterGemma.getActiveModel(maxTokens: 1024);
       // Hold the runtime before opening a chat on it: `createChat` can throw,
       // and a model this page never stored is a model `dispose` can never
       // close. A page that is already gone holds nothing, so it closes it here.

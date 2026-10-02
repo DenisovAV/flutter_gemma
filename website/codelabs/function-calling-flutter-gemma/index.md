@@ -328,7 +328,6 @@ turn. There is no second place here:
 ```dart
       final inference = await FlutterGemma.getActiveModel(
         maxTokens: 1024,
-        preferredBackend: PreferredBackend.cpu,
       );
 ```
 
@@ -336,8 +335,9 @@ turn. There is no second place here:
 you declare a function. Tools belong to the session.
 
 The two arguments it *does* take are worth a moment. `maxTokens: 1024` is what
-this checkpoint is built for. The CPU backend is a workaround for **this file**,
-and the distinction matters more than the workaround does.
+this checkpoint is built for. The engine recognizes this legacy file and asks
+LiteRT-LM for FP32 GPU activations; if the GPU graph cannot initialize, the
+normal backend fallback uses CPU.
 
 The `.litertlm` you just downloaded was converted before litetune began setting
 `prefer_activation_type=fp32`. Without that key the GPU path answers every
@@ -347,10 +347,10 @@ while it returns filler. On CPU the same weights ask for `multiply` correctly.
 
 So this is not "FunctionGemma needs a CPU", and it is not a platform bug. It is
 one published artifact carrying a conversion setting that predates the fix. Step
-4 converts the model again with a current litetune, and that artifact scores the
-same on GPU as on CPU and runs about 1.5× faster — which is a fair summary of
-what the fine-tuning step buys you even before you change a single training
-row.
+4 converts the model again with a current litetune, and that artifact carries
+the precision metadata directly and runs about 1.5× faster — which is a fair
+summary of what the fine-tuning step buys you even before you change a single
+training row.
 
 What changes with tools is not the number but what has to fit under it: the
 declarations are rendered into the prompt once — by the runtime — and stay in

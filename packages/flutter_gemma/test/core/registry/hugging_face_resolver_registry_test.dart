@@ -159,6 +159,40 @@ void main() {
       expect(FlutterGemma.mergeRuntimeDefault(true, false, false), isTrue);
     });
 
+    test(
+      'rejects an explicit backend outside manifest capability metadata',
+      () {
+        expect(
+          () => FlutterGemma.resolveRuntimeBackend(
+            explicit: PreferredBackend.gpu,
+            defaults: const ModelRuntimeDefaults(
+              preferredBackend: PreferredBackend.cpu,
+              verifiedBackends: [PreferredBackend.cpu],
+            ),
+          ),
+          throwsA(
+            isA<UnsupportedError>().having(
+              (error) => error.message,
+              'message',
+              contains('not verified on the requested gpu backend'),
+            ),
+          ),
+        );
+      },
+    );
+
+    test('uses the only verified backend when no recommendation is given', () {
+      expect(
+        FlutterGemma.resolveRuntimeBackend(
+          explicit: null,
+          defaults: const ModelRuntimeDefaults(
+            verifiedBackends: [PreferredBackend.cpu],
+          ),
+        ),
+        PreferredBackend.cpu,
+      );
+    });
+
     test('manifest default wins when the explicit argument is omitted', () {
       expect(FlutterGemma.mergeRuntimeDefault(null, 2048, 1024), 2048);
       expect(FlutterGemma.mergeRuntimeDefault<bool>(null, true, false), isTrue);

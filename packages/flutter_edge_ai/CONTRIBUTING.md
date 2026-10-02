@@ -54,7 +54,7 @@ If you experience or witness unacceptable behavior, please open an issue or cont
 1. **Clone the repository:**
    ```bash
    git clone https://github.com/DenisovAV/flutter_edge_ai.git
-   cd flutter_gemma
+   cd flutter_edge_ai
    flutter pub get
    ```
 

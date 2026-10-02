@@ -31,6 +31,9 @@ dependencies:
 
   # Optional — on-device agent skills:
   flutter_gemma_agent: latest_version        # agent skills the model runs itself (text / JS / native-intent / MCP)
+
+  # Optional — memory diagnostics (Android + iOS):
+  flutter_gemma_diagnostics: latest_version  # what a model costs in memory the OS cannot reclaim, read from the OS
 ```
 
 **Pick by need:**
@@ -47,6 +50,7 @@ dependencies:
 | On-device RAG on web, or a portable/exact store on any platform | `flutter_gemma_rag_sqlite` |
 | Transcribe audio, synthesize speech, or run a voice loop on-device (STT + TTS + voice) | `flutter_gemma_speech` |
 | Run on-device agent skills the model executes itself (text / JS / native-intent / MCP) | `flutter_gemma_agent` |
+| Measure what a model costs in memory the OS cannot reclaim (Android + iOS) | [`flutter_gemma_diagnostics`](/docs/diagnostics) |
 
 Core registers **no** engine by itself — you wire the packages you added in
 `await FlutterGemma.initialize(...)` (below). Run `flutter pub get` to install.

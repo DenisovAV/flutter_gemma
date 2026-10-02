@@ -1,3 +1,9 @@
+## Unreleased
+- Web: fail the response stream when LiteRT-LM returns an unexpected content shape.
+
+## 1.11.3
+- New `flutter-gemma-diagnostics` agent skill for `flutter_gemma_diagnostics`.
+
 ## 1.11.2
 - Web setup pins `@mediapipe/tasks-genai` 0.10.29, `@litert-lm/core` 0.17.1, ORT-web 1.30.0, Transformers.js 4.3.0.
 
@@ -11,6 +17,7 @@
 
 ## 1.10.0
 - Add `activationDataType` to `getActiveModel`; `float32` fixes wrong digits on some GPUs.
+- Web: preserve plain-string text chunks from SDK responses.
 
 ## 1.9.0
 - New `initialize(embeddingTokenizers:)` — register one or embeddings throw; engines no longer bundle a tokenizer.
@@ -709,9 +716,6 @@
 - Added opportunity to setup a model before initiation
 ## 0.0.1
 - Initial release
-
-
-
 
 
 

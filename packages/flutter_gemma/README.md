@@ -220,6 +220,9 @@ model formats and features you need.
 
       # Optional — on-device speech (STT + TTS + voice loop):
       flutter_gemma_speech: latest_version       # speech: STT + TTS + push-to-talk voice loop (native only)
+
+      # Optional — memory diagnostics (Android + iOS):
+      flutter_gemma_diagnostics: latest_version  # what a model costs in memory the OS cannot reclaim, read from the OS
     ```
 
     **Pick by need:**
@@ -235,6 +238,7 @@ model formats and features you need.
     | On-device RAG on any platform incl. web (portable `sqlite-vec`) | `flutter_gemma_rag_sqlite` |
     | On-device agent skills (SKILL.md + tool-calling loop) | `flutter_gemma_agent` |
     | Transcribe audio, synthesize speech, or run a voice loop on-device (STT + TTS + voice) | `flutter_gemma_speech` |
+    | Measure what a model costs in memory the OS cannot reclaim (Android + iOS) | `flutter_gemma_diagnostics` |
 
     Core registers **no** engine by itself — you wire the packages you added in
     `await FlutterGemma.initialize(...)` (see [Initialize Flutter Gemma](#initialize-flutter-gemma)).

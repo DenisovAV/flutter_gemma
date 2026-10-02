@@ -1,4 +1,5 @@
 ## Unreleased
+- Fail safely when the LiteRT-LM stream ABI cannot be resolved from the loaded native library (#453).
 - Web: fail the response stream when LiteRT-LM returns an unexpected content shape.
 
 ## 1.8.5

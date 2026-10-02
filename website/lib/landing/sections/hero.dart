@@ -14,7 +14,7 @@ class Hero extends StatelessComponent {
       [
         // Decorative oversized logo watermark behind the hero content.
         img(
-          src: '/images/logo-gemma.png',
+          src: '/images/logo-edge-ai@2x.png',
           alt: '',
           classes: 'hero-watermark',
           attributes: const {'aria-hidden': 'true'},

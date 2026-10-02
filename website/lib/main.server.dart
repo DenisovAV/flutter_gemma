@@ -103,8 +103,8 @@ void main() {
           // Out-of-the-box layout for documentation sites.
           DocsLayout(
             header: Header(
-              title: 'flutter_edge_ai',
-              logo: '/images/logo.svg',
+              title: 'Flutter Edge AI',
+              logo: '/images/logo-mark.png',
               items: [
                 // Enables switching between light and dark mode.
                 ThemeToggle(),
@@ -221,11 +221,11 @@ void main() {
             // glyphs (emoji, em-dashes) render as mojibake. `head:` adds the
             // Open Graph / Twitter Card / canonical tags (see seo.dart).
             builder: (context, state) => Document(
-              title: 'flutter_edge_ai — On-device LLMs for Flutter',
+              title: 'Flutter Edge AI — On-device LLMs for Flutter',
               lang: 'en',
               meta: const {'description': _landingDescription},
               head: seoHead(
-                title: 'flutter_edge_ai — On-device LLMs for Flutter',
+                title: 'Flutter Edge AI — On-device LLMs for Flutter',
                 description: _landingDescription,
                 path: '/',
               ),
@@ -240,11 +240,11 @@ void main() {
           Route(
             path: '/codelabs',
             builder: (context, state) => Document(
-              title: 'Codelabs — flutter_edge_ai',
+              title: 'Codelabs — Flutter Edge AI',
               lang: 'en',
               meta: const {'description': _codelabsDescription},
               head: seoHead(
-                title: 'Codelabs — flutter_edge_ai',
+                title: 'Codelabs — Flutter Edge AI',
                 description: _codelabsDescription,
                 path: '/codelabs',
                 structuredData: _codelabsCollectionSchema,

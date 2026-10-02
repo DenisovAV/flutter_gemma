@@ -42,7 +42,7 @@ List<Component> seoHead({
     meta('theme-color', '#0B2351'),
     // Open Graph
     meta('og:type', type, property: true),
-    meta('og:site_name', 'flutter_edge_ai', property: true),
+    meta('og:site_name', 'Flutter Edge AI', property: true),
     meta('og:locale', 'en_US', property: true),
     meta('og:title', title, property: true),
     meta('og:description', description, property: true),
@@ -52,7 +52,7 @@ List<Component> seoHead({
     meta('og:image:type', 'image/png', property: true),
     meta('og:image:width', '1200', property: true),
     meta('og:image:height', '630', property: true),
-    meta('og:image:alt', 'flutter_edge_ai — On-device LLMs for Flutter', property: true),
+    meta('og:image:alt', 'Flutter Edge AI — On-device LLMs for Flutter', property: true),
     // Twitter Card
     meta('twitter:card', 'summary_large_image'),
     meta('twitter:title', title),
@@ -74,7 +74,7 @@ List<Component> seoHead({
 Map<String, Object?> _softwareApplicationSchema() => {
   '@context': 'https://schema.org',
   '@type': 'SoftwareApplication',
-  'name': 'flutter_edge_ai',
+  'name': 'Flutter Edge AI',
   'description':
       'A Flutter plugin to run Gemma and other LLMs on-device — '
       'Android, iOS, Web, and Desktop. Multimodal vision & audio, '

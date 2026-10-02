@@ -1,5 +1,9 @@
 # flutter_edge_ai_qdrant
 
+> **Renamed from [`flutter_gemma_rag_qdrant`](https://pub.dev/packages/flutter_gemma_rag_qdrant).** Same package, new name:
+> swap the dependency and the `package:flutter_gemma_rag_qdrant/` imports; nothing on the device
+> changes. See the [migration guide](https://flutteredge.ai/docs/migration).
+
 qdrant-edge on-device RAG vector store for [flutter_edge_ai](https://pub.dev/packages/flutter_edge_ai).
 Opt-in package implementing `VectorStoreRepository` on top of the official
 [`qdrant_edge`](https://pub.dev/packages/qdrant_edge) UniFFI Dart SDK

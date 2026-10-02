@@ -1,5 +1,9 @@
 # flutter_edge_ai_sqlite
 
+> **Renamed from [`flutter_gemma_rag_sqlite`](https://pub.dev/packages/flutter_gemma_rag_sqlite).** Same package, new name:
+> swap the dependency and the `package:flutter_gemma_rag_sqlite/` imports; nothing on the device
+> changes. See the [migration guide](https://flutteredge.ai/docs/migration).
+
 First-class SQLite vector store for [flutter_edge_ai](https://pub.dev/packages/flutter_edge_ai).
 KNN runs **inside SQLite** via [`sqlite-vec`](https://github.com/asg017/sqlite-vec)
 (`vec0` virtual table) — no Dart brute-force, no in-memory index.

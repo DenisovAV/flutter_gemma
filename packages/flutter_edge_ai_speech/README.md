@@ -1,5 +1,9 @@
 # flutter_edge_ai_speech
 
+> **Renamed from [`flutter_gemma_speech`](https://pub.dev/packages/flutter_gemma_speech).** Same package, new name:
+> swap the dependency and the `package:flutter_gemma_speech/` imports; nothing on the device
+> changes. See the [migration guide](https://flutteredge.ai/docs/migration).
+
 On-device speech for [flutter_edge_ai](https://pub.dev/packages/flutter_edge_ai) — STT,
 TTS, and a `VoiceSession` voice loop — via the LiteRT C API + `dart:ffi`. Opt-in
 package: add it only if your app needs speech-to-text, text-to-speech, or a

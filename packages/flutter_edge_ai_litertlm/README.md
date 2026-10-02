@@ -1,5 +1,9 @@
 # flutter_edge_ai_litertlm
 
+> **Renamed from [`flutter_gemma_litertlm`](https://pub.dev/packages/flutter_gemma_litertlm).** Same package, new name:
+> swap the dependency and the `package:flutter_gemma_litertlm/` imports; nothing on the device
+> changes. See the [migration guide](https://flutteredge.ai/docs/migration).
+
 LiteRT-LM (`.litertlm`) on-device inference engine for [flutter_edge_ai](https://pub.dev/packages/flutter_edge_ai),
 via `dart:ffi`. Opt-in package — add it only if you run `.litertlm` models.
 Android, iOS, macOS, Linux, Windows.

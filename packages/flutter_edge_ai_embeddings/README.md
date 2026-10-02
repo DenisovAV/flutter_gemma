@@ -1,5 +1,9 @@
 # flutter_edge_ai_embeddings
 
+> **Renamed from [`flutter_gemma_embeddings`](https://pub.dev/packages/flutter_gemma_embeddings).** Same package, new name:
+> swap the dependency and the `package:flutter_gemma_embeddings/` imports; nothing on the device
+> changes. See the [migration guide](https://flutteredge.ai/docs/migration).
+
 The **embedding tokenizers** for
 [flutter_edge_ai](https://pub.dev/packages/flutter_edge_ai): Gemma SentencePiece
 and BERT-family WordPiece, plus the task-type prefixing and the routing that

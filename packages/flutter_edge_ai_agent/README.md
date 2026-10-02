@@ -1,5 +1,9 @@
 # flutter_edge_ai_agent
 
+> **Renamed from [`flutter_gemma_agent`](https://pub.dev/packages/flutter_gemma_agent).** Same package, new name:
+> swap the dependency and the `package:flutter_gemma_agent/` imports; nothing on the device
+> changes. See the [migration guide](https://flutteredge.ai/docs/migration).
+
 On-device agentic **skills** for [flutter_edge_ai](https://pub.dev/packages/flutter_edge_ai).
 
 This opt-in satellite package turns the inference core into an on-device agent:

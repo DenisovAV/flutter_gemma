@@ -1,5 +1,9 @@
 # flutter_edge_ai_onnx
 
+> **Renamed from [`flutter_gemma_onnx`](https://pub.dev/packages/flutter_gemma_onnx).** Same package, new name:
+> swap the dependency and the `package:flutter_gemma_onnx/` imports; nothing on the device
+> changes. See the [migration guide](https://flutteredge.ai/docs/migration).
+
 ONNX Runtime engines for [flutter_edge_ai](https://pub.dev/packages/flutter_edge_ai):
 **text generation** via ORT-GenAI (`OnnxEngine`) and **embeddings** via plain
 ONNX Runtime (`OnnxEmbeddingBackend`). On **native** platforms (macOS, Linux,

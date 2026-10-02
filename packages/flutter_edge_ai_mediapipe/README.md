@@ -1,5 +1,9 @@
 # flutter_edge_ai_mediapipe
 
+> **Renamed from [`flutter_gemma_mediapipe`](https://pub.dev/packages/flutter_gemma_mediapipe).** Same package, new name:
+> swap the dependency and the `package:flutter_gemma_mediapipe/` imports; nothing on the device
+> changes. See the [migration guide](https://flutteredge.ai/docs/migration).
+
 MediaPipe (`.task`) on-device inference engine for [`flutter_edge_ai`](https://pub.dev/packages/flutter_edge_ai). Opt-in package — add it only if you run MediaPipe `.task` models. Android, iOS, and Web.
 
 ## Teach your AI assistant this package

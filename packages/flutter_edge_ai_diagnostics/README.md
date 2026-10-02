@@ -1,5 +1,9 @@
 # flutter_edge_ai_diagnostics
 
+> **Renamed from [`flutter_gemma_diagnostics`](https://pub.dev/packages/flutter_gemma_diagnostics).** Same package, new name:
+> swap the dependency and the `package:flutter_gemma_diagnostics/` imports; nothing on the device
+> changes. See the [migration guide](https://flutteredge.ai/docs/migration).
+
 Opt-in memory diagnostics for [flutter_edge_ai](https://pub.dev/packages/flutter_edge_ai) apps, read from the OS on Android and iOS.
 
 ## Why not the memory number your profiler shows?

@@ -1,5 +1,9 @@
 # flutter_edge_ai_builtin_ai
 
+> **Renamed from [`flutter_gemma_builtin_ai`](https://pub.dev/packages/flutter_gemma_builtin_ai).** Same package, new name:
+> swap the dependency and the `package:flutter_gemma_builtin_ai/` imports; nothing on the device
+> changes. See the [migration guide](https://flutteredge.ai/docs/migration).
+
 Built-in OS AI engine for [flutter_edge_ai](https://pub.dev/packages/flutter_edge_ai): runs inference
 against the **system/browser-provided** on-device model instead of a bundled Gemma checkpoint —
 Gemini Nano via ML Kit GenAI (AICore) on Android, Apple Foundation Models on iOS/macOS, Windows AI

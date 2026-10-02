@@ -274,7 +274,7 @@ Intel's three `openvino*` and four `tbb*`. Each imports some of `msvcp140`,
 `vcruntime140` and `vcruntime140_1` — the runtimes any Flutter Windows app already
 resolves — and none imports `vcruntime140_threads.dll`, the Visual Studio 2022 17.8
 one that used to make this page ask for a redistributable and that failed a Microsoft
-Store certification VM ([#456](https://github.com/DenisovAV/flutter_gemma/issues/456)).
+Store certification VM ([#456](https://github.com/DenisovAV/flutter_edge_ai/issues/456)).
 Nothing statically imports `LiteRtDispatch.dll` either, and `litert_dispatch_lib_dir`
 is set only for that backend, so an app that never asks for the Intel NPU never loads
 them at all.

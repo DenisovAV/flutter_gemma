@@ -104,7 +104,7 @@ class _NativeBundle {
 
   String get releaseTag => '$releaseTagPrefix$version';
   String get releaseBase =>
-      'https://github.com/DenisovAV/flutter_gemma/releases/download/$releaseTag';
+      'https://github.com/DenisovAV/flutter_edge_ai/releases/download/$releaseTag';
 
   /// Directory containing this bundle's per-platform subdirectories. For flat
   /// layout that's the cache root itself; for namespaced bundles it's the
@@ -654,7 +654,7 @@ Future<Directory?> _downloadAndExtract(
       '  $e\n'
       'This platform is supported, so the build cannot continue without them.\n'
       '  - No network / restricted egress? The archives come from '
-      'github.com/DenisovAV/flutter_gemma/releases (tag ${bundle.releaseTag}), '
+      'github.com/DenisovAV/flutter_edge_ai/releases (tag ${bundle.releaseTag}), '
       'not from pub.dev, so mirroring pub is not enough.\n'
       '  - Transient (GitHub 5xx or 429)? Re-run; there is no retry here.\n'
       '  - Working on the plugin itself? A populated '

@@ -550,9 +550,9 @@ final chat = await model.createChat(
 You can fine-tune FunctionGemma for your custom functions using the provided Colab notebooks:
 
 **Pipeline:**
-1. [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/DenisovAV/flutter_gemma/blob/main/colabs/functiongemma_finetuning.ipynb) Fine-tune the model on your training data
-2. [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/DenisovAV/flutter_gemma/blob/main/colabs/functiongemma_to_tflite.ipynb) Convert PyTorch → TFLite
-3. [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/DenisovAV/flutter_gemma/blob/main/colabs/functiongemma_tflite_to_task.ipynb) Bundle TFLite → MediaPipe `.task`
+1. [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/DenisovAV/flutter_edge_ai/blob/main/colabs/functiongemma_finetuning.ipynb) Fine-tune the model on your training data
+2. [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/DenisovAV/flutter_edge_ai/blob/main/colabs/functiongemma_to_tflite.ipynb) Convert PyTorch → TFLite
+3. [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/DenisovAV/flutter_edge_ai/blob/main/colabs/functiongemma_tflite_to_task.ipynb) Bundle TFLite → MediaPipe `.task`
 
 **Training Data Format** (`training_data.jsonl`):
 ```json
@@ -702,8 +702,8 @@ await FlutterEdgeAi.installEmbedder()
 > conflict between SentencePiece C++ and TensorFlow Lite. Use `.json` tokenizers instead.
 
 Pre-converted tokenizer files are available on GitHub CDN (hosted on the v0.12.5 release as a stable bundle — they don't change between plugin versions):
-- **EmbeddingGemma:** `https://github.com/DenisovAV/flutter_gemma/releases/download/v0.12.5/embeddinggemma_tokenizer.json`
-- **Gecko:** `https://github.com/DenisovAV/flutter_gemma/releases/download/v0.12.5/gecko_tokenizer.json`
+- **EmbeddingGemma:** `https://github.com/DenisovAV/flutter_edge_ai/releases/download/v0.12.5/embeddinggemma_tokenizer.json`
+- **Gecko:** `https://github.com/DenisovAV/flutter_edge_ai/releases/download/v0.12.5/gecko_tokenizer.json`
 
 ```dart
 await FlutterEdgeAi.installEmbedder()
@@ -711,7 +711,7 @@ await FlutterEdgeAi.installEmbedder()
   .tokenizerFromNetwork(
     'https://huggingface.co/.../sentencepiece.model',
     token: hfToken,
-    iosPath: 'https://github.com/DenisovAV/flutter_gemma/releases/download/v0.12.5/embeddinggemma_tokenizer.json',
+    iosPath: 'https://github.com/DenisovAV/flutter_edge_ai/releases/download/v0.12.5/embeddinggemma_tokenizer.json',
   )
   .install();
 ```
@@ -855,9 +855,9 @@ await embeddingModel.close();
 Add script tags to your `index.html`:
 ```html
 <!-- Load from jsDelivr CDN (version 0.14.0) -->
-<script src="https://cdn.jsdelivr.net/gh/DenisovAV/flutter_gemma@0.14.0/web/cache_api.js"></script>
-<script type="module" src="https://cdn.jsdelivr.net/gh/DenisovAV/flutter_gemma@0.14.0/web/litert_embeddings.js"></script>
-<script type="module" src="https://cdn.jsdelivr.net/gh/DenisovAV/flutter_gemma@0.14.0/web/sqlite_vector_store.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/DenisovAV/flutter_edge_ai@0.14.0/web/cache_api.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/gh/DenisovAV/flutter_edge_ai@0.14.0/web/litert_embeddings.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/gh/DenisovAV/flutter_edge_ai@0.14.0/web/sqlite_vector_store.js"></script>
 ```
 
 **Option 2: Build locally (For development or customization)**

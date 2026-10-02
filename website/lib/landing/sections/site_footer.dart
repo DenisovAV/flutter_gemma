@@ -164,7 +164,7 @@ class SiteFooter extends StatelessComponent {
               ul(classes: 'footer-links', [
                 li([
                   a(
-                    href: 'https://github.com/DenisovAV/flutter_gemma',
+                    href: 'https://github.com/DenisovAV/flutter_edge_ai',
                     classes: 'footer-link',
                     attributes: {'target': '_blank', 'rel': 'noopener'},
                     [Component.text('GitHub')],
@@ -188,7 +188,7 @@ class SiteFooter extends StatelessComponent {
                 ]),
                 li([
                   a(
-                    href: 'https://deepwiki.com/DenisovAV/flutter_gemma',
+                    href: 'https://deepwiki.com/DenisovAV/flutter_edge_ai',
                     classes: 'footer-link',
                     attributes: {'target': '_blank', 'rel': 'noopener'},
                     [Component.text('DeepWiki')],

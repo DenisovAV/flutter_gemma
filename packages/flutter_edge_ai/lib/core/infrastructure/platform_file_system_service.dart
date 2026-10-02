@@ -230,7 +230,7 @@ class PlatformFileSystemService implements FileSystemService {
       // ("Users\me\AppData\Local") or empty, in which case the
       // resulting Directory resolves against $PWD at access time —
       // a moving target that breaks install/validate roundtrips.
-      // See https://github.com/DenisovAV/flutter_gemma/issues/<...>
+      // See https://github.com/DenisovAV/flutter_edge_ai/issues/<...>
       // for the original bug report.
       //
       // Defence in depth:

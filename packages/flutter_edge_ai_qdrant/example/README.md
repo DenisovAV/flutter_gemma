@@ -50,4 +50,4 @@ Future<void> main() async {
 See the [package README](https://pub.dev/packages/flutter_edge_ai_qdrant) for
 platform support and behavior notes. A full runnable app that wires every engine
 and RAG store together lives in the
-[`flutter_edge_ai` example](https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_edge_ai/example).
+[`flutter_edge_ai` example](https://github.com/DenisovAV/flutter_edge_ai/tree/main/packages/flutter_edge_ai/example).

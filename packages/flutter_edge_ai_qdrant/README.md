@@ -6,7 +6,7 @@ Opt-in package implementing `VectorStoreRepository` on top of the official
 (a binding over the `qdrant-edge` Rust crate). qdrant's HNSW index makes it the fastest **native** RAG store —
 roughly **5–11× faster search** than the in-SQLite `sqlite-vec`/`vec0` store at
 1k–10k docs, and further ahead as the corpus grows (see
-[benchmark](https://github.com/DenisovAV/flutter_gemma/blob/main/docs/benchmarks/rag_sqlite_vec_vs_qdrant.md)).
+[benchmark](https://github.com/DenisovAV/flutter_edge_ai/blob/main/docs/benchmarks/rag_sqlite_vec_vs_qdrant.md)).
 (The earlier "~75×" figure was against the now-deleted Dart brute-force store.)
 For web, or when exact KNN with identical results across platforms matters more
 than peak speed, use `flutter_edge_ai_sqlite`.
@@ -62,7 +62,7 @@ refuses; if a schema must work on both, keep it inside sqlite's narrower set.
   New points stay in the shard's in-memory segment until it is flushed or
   closed. A process that ends without either — an Android app killed in the
   background — loses them, and the corpus is embedded again on the next launch
-  ([#492](https://github.com/DenisovAV/flutter_gemma/issues/492)). `close()`
+  ([#492](https://github.com/DenisovAV/flutter_edge_ai/issues/492)). `close()`
   persists too, but logs a failed save; `flush()` throws it as
   `VectorStoreException`.
 - **Cross-platform web is not supported** — `QdrantVectorStore` is native-only.

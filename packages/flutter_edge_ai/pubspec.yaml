@@ -3,7 +3,7 @@ description: "Run Gemma and other LLMs on-device in Flutter (Android, iOS, Web, 
 version: 1.11.4
 resolution: workspace
 homepage: https://flutteredge.ai
-repository: https://github.com/DenisovAV/flutter_gemma
+repository: https://github.com/DenisovAV/flutter_edge_ai
 topics: [gemma, llm, ai, on-device, multimodal]
 
 platforms:

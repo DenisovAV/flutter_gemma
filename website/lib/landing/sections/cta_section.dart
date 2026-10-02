@@ -29,7 +29,7 @@ class CtaSection extends StatelessComponent {
               [Component.text('Read the docs')],
             ),
             a(
-              href: 'https://github.com/DenisovAV/flutter_gemma',
+              href: 'https://github.com/DenisovAV/flutter_edge_ai',
               classes: 'btn btn-outline',
               attributes: {'target': '_blank', 'rel': 'noopener'},
               [Component.text('Star on GitHub')],

@@ -9,7 +9,7 @@ Pod::Spec.new do |s|
   s.description      = <<-DESC
 Flutter plugin for running Gemma AI models locally on macOS using LiteRT-LM.
                        DESC
-  s.homepage         = 'https://github.com/DenisovAV/flutter_gemma'
+  s.homepage         = 'https://github.com/DenisovAV/flutter_edge_ai'
   s.license          = { :file => '../LICENSE' }
   s.author           = { 'Sasha Denisov' => 'denisov.shureg@gmail.com' }
 

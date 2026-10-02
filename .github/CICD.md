@@ -240,8 +240,8 @@ Add secrets in: `Settings > Secrets and variables > Actions`
 Add to README.md:
 
 ```markdown
-[![CI Tests](https://github.com/DenisovAV/flutter_gemma/actions/workflows/test.yml/badge.svg)](https://github.com/DenisovAV/flutter_gemma/actions/workflows/test.yml)
-[![Release Build](https://github.com/DenisovAV/flutter_gemma/actions/workflows/release.yml/badge.svg)](https://github.com/DenisovAV/flutter_gemma/actions/workflows/release.yml)
+[![CI Tests](https://github.com/DenisovAV/flutter_edge_ai/actions/workflows/test.yml/badge.svg)](https://github.com/DenisovAV/flutter_edge_ai/actions/workflows/test.yml)
+[![Release Build](https://github.com/DenisovAV/flutter_edge_ai/actions/workflows/release.yml/badge.svg)](https://github.com/DenisovAV/flutter_edge_ai/actions/workflows/release.yml)
 ```
 
 ---

@@ -36,15 +36,15 @@ Enter a HuggingFace token on the setup screen (or stage
 - **macOS** is wired and verified here (litertlm entitlements + companion-dylib
   staging in `macos/Podfile`, signed with a development team). The voice-loop
   logic itself (both modes) is covered by the on-device integration tests in the
-  [`flutter_edge_ai` example](https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_edge_ai/example/integration_test).
+  [`flutter_edge_ai` example](https://github.com/DenisovAV/flutter_edge_ai/tree/main/packages/flutter_edge_ai/example/integration_test).
 - **Android** builds a release APK on AGP 9: `minSdk 30` for `.litertlm`, core
   library desugaring for the agent's notifications, and the AGP 9 opt-out in
   `android/gradle.properties`. It has not been run on a device yet.
 - **iOS** is scaffolded but needs the same litertlm native setup as the main
   example (memory entitlements, iOS 15 deployment target). Follow the
-  [`flutter_edge_ai` example](https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_edge_ai/example)
+  [`flutter_edge_ai` example](https://github.com/DenisovAV/flutter_edge_ai/tree/main/packages/flutter_edge_ai/example)
   for the per-platform native configuration.
 
 The full multi-feature app (chat, vision, RAG, STT/TTS screens, voice loop) lives
-in the [`flutter_edge_ai` example](https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_edge_ai/example);
+in the [`flutter_edge_ai` example](https://github.com/DenisovAV/flutter_edge_ai/tree/main/packages/flutter_edge_ai/example);
 this one is a focused agentic-voice showcase.

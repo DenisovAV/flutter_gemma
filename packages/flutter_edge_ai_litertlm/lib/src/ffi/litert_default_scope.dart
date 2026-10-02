@@ -165,9 +165,9 @@ _Scope _loadAndVerify(String soname, {required String proxyFailureContext}) {
       'Failed to load $soname. On Android the usual causes are: API < 30 '
       '(the library hard-references `pthread_cond_clockwait` / '
       '`sem_clockwait`, which do not exist on API 29 and below — see '
-      'https://github.com/DenisovAV/flutter_gemma/issues/265), or a non-arm64 '
+      'https://github.com/DenisovAV/flutter_edge_ai/issues/265), or a non-arm64 '
       'ABI (current: ${Abi.current()}; only arm64-v8a ships this library — see '
-      'https://github.com/DenisovAV/flutter_gemma/issues/250). `.task` '
+      'https://github.com/DenisovAV/flutter_edge_ai/issues/250). `.task` '
       'MediaPipe models still run text inference on API < 30 and on other '
       'ABIs; embeddings and speech require arm64 on API 30+.',
     );
@@ -308,13 +308,13 @@ DynamicLibrary openLiteRtLmRequiringDefaultScope(String soname) {
         '$soname is loaded but its symbols are not in the default search '
         'scope. ${_poisonedBy(soname)} Continuing would register the wrong '
         'stream-callback ABI and corrupt generated text. See '
-        'https://github.com/DenisovAV/flutter_gemma/issues/447',
+        'https://github.com/DenisovAV/flutter_edge_ai/issues/447',
       );
     case _Scope.shadowed:
       throw StateError(
         '${_shadowedBy(soname)} Continuing would register the wrong '
         'stream-callback ABI and corrupt generated text. See '
-        'https://github.com/DenisovAV/flutter_gemma/issues/447',
+        'https://github.com/DenisovAV/flutter_edge_ai/issues/447',
       );
     case _Scope.notExported:
       // Not a StateError by accident: initializeFfiRuntime's backend-fallback
@@ -328,7 +328,7 @@ DynamicLibrary openLiteRtLmRequiringDefaultScope(String soname) {
         'cannot be probed. Both libraries ship in one native archive, so this '
         'points at a partial or stale native cache: run `flutter clean` and '
         'remove the flutter_gemma native cache directory. See '
-        'https://github.com/DenisovAV/flutter_gemma/issues/447',
+        'https://github.com/DenisovAV/flutter_edge_ai/issues/447',
       );
   }
 }

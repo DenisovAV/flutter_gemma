@@ -41,7 +41,7 @@ Pass `LiteRtLmEngine()` alongside other engines (e.g. `MediaPipeEngine` from
 Web inference is an early preview — see the
 [package README](https://pub.dev/packages/flutter_edge_ai_litertlm) for the
 `web/index.html` handshake. A full runnable app lives in the
-[`flutter_edge_ai` example](https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_edge_ai/example).
+[`flutter_edge_ai` example](https://github.com/DenisovAV/flutter_edge_ai/tree/main/packages/flutter_edge_ai/example).
 
 ## Embeddings
 

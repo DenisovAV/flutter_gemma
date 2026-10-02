@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// so a concurrent second `initialize()` returned before the first finished
 /// restoring the active model, and `getActiveModel()` then saw a null active
 /// spec and threw StateError.
-/// https://github.com/DenisovAV/flutter_gemma/issues/314
+/// https://github.com/DenisovAV/flutter_edge_ai/issues/314
 ///
 /// Distilled Buggy/Fixed pair (mirrors model_creation_failure_test.dart):
 /// `_restore()` is an async step that sets `active` only after an await; the

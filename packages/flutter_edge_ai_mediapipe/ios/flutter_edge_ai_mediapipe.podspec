@@ -12,7 +12,7 @@ Provides on-device LLM inference (Gemma 4, Gemma3n, Gemma 3, Qwen, Phi-4,
 and more) with multimodal vision + audio, function calling, and streaming
 on iOS via MediaPipe GenAI.
                        DESC
-  s.homepage         = 'https://github.com/DenisovAV/flutter_gemma'
+  s.homepage         = 'https://github.com/DenisovAV/flutter_edge_ai'
   s.license          = { :file => '../../flutter_edge_ai/LICENSE' }
   s.author           = { 'Flutter Berlin' => 'flutter@flutterberlin.dev' }
   s.source           = { :path => '.' }

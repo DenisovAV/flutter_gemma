@@ -92,7 +92,7 @@ Through 1.11.3 the packages shipped under the `flutter_gemma*` names; the new na
 - **Every model / session / chat / embedding / RAG API is unchanged** — migrating is just adding packages + the initialize call. See [Migration](/docs/migration).
 - **Two on-device vector stores** — `flutter_edge_ai_qdrant` (qdrant-edge, fastest on native) and `flutter_edge_ai_sqlite` (portable across all six platforms, including Web). Since rag_sqlite 1.1.0 the SQLite store runs exact in-SQLite KNN via the `sqlite-vec`/`vec0` extension, replacing its Dart brute-force + HNSW search.
 
-See the [CHANGELOG](https://github.com/DenisovAV/flutter_gemma/blob/main/packages/flutter_edge_ai/CHANGELOG.md) for the full release history.
+See the [CHANGELOG](https://github.com/DenisovAV/flutter_edge_ai/blob/main/packages/flutter_edge_ai/CHANGELOG.md) for the full release history.
 
 ## Quick Start
 

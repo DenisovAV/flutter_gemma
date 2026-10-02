@@ -93,9 +93,9 @@ Map<String, Object?> _softwareApplicationSchema() => {
     '@type': 'Person',
     'name': 'Sasha Denisov',
   },
-  'codeRepository': 'https://github.com/DenisovAV/flutter_gemma',
+  'codeRepository': 'https://github.com/DenisovAV/flutter_edge_ai',
   'sameAs': [
     'https://pub.dev/packages/flutter_edge_ai',
-    'https://github.com/DenisovAV/flutter_gemma',
+    'https://github.com/DenisovAV/flutter_edge_ai',
   ],
 };

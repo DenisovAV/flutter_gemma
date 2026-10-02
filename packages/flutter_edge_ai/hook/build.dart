@@ -109,7 +109,7 @@ class _NativeBundle {
 
   String get releaseTag => '$releaseTagPrefix$version';
   String get releaseBase =>
-      'https://github.com/DenisovAV/flutter_gemma/releases/download/$releaseTag';
+      'https://github.com/DenisovAV/flutter_edge_ai/releases/download/$releaseTag';
 
   /// Directory containing this bundle's per-platform subdirectories. For flat
   /// layout that's the cache root itself; for namespaced bundles it's the

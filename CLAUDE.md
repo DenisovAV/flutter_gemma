@@ -385,7 +385,7 @@ flutter_gemma/                       # Dart pub workspace (monorepo root; the re
 
 ## Repository
 
-- **GitHub**: https://github.com/DenisovAV/flutter_gemma
+- **GitHub**: https://github.com/DenisovAV/flutter_edge_ai
 - **Pub.dev**: https://pub.dev/packages/flutter_edge_ai
-- **Issues**: `gh issue list --repo DenisovAV/flutter_gemma --state open`
+- **Issues**: `gh issue list --repo DenisovAV/flutter_edge_ai --state open`
 - **Changelog**: See `CHANGELOG.md`

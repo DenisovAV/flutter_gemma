@@ -25,7 +25,7 @@ class NavBar extends StatelessComponent {
     (text: 'Models', href: '/#models', external: false, cta: false),
     (
       text: 'GitHub',
-      href: 'https://github.com/DenisovAV/flutter_gemma',
+      href: 'https://github.com/DenisovAV/flutter_edge_ai',
       external: true,
       cta: false,
     ),

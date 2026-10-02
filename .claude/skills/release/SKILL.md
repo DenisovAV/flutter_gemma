@@ -503,7 +503,7 @@ Verify each URL returns HTTP 200 + sha256 matches:
 ```bash
 for f in "$DIST"/litertlm-*.tar.gz; do
   name=$(basename "$f")
-  url="https://github.com/DenisovAV/flutter_gemma/releases/download/$RELEASE/$name"
+  url="https://github.com/DenisovAV/flutter_edge_ai/releases/download/$RELEASE/$name"
   curl -sI "$url" | head -1
   curl -sL "$url" | shasum -a 256 | awk '{print "  "$1"  '"$name"'"}'
 done
@@ -526,9 +526,9 @@ HOOK=packages/flutter_edge_ai_litertlm/hook/build.dart
 for f in "$DIST"/litertlm-*.tar.gz; do
   name=$(basename "$f")
   # 1. actual asset bytes served by GitHub
-  asset=$(curl -sL "https://github.com/DenisovAV/flutter_gemma/releases/download/$RELEASE/$name" | shasum -a 256 | awk '{print $1}')
+  asset=$(curl -sL "https://github.com/DenisovAV/flutter_edge_ai/releases/download/$RELEASE/$name" | shasum -a 256 | awk '{print $1}')
   # 2. what checksums_litertlm.txt on the Release claims
-  txt=$(curl -sL "https://github.com/DenisovAV/flutter_gemma/releases/download/$RELEASE/checksums_litertlm.txt" | awk -v n="$name" '$2==n{print $1}')
+  txt=$(curl -sL "https://github.com/DenisovAV/flutter_edge_ai/releases/download/$RELEASE/checksums_litertlm.txt" | awk -v n="$name" '$2==n{print $1}')
   # 3. what the hook expects
   hook=$(grep -A1 "'$name'" "$HOOK" | grep -oE "[0-9a-f]{64}" | head -1)
   echo "$name:"

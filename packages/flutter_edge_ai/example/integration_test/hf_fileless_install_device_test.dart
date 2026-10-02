@@ -5,7 +5,7 @@
 // only (`from_hugging_face_test.dart`, the manifest resolver suites) plus an
 // arm64 EMULATOR pass in #489. Nothing has ever driven the file-less path to an
 // actual token on a physical device, which is exactly what
-// https://github.com/DenisovAV/flutter_gemma/issues/454 asks for.
+// https://github.com/DenisovAV/flutter_edge_ai/issues/454 asks for.
 //
 // Model: litert-community/LFM2.5-230M — the smallest entry in the shipped
 // catalogue (int4 ≈ 177 MB), chosen so the same test is affordable to run on

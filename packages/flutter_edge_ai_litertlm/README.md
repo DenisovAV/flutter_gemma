@@ -283,7 +283,7 @@ Cause: the OpenCL and GPU accelerators from LiteRT-LM v0.17.0 call
 Android binds the call to address 0. Only Mali takes that path.
 
 Fix: upgrade to 1.8.2 (`native-v0.17.1-a`). No app change is needed. See
-[#545](https://github.com/DenisovAV/flutter_gemma/issues/545).
+[#545](https://github.com/DenisovAV/flutter_edge_ai/issues/545).
 
 ### Any tool call kills the app (fixed in 1.7.1)
 
@@ -336,7 +336,7 @@ third-party code, load it before flutter_edge_ai does and with `RTLD_GLOBAL`.
 `StateError` naming the condition, and embeddings or speech (which resolve
 through their own handle and do not need the symbols to be ambient) log a
 warning and carry on.
-See [#447](https://github.com/DenisovAV/flutter_gemma/issues/447).
+See [#447](https://github.com/DenisovAV/flutter_edge_ai/issues/447).
 
 ### `dlopen` / "library not found" (`libLiteRtLm`)
 

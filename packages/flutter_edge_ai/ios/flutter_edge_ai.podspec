@@ -14,7 +14,7 @@ Inference engines are opt-in packages: `flutter_edge_ai_mediapipe`
 Supports multimodal vision + audio, function calling, thinking mode,
 text embeddings, and on-device RAG.
                        DESC
-  s.homepage         = 'https://github.com/DenisovAV/flutter_gemma'
+  s.homepage         = 'https://github.com/DenisovAV/flutter_edge_ai'
   s.license          = { :file => '../LICENSE' }
   s.author           = { 'Flutter Berlin' => 'flutter@flutterberlin.dev' }
   s.source           = { :path => '.' }

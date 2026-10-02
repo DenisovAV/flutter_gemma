@@ -2,7 +2,7 @@ name: flutter_edge_ai_litertlm
 description: "LiteRT-LM (.litertlm) on-device inference engine for flutter_edge_ai via dart:ffi (5 native platforms) + web. Opt-in InferenceEngineProvider. Also ships the LiteRT C API embedding backend (LiteRtEmbeddingBackend)."
 version: 1.8.6
 homepage: https://flutteredge.ai
-repository: https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_edge_ai_litertlm
+repository: https://github.com/DenisovAV/flutter_edge_ai/tree/main/packages/flutter_edge_ai_litertlm
 topics: [gemma, llm, litert, on-device, ffi]
 
 # All six platforms: 5 native via dart:ffi (LiteRT-LM C API) + web via

@@ -1,9 +1,9 @@
 # Flutter Edge AI
 
-[![CI Tests](https://github.com/DenisovAV/flutter_gemma/actions/workflows/test.yml/badge.svg)](https://github.com/DenisovAV/flutter_gemma/actions/workflows/test.yml)
-[![Release Build](https://github.com/DenisovAV/flutter_gemma/actions/workflows/release.yml/badge.svg)](https://github.com/DenisovAV/flutter_gemma/actions/workflows/release.yml)
+[![CI Tests](https://github.com/DenisovAV/flutter_edge_ai/actions/workflows/test.yml/badge.svg)](https://github.com/DenisovAV/flutter_edge_ai/actions/workflows/test.yml)
+[![Release Build](https://github.com/DenisovAV/flutter_edge_ai/actions/workflows/release.yml/badge.svg)](https://github.com/DenisovAV/flutter_edge_ai/actions/workflows/release.yml)
 [![pub package](https://img.shields.io/pub/v/flutter_edge_ai.svg)](https://pub.dev/packages/flutter_edge_ai)
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/DenisovAV/flutter_gemma)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/DenisovAV/flutter_edge_ai)
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/flutter_gemma)
 
@@ -14,7 +14,7 @@
 [Gemma](https://ai.google.dev/gemma) is a family of lightweight, state-of-the art open models built from the same research and technology used to create the Gemini models
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/DenisovAV/flutter_gemma/main/packages/flutter_edge_ai/assets/gemma3.png" alt="gemma_github_cover">
+  <img src="https://raw.githubusercontent.com/DenisovAV/flutter_edge_ai/main/packages/flutter_edge_ai/assets/gemma3.png" alt="gemma_github_cover">
 </p>
 
 Bring the power of Google's lightweight Gemma language models and other on-device LLMs directly to your Flutter applications. With Flutter Edge AI, you can seamlessly incorporate advanced AI capabilities into your Flutter applications, all without relying on external servers.
@@ -22,7 +22,7 @@ Bring the power of Google's lightweight Gemma language models and other on-devic
 There is an example of using:
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/DenisovAV/flutter_gemma/main/packages/flutter_edge_ai/assets/gemma.gif" alt="gemma_github_gif">
+  <img src="https://raw.githubusercontent.com/DenisovAV/flutter_edge_ai/main/packages/flutter_edge_ai/assets/gemma.gif" alt="gemma_github_gif">
 </p>
 
 ## Features
@@ -87,11 +87,11 @@ Through 1.11.3 this package shipped as `flutter_gemma`; `flutter_edge_ai` contin
 
 ## What's new in 1.8.1
 
-- 💾 **`VectorStoreRepository.flush()`** — a RAG index now survives the process; custom `VectorStoreRepository` implementations must declare it ([#492](https://github.com/DenisovAV/flutter_gemma/issues/492)).
+- 💾 **`VectorStoreRepository.flush()`** — a RAG index now survives the process; custom `VectorStoreRepository` implementations must declare it ([#492](https://github.com/DenisovAV/flutter_edge_ai/issues/492)).
 
 ## What's new in 1.8.0
 
-- 🗣️ **Whisper output language per transcription** — `getActiveStt(language:)` sets the default and `transcribe(pcm, language:)` overrides it for one call, with no reload. **Breaking for custom `SpeechRecognizer` implementations**: `transcribe` gained `language:` and the type gained a `language` field ([#500](https://github.com/DenisovAV/flutter_gemma/issues/500)).
+- 🗣️ **Whisper output language per transcription** — `getActiveStt(language:)` sets the default and `transcribe(pcm, language:)` overrides it for one call, with no reload. **Breaking for custom `SpeechRecognizer` implementations**: `transcribe` gained `language:` and the type gained a `language` field ([#500](https://github.com/DenisovAV/flutter_edge_ai/issues/500)).
 
 ## What's new in 1.7.0
 
@@ -630,7 +630,7 @@ without a signing team they fail the build.
 
 **Windows Setup:**
 
-No additional configuration required. `hook/build.dart` (Native Assets) downloads `LiteRtLm.dll` + companion DLLs + the DXC runtime (`dxil.dll`, `dxcompiler.dll` v1.9.2602) from the GitHub release on first build, verifies them via SHA256, and bundles them next to your `app.exe`. End users need nothing installed: since `flutter_gemma_litertlm` 1.7.1 `LiteRtLm.dll` is linked against the static CRT and imports no CRT at all, and 16 of the bundle's 24 DLLs import none. The other eight are the Intel NPU stack behind `PreferredBackend.npu` — our own `LiteRtDispatch.dll` plus Intel's `openvino*`/`tbb*` — which need only what a Flutter Windows app already resolves, and are loaded only when that backend is selected ([#456](https://github.com/DenisovAV/flutter_gemma/issues/456)).
+No additional configuration required. `hook/build.dart` (Native Assets) downloads `LiteRtLm.dll` + companion DLLs + the DXC runtime (`dxil.dll`, `dxcompiler.dll` v1.9.2602) from the GitHub release on first build, verifies them via SHA256, and bundles them next to your `app.exe`. End users need nothing installed: since `flutter_gemma_litertlm` 1.7.1 `LiteRtLm.dll` is linked against the static CRT and imports no CRT at all, and 16 of the bundle's 24 DLLs import none. The other eight are the Intel NPU stack behind `PreferredBackend.npu` — our own `LiteRtDispatch.dll` plus Intel's `openvino*`/`tbb*` — which need only what a Flutter Windows app already resolves, and are loaded only when that backend is selected ([#456](https://github.com/DenisovAV/flutter_edge_ai/issues/456)).
 
 **Linux Setup:**
 
@@ -1617,7 +1617,7 @@ final response = await chat.generateChatResponse();
 
 The pre-Modern stream-based API (`FlutterEdgeAiPlugin.instance.modelManager`, `installModelFromAsset`, `downloadModelFromNetworkWithProgress`, etc.) is still supported but deprecated. New projects should use the [Modern API](#quick-start) above.
 
-📚 **Full Legacy API reference:** [docs/LEGACY_API.md](https://github.com/DenisovAV/flutter_gemma/blob/main/docs/LEGACY_API.md)
+📚 **Full Legacy API reference:** [docs/LEGACY_API.md](https://github.com/DenisovAV/flutter_edge_ai/blob/main/docs/LEGACY_API.md)
 
 ## 🖼️ Message Types
 
@@ -1839,7 +1839,7 @@ await FlutterEdgeAiPlugin.instance.flushVectorStore(); // or FlutterEdgeAi.rag.f
 
 **Which backend embeddings run on.** `getActiveEmbedder(preferredBackend:)` is accepted and not applied: native embeddings run on CPU — LiteRT's GPU delegate returns all-zero vectors for EmbeddingGemma's int4 weights, and the ONNX client appends no execution provider. Read `EmbeddingModel.activeBackend` for the answer; it survives a release build. It is `cpu` on native and `null` on web, where the runtime picks WebGPU or WASM (see `flutter_edge_ai_litertlm`'s README for the web getters). Since 1.11.0 a class that `implements EmbeddingModel` must add `activeBackend` and `isClosed`; `extends` inherits defaults.
 
-**Call `flush()` after indexing.** `flutter_edge_ai_qdrant` keeps new documents in memory until the store is flushed or closed, so an index built without either is lost when the process ends — an Android app killed in the background is the ordinary case ([#492](https://github.com/DenisovAV/flutter_gemma/issues/492)). On native `flutter_edge_ai_sqlite` it is a no-op; on web it drains the IndexedDB storage. A store that cannot persist at all throws `VectorStoreException` instead of returning. Custom `VectorStoreRepository` implementations must declare `flush()`.
+**Call `flush()` after indexing.** `flutter_edge_ai_qdrant` keeps new documents in memory until the store is flushed or closed, so an index built without either is lost when the process ends — an Android app killed in the background is the ordinary case ([#492](https://github.com/DenisovAV/flutter_edge_ai/issues/492)). On native `flutter_edge_ai_sqlite` it is a no-op; on web it drains the IndexedDB storage. A store that cannot persist at all throws `VectorStoreException` instead of returning. Custom `VectorStoreRepository` implementations must declare `flush()`.
 
 A field name is checked by the store, in `configure()`. `SqliteVectorStore` is
 the strict one — `^[A-Za-z][A-Za-z0-9_]*$`, and not a name `vec0` already uses

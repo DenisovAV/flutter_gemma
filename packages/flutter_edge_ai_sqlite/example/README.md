@@ -47,4 +47,4 @@ web asset — no CDN `<script>` is needed; see the
 wasm wiring. Native platforms need no setup (`sqlite3` bundles its own library;
 the `vec0` extension is bundled via the package's Native Assets hook). A full runnable app wiring every engine and RAG store together lives
 in the
-[`flutter_edge_ai` example](https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_edge_ai/example).
+[`flutter_edge_ai` example](https://github.com/DenisovAV/flutter_edge_ai/tree/main/packages/flutter_edge_ai/example).

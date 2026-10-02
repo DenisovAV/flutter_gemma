@@ -41,4 +41,4 @@ Pass `MediaPipeEngine()` alongside other engines (e.g. `LiteRtLmEngine` from
 On web the MediaPipe runtime loads from a CDN — see the
 [package README](https://pub.dev/packages/flutter_edge_ai_mediapipe) for the
 `web/index.html` setup. A full runnable app lives in the
-[`flutter_edge_ai` example](https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_edge_ai/example).
+[`flutter_edge_ai` example](https://github.com/DenisovAV/flutter_edge_ai/tree/main/packages/flutter_edge_ai/example).

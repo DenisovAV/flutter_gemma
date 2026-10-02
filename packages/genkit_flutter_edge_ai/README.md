@@ -3,7 +3,7 @@
 Genkit Dart plugin for [flutter_edge_ai](https://pub.dev/packages/flutter_edge_ai) — local, on-device LLM inference (Gemma, Qwen, Phi, DeepSeek, and more), fully offline.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/DenisovAV/flutter_gemma/main/packages/genkit_flutter_edge_ai/assets/cover.jpeg" alt="genkit_flutter_edge_ai_cover">
+  <img src="https://raw.githubusercontent.com/DenisovAV/flutter_edge_ai/main/packages/genkit_flutter_edge_ai/assets/cover.jpeg" alt="genkit_flutter_edge_ai_cover">
 </p>
 
 > **Renamed from `genkit_flutter_gemma`.** Model and embedder ids are now

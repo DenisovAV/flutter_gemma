@@ -8,7 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// same conversation handle and the previous conversation's KV cache
 /// bleeds into the next chat. This is the FFI sibling of the MediaPipe
 /// fix in #309.
-/// https://github.com/DenisovAV/flutter_gemma/issues/308
+/// https://github.com/DenisovAV/flutter_edge_ai/issues/308
 ///
 /// Mirrors the distilled-logic style of `test/mobile/session_creation_reuse_test.dart`
 /// (the #309 MediaPipe regression) and `model_creation_failure_test.dart`

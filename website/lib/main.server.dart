@@ -109,7 +109,7 @@ void main() {
                 // Enables switching between light and dark mode.
                 ThemeToggle(),
                 // Shows github stats.
-                GitHubButton(repo: 'DenisovAV/flutter_gemma'),
+                GitHubButton(repo: 'DenisovAV/flutter_edge_ai'),
               ],
             ),
             sidebar: Sidebar(

@@ -20,7 +20,7 @@ design is no longer valid and must be revisited before shipping.
 
 Download the prebuilt loadable vec0 extension for your platform from
 the repository's own
-[`native-sqlite-vec-v*`](https://github.com/DenisovAV/flutter_gemma/releases) release.
+[`native-sqlite-vec-v*`](https://github.com/DenisovAV/flutter_edge_ai/releases) release.
 Do NOT take the loadable straight from
 [asg017/sqlite-vec](https://github.com/asg017/sqlite-vec/releases): its Apple
 slices carry the legacy minimum-OS values this package normalizes, and the

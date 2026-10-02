@@ -45,4 +45,4 @@ Future<void> main() async {
 Pair this with a RAG vector store (`flutter_edge_ai_qdrant` on native,
 `flutter_edge_ai_sqlite` for web) to build on-device retrieval. A full runnable
 app lives in the
-[`flutter_edge_ai` example](https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_edge_ai/example).
+[`flutter_edge_ai` example](https://github.com/DenisovAV/flutter_edge_ai/tree/main/packages/flutter_edge_ai/example).

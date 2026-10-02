@@ -172,7 +172,7 @@ class MobileInferenceModel extends InferenceModel with CloseNotifier {
     // completer made every later createChat reuse the first session, so
     // the previous conversation's KV cache bled into the next chat (the
     // app sends a clean prompt; the model still conditions on the old
-    // context). See https://github.com/DenisovAV/flutter_gemma/issues/308.
+    // context). See https://github.com/DenisovAV/flutter_edge_ai/issues/308.
     if (_createCompleter case Completer<InferenceModelSession> completer) {
       return completer.future;
     }

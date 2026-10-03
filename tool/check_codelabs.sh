@@ -131,7 +131,7 @@ done
 # Web model storage, engine bootstrap and the embeddings loader — delegated to
 # tool/check_codelab_web_storage.py, which needs a parser rather than a grep
 # (a commented-out <script> loads nothing, and a TODO mentioning
-# `FlutterGemma.initialize(` is not a call). It runs after the loop above so
+# `FlutterEdgeAi.initialize(` is not a call). It runs after the loop above so
 # every app's .dart_tool/package_config.json exists: the JS is compared against
 # the package each app RESOLVES, not this repo's unreleased copy.
 echo ""

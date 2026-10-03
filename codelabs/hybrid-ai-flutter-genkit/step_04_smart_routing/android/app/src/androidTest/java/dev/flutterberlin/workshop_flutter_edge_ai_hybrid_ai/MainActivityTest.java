@@ -1,4 +1,4 @@
-package dev.flutterberlin.workshop_flutter_gemma_hybrid_ai;
+package dev.flutterberlin.workshop_flutter_edge_ai_hybrid_ai;
 
 import androidx.test.rule.ActivityTestRule;
 import dev.flutter.plugins.integration_test.FlutterTestRunner;

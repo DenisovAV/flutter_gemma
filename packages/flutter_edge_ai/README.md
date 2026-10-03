@@ -4,17 +4,36 @@
 [![Release Build](https://github.com/DenisovAV/flutter_edge_ai/actions/workflows/release.yml/badge.svg)](https://github.com/DenisovAV/flutter_edge_ai/actions/workflows/release.yml)
 [![pub package](https://img.shields.io/pub/v/flutter_edge_ai.svg)](https://pub.dev/packages/flutter_edge_ai)
 
-**The plugin supports not only Gemma, but also other models. Here are the downloadable model families showcased in the example app:** [Gemma 4 E2B/E4B](https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm), [Gemma3n E2B/E4B](https://huggingface.co/google/gemma-3n-E2B-it-litert-preview), [FastVLM 0.5B](https://huggingface.co/litert-community/FastVLM-0.5B), [Gemma-3 1B](https://huggingface.co/litert-community/Gemma3-1B-IT), [Gemma 3 270M](https://huggingface.co/litert-community/gemma-3-270m-it), [FunctionGemma 270M](https://huggingface.co/sasha-denisov/function-gemma-270M-it), [Qwen3 0.6B](https://huggingface.co/litert-community/Qwen3-0.6B), [Qwen 2.5](https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct), [Phi-4 Mini](https://huggingface.co/litert-community/Phi-4-mini-instruct), [DeepSeek R1](https://huggingface.co/litert-community/DeepSeek-R1-Distill-Qwen-1.5B), [SmolLM 135M](https://huggingface.co/litert-community/SmolLM-135M-Instruct), [LFM2.5 230M](https://huggingface.co/litert-community/LFM2.5-230M), [SmolLM3 3B](https://huggingface.co/litert-community/SmolLM3-3B), [Phi-4 Mini Reasoning](https://huggingface.co/litert-community/Phi-4-mini-reasoning), [Qwen2-VL 2B](https://huggingface.co/litert-community/Qwen2-VL-2B), [SmolVLM2 500M](https://huggingface.co/litert-community/SmolVLM2-500M), [LLaVA-OneVision 0.5B](https://huggingface.co/litert-community/LLaVA-OneVision-0.5B), [TranslateGemma 4B](https://huggingface.co/google/translategemma-4b-it) (CPU-only). OS-provided models such as Gemini Nano, Apple Foundation Models, Windows AI Foundry, and the Chrome Prompt API are available through `flutter_edge_ai_builtin_ai` and do not require model downloads.
+Flutter Edge AI is a modular on-device AI toolkit for Android, iOS, Web, macOS,
+Windows, and Linux. Its pluggable architecture lets Flutter apps choose and
+switch between inference engines while keeping one consistent API. Use
+downloadable open models, AI models built into the operating system, or both —
+and include only the engine and capabilities your app needs.
 
-> **Note:** The `flutter_edge_ai` plugin supports Gemma 4 and Gemma3n (with **multimodal vision and audio support**), FastVLM, Qwen2-VL, SmolVLM2 and LLaVA-OneVision (vision), Gemma-3, FunctionGemma, Qwen3, Qwen 2.5, Phi-4 (incl. Phi-4 Mini Reasoning), DeepSeek R1, SmolLM, SmolLM3, LFM2.5, and TranslateGemma. LiteRT-LM uses `.litertlm` files on desktop; the opt-in ONNX engine instead installs a model directory on supported macOS arm64, Linux x64, and Windows x64 hosts.
+Flutter Edge AI was previously known as `flutter_gemma`. The project has been
+renamed, including its package names and Dart imports. Existing users can follow
+the [migration guide](MIGRATION.md) to upgrade.
 
-[Gemma](https://ai.google.dev/gemma) is a family of lightweight, state-of-the art open models built from the same research and technology used to create the Gemini models
+Choose only the runtimes your app needs:
+
+- **LiteRT-LM + LiteRT:** `.litertlm` text and multimodal generation with CPU, GPU, and supported NPU acceleration, plus `.tflite` embeddings, speech-to-text, and text-to-speech through the LiteRT C API.
+- **MediaPipe GenAI:** `.task` text and multimodal models on Android, iOS, and Web.
+- **ONNX Runtime:** text generation and embeddings out of the box, with the same pluggable backend interfaces available for custom ONNX-powered STT and TTS.
+- **Built-in AI:** Gemini Nano, Apple Foundation Models, Windows AI Foundry, and the Chrome Prompt API using models managed by the operating system.
+
+Supported model families and on-device pipelines include:
+
+- **Text, reasoning, and function calling:** [Gemma 3 1B](https://huggingface.co/litert-community/Gemma3-1B-IT), [Gemma 3 270M](https://huggingface.co/litert-community/gemma-3-270m-it), [FunctionGemma 270M](https://huggingface.co/sasha-denisov/function-gemma-270M-it), [Qwen3 0.6B](https://huggingface.co/litert-community/Qwen3-0.6B), [Qwen 2.5](https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct), [Phi-4 Mini](https://huggingface.co/litert-community/Phi-4-mini-instruct), [Phi-4 Mini Reasoning](https://huggingface.co/litert-community/Phi-4-mini-reasoning), [DeepSeek R1](https://huggingface.co/litert-community/DeepSeek-R1-Distill-Qwen-1.5B), [SmolLM 135M](https://huggingface.co/litert-community/SmolLM-135M-Instruct), [SmolLM3 3B](https://huggingface.co/litert-community/SmolLM3-3B), and [LFM2.5 230M](https://huggingface.co/litert-community/LFM2.5-230M).
+- **Multimodal and vision-language:** [Gemma 4 E2B/E4B](https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm), [Gemma 3n E2B/E4B](https://huggingface.co/google/gemma-3n-E2B-it-litert-preview), [FastVLM 0.5B](https://huggingface.co/litert-community/FastVLM-0.5B), [Qwen2-VL 2B](https://huggingface.co/litert-community/Qwen2-VL-2B), [SmolVLM2 500M](https://huggingface.co/litert-community/SmolVLM2-500M), and [LLaVA-OneVision 0.5B](https://huggingface.co/litert-community/LLaVA-OneVision-0.5B).
+- **Translation:** [TranslateGemma 4B](https://huggingface.co/google/translategemma-4b-it) (CPU only).
+- **Speech-to-text:** [Moonshine Tiny](https://huggingface.co/litert-community/moonshine-tiny), [Whisper Tiny/Base](https://huggingface.co/litert-community/whisper-tiny), and [Parakeet CTC 0.6B](https://huggingface.co/litert-community/parakeet-ctc-0.6b) through [`flutter_edge_ai_speech`](https://pub.dev/packages/flutter_edge_ai_speech).
+- **Text-to-speech:** [Matcha](https://huggingface.co/litert-community/Matcha-TTS), [Qwen3-TTS](https://huggingface.co/litert-community/Qwen3-TTS-12Hz-0.6B-Base), and [Inflect-Nano-v2](https://huggingface.co/sasha-denisov/inflect-nano-v2-litert) through [`flutter_edge_ai_speech`](https://pub.dev/packages/flutter_edge_ai_speech).
+- **Text embeddings:** [EmbeddingGemma](https://huggingface.co/litert-community/embeddinggemma-300m) and [Gecko](https://huggingface.co/litert-community/Gecko-110m-en) through LiteRT, plus [all-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2) (native and Web) and [EmbeddingGemma-300M-ONNX](https://huggingface.co/onnx-community/embeddinggemma-300m-ONNX) (native) through [`flutter_edge_ai_onnx`](https://pub.dev/packages/flutter_edge_ai_onnx).
+- **OS-provided AI:** Gemini Nano, Apple Foundation Models, Windows AI Foundry, and the Chrome Prompt API through [`flutter_edge_ai_builtin_ai`](https://pub.dev/packages/flutter_edge_ai_builtin_ai), without app-downloaded model weights.
 
 <p align="center">
-  <img src="https://flutteredge.ai/images/og-image.png" alt="Flutter Edge AI — on-device LLMs in Flutter">
+  <img src="https://flutteredge.ai/images/readme-banner.png" alt="Flutter Edge AI — on-device LLMs in your Flutter app">
 </p>
-
-Bring the power of Google's lightweight Gemma language models and other on-device LLMs directly to your Flutter applications. With Flutter Edge AI, you can seamlessly incorporate advanced AI capabilities into your Flutter applications, all without relying on external servers.
 
 ## Features
 

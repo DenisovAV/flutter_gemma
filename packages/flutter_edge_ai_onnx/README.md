@@ -223,8 +223,12 @@ resolved ORT library path directly (mirrors the inference arm's
 
 `OnnxEmbeddingBackend` also runs on **Web**, via
 [onnxruntime-web](https://github.com/microsoft/onnxruntime) (WebGPU/WASM)
-instead of the native FFI client — same output-contract discovery, same
-WordPiece/SentencePiece handling. See [Web setup](#web-setup).
+instead of the native FFI client. This release supports WordPiece/BERT-style
+embedding models such as
+[all-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2)
+on Web; SentencePiece models such as
+[EmbeddingGemma-300M-ONNX](https://huggingface.co/onnx-community/embeddinggemma-300m-ONNX)
+are native-only. See [Web setup](#web-setup).
 
 ## What v1 does not do
 

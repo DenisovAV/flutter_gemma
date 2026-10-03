@@ -151,7 +151,8 @@ def resolved_package_dir(app: Path, package: str) -> Path | None:
             uri = entry.get("rootUri", "")
             if uri.startswith("file://"):
                 return Path(url2pathname(urlparse(uri).path))
-            return (config.parent / uri).resolve()
+            relative_path = url2pathname(urlparse(uri).path)
+            return (config.parent / relative_path).resolve()
     return None
 
 

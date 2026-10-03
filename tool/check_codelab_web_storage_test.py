@@ -15,11 +15,14 @@ real pub cache only to have some bytes to compare against.
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from urllib.parse import quote, urlparse
+from urllib.request import url2pathname
 
 HERE = Path(__file__).resolve().parent
 CHECKER = HERE / "check_codelab_web_storage.py"
@@ -60,8 +63,13 @@ def package_dir(name: str) -> Path | None:
         except (OSError, ValueError, KeyError):
             continue
         for entry in entries:
-            if entry["name"] == name and entry["rootUri"].startswith("file://"):
-                return Path(entry["rootUri"][len("file://") :])
+            if entry["name"] != name:
+                continue
+            uri = entry["rootUri"]
+            if uri.startswith("file://"):
+                return Path(url2pathname(urlparse(uri).path))
+            relative_path = url2pathname(urlparse(uri).path)
+            return (config.parent / relative_path).resolve()
     return None
 
 
@@ -93,6 +101,22 @@ def run(root: Path) -> int:
     return subprocess.run(
         [sys.executable, str(CHECKER), str(root)], capture_output=True, text=True
     ).returncode
+
+
+def use_relative_encoded_root_uris(app: Path) -> None:
+    """Mirror pub's relative rootUri form, including URI-escaped path bytes."""
+    config = app / ".dart_tool" / "package_config.json"
+    data = json.loads(config.read_text())
+    package_roots = app.parents[2] / "package roots"
+    for entry in data["packages"]:
+        source = Path(url2pathname(urlparse(entry["rootUri"]).path))
+        target = package_roots / entry["name"]
+        target.mkdir(parents=True)
+        if (source / "web").is_dir():
+            shutil.copytree(source / "web", target / "web")
+        relative = Path(os.path.relpath(target, config.parent)).as_posix()
+        entry["rootUri"] = quote(relative, safe="/.")
+    config.write_text(json.dumps(data))
 
 
 # Each case mutates the fixture in place; the guard must exit non-zero.
@@ -211,6 +235,7 @@ MUST_FAIL = {
 
 # The guard must NOT fire on these: they are correct, just spelled differently.
 MUST_PASS = {
+    "relative URI-escaped package roots": use_relative_encoded_root_uris,
     "native-only app, header leaves web out": lambda app: with_speech(
         app, "android, ios, macos"
     ),

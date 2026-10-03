@@ -113,15 +113,18 @@ concurrent sessions (serialized), large models via OPFS streaming, GPU only.
 
 - ❌ **Vision / image input** — image inputs are dropped with a debug warning.
 - ❌ **Audio input** — no Audio executor config in the JS API.
-- ⚠️ **Thinking mode** — Qwen3 and DeepSeek R1 reasoning is still split out of the
-  token stream (that part is pure Dart). Gemma 4 thinking needs the native
-  `extraContext` channel: the web engine passes it to `@litert-lm/core`, but it
-  has never been verified end to end — treat it as unsupported until it is.
+- ⚠️ **Thinking mode** — Qwen3's emitted `<think>` tags are split out of the
+  token stream by platform-independent core code. Gemma 4 is measured
+  unsupported: the web engine passes `extra_context` and filter config, but
+  `web_thinking_limitation_test.dart` receives only `TextResponse`. The catalog
+  has no DeepSeek Web entry.
 - ❌ **LoRA weights** — `loraPath` throws `UnsupportedError`.
 
 <Info>
-For vision / audio / thinking on web today, use MediaPipe
-`.task` web models instead. These web `.litertlm` limits track the upstream
+For vision on Web today, use a compatible MediaPipe `.task` build. Neither Web
+engine supports audio; Qwen3 tag-based reasoning can be parsed on Web when
+emitted, but Gemma 4's thinking channel is unavailable. These Web `.litertlm`
+limits track the upstream
 `@litert-lm/core` early-preview API and will lift as Google extends the JS
 executor surface.
 </Info>
@@ -295,4 +298,4 @@ inside the package.
 
 ## Function calling
 
-- Function calling is supported only by select models (Gemma 4, Gemma3n, Gemma 3 1B, FunctionGemma, DeepSeek, Qwen, Phi-4). Unsupported models log a warning and ignore tools — they still work for text generation. Check `supportsFunctionCalls`. See [Function Calling](/docs/function-calling).
+- Function calling is supported only by select downloadable catalog entries (Gemma 4, Gemma3n E4B `.litertlm`, FunctionGemma, DeepSeek, Qwen, Phi-4 Mini). The intentional local Gemma3n E2B `.task` fixture also enables it. Unsupported models log a warning and ignore tools — they still work for text generation. Check `supportsFunctionCalls`. See [Function Calling](/docs/function-calling).

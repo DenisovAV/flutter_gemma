@@ -87,7 +87,7 @@ runtime: probe with `BuiltInAi.availability()`.
 |---|---|:---:|:---:|:---:|---|---|
 | **Gemma 4 E2B** | Next-gen multimodal chat — text, image, audio | ✅ | ✅ ¹ | ✅ | Multilingual | 2.4GB |
 | **Gemma 4 E4B** | Next-gen multimodal chat — text, image, audio | ✅ | ✅ ¹ | ✅ | Multilingual | 4.3GB |
-| **Gemma3n** | On-device multimodal chat and image analysis | ✅ | ❌ | ✅ | Multilingual | 3-6GB |
+| **Gemma3n** | On-device multimodal chat and image analysis | ⚠️ ² | ❌ | ✅ | Multilingual | 3-6GB |
 | **FastVLM 0.5B** | Fast vision-language inference | ❌ | ❌ | ✅ | Multilingual | 0.5GB |
 | **Qwen2-VL 2B** | Vision-language chat (image + text) | ❌ | ❌ | ✅ | Multilingual | 1.8GB |
 | **SmolVLM2 500M** | Compact vision-language model | ❌ | ❌ | ✅ | Multilingual | 0.36GB |
@@ -97,7 +97,7 @@ runtime: probe with `BuiltInAi.availability()`.
 | **DeepSeek R1** | High-performance reasoning and code generation | ✅ | ✅ | ❌ | Multilingual | 1.7GB |
 | **Qwen3 0.6B** | Compact multilingual chat with function calling | ✅ | ✅ | ❌ | Multilingual | 586MB |
 | **Qwen 2.5** | Strong multilingual chat and instruction following | ✅ | ❌ | ❌ | Multilingual | 0.5-1.6GB |
-| **Gemma 3 1B** | Balanced and efficient text generation | ✅ | ❌ | ❌ | Multilingual | 0.5GB |
+| **Gemma 3 1B** | Balanced and efficient text generation | ❌ | ❌ | ❌ | Multilingual | 0.5GB |
 | **Gemma 3 270M** | Ideal for fine-tuning (LoRA) for specific tasks | ❌ | ❌ | ❌ | Multilingual | 0.3GB |
 | **FunctionGemma 270M** | Specialized for function calling on-device | ✅ | ❌ | ❌ | Multilingual | 284MB |
 | **SmolLM 135M** | Ultra-compact, resource-constrained devices | ❌ | ❌ | ❌ | English | 135MB |
@@ -106,8 +106,14 @@ runtime: probe with `BuiltInAi.availability()`.
 | **TranslateGemma 4B** † | Single-shot 55-language translation | ❌ | ❌ | ❌ | 55 languages | 2-4GB |
 
 ¹ Gemma 4 **Thinking Mode** needs the native `extraContext` channel: Android, iOS
-and Desktop only. Qwen3 and DeepSeek R1 reasoning is split out of the text by
-flutter_edge_ai itself, so it works on every platform including Web.
+and Desktop only. The measured Web `.litertlm` test receives no Gemma 4
+`ThinkingResponse`; MediaPipe Web cannot enable it and ONNX Web ignores it.
+Qwen3 is different: core parses its emitted `<think>` tags on every platform,
+including Web.
+
+² Among downloadable/network catalog entries, function calling is enabled only
+for Gemma3n E4B `.litertlm`. The intentional local E2B `.task` fixture also sets
+`supportsFunctionCalls: true`; the downloadable E2B and MediaPipe entries do not.
 
 ‡ **Reasons, but emits no `ThinkingResponse`.** These models run as
 `ModelType.general`, which has no reasoning parser — their thinking blocks

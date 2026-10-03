@@ -44,7 +44,7 @@ Through 1.11.3 the packages shipped under the `flutter_gemma*` names; the new na
 ## What's new in 1.9
 
 - **`embeddingTokenizers:`** — embedding backends no longer bring a tokenizer. Add `flutter_edge_ai_embeddings` and pass `embeddingTokenizers: [GemmaEmbeddingTokenizers()]` beside `embeddingBackends:`, or the first embedding throws a `StateError`. Breaking for every app that computes embeddings. See [Migration](/docs/migration).
-- **No package depends on a sibling** — `flutter_edge_ai_litertlm` and `flutter_edge_ai_onnx` no longer pull `flutter_edge_ai_embeddings`. See [Packages](/docs/packages).
+- **Engines no longer pull the tokenizer package** — `flutter_edge_ai_litertlm` and `flutter_edge_ai_onnx` no longer depend on `flutter_edge_ai_embeddings`. Speech intentionally still depends on LiteRT-LM to share its native bundle. See [Packages](/docs/packages).
 - **Web embeddings run** — the LiteRT.js bundle was rebuilt on `@litertjs/core` 2.5.3 and all four JS files now ship together in `flutter_edge_ai_litertlm/web/`. See [Embeddings & RAG](/docs/embeddings-and-rag).
 - **SQLite RAG on web drains for real** — `flutter_gemma_rag_sqlite` 1.4.0 requires sqlite3 3.6.0 and Flutter 3.47; a Flutter 3.44 app stays on 1.3.2. See [Embeddings & RAG](/docs/embeddings-and-rag).
 

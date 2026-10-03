@@ -194,14 +194,6 @@ class SiteFooter extends StatelessComponent {
                     [Component.text('DeepWiki')],
                   ),
                 ]),
-                li([
-                  a(
-                    href: 'https://ko-fi.com/flutter_gemma',
-                    classes: 'footer-link',
-                    attributes: {'target': '_blank', 'rel': 'noopener'},
-                    [Component.text('Ko-fi')],
-                  ),
-                ]),
               ]),
             ]),
           ]),

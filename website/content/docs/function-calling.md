@@ -13,8 +13,9 @@ and then continue the conversation with the result.
 ### Models with function calling support
 
 - **Gemma 4** (E2B, E4B) — full support (native function-call tokens).
-- **Gemma3n** (E2B, E4B) — full support.
-- **Gemma 3 1B** — function calling support.
+- **Gemma3n E4B `.litertlm`** — the only downloadable/network Gemma3n catalog
+  entry with function calling enabled. An intentional local E2B `.task` fixture
+  also enables it; the downloadable E2B and MediaPipe entries do not.
 - **FunctionGemma 270M** — Google's specialized function-calling model.
 - **DeepSeek R1** — function calling + thinking mode.
 - **Qwen** models (0.5B, 0.6B, 1.5B) — full support.
@@ -23,6 +24,7 @@ and then continue the conversation with the result.
 ### Models without function calling support
 
 - **Gemma 3 270M** — text generation only.
+- **Gemma 3 1B** — text generation only in the current catalog.
 - **SmolLM 135M** — text generation only.
 - **LFM2.5 230M** — text generation only.
 - **SmolLM3 3B** — text generation with reasoning, no function calling.
@@ -41,8 +43,8 @@ ignores the tools — the model still works normally for text generation. Check 
 ### Built-in AI (OS models)
 
 [Built-in AI](/docs/builtin-ai) models — Gemini Nano (Android), Apple Foundation
-Models (iOS/macOS), and the Chrome Prompt API (Web) — also support function
-calling, but it is **prompt-based**: these OS models don't expose a usable
+Models (iOS/macOS), Phi Silica (Windows), and browser Prompt APIs (Web) — also
+support function calling, but it is **prompt-based**: these OS models don't expose a usable
 structured tool API, so core `InferenceChat` weaves the tool definitions into
 the prompt and parses the calls back out of the model's text. You declare tools
 the same way (see below). Gemini Nano handles single-turn tool calls; multi-turn
@@ -218,8 +220,8 @@ path (use `ModelType.gemma4`).
 
 With the [Built-in AI](/docs/builtin-ai) engine (`flutter_edge_ai_builtin_ai`)
 function calling is prompt-based rather than a native tool API — Gemini Nano
-(Android) and Apple Foundation Models (iOS/macOS) handle single-turn tool calls;
-on Web (Chrome Prompt API) multi-turn agent chaining is not supported. Tool
+(Android), Apple Foundation Models (iOS/macOS), and Phi Silica (Windows) handle
+single-turn tool calls; on Web multi-turn agent chaining is not supported. Tool
 declarations are deliberately not handed to the OS runner as well, which would
 run two competing tool loops for one turn. Apple's *native* tool calling stays
 reachable through `flutter_local_ai`'s own `LocalAiSession` API, outside

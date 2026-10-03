@@ -56,16 +56,16 @@ final thinkingMessage = Message.thinking(text: "Let me analyze this problem...")
 | Android | ✅ Full |
 | iOS | ✅ Full |
 | Desktop (macOS/Windows/Linux) | ✅ Full |
-| Web | ⚠️ Qwen3 / DeepSeek R1 only |
+| Web | ⚠️ Qwen3 tag-based reasoning only |
 
 <Warning>
-On web, Qwen3 and DeepSeek R1 reasoning **is** separated out of the token
-stream: that split is pure Dart and runs on every platform. Gemma 4's thinking
-is different — it needs the native `extraContext` channel. MediaPipe `.task` web
-has no such hook and warns that `enableThinking` is ignored; the web `.litertlm`
-path does pass `extra_context` to `@litert-lm/core`, but it has never been
-verified end to end, so treat Gemma 4 thinking on web as unsupported until it
-is.
+On Web, core can split Qwen3's emitted `<think>...</think>` tags into
+`ThinkingResponse` because that parser is platform-independent. Gemma 4 is a
+different path: the `.litertlm` engine passes `extra_context` and filter config,
+but the measured `web_thinking_limitation_test.dart` still receives only
+`TextResponse`, so its thinking channel is unsupported. MediaPipe Web has no
+thinking API, ONNX Web ignores `enableThinking`, and the catalog's DeepSeek R1
+`.task` model has no Web entry.
 </Warning>
 
 ## Advanced: ModelThinkingFilter

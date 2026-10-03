@@ -18,7 +18,7 @@
 //   S6 platform gate — on Linux JS skills are unavailable -> ErrorResult, no
 //      crash (guarded with Platform.isLinux).
 //
-// Run on a device (per CLAUDE.md Rule 6 — native targets use `flutter test`,
+// Run on a device (per AGENTS.md Rule 6 — native targets use `flutter test`,
 // web uses `flutter drive`):
 //   flutter test integration_test/js_skill_real_webview_test.dart -d <device>
 //   flutter drive --driver=test_driver/integration_test.dart \

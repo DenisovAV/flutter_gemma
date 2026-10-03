@@ -108,7 +108,9 @@ generated. Either turn SPM off for the project
 `flutter build macos --config-only`, which writes the Podfile), or add the same
 step by hand in Xcode: a Run Script phase on the Runner target named
 `[flutter_gemma] Setup LiteRT-LM macOS`, carrying the `shell_script`, input path
-and output path from the block below.
+and output path from the block below. The `flutter_gemma` phase, cache and stamp
+names in this snippet are intentional compatibility identifiers used by the
+current package; do not rename them.
 
 ```ruby
 post_install do |installer|
@@ -182,7 +184,9 @@ Without it the build succeeds and the model fails to load at runtime.
 Nothing to add to the project. The native libraries — including the Windows GPU
 shader compiler and NPU runtime — are bundled at build time.
 
-- Windows: end users need nothing installed. Since flutter_gemma_litertlm 1.7.1
+- Windows: end users need nothing installed. The current
+  `flutter_edge_ai_litertlm` package includes the static-CRT fix; in the legacy
+  `flutter_gemma_litertlm` package it arrived in 1.7.1.
   LiteRtLm.dll is linked against the static CRT and imports none;
   16 of its 24 DLLs import none. The other eight are the Intel NPU stack behind
   PreferredBackend.npu — our own LiteRtDispatch.dll plus Intel's openvino* and

@@ -117,8 +117,9 @@ exactly as the example `stt_screen`/`tts_screen` do.
 | macOS / Linux / Windows | ✅ FFI | ✅ FFI |
 | Web | 🚧 stub `UnsupportedError` | 🚧 stub `UnsupportedError` |
 
-> Windows STT/TTS need `flutter_gemma_litertlm` 1.7.0 or newer — earlier
-> versions fail with `CreateTensorBufferFromHostMemory` `status=3`. 0.5.1 requires it.
+> Every `flutter_edge_ai_litertlm` release contains the Windows STT/TTS fix.
+> On the legacy package line, use `flutter_gemma_litertlm` 1.7.0 or newer;
+> earlier versions fail with `CreateTensorBufferFromHostMemory` `status=3`.
 
 No `hook/build.dart` of its own — the native library is bundled by
 `flutter_edge_ai_litertlm`'s Native Assets hook and shared transitively.

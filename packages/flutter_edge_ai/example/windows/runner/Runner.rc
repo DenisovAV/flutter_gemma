@@ -95,7 +95,7 @@ BEGIN
             VALUE "InternalName", "flutter_edge_ai_example" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 dev.flutterberlin. All rights reserved." "\0"
             VALUE "OriginalFilename", "flutter_edge_ai_example.exe" "\0"
-            VALUE "ProductName", "flutter_gemma_example" "\0"
+            VALUE "ProductName", "flutter_edge_ai_example" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

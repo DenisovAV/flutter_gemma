@@ -10,6 +10,6 @@ description: Get the user's current local date, time, and day of the week.
 Call the `run_intent` tool with the following exact parameters:
 
 - intent: get_current_date_and_time
-- parameters: {}
+- parameters: the JSON string `{}`
 
 Then tell the user the date and time returned.

@@ -261,7 +261,11 @@ web arms, plus embeddings and RAG:
 
 - packages/flutter_edge_ai_mediapipe/lib/src/web/ — `.task` via @mediapipe/tasks-genai
 - packages/flutter_edge_ai_litertlm/lib/src/web/ — `.litertlm` via @litert-lm/core.
-  EARLY PREVIEW: text only. No vision, audio, thinking, function calling or LoRA.
+  EARLY PREVIEW: text only. Function calling is wired; vision, audio, verified
+  thinking and LoRA are not supported.
+- packages/flutter_edge_ai_onnx/lib/src/web/ — `.onnx` text generation and
+  embeddings through Transformers.js / ONNX Runtime Web (WebGPU with WASM CPU
+  fallback).
 - packages/flutter_edge_ai_litertlm/ web embedding arm — LiteRT.js bundle in its own web/
 - packages/flutter_edge_ai_sqlite/ — package:sqlite3/wasm.dart + a custom
   sqlite3.wasm with vec0 linked in, which the APP copies into its own web/ dir
@@ -280,7 +284,8 @@ CHECKLIST
    its three vendor chunks). A change that needs a new global must
    document the script tag.
 4. Storage modes: cacheApi (default, <2GB), streaming (OPFS, large models),
-   none. Web is GPU-only — MediaPipe has no web CPU backend.
+   none. MediaPipe and LiteRT-LM are GPU-first web paths; ONNX Runtime Web also
+   has a WASM CPU fallback. Do not describe the whole Web platform as GPU-only.
 5. CDN pins: @mediapipe/tasks-genai, @litert-lm/core and @litertjs/core must
    agree between the code and any documented script tag. @litertjs/core has
    THREE places to keep in step: `LiteRtWebRuntime.pinnedVersion`,
@@ -338,13 +343,13 @@ Report CRITICAL / IMPORTANT / MINOR with file:line.
 
 **subagent_type:** `flutter-architect`
 
-**Prompt:** Review the PR diff for flutter_edge_ai — a multi-platform Flutter plugin for on-device AI inference. Focus on: plugin architecture (platform channels via Pigeon), SOLID principles, ModelSource sealed class design, handler chain pattern (NetworkSourceHandler, AssetSourceHandler), dependency injection (ServiceRegistry), platform abstraction layer. Check separation of concerns between install-time identity (modelType, fileType) and runtime configuration (maxTokens, preferredBackend). Read CLAUDE.md for project conventions.
+**Prompt:** Review the PR diff for flutter_edge_ai — a multi-platform Flutter plugin for on-device AI inference. Focus on: plugin architecture (platform channels via Pigeon), SOLID principles, ModelSource sealed class design, handler chain pattern (NetworkSourceHandler, AssetSourceHandler), dependency injection (ServiceRegistry), platform abstraction layer. Check separation of concerns between install-time identity (modelType, fileType) and runtime configuration (maxTokens, preferredBackend). Read AGENTS.md for project conventions.
 
 ### Agent 6: Flutter Coder
 
 **subagent_type:** `flutter-coder`
 
-**Prompt:** Review the changed Dart files in flutter_edge_ai for code quality. Check: null safety, proper async/await patterns, Stream handling (no leaks, proper cancellation), Message class usage (isUser: true for user messages), PreferencesKeys constants (no inline string keys), proper close()/dispose() in finally blocks, type safety with ModelSource sealed classes. Read CLAUDE.md for coding standards — especially "No Inline String Keys" rule.
+**Prompt:** Review the changed Dart files in flutter_edge_ai for code quality. Check: null safety, proper async/await patterns, Stream handling (no leaks, proper cancellation), Message class usage (isUser: true for user messages), PreferencesKeys constants (no inline string keys), proper close()/dispose() in finally blocks, type safety with ModelSource sealed classes. Read AGENTS.md for coding standards — especially "No Inline String Keys" rule.
 
 ### Agent 7: Codex Review (Second Opinion)
 
@@ -359,7 +364,7 @@ this skill called it and lost a whole review round to that.
 
 ```
 Second-opinion review of PR #{number} for flutter_edge_ai. Read the diff with
-`gh pr diff {number}` (or `git diff main...HEAD` if no PR), and read CLAUDE.md
+`gh pr diff {number}` (or `git diff main...HEAD` if no PR), and read AGENTS.md
 for the project's conventions.
 
 READ-ONLY. Do not write, create, edit, delete or move any file in the
@@ -410,7 +415,7 @@ If no PR number, detect via: `gh pr list --head $(git branch --show-current) --j
 
 **subagent_type:** `pr-review-toolkit:code-reviewer`
 
-**Prompt:** Review the PR for adherence to project guidelines in CLAUDE.md. Focus on recently changed files. Key rules: no inline string keys, proper PreferencesKeys usage, no AI attribution in commits, sessions/models always closed, Message(isUser: true) for user messages.
+**Prompt:** Review the PR for adherence to project guidelines in AGENTS.md. Focus on recently changed files. Key rules: no inline string keys, proper PreferencesKeys usage, no AI attribution in commits, sessions/models always closed, Message(isUser: true) for user messages.
 
 ### Agent 9: Type Design Analyzer
 

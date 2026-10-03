@@ -3,7 +3,7 @@
 /// IMPORTANT: Never use inline string keys! Always use constants from this class
 /// to ensure consistency and prevent typos.
 ///
-/// This follows the project standard documented in CLAUDE.md:
+/// This follows the project standard documented in AGENTS.md:
 /// "No Inline String Keys/Magic Strings"
 class AppKeys {
   // Private constructor to prevent instantiation

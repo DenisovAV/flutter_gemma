@@ -21,7 +21,7 @@ Genkit Dart plugin for [flutter_edge_ai](https://pub.dev/packages/flutter_edge_a
 - Parallel tool calls — multiple function calls in a single model response
 - Structured JSON output — pass an `outputSchema`, read the parsed object from `response.output`
 - Context-window trimmer middleware (`trimContext`) — drops oldest turns to fit the on-device KV budget
-- Thinking mode (Gemma 4, DeepSeek)
+- Thinking mode (Gemma 4, DeepSeek, Qwen3)
 - Generation latency tracking via `latencyMs` in responses
 - Configurable via `@Schema()`-annotated options
 
@@ -29,7 +29,8 @@ Genkit Dart plugin for [flutter_edge_ai](https://pub.dev/packages/flutter_edge_a
 
 | Architecture | ModelType | Notes |
 |---|---|---|
-| Gemma 3 / Gemma 4 IT | `ModelType.gemmaIt` | Default; multimodal (image, audio); thinking mode for Gemma 4 |
+| Gemma 4 | `ModelType.gemma4` | Multimodal (image, audio); thinking mode; native `.litertlm` tool-call tokens |
+| Gemma 3 / Gemma3n IT | `ModelType.gemmaIt` | Gemma 3 text models and Gemma3n multimodal models |
 | DeepSeek | `ModelType.deepSeek` | Thinking mode |
 | Qwen / Qwen3 | `ModelType.qwen` / `ModelType.qwen3` | Qwen3 supports thinking mode |
 | Llama | `ModelType.llama` | |
@@ -39,7 +40,8 @@ Genkit Dart plugin for [flutter_edge_ai](https://pub.dev/packages/flutter_edge_a
 ## Setup
 
 `genkit_flutter_edge_ai` depends only on the **core** `flutter_edge_ai` package — it
-stays engine-agnostic. As of flutter_gemma 1.0.0 the inference engines and
+stays engine-agnostic. Since the 1.0.0 architecture split (released under the
+old `flutter_gemma` name), the inference engines and
 embedding backends ship as **separate, opt-in packages**, and the core
 registers none of them by default. Your app must add the packages it needs and
 register their providers in `await FlutterEdgeAi.initialize()`.
@@ -140,8 +142,8 @@ final response = await ai.generate(
 | `topK` | `int?` | 1 | Top-K sampling |
 | `topP` | `double?` | null | Top-P (nucleus) sampling |
 | `supportImage` | `bool?` | false | Enable multimodal image input |
-| `supportAudio` | `bool?` | false | Enable audio input (Gemma 3n) |
-| `isThinking` | `bool?` | false | Enable thinking mode (Gemma 4, DeepSeek) |
+| `supportAudio` | `bool?` | false | Enable audio input (Gemma 4, Gemma3n) |
+| `isThinking` | `bool?` | false | Enable thinking mode (Gemma 4, DeepSeek, Qwen3) |
 | `randomSeed` | `int?` | 1 | Random seed for deterministic output |
 | `toolChoice` | `String?` | `'auto'` | Tool calling mode: `'auto'`, `'required'`, `'none'` |
 | `systemInstruction` | `String?` | null | System-level instruction (overrides system-role messages) |
@@ -240,7 +242,7 @@ for (final embedding in embeddings) {
 
 ## Known Limitations
 
-- **Engine registration**: With flutter_gemma 1.0.0+ the inference engines and embedding backends are opt-in. The host app must add the relevant packages (`flutter_edge_ai_litertlm` for `.litertlm`, `flutter_edge_ai_mediapipe` for `.task`/`.bin`, `flutter_edge_ai_embeddings` plus a backend such as `flutter_edge_ai_litertlm`'s `LiteRtEmbeddingBackend` for embeddings) and register their providers in `await FlutterEdgeAi.initialize()` before using the plugin.
+- **Engine registration**: In the current `flutter_edge_ai` architecture, inference engines and embedding backends are opt-in. The host app must add the relevant packages (`flutter_edge_ai_litertlm` for `.litertlm`, `flutter_edge_ai_mediapipe` for `.task`/`.bin`, `flutter_edge_ai_embeddings` plus a backend such as `flutter_edge_ai_litertlm`'s `LiteRtEmbeddingBackend` for embeddings) and register their providers in `await FlutterEdgeAi.initialize()` before using the plugin. This split first shipped as `flutter_gemma` 1.0.0.
 - **Model installation**: The plugin does NOT manage model installation. The host app must install models via `FlutterEdgeAi.installModel()` and embedders via `FlutterEdgeAi.installEmbedder()` before using the plugin.
-- **System role**: System messages are passed natively via `createChat(systemInstruction:)` (requires flutter_gemma ^0.13.0). Only text content is supported in system messages.
-- **Thinking mode**: Requires `.litertlm` model format. Supported on Android, iOS, and Desktop. Not supported on Web.
+- **System role**: System messages are passed natively via `createChat(systemInstruction:)`. Only text content is supported in system messages. The capability first shipped under the old package name in `flutter_gemma` 0.13.0.
+- **Thinking mode**: DeepSeek `.task` exposes thinking on Android/iOS; Gemma 4 exposes it on native `.litertlm` engines, while its measured Web path still produces no `ThinkingResponse`. Qwen3's emitted `<think>` tags are parsed by core platform-independently, including Web. MediaPipe Web has no thinking API, ONNX Web ignores `enableThinking`, and the catalog has no DeepSeek Web entry.

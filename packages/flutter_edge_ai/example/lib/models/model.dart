@@ -429,6 +429,8 @@ enum Model implements InferenceModelInterface {
   qwen3_0_6B(
     baseUrl:
         'https://huggingface.co/litert-community/Qwen3-0.6B/resolve/main/Qwen3-0.6B.litertlm',
+    webUrl:
+        'https://huggingface.co/litert-community/Qwen3-0.6B/resolve/main/Qwen3-0.6B.litertlm',
     desktopUrl:
         'https://huggingface.co/litert-community/Qwen3-0.6B/resolve/main/Qwen3-0.6B.litertlm',
     filename: 'Qwen3-0.6B.litertlm',
@@ -697,7 +699,7 @@ enum Model implements InferenceModelInterface {
     licenseUrl: 'https://huggingface.co/litert-community/Phi-4-mini-instruct',
     needsAuth: false,
     preferredBackend: PreferredBackend.gpu,
-    modelType: ModelType.general,
+    modelType: ModelType.phi,
     temperature: 0.7,
     topK: 40,
     topP: 0.95,

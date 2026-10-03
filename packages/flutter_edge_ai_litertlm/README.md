@@ -316,7 +316,9 @@ in 1.4.0–1.6.4. Text generation is unaffected.
 Cause: LiteRT made `LiteRtLayout` one layout on every compiler; this package
 still wrote tensor shapes in the old MSVC layout on Windows.
 
-Fix: upgrade to 1.7.0 (and `flutter_gemma_speech` to 0.5.1).
+Every `flutter_edge_ai_litertlm` release includes the fix. On the legacy package
+line, upgrade `flutter_gemma_litertlm` to 1.7.0 and `flutter_gemma_speech` to
+0.5.1.
 
 ### Garbled or empty streams on Android (fixed in 1.5.2)
 

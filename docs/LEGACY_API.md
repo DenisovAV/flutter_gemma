@@ -1,13 +1,13 @@
 # Legacy API (Deprecated) ⚠️
 
 > **⚠️ DEPRECATED:** This API is maintained for backwards compatibility only.
-> For new projects, use the [Modern API](../README.md#quick-start) instead.
+> For new projects, use the [Modern API](../packages/flutter_edge_ai/README.md#quick-start) instead.
 >
 > **Why migrate?**
 > - ✅ **Modern API:** Fluent builder pattern, type-safe sources, callback-based progress, better error messages
 > - ⚠️ **Legacy API:** Direct method calls, stream-based progress, manual state management
 >
-> **Migration Guide:** See [Migration from Legacy to Modern API](../README.md#migration-from-legacy-to-modern-api-) section.
+> **Migration Guide:** See [Migration from Legacy to Modern API](../packages/flutter_edge_ai/README.md#migration-from-legacy-to-modern-api-) section.
 
 
 The new API splits functionality into two parts:
@@ -860,31 +860,16 @@ Add script tags to your `index.html`:
 <script type="module" src="https://cdn.jsdelivr.net/gh/DenisovAV/flutter_edge_ai@0.14.0/web/sqlite_vector_store.js"></script>
 ```
 
-**Option 2: Build locally (For development or customization)**
+**Option 2: Use the package-provided SQLite vector store**
 
-1. Navigate to the `web/rag` directory in the flutter_edge_ai package
-2. Follow the detailed setup guide: [`web/rag/README.md`](web/rag/README.md)
+`flutter_edge_ai_sqlite` ships a custom `sqlite3.wasm` with `sqlite-vec`
+linked in. Copy it into your app as described in the package's
+[Setup guide](../packages/flutter_edge_ai_sqlite/README.md#setup):
 
-**Quick steps:**
 ```bash
-# Navigate to web/rag directory
-cd <flutter_edge_ai_package_path>/web/rag
-
-# Install dependencies
-npm install
-
-# Build modules (embeddings + VectorStore)
-npm run build
-
-# Copy to your web project
-cp dist/* <your_flutter_project>/web/
-
-# Add script tags to index.html
-<script type="module" src="litert_embeddings.js"></script>
-<script type="module" src="sqlite_vector_store.js"></script>
+mkdir -p web/rag
+cp <flutter_edge_ai_sqlite_package_path>/web/rag/sqlite3.wasm web/rag/sqlite3.wasm
 ```
-
-**See [`web/rag/README.md`](web/rag/README.md) for complete instructions.**
 
 ### Legacy API (Still supported)
 
@@ -935,7 +920,7 @@ VectorStore stores embeddings as binary BLOBs in SQLite, auto-detects embedding 
 FlutterEdgeAiPlugin.instance.enableHnsw = false;
 ```
 
-See [CHANGELOG.md](CHANGELOG.md) for the full performance history.
+See the core package [CHANGELOG.md](../packages/flutter_edge_ai/CHANGELOG.md) for the full performance history.
 
 11. **Checking Token Usage**
 You can check the token size of a prompt before inference. The accumulated context should not exceed maxTokens to ensure smooth operation.

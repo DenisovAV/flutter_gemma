@@ -45,7 +45,7 @@ bool _initialized = false;
 
 Future<InferenceModel> _ensureModel() async {
   // Setup lives in the test body, not a setUpAll: under `flutter drive` a
-  // throwing setUp is reported as "All tests passed" (CLAUDE.md Rule 6b).
+  // throwing setUp is reported as "All tests passed" (AGENTS.md Rule 6b).
   if (!_initialized) {
     await FlutterEdgeAi.initialize(inferenceEngines: const [OnnxEngine()]);
     _initialized = true;

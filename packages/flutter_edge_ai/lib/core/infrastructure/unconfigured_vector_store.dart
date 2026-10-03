@@ -11,7 +11,7 @@ import 'package:flutter_edge_ai/core/domain/platform_types.dart';
 /// without wiring a store knows exactly what to do.
 class UnconfiguredVectorStore implements VectorStoreRepository {
   static Never _fail() => throw StateError(
-    'No vector store is configured. flutter_gemma 1.0 ships no built-in RAG '
+    'No vector store is configured. flutter_edge_ai ships no built-in RAG '
     'backend. Add a RAG package to pubspec.yaml and pass its store to '
     'FlutterEdgeAi.initialize(vectorStore: ...):\n'
     '  • flutter_edge_ai_sqlite  → SqliteVectorStore() (native) / '

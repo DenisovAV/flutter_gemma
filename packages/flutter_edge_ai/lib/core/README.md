@@ -1,298 +1,116 @@
-# Flutter Edge AI Core - Modern Architecture
+# Flutter Edge AI core
 
-This directory contains the refactored core architecture following SOLID principles and dependency injection patterns.
+This directory contains the engine-independent contracts and orchestration used
+by `flutter_edge_ai`. The core package owns model installation, lifecycle,
+registries, shared message/value types, embedding orchestration, and the vector
+store interface. Concrete inference engines, embedding/tokenizer
+implementations, speech backends, and vector stores stay in opt-in packages.
 
-## Architecture Overview
+## Dependency direction
 
+```text
+application
+  ├─ flutter_edge_ai_litertlm / mediapipe / onnx / built_in_ai
+  ├─ flutter_edge_ai_embeddings
+  ├─ flutter_edge_ai_qdrant / sqlite
+  ├─ flutter_edge_ai_speech / agent
+  └─ flutter_edge_ai (core contracts and registries)
 ```
+
+Satellites normally depend only on core; core never imports a satellite.
+The intentional exception is `flutter_edge_ai_speech` →
+`flutter_edge_ai_litertlm`: speech imports `LiteRtBindings` directly and uses
+the native bundle litertlm owns. Applications select registered implementations
+explicitly in `FlutterEdgeAi.initialize(...)`.
+
+## Directory map
+
+```text
 lib/core/
-├── domain/           # Domain models (ModelSource sealed classes)
-├── services/         # Service abstractions (interfaces)
-├── infrastructure/   # Service implementations
-├── handlers/         # Source-specific model installation handlers
-├── di/              # Dependency injection container
-├── api/             # Modern API facade (FlutterEdgeAi)
-└── legacy/          # Legacy adapter (backward compatibility)
+├─ api/              # FlutterEdgeAi facade and installation builders
+├─ domain/           # ModelSource and platform-neutral value types
+├─ registry/         # inference, embedding, tokenizer, speech, skill, HF probes
+├─ embedding/        # shared worker, pooling, cache, and tokenizer adapter
+├─ services/         # storage and vector-store contracts
+├─ infrastructure/   # core-owned service implementations
+├─ handlers/         # Network/Asset/Bundled/File source installation
+├─ lifecycle/        # CloseNotifier ownership seam
+├─ model_management/ # persisted model specs and platform managers
+└─ parsing/           # function-call wire formats and response parsing
 ```
 
-## Modern API Usage
+## Initialization
 
-### Initialization
-
-Initialize once at app startup:
-
-```dart
-import 'package:flutter_edge_ai/core/api/flutter_edge_ai.dart';
-
-void main() {
-  FlutterEdgeAi.initialize(
-    huggingFaceToken: 'hf_...', // Optional for HuggingFace models
-  );
-  runApp(MyApp());
-}
-```
-
-### Install Models
-
-#### From Network (HTTP/HTTPS)
+Core registers no inference engine, embedding backend/tokenizer, speech
+backend, skill executor, Hugging Face resolver, or vector store by default.
+Register only the packages the application ships:
 
 ```dart
-final installation = await FlutterEdgeAi.installModel()
-  .fromNetwork('https://huggingface.co/.../model.bin')
-  .withProgress((progress) => print('Progress: $progress%'))
-  .install();
-```
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
+import 'package:flutter_edge_ai_embeddings/flutter_edge_ai_embeddings.dart';
+import 'package:flutter_edge_ai_litertlm/flutter_edge_ai_litertlm.dart';
 
-#### From Flutter Asset
-
-```dart
-await FlutterEdgeAi.installModel()
-  .fromAsset('models/gemma-2b-it.bin')
-  .install();
-```
-
-#### From Bundled Native Resource
-
-```dart
-await FlutterEdgeAi.installModel()
-  .fromBundled('gemma.bin')
-  .install();
-```
-
-#### From External File
-
-```dart
-// User-provided file via file picker
-await FlutterEdgeAi.installModel()
-  .fromFile('/path/to/model.bin')
-  .install();
-```
-
-### Model Management
-
-```dart
-// Check if installed
-final isInstalled = await FlutterEdgeAi.isModelInstalled('gemma-2b-it.bin');
-
-// List all installed models
-final models = await FlutterEdgeAi.listInstalledModels();
-print('Installed: $models');
-
-// Uninstall model
-await FlutterEdgeAi.uninstallModel('gemma-2b-it.bin');
-```
-
-## Architecture Patterns
-
-### 1. Sealed Classes (Type Safety)
-
-```dart
-sealed class ModelSource {
-  factory ModelSource.network(String url) = NetworkSource;
-  factory ModelSource.asset(String path) = AssetSource;
-  factory ModelSource.bundled(String resourceName) = BundledSource;
-  factory ModelSource.file(String path) = FileSource;
-}
-```
-
-**Benefits:**
-- Exhaustive pattern matching
-- Compile-time type safety
-- No invalid states
-
-### 2. Strategy Pattern (Source Handlers)
-
-Each source type has its own handler:
-- `NetworkSourceHandler` - HTTP/HTTPS downloads
-- `AssetSourceHandler` - Flutter assets
-- `BundledSourceHandler` - Native resources
-- `FileSourceHandler` - External files
-
-```dart
-final handler = handlerRegistry.getHandler(source);
-await handler.install(source);
-```
-
-### 3. Dependency Injection (ServiceRegistry)
-
-```dart
-class ServiceRegistry {
-  // Singleton with lazy initialization
-  static ServiceRegistry get instance;
-
-  // Services
-  SourceHandlerRegistry get sourceHandlerRegistry;
-  FileSystemService get fileSystemService;
-  ModelRepository get modelRepository;
-  // ... etc
-}
-```
-
-**Benefits:**
-- Easy testing with mocks
-- Clear dependencies
-- Swappable implementations
-
-### 4. Repository Pattern (Persistence)
-
-```dart
-abstract interface class ModelRepository {
-  Future<void> saveModel(ModelInfo info);
-  Future<ModelInfo?> loadModel(String id);
-  Future<void> deleteModel(String id);
-  Future<List<ModelInfo>> listInstalled();
-}
-```
-
-Implementation: `SharedPreferencesModelRepository`
-
-## SOLID Principles
-
-### Single Responsibility Principle (SRP)
-Each handler handles ONE source type:
-- `NetworkSourceHandler` - only network downloads
-- `AssetSourceHandler` - only asset loading
-
-### Open/Closed Principle (OCP)
-Add new source types without modifying existing code:
-```dart
-class CustomSourceHandler implements SourceHandler {
-  // New handler for custom source
-}
-```
-
-### Liskov Substitution Principle (LSP)
-All handlers implement the same interface:
-```dart
-abstract interface class SourceHandler {
-  bool supports(ModelSource source);
-  Future<void> install(ModelSource source);
-  Stream<int> installWithProgress(ModelSource source);
-}
-```
-
-### Interface Segregation Principle (ISP)
-Small, focused interfaces:
-- `AssetLoader` - only asset loading
-- `DownloadService` - only downloads
-- `FileSystemService` - only file operations
-
-### Dependency Inversion Principle (DIP)
-Depend on abstractions, not implementations:
-```dart
-class NetworkSourceHandler {
-  final DownloadService downloadService;  // Abstract!
-  final FileSystemService fileSystem;     // Abstract!
-}
-```
-
-## Testing
-
-### With Mocks (using mocktail)
-
-```dart
-class MockDownloadService extends Mock implements DownloadService {}
-
-test('NetworkSourceHandler downloads file', () async {
-  final mockDownload = MockDownloadService();
-  final handler = NetworkSourceHandler(
-    downloadService: mockDownload,
-    fileSystem: mockFileSystem,
-    repository: mockRepository,
-  );
-
-  when(() => mockDownload.download(any(), any())).thenAnswer((_) async {});
-
-  await handler.install(NetworkSource('https://example.com/model.bin'));
-
-  verify(() => mockDownload.download(any(), any())).called(1);
-});
-```
-
-### Integration Tests
-
-```dart
-test('Full installation flow', () async {
-  FlutterEdgeAi.initialize();
-
-  final installation = await FlutterEdgeAi.installModel()
-    .fromNetwork('https://example.com/test.bin')
-    .install();
-
-  expect(installation.modelId, 'test.bin');
-  expect(await FlutterEdgeAi.isModelInstalled('test.bin'), isTrue);
-});
-```
-
-## Migration from Legacy API
-
-### Legacy (Deprecated)
-
-```dart
-import 'package:flutter_edge_ai/core/legacy/legacy_model_manager.dart';
-
-final spec = InferenceModelSpec(
-  name: 'gemma-2b',
-  files: [ModelFile(filename: 'model.bin', url: 'https://...')],
+await FlutterEdgeAi.initialize(
+  inferenceEngines: const [LiteRtLmEngine()],
+  embeddingBackends: const [LiteRtEmbeddingBackend()],
+  embeddingTokenizers: const [GemmaEmbeddingTokenizers()],
 );
-
-await LegacyModelManager.downloadModel(spec);  // DEPRECATED
 ```
 
-### Modern (Recommended)
+Registries use a probe chain: providers answer `canHandle(spec)`, then priority
+and registration order choose the implementation. A missing implementation
+fails loudly and names the opt-in package to add.
+
+## Installing and using a model
+
+`ModelFileType` selects the engine. It is not inferred from a filename, and
+`installModel` defaults to `task`, so declare non-MediaPipe formats explicitly.
 
 ```dart
-import 'package:flutter_edge_ai/core/api/flutter_edge_ai.dart';
+await FlutterEdgeAi.installModel(
+  modelType: ModelType.gemma4,
+  fileType: ModelFileType.litertlm,
+).fromNetwork('https://example.com/gemma-4.litertlm').install();
 
-await FlutterEdgeAi.installModel()
-  .fromNetwork('https://...')
-  .withProgress((p) => print(p))
-  .install();
+final model = await FlutterEdgeAi.getActiveModel(maxTokens: 4096);
+final session = await model.createSession(maxOutputTokens: 256);
+try {
+  await session.addQueryChunk(const Message(text: 'Hello!', isUser: true));
+  final response = await session.getResponse();
+  print(response);
+} finally {
+  await session.close();
+  await model.close();
+}
 ```
 
-## Performance Considerations
+Installation sources are the sealed `NetworkSource`, `AssetSource`,
+`BundledSource`, and `FileSource` variants exposed through the builder methods
+`fromNetwork`, `fromAsset`, `fromBundled`, and `fromFile`. ONNX Runtime GenAI
+installs are directories and use their engine's Hugging Face resolver rather
+than the single-file network path.
 
-### Background Downloads
-Uses `background_downloader` package for:
-- Resume on interruption
-- Background execution
-- Network change handling
+## Ownership boundaries
 
-### Progress Tracking
-- Network: Real-time progress (0-100%)
-- Asset/Bundled/File: Single 100% event (no chunking)
+- Core owns provider selection and the singleton active-model lifecycle.
+- Engines are factories and return models that notify core when they close.
+- `EmbedderCache` owns cached embedding instances and serializes access.
+- `UnconfiguredVectorStore` is the default sentinel; a RAG package supplies the
+  real `VectorStoreRepository` during initialization.
+- Tokenizer implementations live in `flutter_edge_ai_embeddings`; only their
+  provider contract and adapter live here.
+- Web storage is selected with `WebStorageMode`; compatibility storage and
+  channel identifiers may intentionally retain the old `flutter_gemma` name.
 
-### Memory Management
-- Streaming downloads (no full file in memory)
-- Lazy service initialization
-- Protected file registry (prevent cleanup of external files)
+## Testing changes in core
 
-## Future Enhancements
+Run package tests from the repository-provided runner so fixture-relative tests
+use the same working directories as CI:
 
-### Phase 5 (Next)
-- Integration with existing `InferenceModel`
-- `ModelInstallation.loadForInference()` implementation
-- `ModelInstallation.loadForEmbedding()` implementation
+```bash
+flutter analyze packages/
+tool/test_all.sh
+```
 
-### Roadmap
-- Multi-model loading
-- Model quantization support
-- Automatic model updates
-- Model verification (checksums)
-- Differential updates
-
-## Contributing
-
-When adding new features:
-1. Follow SOLID principles
-2. Write tests first (TDD)
-3. Use dependency injection
-4. Document public APIs
-5. Update this README
-
-## References
-
-- [SOLID Analysis](../../docs/SOLID_ANALYSIS.md)
-- [Modern API Design](../../docs/MODERN_API_DESIGN.md)
-- [DI Architecture](../../docs/DEPENDENCY_INJECTION_ARCHITECTURE.md)
-- [Implementation Plan](../../docs/IMPLEMENTATION_ORCHESTRATOR.md)
+Do not run `flutter test packages/flutter_edge_ai` from the workspace root; it
+uses the wrong working directory for package-relative fixtures.

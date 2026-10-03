@@ -54,7 +54,7 @@ silently do the other thing.
    is what reading the flagged skills is for. Step 12d is the release backstop,
    not the first time this happens.
 
-### Definition of Done (paste it; check 1a–8b before Step 10 publish; 10b right after it; 12a/12b belong to the release PR and 12c is verified after merge)
+### Definition of Done (paste it; check 1a–8b before Step 10 publish; 10b right after it; 12a/12b/12e belong to the release PR and 12c is verified after merge)
 
 ```
 [ ] Pre-flight: git clean · analyze 0 err · flutter test green · build web + one native target
@@ -87,7 +87,7 @@ silently do the other thing.
         references/platform-setup.md; the script prints the count, do not hardcode
         one here) — RUN it, do not eyeball
 [ ] 1g  each changed satellite's flutter_edge_ai: floor >= the core version it now needs
-[ ] 2   versions bumped: pubspec + podspec (if any) + CLAUDE.md Current-Version line
+[ ] 2   versions bumped: pubspec + podspec (if any) + AGENTS.md Current-Version line
 [ ] 7   CHANGELOG: one short line per package, every published package
 [ ] 8   dart pub publish --dry-run → 0 warnings, every package
 [ ] 8b  native bundle moved? → litertlm_native_tools_test.dart green on every
@@ -102,12 +102,18 @@ silently do the other thing.
         updated where the prose drifted, `dart tool/check_skills.dart` green and
         `dart run skills_lint@0.5.1` green — backstop: rule 4 means the PRs in
         this release already did it
+[ ] 12e LiteTune version in authored docs matches the latest PyPI release; if it
+        moved, the documented prepare/tune/convert/verify/bundle commands were
+        checked against that release before updating the version
 [ ] 12c after merge: firebase-hosting-merge run == success (not just triggered)
 ```
 
 ## Architecture context (read this first)
 
-flutter_gemma 0.14.0+ has **no Kotlin/JVM/gRPC server**. Native libs come from one of two sources, decided per-platform by `hook/build.dart` (Native Assets):
+`flutter_edge_ai` inherits the architecture introduced in the legacy
+`flutter_gemma` 0.14.0 line: it has **no Kotlin/JVM/gRPC server**. Native libs
+come from one of two sources, decided per-platform by `hook/build.dart` (Native
+Assets):
 
 1. **Local prebuilts** at `packages/flutter_edge_ai_litertlm/native/litert_lm/prebuilt/<os>_<arch>/` — populated locally by `packages/flutter_edge_ai_litertlm/native/litert_lm/build_*.sh` scripts. **NOT tracked in git** (gitignored since 0.14.3 — keeps clones lean) and **excluded from the pub package** via `.pubignore`. Maintainers regenerate them on demand and upload to a GitHub Release.
 2. **GitHub Release `native-v<NATIVE_VERSION>` archives** (e.g. `native-v0.10.2-a`) — the **canonical source for both end users and CI**. URL pattern: `litertlm-<os>_<arch>.tar.gz` flat archive of the matching `prebuilt/` folder. End users fetch from there at `pub get` time via `hook/build.dart`. Maintainers re-fetch from there too if their local `prebuilt/` is missing (`gh release download native-v<X>` then extract — see Step 5).
@@ -276,9 +282,9 @@ Shared-code hotspots to sweep, per fix type:
 
 Every affected satellite gets its **own** version bump + CHANGELOG entry +
 publish. **This makes it a MULTI-package release** — before touching any
-version, list every package you will publish (e.g. "publishing `flutter_gemma`
-1.2.2 AND `flutter_gemma_mediapipe` 1.0.4"), and run the whole of Steps 2/8/9/10
-for each one.
+version, list every package you will publish (e.g. "publishing
+`flutter_edge_ai` NEXT_CORE_VERSION AND `flutter_edge_ai_mediapipe`
+NEXT_MEDIAPIPE_VERSION"), and run the whole of Steps 2/8/9/10 for each one.
 
 ### 1g. Did a satellite start CALLING a newer core API than its `flutter_edge_ai:` floor allows? → bump the floor
 
@@ -295,10 +301,10 @@ catches it.
 **A floor naming an UNPUBLISHED core forces a publish ORDER — and dry-run is blind
 to it.** `dart pub publish --dry-run` only checks that a constraint is satisfiable in
 the workspace, never that the named version exists on pub.dev, so it reports 0
-warnings for `flutter_gemma: ^1.6.4` while 1.6.3 is the latest published. Publish the
-satellite first and consumers on `^0.1.0` silently backtrack to the previous version —
-no error, just none of the fix. So: **publish core FIRST, then every satellite whose
-floor names it**, and check before publishing any satellite:
+warnings even when the floor names the next, still-unpublished core. Publish
+the satellite first and consumers silently backtrack to its previous version —
+no error, just none of the fix. So: **publish core FIRST, then every satellite
+whose floor names it**, and check before publishing any satellite:
 
 ```bash
 # does the floor this satellite names actually exist on pub.dev yet?
@@ -312,7 +318,7 @@ curl -s https://pub.dev/api/packages/flutter_edge_ai | \
 > (still 16.0) that 15.0 is unreachable. Raising the constraint to `^1.6.4` is correct
 > and makes core 1.6.4 a hard publish prerequisite.
 
-> **Regression this prevents (agent 0.2.2):** `AgentLoop` was rewritten to call
+> **Legacy regression this prevents (`flutter_gemma_agent` 0.2.2):** `AgentLoop` was rewritten to call
 > `generateChatResponseWithTools(onMaxToolTurns:)` — `onMaxToolTurns` landed in
 > core `1.5.5` — but the satellite still declared `flutter_gemma: ^1.2.0`. A
 > fresh install resolves core to latest (fine), but a consumer on
@@ -344,7 +350,7 @@ for ps in packages/*/{ios,macos,darwin}/*.podspec; do
   printf '  %-64s %-8s %s\n' "$ps" "$got" "$s"
 done
 ```
-| `CLAUDE.md` | `Current Version:` line | match plugin version |
+| `AGENTS.md` | `Current Version:` line | match plugin version |
 
 Only if (1b) bumps `NATIVE_VERSION`:
 | File | Field |
@@ -773,7 +779,7 @@ Update each `^X.Y.Z` for EVERY package the site pins — `flutter_edge_ai`, `flu
 
 ### 12d. Update the shipped agent skills — they are read by a MACHINE
 
-`packages/flutter_edge_ai/skills/` holds seven `SKILL.md` files that ship inside
+`packages/flutter_edge_ai/skills/` holds eight `SKILL.md` files that ship inside
 the core archive and are installed into users' coding agents by
 `dart run skills@ get --all`. They are not a nice-to-have copy of the docs: an agent
 follows them literally when writing code against this package.
@@ -856,6 +862,27 @@ change in front of your eyes; only reading closes it.
 
 Skills live only in `flutter_edge_ai`, so a fix to any of them is one publish of
 core. That is why they are all there rather than in the packages they describe.
+
+### 12e. Verify the documented LiteTune version
+
+The fine-tuning codelab pins a LiteTune version in prose, while `pip install
+litetune` resolves from PyPI. Check PyPI on every release so the instructions do
+not silently remain on an obsolete CLI:
+
+```bash
+LITETUNE_LATEST=$(curl -fsSL https://pypi.org/pypi/litetune/json | \
+  python3 -c 'import json,sys; print(json.load(sys.stdin)["info"]["version"])')
+printf 'PyPI LiteTune: %s\n' "$LITETUNE_LATEST"
+grep -rnEi 'litetune +v?[0-9]+\.[0-9]+\.[0-9]+' \
+  codelabs website packages --include='*.md' --exclude-dir=build
+```
+
+Every current-version claim must equal `$LITETUNE_LATEST`; historical release
+notes may retain the version they describe. If the PyPI version moved, do not
+only replace the number: verify the documented `prepare`, `tune`, `convert`,
+`verify`, and `bundle` commands and their options against that exact release.
+Use [litetune.dev](https://litetune.dev) as the primary user-facing link; the
+GitHub repository may be a secondary source link.
 
 ### 12c. Deploy — it's automatic on merge to main
 

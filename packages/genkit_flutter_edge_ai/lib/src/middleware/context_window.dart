@@ -27,7 +27,7 @@ const _kMediaPartTokenEstimate = 256;
 /// On-device Gemma runs with a fixed, small context window (`maxTokens`, 1024
 /// for most `.litertlm` models). A long multi-turn chat silently overflows it
 /// and the native runtime fails to allocate the KV cache mid-generation (see
-/// the `maxTokens = CONTEXT window` note in the repo's CLAUDE.md). This
+/// the `maxTokens = CONTEXT window` note in the repo's AGENTS.md). This
 /// middleware drops the oldest **non-system** messages before the model call.
 ///
 /// Guarantees:

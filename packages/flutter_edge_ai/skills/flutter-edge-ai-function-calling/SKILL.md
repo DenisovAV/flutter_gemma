@@ -14,7 +14,11 @@ Packages, engine and model install are in the flutter-edge-ai-inference skill. T
 3. Switch over all four `ModelResponse` subtypes. It is sealed — a switch that leaves out `ThinkingResponse` does not compile.
 4. Return tool results as data, errors included. Never throw from a tool.
 5. Prefer `generateChatResponseWithTools` to a hand-written loop.
-6. Use a tool-capable model: Gemma 4, Gemma 3n, Gemma 3 1B, FunctionGemma, Phi-4 Mini, Qwen 2.5, Qwen3, DeepSeek R1. Gemma 3 270M and SmolLM cannot call tools.
+6. Use a tool-capable model from the current catalog: Gemma 4, Gemma 3n E4B
+   `.litertlm`, FunctionGemma, Phi-4 Mini, Qwen 2.5, Qwen3 or DeepSeek R1.
+   The intentional local Gemma 3n E2B `.task` fixture also enables function
+   calling; the downloadable Gemma 3n MediaPipe entries, Gemma 3 1B/270M and
+   SmolLM do not expose it.
 
 ## Declare a tool
 
@@ -115,7 +119,11 @@ The model can recover from an error it can read. An exception thrown out of a to
 
 **Model calls the same tool again instead of answering the result**
 - Symptom: FunctionGemma on `.litertlm` repeats the call it just made after `Message.toolResponse`.
-- Fix: `flutter_gemma` 1.8.4 with `flutter_gemma_litertlm` 1.7.1 — both halves. Core picks the wire format, the engine sends it; older pairs send the result as an ordinary user message.
+- Fix: upgrade `flutter_edge_ai` and `flutter_edge_ai_litertlm` together. The
+  current renamed packages include both halves. For the legacy package names,
+  the minimum fixed pair was `flutter_gemma` 1.8.4 with
+  `flutter_gemma_litertlm` 1.7.1; older pairs send the result as an ordinary
+  user message.
 
 **Nothing after the tool result**
 - Symptom: the call arrives, the result goes back, and the stream ends with no text.

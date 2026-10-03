@@ -140,7 +140,7 @@ await for (final token in session.getResponseAsync()) {
 }
 ```
 
-To stop early, call `await session.stopGeneration()` — `chat.stopGeneration()` on a chat. Cancelling the stream subscription detaches Dart but does not stop native decoding on every engine. On `.litertlm` on Android, iOS and desktop (`flutter_gemma_litertlm` 1.8.1+) the chat keeps working after a stop, but images and audio from earlier turns are no longer visible to the model — re-send an image if the next question is about it.
+To stop early, call `await session.stopGeneration()` — `chat.stopGeneration()` on a chat. Cancelling the stream subscription detaches Dart but does not stop native decoding on every engine. On `.litertlm` on Android, iOS and desktop the chat keeps working after a stop, but images and audio from earlier turns are no longer visible to the model — re-send an image if the next question is about it. Every `flutter_edge_ai_litertlm` release includes this behavior; the legacy `flutter_gemma_litertlm` package needs 1.8.1 or later.
 
 ## Multi-turn chat
 
@@ -189,7 +189,15 @@ try {
 
 ## Thinking models
 
-Gemma 4, Qwen3 and DeepSeek R1 can emit reasoning. Pass `isThinking: true` to `createChat`. Reasoning arrives as `ThinkingResponse` only from `generateChatResponseAsync()`; `generateChatResponse()` strips it. On web Gemma 4 has no thinking; Qwen3 and DeepSeek R1 reasoning is still separated out of the text.
+Gemma 4, Qwen3 and DeepSeek R1 can emit reasoning on their supported engines.
+Pass `isThinking: true` to `createChat`. Reasoning arrives as
+`ThinkingResponse` only from `generateChatResponseAsync()`;
+`generateChatResponse()` strips it. On Web, core parses Qwen3's emitted
+`<think>` tags into `ThinkingResponse`. Do not extend that claim to Gemma 4:
+the measured `.litertlm` Web test receives only text even though the engine
+passes `extra_context` and filter config. MediaPipe Web has no thinking API,
+ONNX Web ignores `enableThinking`, and the catalog's DeepSeek R1 `.task` model
+has no Web entry.
 
 ```dart
 final chat = await model.createChat(isThinking: true, modelType: ModelType.qwen3);
@@ -265,7 +273,7 @@ final model = await FlutterEdgeAi.getActiveModel(
 
 Prefill gets slower (about 3× on a Snapdragon 8 Elite and an iPhone 11, under 1.5× on an Apple M3 Max); decode speed barely changes. Left unset, the model file decides. It applies to the text decoder of `.litertlm` models on Android, iOS and desktop — not to the vision or audio encoders, which keep what the model file asks for; MediaPipe, ONNX, built-in AI and the web engines ignore it entirely.
 
-`float32` needs more GPU memory than the default, and a GPU engine that cannot be created falls back to CPU without an error — right digits, a much slower run. After loading, check `model.activeBackend == PreferredBackend.gpu` before concluding the setting did anything. On Android the GPU shares system memory, so on a 4–6 GB phone running out of it at `float32` can end the app rather than fall back to CPU. Both precisions share one compiled GPU program cache per model, so switching recompiles the GPU programs (about 600 MB for Gemma 4 E2B): pick one precision per install rather than per request. The setting needs `flutter_gemma_litertlm` 1.8.3 or later — older versions ignore it.
+`float32` needs more GPU memory than the default, and a GPU engine that cannot be created falls back to CPU without an error — right digits, a much slower run. After loading, check `model.activeBackend == PreferredBackend.gpu` before concluding the setting did anything. On Android the GPU shares system memory, so on a 4–6 GB phone running out of it at `float32` can end the app rather than fall back to CPU. Both precisions share one compiled GPU program cache per model, so switching recompiles the GPU programs (about 600 MB for Gemma 4 E2B): pick one precision per install rather than per request. Every `flutter_edge_ai_litertlm` release supports the setting; the legacy `flutter_gemma_litertlm` package needs 1.8.3 or later.
 
 ## Platform setup
 

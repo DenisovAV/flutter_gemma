@@ -31,7 +31,7 @@
 // `_isSupportedHost` doc).
 //
 // Runs on iOS only (`skip: !Platform.isIOS`) — meaningless elsewhere. Per
-// CLAUDE.md Rule 6, invoke via:
+// AGENTS.md Rule 6, invoke via:
 //   flutter test integration_test/onnx_ios_loader_smoke_test.dart -d <device-id>
 import 'dart:io';
 

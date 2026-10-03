@@ -45,7 +45,7 @@ features to support (Phase 3).
    - [ ] `lib/src/converters/response_converter.dart` — `ModelResponse` subtypes (`TextResponse`, `FunctionCallResponse`, `ParallelFunctionCallResponse`, `ThinkingResponse`)
    - [ ] `lib/src/converters/tool_converter.dart` — `Tool` constructor
    - [ ] `lib/src/flutter_edge_ai_plugin.dart` — `ModelType`, `ModelFileType` enums
-   - [ ] `test/src/fake_runtime.dart` — `FakeInferenceModel`, `FakeInferenceChat`, `FakeEmbeddingModel` **must** match upstream abstract-class signatures (see genkit `CLAUDE.md`)
+   - [ ] `test/src/fake_runtime.dart` — `FakeInferenceModel`, `FakeInferenceChat`, `FakeEmbeddingModel` **must** match upstream abstract-class signatures (see genkit `AGENTS.md`)
 3. Repeat `dart analyze` until clean (0 issues).
 
 ## Phase 3: Support New Features

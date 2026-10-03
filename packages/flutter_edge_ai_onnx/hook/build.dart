@@ -33,7 +33,7 @@
 // ships 12+ flat CodeAssets with runtime bare-name cross-dlopen, device-
 // proven). Windows stays a no-op for a different reason: its `.dll`s already
 // ship under the bare canonical name AND active staging is what breaks
-// Windows cancel/close (see CLAUDE.md's build-native scar).
+// Windows cancel/close (see AGENTS.md's build-native scar).
 //
 // This hook is the SOLE owner of exactly one `libonnxruntime` (1.27.0) per
 // design D1 — the embedding arm's `OrtFfiClient` (`ort_ffi_client.dart`)
@@ -632,7 +632,7 @@ void main(List<String> args) async {
     // + rename closes that gap, same as the macOS framework-name fix above.
     // WINDOWS stays a no-op: its .dll archives already ship under the bare
     // canonical name (`onnxruntime.dll`), so no rename is needed — and
-    // CLAUDE.md's build-native scar warns that ACTIVE staging on Windows
+    // AGENTS.md's build-native scar warns that ACTIVE staging on Windows
     // (splitting companion DLLs) is what hangs cancel/close, so this
     // deliberately does not opt Windows in even though it would be a no-op
     // byte-for-byte copy today.

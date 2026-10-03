@@ -16,6 +16,6 @@ This skill calculates the hash of a given text.
 
 Call the `run_js` tool with the following exact parameters:
 
-- script name: `index.html`
+- skillName: `calculate-hash`
 - data: A JSON string with the following field
   - text: the text to calculate hash for

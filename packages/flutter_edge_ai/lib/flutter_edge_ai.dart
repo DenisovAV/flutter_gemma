@@ -13,7 +13,7 @@ export 'core/services/file_system_service.dart'
 // The embedding seam: contracts an engine implements, the worker that runs
 // them off the UI isolate, and the facade it produces. Contracts only — the
 // tokenizer IMPLEMENTATIONS stay in flutter_edge_ai_embeddings, which core never
-// depends on (see "Packages -> core, never to each other" in CLAUDE.md).
+// depends on (see "Packages -> core, never to each other" in AGENTS.md).
 export 'core/registry/embedding_tokenizer_provider.dart';
 export 'core/registry/embedding_tokenizer_registry.dart';
 export 'core/embedding/forward_pass.dart';

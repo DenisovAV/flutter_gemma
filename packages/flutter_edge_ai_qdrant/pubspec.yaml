@@ -29,9 +29,9 @@ dependencies:
   # For the store's owned-subdir path handling (qdrant_edge_v1).
   path: ^1.9.0
   # Official Qdrant Edge Dart SDK (UniFFI binding of the shared qdrant-edge-ffi
-  # crate). Exact pin (no caret): a caret on a `-dev` prerelease could resolve
-  # to a later prerelease with a different API/native archive.
-  qdrant_edge: 0.8.0-dev.3
+  # crate). Keep the prerelease range below dev.5: dev.4 fixes native-memory
+  # leaks, while a later prerelease may change the API or native archive.
+  qdrant_edge: '>=0.8.0-dev.4 <0.8.0-dev.5'
 
 dev_dependencies:
   flutter_test:

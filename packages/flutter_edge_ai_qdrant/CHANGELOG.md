@@ -1,5 +1,6 @@
 ## 1.3.2
 - Renamed from `flutter_gemma_rag_qdrant`.
+- Use qdrant_edge 0.8.0-dev.4 to prevent native result and argument leaks.
 - README: how to install the agent skills that cover this package.
 
 ## 1.3.1
